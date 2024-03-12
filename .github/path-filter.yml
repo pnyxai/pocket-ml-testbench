@@ -1,0 +1,11 @@
+### language filters
+python:
+  - 'apps/python/**'
+
+### application filters
+evaluator:
+  - 'apps/python/evaluator/**'
+manager:
+  - 'apps/python/manager/**'
+sampler:
+  - 'apps/python/sampler/**'

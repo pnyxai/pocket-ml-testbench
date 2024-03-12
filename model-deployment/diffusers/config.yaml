@@ -1,0 +1,8 @@
+model:
+  name:  /foo/var/stable-diffusion-v1-4
+  is_xl: False
+  has_sag: True
+  use_safetensors: True
+  
+app:
+  hf_cache_dir: /models  

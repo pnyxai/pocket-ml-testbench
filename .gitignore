@@ -1,0 +1,22 @@
+# misc
+.DS_Store
+*.pem
+untracked
+
+# logs
+**/logs
+logs
+**/*.log
+
+# local env files
+.env
+.env.*
+
+# Visual Studio Code
+.vscode
+.history
+
+# Python
+__pycache__
+# Deleted files
+.fuse_hidden*

@@ -1,0 +1,47 @@
+name: Path Check
+
+on:
+  workflow_call:
+    outputs:
+      # languages
+      python:
+        description: 'indicate that a change was made on a python app or package'
+        value: ${{ jobs.check.outputs.python }}
+      # applications
+      evaluator:
+        description: 'indicate that a change was made on evaluator app or any package dependency'
+        value: ${{ jobs.check.outputs.evaluator }}
+      manager:
+        description: 'indicate that a change was made on manager app or any package dependency'
+        value: ${{ jobs.check.outputs.manager }}
+      sampler:
+        description: 'indicate that a change was made on sampler app or any package dependency'
+        value: ${{ jobs.check.outputs.sampler }}
+      
+
+jobs:
+  check:
+    name: 'Path Changes'
+    runs-on: ubuntu-latest
+    # Map the job outputs to step outputs
+    outputs:
+      # languages
+      python: ${{ steps.filter.outputs.python }}
+      # applications
+      evaluator: ${{ steps.filter.outputs.evaluator }}
+      manager: ${{ steps.filter.outputs.manager }}
+      sampler: ${{ steps.filter.outputs.sampler }}
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v3
+      - name: Check Path changes
+        uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: .github/path-filter.yml
+      - name: Set outputs
+        run: |
+          echo "python=${{steps.filter.outputs.python}}" >> $GITHUB_OUTPUT
+          echo "evaluator=${{steps.filter.outputs.evaluator}}" >> $GITHUB_OUTPUT
+          echo "manager=${{steps.filter.outputs.manager}}" >> $GITHUB_OUTPUT
+          echo "sampler=${{steps.filter.outputs.sampler}}" >> $GITHUB_OUTPUT

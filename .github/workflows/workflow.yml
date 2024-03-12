@@ -1,0 +1,42 @@
+name: Release
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
+      - closed
+
+concurrency:
+  group: ${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+env:
+  DOCKER_BUILDKIT: 1
+
+jobs:
+  draft:
+    name: 'Check Draft State'
+    if: ${{ github.event.pull_request.draft != true }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: 'Debug Action'
+        uses: hmarr/debug-action@v2
+
+      - run: |
+          echo ${{ github.event.pull_request.draft != true }}
+          echo "Pull Request is not draft, this workflow need continue."
+
+  check_env:
+    name: 'Detect Environment'
+    needs: draft
+    uses: './.github/workflows/check_env.yml'
+
+  check_path:
+    name: 'Detect Changed Paths'
+    needs: draft
+    uses: './.github/workflows/check_path.yml'

@@ -1,0 +1,30 @@
+name: Env Check
+
+on:
+  workflow_call:
+    outputs:
+      env:
+        description: "indicate the current environment target based on branch"
+        value: ${{ jobs.check.outputs.env }}
+
+jobs:
+  check:
+    name: "Check Path"
+    runs-on: ubuntu-latest
+    # Map the job outputs to step outputs
+    outputs:
+      env: ${{ steps.check.outputs.env }}
+    steps:
+      - name: check
+        id: check
+        env:
+          IS_PROD: ${{ github.base_ref == 'main' && github.event.pull_request.merged == true }}
+        run: |
+          echo "base: ${{ github.base_ref }}"
+          echo "event.pull_request.head.ref: ${{ github.event.pull_request.head.ref }}"
+          if ${IS_PROD} == true; then
+            echo "env=production" >> $GITHUB_OUTPUT
+          else
+            echo "env=development" >> $GITHUB_OUTPUT
+          fi
+          
