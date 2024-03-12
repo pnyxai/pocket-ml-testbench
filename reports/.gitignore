@@ -1,0 +1,13 @@
+*.aux
+*.acn
+*.acr
+*.bcf
+*.blg
+*.ist
+*.log
+*.out
+*.alg
+*.bbl
+*.xml
+*.gz
+*.toc
