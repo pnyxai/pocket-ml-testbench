@@ -27,8 +27,18 @@ In order to deploy the local net we will be using the [poktscan pocket-localnet 
 # Processing Relays
 
 ### Command line
-asd
+- Large Language Models
+    1. Copy the data file to the relayer folder `cp morse-localnet-poc/data_llm.json ../pocket-localnet/relayer/data.json`
+    2. Run the relayer `cd ../pocket-localnet/relayer/ && yarn start`
+    3. See the results in the logs folder: `cat ../pocket-localnet/relayer/logs/relays.log`
+
+- Diffuser Models
+    1. Copy the data file to the relayer folder `cp morse-localnet-poc/data_diffuser.json ../pocket-localnet/relayer/data.json`
+    2. Run the relayer `cd ../pocket-localnet/relayer/ && yarn start`
+    3. See the results in the logs folder: `cat ../pocket-localnet/relayer/logs/relays.log` 
+        - **WARNING**: This will span your terminal with charaters representing the encoded image
 
 ### Notebook
 
+To make this more interactive we also provide a [Jupyter Notebook](./localnet_test.ipynb) to process the requests.
 

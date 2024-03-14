@@ -1,7 +1,7 @@
 [
     {
       "id": "A100",
-      "url": "http://localhost:8000/",
+      "url": "http://host.docker.internal:8000/",
       "basic_auth": {
         "username": "",
         "password": ""
@@ -9,7 +9,7 @@
     },
     {
         "id": "A1D0",
-        "url": "http://localhost:8001/",
+        "url": "http://host.docker.internal:8001/",
         "basic_auth": {
           "username": "",
           "password": ""
