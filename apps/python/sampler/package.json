@@ -1,9 +1,0 @@
-{
-    "name": "@fafafa/sampler",
-    "version": "0.1.0",
-    "description": "MVP Sampler",
-    "private": true,
-    "scripts": {
-        "build:docker": "./build.sh"
-    }
-}

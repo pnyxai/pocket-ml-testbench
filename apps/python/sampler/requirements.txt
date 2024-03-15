@@ -1,4 +1,0 @@
-lm_eval[vllm]==0.4.1
-pymongo==4.4.0
-pandas==2.2.1
-pydantic==2.6.4
