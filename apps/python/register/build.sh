@@ -1,4 +1,4 @@
-DEFAULT_IMAGE_NAME="pocket_llm_register" # vllm.entrypoints.openai.api_server --> "/v1/chat/completions" & "/v1/completions"
+DEFAULT_IMAGE_NAME="pocket_dataset_register"
 
 # Build register
 docker build . --progress=plain --tag $DEFAULT_IMAGE_NAME:latest

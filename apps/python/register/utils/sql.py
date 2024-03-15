@@ -7,11 +7,11 @@ import decimal
 import datasets
 from datasets import DatasetDict
 
-# Define the columns for the PNYX table
+# Define the columns for the table
 _ID_NAME = "__id"
 _SPLIT_NAME = "__split"
 
-PNYX_COLUMNS = {
+POCKET_COLUMNS = {
     _ID_NAME: "INTEGER",
     _SPLIT_NAME: "TEXT"
 }
@@ -97,8 +97,8 @@ def create_dataset_table(table_name:str, data:datasets.DatasetDict, connection:p
 
     # Extract column names and data types from the dictionaries
     columns = {}
-    # Add manually k,v pairs "PNYX_ID":INT, and "PNYX_SPLIT":TEXT 
-    columns.update(PNYX_COLUMNS)
+    # Add manually k,v pairs "pocket_ID":INT, and "SPLIT":TEXT 
+    columns.update(POCKET_COLUMNS)
     for key, value in sample.items():
         if key not in columns:
             # If the column doesn't exist yet, infer its data type from the value
@@ -131,20 +131,20 @@ def create_dataset_table(table_name:str, data:datasets.DatasetDict, connection:p
     )
 
     with connection.cursor() as cursor:
-        pnyx_id = 0
+        pocket_id = 0
         # Each k,v -> split, dataset 
         for split, dataset in data.items():
             # Each row in the dataset
             for row in dataset:
                 current_row = row.copy()
-                current_row[_ID_NAME] = pnyx_id
+                current_row[_ID_NAME] = pocket_id
                 current_row[_SPLIT_NAME] = split
                 try:
                     cursor.execute(insert_query, [current_row.get(key) if not isinstance(current_row.get(key), dict) else json.dumps(current_row.get(key)) for key in columns.keys()])
                 except Exception as e:
                     print(f"Error: {e}, \nrow: {current_row}")
                     raise e
-                pnyx_id += 1
+                pocket_id += 1
     connection.commit()
 
 # Function to infer PostgreSQL data type from python data type
