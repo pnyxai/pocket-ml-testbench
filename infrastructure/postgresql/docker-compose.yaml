@@ -1,0 +1,33 @@
+version: "3.9"
+
+services:
+  db:
+    container_name: postgres_container
+    image: postgres:14.11-bookworm
+    restart: always
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: lm-evaluation-harness
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./data:/var/lib/postgresql/data
+    networks:
+      - test_network
+
+  pgadmin:
+    container_name: pgadmin4_container
+    image: dpage/pgadmin4:8.4
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    networks:
+      - test_network
+
+networks:
+  test_network:
+    driver: bridge

@@ -1,0 +1,2 @@
+lm_eval[dev] @ git+https://github.com/EleutherAI/lm-evaluation-harness@7d9922c80114218eaf43975b7655bb48cda84f50
+psycopg2==2.9.9
