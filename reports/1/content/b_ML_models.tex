@@ -1,0 +1,29 @@
+\section{Testing Machine Learning Models}\label{sec:ref}
+
+Machine Learning (ML) is a wide term that conflates many different kinds of mathematical models. In this section we pretend to present their main distinctions in terms of the methods used to test or train them. This distinction is very important to the Pocket Network, since one of the main challenges of the protocol is to asses the correctness of the models inference. 
+
+For those not familiar with the terminology, the terms Artificial Intelligence (AI) and Machine Learning are not interchangeable. The first one refers to systems that perform tasks that require human intelligence and the second one is a subset of AI which contains algorithms that are capable of learning from data. The later is the correct one to use in the context of the models served by the Pocket Network.
+
+\subsection{Supervised Models - Ground Truth}
+Supervised models are the subset of ML models that are trained on tasks that have a specific goal. For instance, an algorithm that tries to predict the movements of the financial market is a supervised model. That model has a specific task, given some inputs (any kind, lets say previous prices and market volumes), predict if an asset will increase or decrease its value. During training the model will be presented with known pairs of inputs-outputs and the model output will be compared to the objective using a hard metric like quadratic distance.
+The performance of this models is measured in the same way that they are trained, only that for testing the model is given sets of inputs that it has never seen before.
+
+In the case of supervised models the ground truth is always present, or it will be revealed at some point in time. In our financial market movements example, we just need to wait and see what happens. So, if we want to test the quality of this models there is a mathematical way to do it and the data is or will be available. 
+
+These kinds of models are easy to test on production and their quality can be measured easily on the Pocket Network, we just need to feed them test samples and check the output error, or even create simple majority errors and punish outlyers.
+
+Examples of these models are:
+\begin{itemize}
+    \item Linear Regression (predict prices of an asset).
+    \item Classification (by any technique, like neural networks or support vector machines).
+    \item Decision Trees (credit risk assessments).
+    \item Convolutional Neural Networks (image segmentation)
+\end{itemize}
+
+\subsection{Unsupervised Models - Structure Discovery}
+
+
+
+\subsection{Empty section}
+
+
