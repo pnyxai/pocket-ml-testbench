@@ -1,4 +1,7 @@
-\section{Testing Machine Learning Models}\label{sec:ref}
+\newacronym{AI}{AI}{Artificial Intelligence}
+\newacronym{ML}{ML}{Machine Learning}
+
+\section{Machine Learning Models}\label{sec:ref}
 
 Machine Learning (ML) is a wide term that conflates many different kinds of mathematical models. In this section we pretend to present their main distinctions in terms of the methods used to test or train them. This distinction is very important to the Pocket Network, since one of the main challenges of the protocol is to asses the correctness of the models inference. 
 
@@ -22,8 +25,36 @@ Examples of these models are:
 
 \subsection{Unsupervised Models - Structure Discovery}
 
+Another type of ML models are those models that do not need a human annotated dataset or a absolute truth value to be trained. The training sets are only composed of inputs to the network, examples with no tags or questions without answers, and hence the training is done in an unsupervised fashion, no metric is \emph{directly} guiding the output of the model.
+
+These kind of models are normally used to discover patterns in data, like dividing large groups of data. An example of these kind of models are the natural language embeddings, these models take as input a string of characters and produce an output that is a codified vector of floats. The output of the model is actually a point in a multidimensional space, and its neighbors (other points close to it) are projections of other strings that have the same meaning or talk about the same subject. 
+The natural language embeddings are used in Retrieval Augmented Generation systems (RAGs), when these RAGs need to find context for a query they first pass the input string to one of these models and retrieve its codification and then they use a vector database to find other strings in the vicinity of the input's code. Then they read the data in the neighboring codes and produce an output based on those.
+
+Unsupervised models are probably the easiest models to support in the Pocket Network, they are like blockchains in a sense. A given query should always return \emph{exactly} the same output, so a simple majority voting or challenge mechanism can be used to prove the data integrity.
 
 
-\subsection{Empty section}
+Examples of these models are:
+\begin{itemize}
+    \item Encoding (create embeddings for vector databases).
+    \item Clustering (discover communities inside a social networks).
+    \item Outliers detection (fraud analysis).
+\end{itemize}
+
+\subsection{Generative Models}
+
+The last category of ML models that we will present here is the one that contains the models that are trained to sample from a given probabilistic distribution. This group of models is not created by looking at how the model is trained, in fact they can be unsupervised or supervised (to some extent) models. What make these models special is that they are trained to reproduce an arbitrary distribution of data that is represented in the train dataset, like human faces or Shakespeare books. The training process of these models generally have no hardcoded target metric, they often rely on adversarial training o reinforcement learning. In the adversarial training, the model that is generating the outputs is guided by an other model that is trained at the same time to discriminate between generated samples and real dataset samples, leading to a Nash-Equilibrium and a (hopefully) effective generator model. On the reinforcement learning setup, a human is used in the loop to evaluate or generate preference scores of a series of model outputs, then the model is tuned to follow these preferences using a reward system. In either case, there is no exact score for a given output.
+
+The most known generative models are the text-to-image applications and chatbots, examples of these are Stable Diffusion and ChatGPT respectively. When we use these models we do not seek for a fixed output, instead, we look for a creative output or an output that is built following some instructions, like "an image of a cat on a keyboard" or "Create an article that talks about the different kinds of machine learning models". Theres is not an unique answer to this commands and two completely different model outputs can be just as valid.
+
+Measuring the effectiveness of these models on the tasks that they perform is not simple, in fact it is an open problem. Nevertheless these models are the ones that have the higher demand and are the ones that are expected to be deployed in the Pocket Network. As we commented before, there is no single metric that can correctly score all the nuances of the generated output. The only way to asses the correctness of one of these models is though multiple step measurements of different kinds of generated outputs. In practice, the common approach is to use benchmarks that include several metrics that observe the different aspects of the generated samples.
+
+
+Examples of these models are:
+\begin{itemize}
+    \item Text-to-Image (create images that follow a given description).
+    \item Language Models (complete an string using the most probable words).
+    \item Text-to-Video.
+    \item Text-to-Audio.
+\end{itemize}
 
 
