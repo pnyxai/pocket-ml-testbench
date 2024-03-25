@@ -3,7 +3,7 @@
 During the month of March, the socket achieved the following milestones:
 
 \begin{itemize}
-    \item Released a Local-Net proof of concept for the Pocket Network (Morse). The Local-Net features two Machine Learning (ML) services: Large Language Models (LLMs) and Diffusion Models (image generation).
+    \item Released a Local-Net proof of concept for the Pocket Network (Morse)\footnote{\url{https://github.com/pokt-scan/pocket-ml-testbench/tree/main/morse-localnet-poc}}. The Local-Net features two Machine Learning (ML) services: Large Language Models (LLMs) and Diffusion Models (text to image generation).
     \item Updated \emph{pocket-core} and \emph{pocket-localnet} repos (POKTscan forks) to support ML relays:
     \begin{itemize}
         \item The default mesh config timed-out on ml calls (both LLMs and Diffusers).
@@ -12,12 +12,12 @@ During the month of March, the socket achieved the following milestones:
     \end{itemize}
     \item Released guides to deploy ML models:
     \begin{itemize}
-        \item Large Language Models using vLLM backend and OpenAI API compatibility.
-        \item Diffusers using a custom backend that looks to be like Stable Diffusion API (needs more work).
+        \item Large Language Models using vLLM backend and OpenAI API compatibility\footnote{\url{https://github.com/pokt-scan/pocket-ml-testbench/tree/main/model-deployment/llm}}.
+        \item Diffusers using a custom backend that looks to be like Stable Diffusion API (needs more work)\footnote{\url{https://github.com/pokt-scan/pocket-ml-testbench/tree/main/model-deployment/diffusers}}.
     \end{itemize}
     \item Started work on benchmarking process:
     \begin{itemize}
-        \item Conceptual designed settled.
+        \item Conceptual designed almost settled.
         \item Started to work on \emph{lm-eval-harness} implementation.
     \end{itemize}
 \end{itemize}
