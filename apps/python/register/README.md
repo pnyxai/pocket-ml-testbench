@@ -64,7 +64,7 @@ python3 apps/python/register/register.py \
 
 # Dockers
 
-* (Optional): Prepare a postgreSQL from `infrastructure/postgresql` running `docker compose up`
+* (Optional): Prepare a postgreSQL from `infrastructure/dev/postgresql` running `docker compose up`
 
 1. Build register
 `./build.sh`
@@ -88,7 +88,7 @@ docker run -it --network host pocket_dataset_register \
 
 ### Accessing the DB with PG Admin
 
-To explore the generated database, the PG Admin is available in the docker compose (`infrastructure/postgresql/docker-compose.yaml`).
+To explore the generated database, the PG Admin is available in the docker compose (`infrastructure/dev/postgresql/docker-compose.yaml`).
 To access the service just go to `127.0.0.1:5050` and use the credentials `admin@admin.com:admin`. 
 Then in the PG Admin page click on `Add New Server` and fill the data:
 General tab:
