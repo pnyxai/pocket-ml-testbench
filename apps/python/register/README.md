@@ -64,7 +64,7 @@ python3 apps/python/register/register.py \
 
 # Dockers
 
-* (Optional): Prepare a postgreSQL from `apps/python/postgresql` running `docker compose up`
+* (Optional): Prepare a postgreSQL from `infrastructure/postgresql` running `docker compose up`
 
 1. Build register
 `./build.sh`
@@ -84,3 +84,18 @@ docker run -it --network host pocket_dataset_register \
 ```
 
 **Note**:If you have already downloaded HF datasets, mount them adding `-v path/to/huggingface/directory:/root/.cache/huggingface/` to avoid re-download.
+
+
+### Accessing the DB with PG Admin
+
+To explore the generated database, the PG Admin is available in the docker compose (`infrastructure/postgresql/docker-compose.yaml`).
+To access the service just go to `127.0.0.1:5050` and use the credentials `admin@admin.com:admin`. 
+Then in the PG Admin page click on `Add New Server` and fill the data:
+General tab:
+- Name: `pokt-ml-datasets`
+Connection tab:
+- Host Name: `postgres_container`
+- Port: `5432`
+- Maintenance database: `lm-evaluation-harness`
+- Username: `root`
+- Password: `root`
