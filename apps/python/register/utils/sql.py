@@ -5,7 +5,6 @@ import datetime
 import decimal
 
 import datasets
-from datasets import DatasetDict
 
 # Define the columns for the table
 _ID_NAME = "__id"
