@@ -16,8 +16,6 @@ from utils.sql import create_dataset_table, register_task, create_task_table, ch
 import psycopg2
 
 
-
-
 def parse_eval_args() -> argparse.Namespace:
     '''
     Argument parsing for LM-Evaluation-Harness dataset uploading.
