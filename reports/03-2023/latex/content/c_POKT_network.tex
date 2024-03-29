@@ -1,9 +1,9 @@
-\section{The Pocket Network Tech}\label{sec:ref}
+\section{The Pocket Network Tech}\label{sec:c}
 
 In this section we will comment on deploying a model in the Pocket Network Morse (V0).
 We will be focusing on the existing capabilities and what we can do without breaking the blockchain consensus. While we would love to extend on the Pocket Network capabilities in the future, we want to remain as realistic as possible in our first moves.
 
-The Pocket Network is a protocol for decentralized Remote Procedure Call (RPC) infrastructure that relies on crypto-economic incentives to match compute and data suppliers to consumers in a trust-less fashion. The permission-less and decentralized nature of the supply side of the network makes it vulnerable to bad actors that can provide low quality services to the consumer. This fact limits and shapes what we can do in Morse.
+The Pocket Network is a protocol for decentralized \gls{RPC} infrastructure that relies on crypto-economic incentives to match compute and data suppliers to consumers in a trust-less fashion. The permission-less and decentralized nature of the supply side of the network makes it vulnerable to bad actors that can provide low quality services to the consumer. This fact limits and shapes what we can do in Morse.
 
 
 \subsection{What we CANNOT do on Morse}
@@ -13,7 +13,7 @@ Morse does not have the ability of opening streams between the requester and the
 
 The Pocket Network do not have code to challenge or validate on-chain the execution of certain model or if the data is actually correct. The quality of service sampling mechanics, like Watchers, will be only available in Shannon upgrade (and not since day zero). This limits what we can do to check models being staked and the plan is to delegate the checking to off-chain actors and gateways. The combination of these agents will filter adversarial nodes and they are expected to get no work (similar to whats done for blockchain nodes).
 
-Distributed inference and/or multi-model inference (like mixing of experts, chain of thoughts, agents, etc) is out of scope for Morse. Morse can serve RPC requests, it does not have the ability to do intelligent routing or provide responses that are combinations of several models responses. Such service (and many more) can only be provided by gateways, which are off-chain entities and as such it falls outside the scope of this document.
+Distributed inference and/or multi-model inference (like mixing of experts, chain of thoughts, agents, etc) is out of scope for Morse. Morse can serve \gls{RPC} requests, it does not have the ability to do intelligent routing or provide responses that are combinations of several models responses. Such service (and many more) can only be provided by gateways, which are off-chain entities and as such it falls outside the scope of this document.
 
 
 
@@ -24,7 +24,7 @@ We can do inference of arbitrary models, that can be called using simple HTTP re
     \item Image Generation Models: Images of up to 100 MB can be used without problem, current open text-to-image models produce images of $1024\times1024$ pixels, which can be safely encoded in less than 10MB.
     \item Image Editing Models: Related to previous point, these models take up to $3\times$ the request size but also are under 100MB.
     \item Optical Character Recognition: Also limited by payload size, but not too limited. These models are the ones used to recognize and locate text on images.
-    \item Embedding Models: Any kind of model, a common use of these models is to do text embedding for vector databases (used in RAGs).
+    \item Embedding Models: Any kind of model, a common use of these models is to do text embedding for vector databases (used in \glspl{RAG}).
     \item Many more probably...
 \end{itemize}
 
@@ -33,10 +33,10 @@ We can do inference of arbitrary models, that can be called using simple HTTP re
 \section{Services to Explore and Deploy}
 From all the models that the Pocket Network can support there are two that are the most known to the public and can provide the best exposure: the language models and the image generation models. These kind of models are the ones that require the largest compute power and hence are more difficult to be run locally. Also other web3 projects have not been able to provide permission-less and decentralized inference on these kinds of models to the date, giving us the first mover's advantage.
 
-A third interesting option can be the text embeddings, which are part of the RAGs pipelines, however these are very specific and easy to deploy normally.
+A third interesting option can be the text embeddings, which are part of the \gls{RAG} pipelines, however these are very specific and easy to deploy normally.
 
 \subsection{Large Language Models}
-The LLMs can be deployed in infrastructure with or without Graphic Processing Units (GPUs), however the speed of the inference on GPUs is much higher than in CPU (on equivalent hardware costs). An ever increasing list of solutions exisits to run the LLMs, to name a few:
+The \glspl{LLM} can be deployed in infrastructure with or without \glspl{GPU}, however the speed of the inference on \glspl{GPU} is much higher than in CPU (on equivalent hardware costs). An ever increasing list of solutions exisits to run the \glspl{LLM}, to name a few:
 \begin{itemize}
     \item Llama.cpp: \url{https://github.com/ggerganov/llama.cpp}
     \item Ollama: \url{https://ollama.com/}
@@ -46,24 +46,24 @@ The LLMs can be deployed in infrastructure with or without Graphic Processing Un
 \end{itemize}
 The efficiency of the model is dependent on your hardware, we provide a solution using vLLM since its license terms allows the commercial use (as opposed to TGI) and that it provides an OpenAI compatible API out of the box.
 
-While the underlying engine (vLLM, Llama.cpp, etc.) is irrelevant for the Pocket Network, the way that the user interact with the model is very important. Being a distributed network, the requester cannot adapt to the node that is providing the service at any time, the protocol must settle on an API specification for all LLM models. 
+While the underlying engine (vLLM, Llama.cpp, etc.) is irrelevant for the Pocket Network, the way that the user interact with the model is very important. Being a distributed network, the requester cannot adapt to the node that is providing the service at any time, the protocol must settle on an API specification for all \gls{LLM} models. 
 
-We argue that following OpenAI~\cite{openAI_API} is the best option, since it is the leading company in the generative AI market to the date~\cite{generative_ai_market} and it provides full documentation of its API~\footnote{\url{https://github.com/openai/openai-openapi?tab=readme-ov-file}}.
+We argue that following OpenAI~\cite{openAI_API} is the best option, since it is the leading company in the generative \gls{AI} market to the date~\cite{generative_ai_market} and it provides full documentation of its API~\footnote{\url{https://github.com/openai/openai-openapi?tab=readme-ov-file}}.
  
 \subsection{Image Generation Models}
-The second kind of models that is interesting to see deployed, is the image generation or text-to-image models. These models, just as LLMs, require GPUs for faster model inference, however the options for running these models at scale are limited. 
+The second kind of models that is interesting to see deployed, is the image generation or text-to-image models. These models, just as \glspl{LLM}, require \glspl{GPU} for faster model inference, however the options for running these models at scale are limited. 
 During our research we were not able to find an existing project focused on serving inference for these models. The best solution seems to be to default Hugging Face's Diffusers library~\cite{hf_diffusers}, built on top of PyTorch~\cite{paszke2017automatic}. 
 
-Using the Diffusers library gives us great liberty on how to deploy the models but it gives us no API to access the model, something required by the Pocket Network. The API solution that we provide was created ad-hoc and based on the Stable Diffusion's (SD) API~\cite{StableDiffusion_API} which provided enough details and is a leading company in the text-to-image inference market.
+Using the Diffusers library gives us great liberty on how to deploy the models but it gives us no API to access the model, something required by the Pocket Network. The API solution that we provide was created ad-hoc and based on the \gls{SD} API~\cite{StableDiffusion_API} which provided enough details and is a leading company in the text-to-image inference market.
 
-While the provided API is functional and based on SD API, there are important differences. First the API is a work in progress that would need load testing. Also, the implementation differs from the reference API in how the image payload is handled. In the SD API, the images are transferred from and to the client using a temporary link. In our implementation, the image is part of the request payload, where it is encoded as an string. This way, there is no need for off-chain communication between actors.
+While the provided API is functional and based on \gls{SD} API, there are important differences. First the API is a work in progress that would need load testing. Also, the implementation differs from the reference API in how the image payload is handled. In the \gls{SD} API, the images are transferred from and to the client using a temporary link. In our implementation, the image is part of the request payload, where it is encoded as an string. This way, there is no need for off-chain communication between actors.
 
 \subsection{Text Embeddings}
-The text embeddings are unsupervised models that map chunks of text to a n-dimensional vector. These models are used to populate vector databases which in turn are part of the popular RAG systems. As opposed to LLMs and diffusers, running these models does not require GPU for acceptable performance (at low scale), meaning that they are much more compatible with the Pocket Network's suppliers hardware. Also, the data integrity can be checked using similar checks as blockchains (for example, majority voting).
+The text embeddings are models that map text to a n-dimensional vector. The idea is such that phrases with similar semantic meaning are vector represented in nearby regions of space. These models are used to populate vector databases which in turn are part of the popular \glspl{RAG} systems. As opposed to \glspl{LLM} and diffusers, running these models does not require \gls{GPU} for acceptable performance (at low scale), meaning that they are much more compatible with the Pocket Network's suppliers hardware. Also, the data integrity can be checked using similar checks as blockchains (for example, majority voting).
 
-There is one difficulty with running these models, and it is selecting the model to be whitelisted. The text embedding models are not interchangeable, meaning that if a vector database is populated using a given model, then the model cannot be changed afterwards. This is like a chicken and egg problem, should we stake a model and let demand adapt or wait for demand to ask for a given model?
+There is one difficulty with running these models, and it is selecting the model to be whitelisted. The text embedding models are not interchangeable, meaning that if a vector database is populated using a given model, then the model cannot be changed afterwards. This is like a chicken and egg problem, should we stake a model and let demand adapt or wait for demand to ask for a given model ?
 
-Due to this open question we did not provide code to set-up text embeddings, however as soon as we select one the implementation can be done immediately as it wont be harder to process than an LLM call (from protocol perspective).
+Due to this open question we did not provide code to set-up text embeddings, however as soon as we select one the implementation can be done immediately as it wont be harder to process than an \gls{LLM} call (from protocol perspective).
 
 
 
