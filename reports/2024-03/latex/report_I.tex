@@ -26,19 +26,23 @@
 
 \addbibresource{references.bib} % BibLaTeX bibliography file
 
+
+% \usepackage{background} 
+% \backgroundsetup{contents=DRAFT-2} % Set your own text 
+
 %----------------------------------------------------------------------------------------
 %	REPORT INFORMATION
 %----------------------------------------------------------------------------------------
 
 \reporttitle{POKT AI Lab} % The report title to appear on the title page and page headers, do not create manual new lines here as this will carry over to page headers
 
-\reportsubtitle{Report I by POKTscan \& Pnyx} % Report subtitle, include new lines if needed
+\reportsubtitle{Report I} % Report subtitle, include new lines if needed
 
-\reportauthors{Proposed by:\\\smallskip  Nicolas Aguirre (nicolas@poktscan.com)\\ Ramiro Rodr\'iguez Colmeiro (ramiro@poktscan.com)\\Jorge Cuesta (jorge@poktscan.com)\\ Michael O'Rourke (michael@poktscan.com)\\ POKTscan Data Science Team }
+\reportauthors{Authors:\\\smallskip  Nicolas Aguirre (nicolas@poktscan.com)\\ Ramiro Rodr\'iguez Colmeiro (ramiro@poktscan.com)\\ POKTscan Data Science Team }
 
 \reportdate{\today} % Report date, include new lines for additional information if needed
 
-\rightheadercontent{\includegraphics[width=3cm]{Poktscan_Isologo_BGwhite.png}} % The content in the right header, you may want to add your own company logo or use your company/department name or leave this command empty for no right header content
+\rightheadercontent{\includegraphics[width=3cm]{POKT_logo.png}} % The content in the right header, you may want to add your own company logo or use your company/department name or leave this command empty for no right header content
 
 %----------------------------------------------------------------------------------------
 
@@ -59,9 +63,9 @@
 
 \usepackage[acronym,toc,nomain,nonumberlist,nogroupskip]{glossaries-extra}
 \setglossarystyle{alttree} %Description tabulation
-\glssetwidest{A VERY LONG ACRONYM} % Longest acronym
+\glssetwidest{Holistic Evaluation of Language Models} % Longest acronym
 \makeglossaries
-\loadglsentries{acronym_def} % Archivo.tex
+\loadglsentries{acronym_def} % file.tex
 
 %%%%%%%%%%%%%%%%%%%%%%%%%
 % Espacio entre palabras: \usepackage{setspace}
@@ -86,9 +90,9 @@
 \thispagestyle{empty} % Suppress headers and footers on this page
 
 %\begin{fullwidth} % Use the whole page width
-	\vspace*{-0.075\textheight} % Pull lPOKTscan latex template.ogo into the top margin
+	\vspace*{-0.075\textheight} % Pull POKT latex template logo into the top margin
 	
-	\hfill\includegraphics[width=5cm]{Poktscan_Isologo_BGwhite.png} % Company logo
+	\hfill\includegraphics[width=5cm]{POKT_logo.png} % Company logo
 
 	\vspace{0.15\textheight} % Vertical whitespace
 
@@ -119,23 +123,9 @@
 	\footnotesize % Reduce font size
 	
 	\subsection*{Disclaimer}
+	
+	This work was partially founded by Pocket Scan Technologies LLC, a company operating on the Pocket Network.
 
-	This work was founded by Pocket Scan Technologies LLC, a company operating on the Pocket Network.
-	
-%	\subsection*{Copyright}
-%	
-%	\textcopyright~[Year] [Company] 
-%	
-%	Copyright notice text\ldots In hac habitasse platea dictumst. Curabitur mattis elit sit amet justo luctus vestibulum. In hac habitasse platea dictumst. Pellentesque lobortis justo enim, a condimentum massa tempor eu. Ut quis nulla a quam pretium eleifend nec eu nisl. Nam cursus porttitor eros, sed luctus ligula convallis quis.
-	
-	\subsection*{Contact}
-	
-	Pocket Scan Technologies LLC\\
-	1621 Central Ave\\
-	Cheyenne, WYOMING (WY) 82001
-	
-	Contact: Michael ORourke (michael@poktscan.com)
-	
 	\vfill % Push the following down to the bottom of the page
 	
 	\subsubsection*{Changelog}
@@ -144,9 +134,7 @@
 	
 	\begin{tabular}{@{} L{0.05\linewidth} L{0.15\linewidth} L{0.6\linewidth} @{}} % Column widths specified here, change as needed for your content
 		\toprule
-		v1.0 & 2023-04-26 & First version.\\
-        v1.1 & 2023-06-05 & Grammatical and style corrections.\\
-        v1.1 & 2023-06-07 & Model fixes.\\
+		v1.0 & 2024-04-01 & First version.\\
 		\bottomrule
 	\end{tabular}
 %\end{twothirdswidth}
@@ -169,7 +157,11 @@
 %----------------------------------------------------------------------------------------
 %	SECTIONS
 %----------------------------------------------------------------------------------------
-\include{content/section_a}
+\include{content/a_work_done}
+\include{content/b_ML_models}
+\include{content/c_POKT_network}
+\include{content/d_language_models}
+\include{content/z_future}
 \newpage
 
 

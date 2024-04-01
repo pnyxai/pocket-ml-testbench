@@ -1,0 +1,62 @@
+\section{Language Models Services}\label{sec:d}
+In this section we will comment on the specific problems of deploying \glspl{LLM} in the Pocket Network. As we have seen before, the \glspl{LLM} are generative models and as such they are inherently difficult to measure. On top of this difficulty, there is the popularity of \glspl{LLM} that leads to an explosion in open models from where to choose and the variations of these models that are released at an unprecedented pace. We will try to explain these difficulties as simple as possible, and lay out some concepts that will guide other iterations of this group.
+
+\subsection{Same-Model Variations}
+The \glspl{LLM} are popular \gls{ML} models that are used in chat bots, assistants, community analysis and many other applications. The popularity and impressive performance of these models lead to the creation of several variations of \glspl{LLM} that are open-source, among the most popular we can find:
+\begin{itemize}
+    \item Bloom\footnote{\url{https://huggingface.co/bigscience/bloom}}: An open-access 176B parameters model.
+    \item Llama-2\footnote{\url{https://huggingface.co/meta-llama}}: A family of 12 medium and small size models, ranging from 7B to 70B parameters, developed by Meta.
+    \item Mistral and Mixtral\footnote{\url{https://huggingface.co/mistralai}}: A family of 5 small models (7B parameters) with capacity comparable to Llama-2 13B or higher (specially the Mixtral models).
+    \item Yi\footnote{\url{https://huggingface.co/01-ai}}: A family of 14 models with performance higher than Llama-2 (when measured at same model size) and trained on multilingual corpus (great in Chinese).
+\end{itemize}
+In this small list, that does not pretend to be a complete representation, we can already count 32 variants of open source models that can be deployed in the Pocket Network, each of them with their specific costs and capabilities. Deploying each of them in their own service ID (formerly known as chain-ID), will require to increase the number of services by approximately $\sim65\%$, which will impact in the block size as more unique sessions will be created. 
+
+However, 32 is not the real cardinality of the open \gls{LLM} models that can be whitelisted, a more precise number would have to include all variations of each of these models. By \emph{variations} we mean all modifications to the base models that are not fine-tuning. These variations include numerical precision reduction techniques like Round To Nearest, using Float16 or BFloat16~\cite{kalamkar2019study}, and also the compression of the model's weights, like  GPTQ~\cite{frantar2022gptq}, AWQ~\cite{lin2023awq}, APTQ~\cite{guan2024aptq} all in 8 or 4 bits. The models that are processed by these techniques are still in the same quality range as their base models, but are much easier to deploy (in terms of hardware). Only counting these variations we would need to multiply the cardinality by $\times8$, totaling $256$ variations an number that is already $\times5$ the number of services in the current network.
+If we then add the fine tuned models (like CodeLlama), the number becomes impossible to follow.
+
+As we have shown, having a single service ID for each unique \gls{LLM} model is not practical, the number of nodes per service will become too sparse and the number of applications required to consume relays will also be too large. In conclusion, the supply side will be sparse and probably collapse to a few service IDs, but this collapse wont be in terms of model quality, only in supply dominance which means that outside model runners wont be encouraged to join, as there is no reason to comply with the Pocket Network models when you have a running pipeline based on other models.
+
+Even if we decide to ignore all of the previous problems and opt for a "family" based service staking, i.e. using a subset of the 32 model families, we wont be able to enforce it correctly. Suppose that we whitelist a service ID that is called "Llama-2 13B", then we would expect that only this model family will be staked there. So, we might think that we can do a honest majority check for model compliance, sadly this will never work. A node runner can set up a Llama-2 13B on \emph{Float32}, another use \emph{AWQ} compression and a third use a \emph{GPTQ} compression, all three will be in compliance with the service ID, but the honest majority will depend on how many nodes each of them have in a session. Some sessions will penalize the AWQ and GPTQ nodes, while others the Float32 and GPTQ ones. Moreover, a fourth node runner could stake lots of nodes with a Mistral model and the honest majority will be signaling that all Llama-13B models are offending the Llama-13B service ID. Finally if the gateway decides to use a trusted source to compare responses to (like self-deploying a model to check), the only effect that this will have is that instead of restricting the service ID to a given family they will restrict it to a given model specification (numerical precision) that is not publicly known.
+
+In conclusion there is no way to enforce a model without overly restricting the models and losing external model providers in the process.
+
+\newpage
+\subsection{The Black Box Problem}
+As we argue in the previous section, there is no way to practically enforce the model family in the Pocket Network, and hence to us the \glspl{LLM} are nothing more than \emph{black boxes} \glspl{LM}. This is a central concept that should guide the development of the \gls{LLM} offering of the Pocket Network.
+The \gls{LM} black boxes should only comply with two things to be staked:
+\begin{enumerate}
+    \item Respond to OpenAI API standards.
+    \item Return generated text and requested metrics such as:
+    \begin{itemize}
+        \item tokens (including\# prompted, completed and total tokens),
+        \item tokens log probabilities,
+        \item tokens' bytes,
+    \end{itemize}
+\end{enumerate}
+Any model that is able to do that should be welcomed in the Pocket Network, regardless if behind it there is a BLOOM model or a real human (make sure he/she types fast enough).
+
+Now the question is how we should divide them in service IDs, such that the Pocket Network is not advertising impossible things and that we are not over- or under-paying model providers. The middle ground between having $\ge 256$ service IDs and having a single service ID comes from looking at the problem from an other angle, the model capabilities side.
+
+As we have mentioned before, the number of parameters does not define completely the model capabilities, so using the number of parameters as a driver of reward is not correct. A better approach is to use the perceived quality of the \gls{LM}. The perceived quality is nothing more than the result of a series of metrics of the model, for example the \gls{LMEH} framework proposed by EleutherAI~\cite{eval-harness} or the \gls{HELM} proposed by Stanford~\cite{liang_holistic_2023}. Both \gls{LMEH} and \gls{HELM} can provide a trustworthy measure of the black box \gls{ML} models. We will leave the details of how to divide the models using this tools for later, in the meantime is enough to say that we can take the average of the different metric scores and set up a series of thresholds. For example we can whitelist the following services~\footnote{Using \url{https://huggingface.co/spaces/HuggingFaceH4/open_llm_leaderboard} as reference for values, accessed on 25/03/2024}:
+
+\begin{itemize}
+    \item \textbf{Base Quality LMs} (reward $\times 1$) : Models with an average score below $55.0\%$ (but above $30.0\%$), includes many known models, like:
+    \begin{itemize}
+        \item $54.96\%$ : mistralai/Mistral-7B-Instruct-v0.1
+        \item $54.91\%$ : meta-llama/Llama-2-13b-chat-hf
+    \end{itemize}
+    \item \textbf{Middle Quality LMs} (reward $\times 4$) : Middle level, many of the best open model are here, such as:
+    \begin{itemize}
+        \item $72.62\%$ : mistralai/Mixtral-8x7B-Instruct-v0.1        
+        \item $67.87\%$ : meta-llama/Llama-2-70b-hf
+        \item $65.32\%$ : 01-ai/Yi-34B-Chat
+    \end{itemize}
+    \item \textbf{High Quality LMs} (reward $\times 12$) : High end models, above $80\%$ average. Near GPT4 level (that should be $\sim84\%$).
+\end{itemize}
+
+This approach (as any other in Morse) requires an off-chain element to enforce the model quality. For blockchains, this element is inside the gateways operators node selection logic, however for \glspl{LM} this element cannot remain hidden. The complexity of measuring these models is high and certain tasks require models that achieve certain thresholds in some of these metrics, so, in order to enable the wider community to consume the Pocket Network \glspl{LM}, it is imperative to provide basic information about the nature of the nodes. 
+
+This is the reason why this socket is working to create an off-chain benchmark tool that can be used to create an open benchmark of the staked nodes with clear references to other offers (such as OpenAI or Gemini APIs).
+
+
+

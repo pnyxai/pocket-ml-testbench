@@ -1,0 +1,13 @@
+\section{Future Work}\label{sec:z}
+
+In the following moths we will be focusing mostly on technical aspects of the network, specifically preparing everything to enable the correct deployment of \glspl{LLM}. Our priority is to have part of \gls{LMEH}~\cite{eval-harness} working, at least with a single metric.
+To reach this milestone the following things need to be covered:
+\begin{itemize}
+    \item Finalization of the asynchronic evaluation architecture that requires the Pocket Network. Up to this point we have a rough sketch of how it will work, the next report should include a full explanation of its architecture. 
+    \item Adaptation of \gls{LMEH} code to run asyncronically using the proposed architecture.
+    \item Analyze the amount of relays required to cover a test for a single node and the expected refresh rate of the metrics.
+\end{itemize}
+
+On the following months we will also be studying the problem of correctly dividing the \glspl{LM} in the Pocket Network. We believe that the basic approach of using an average of metrics is not correct and does not provide enough clarity to users that are not versed in the topic. Providing the leaderboard with more meaningful (higher order) metrics will help us understand what the users want to consume and how to guide the on-chain incentives to align to their needs.
+
+Also, there is a very interesting problem of dataset inclusion and adversarial gaming that will begin to develop as we deploy the first models and off-chain metrics. For example, after having \gls{LMEH} working using a given set of datasets, a node runner can try to game the leaderboard by learning the datasets being used, so we might implement new datasets or \gls{HELM} procedures. At this point, the decision of which dataset to implement should not be arbitrary, it should be the one that provides best value to the ecosystem. We expect to be playing this game for a while until the system evolves enough such that gaming it is more expensive than just comply, at that point the Pocket Network will become real public good for the \gls{ML} community.
