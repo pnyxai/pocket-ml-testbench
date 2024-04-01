@@ -16,6 +16,9 @@ logs
 .vscode
 .history
 
+# Jetbrains
+.idea
+
 # Python
 __pycache__
 # Deleted files
