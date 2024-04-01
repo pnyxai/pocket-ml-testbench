@@ -2,7 +2,7 @@ package workflows
 
 import (
 	"go.temporal.io/sdk/workflow"
-	"tester/app"
+	"tester/logger"
 )
 
 type RelayTesterParams struct {
@@ -22,10 +22,10 @@ var RelayTesterName = "relay_tester"
 
 // RelayTester is a method that performs the relay testing workflow.
 // It verifies the session height with height read, loads test requests from Postgres, and performs relay testing for
-func (wCtx *Ctx) RelayTester(ctx workflow.Context, param RelayTesterParams) (*RelayTesterResults, error) {
-	logger := workflow.GetLogger(ctx)
+func (wCtx *Ctx) RelayTester(ctx workflow.Context, params RelayTesterParams) (*RelayTesterResults, error) {
+	l := logger.GetWorkflowLogger(RelayTesterName, ctx, params)
 	// todo: remove this line
-	logger.Debug("testing", app.LogFields{"foo": 1, "bar": ""})
+	l.DebugEvent().Msg("testing workflows")
 
 	// Activity: verify session height with height read (get height and session height from params)
 	// Activity: load test requests from postgres

@@ -2,17 +2,20 @@ package activities
 
 import (
 	"context"
+	"tester/logger"
 )
 
 type DispatcherParams struct {
 }
 
+var DispatcherName = "dispatcher"
+
 // Dispatcher is a Boilerplate of what an activity is
-func (aCtx *Ctx) Dispatcher(ctx context.Context, param DispatcherParams) (string, error) {
+func (aCtx *Ctx) Dispatcher(ctx context.Context, params DispatcherParams) (string, error) {
 	// aCtx.App is the app config that holds logger base, config object and database connection.
-	logger := aCtx.App.GetLoggerByComponent("workflow")
+	l := logger.GetActivityLogger(DispatcherName, ctx, params)
 	// todo: remove this line
-	logger.Debug().Msg("testing workflow")
+	l.DebugEvent().Msg("testing activities")
 
 	result := "pass"
 	return result, nil

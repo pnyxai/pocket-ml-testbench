@@ -2,7 +2,7 @@ package workflows
 
 import (
 	"go.temporal.io/sdk/workflow"
-	"tester/app"
+	"tester/logger"
 )
 
 type SessionCheckerParams struct {
@@ -29,15 +29,9 @@ var SessionCheckerName = "session_checker"
 
 // SessionChecker checks the session and trigger relay_tester workflow.
 func (wCtx *Ctx) SessionChecker(ctx workflow.Context, params SessionCheckerParams) (*SessionCheckerResults, error) {
-	logger := workflow.GetLogger(ctx)
+	l := logger.GetWorkflowLogger(SessionCheckerName, ctx, params)
 	// todo: remove this line
-	logger.Debug("testing", app.LogFields{"foo": 1, "bar": ""})
-
-	l := wCtx.App.GetLoggerByComponent(SessionCheckerName)
-	l.Warn().
-		Str("s", "s").
-		Int("x", 1).
-		Msg("foo")
+	l.DebugEvent().Msg("testing workflows")
 
 	// activity: verify app + chain from params
 	// if not ok: exit
