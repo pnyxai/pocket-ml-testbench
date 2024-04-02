@@ -1,0 +1,12 @@
+{
+  "postgres_uri": "postgres://USER:PASS@localhost:5432",
+  "apps": ["APP_PK"],
+  "rpc_url": ["http://localhost:8081"],
+  "log_level": "debug",
+  "temporal": {
+    "host": "localhost",
+    "port": 7233,
+    "namespace": "tester_namespace",
+    "task_queue": "relay-tester-local"
+  }
+}
