@@ -3,7 +3,7 @@ package workflows
 import (
 	"go.temporal.io/sdk/worker"
 	"go.temporal.io/sdk/workflow"
-	"tester/types"
+	"requester/types"
 )
 
 // Ctx represents a context struct that holds an instance of `app.App`

@@ -2,7 +2,7 @@ package activities
 
 import (
 	"context"
-	"tester/logger"
+	"packages/logger"
 )
 
 type DispatcherParams struct {

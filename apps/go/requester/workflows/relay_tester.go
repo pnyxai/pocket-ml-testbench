@@ -2,7 +2,7 @@ package workflows
 
 import (
 	"go.temporal.io/sdk/workflow"
-	"tester/logger"
+	"packages/logger"
 )
 
 type RelayTesterParams struct {

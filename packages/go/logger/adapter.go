@@ -2,7 +2,7 @@ package logger
 
 import (
 	"github.com/rs/zerolog"
-	"tester/utils"
+	"packages/utils"
 )
 
 // ZerologAdapter represents an adapter for the Zerolog logging library.

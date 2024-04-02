@@ -1,12 +1,14 @@
-module tester
+module logger
 
-go 1.21
+go 1.21.6
 
 require (
-	github.com/hashicorp/go-retryablehttp v0.7.5
 	github.com/rs/zerolog v1.32.0
 	go.temporal.io/sdk v1.26.0
+	packages/utils v0.0.0-00010101000000-000000000000
 )
+
+replace packages/utils => ./../utils
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
@@ -17,7 +19,6 @@ require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.19.1 // indirect
-	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.19 // indirect
 	github.com/pborman/uuid v1.2.1 // indirect

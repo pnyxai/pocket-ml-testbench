@@ -3,7 +3,7 @@ package activities
 import (
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/worker"
-	"tester/types"
+	"requester/types"
 )
 
 // Ctx represents a context struct that holds an instance of `app.App`

@@ -9,11 +9,11 @@ import (
 	"go.temporal.io/sdk/worker"
 	"io"
 	"os"
+	"packages/logger"
 	"path/filepath"
-	"tester/activities"
-	"tester/logger"
-	"tester/types"
-	"tester/workflows"
+	"requester/activities"
+	"requester/types"
+	"requester/workflows"
 	"time"
 )
 
@@ -60,7 +60,7 @@ func InitLogger(config *types.Config) *zerolog.Logger {
 		ctx = ctx.Caller()
 	}
 
-	l := ctx.Str("app", "tester").Logger()
+	l := ctx.Str("app", "requester").Logger()
 
 	zerolog.TimestampFieldName = "t"
 	zerolog.MessageFieldName = "msg"
