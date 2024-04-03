@@ -1,7 +1,7 @@
 Create a command alias for the Temporal CLI:
 `alias temporal_docker="docker exec temporal-admin-tools temporal"`
 Create namespace
-`temporal_docker operator namespace create tester_namespace`
+`temporal_docker operator namespace create pocket-ml-testbench`
 
 
 Start a workflow for chain X en app 1
@@ -22,4 +22,13 @@ temporal_docker workflow start \
  --input '"555-55-5555"' \
  --namespace tester_namespace \
  --workflow-id relay_test_workflow
+```
+
+Start a workflow for sampler
+```
+temporal_docker workflow start \
+ --task-queue sampler-local \
+ --type Register \
+ --input '"555-55-5555"' \
+ --namespace pocket-ml-testbench
 ```

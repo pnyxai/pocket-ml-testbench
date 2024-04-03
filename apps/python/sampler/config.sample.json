@@ -1,12 +1,12 @@
 {
   "postgres_uri": "postgres://USER:PASS@localhost:5432",
-  "apps": ["APP_PK"],
-  "rpc_url": ["http://localhost:8081"],
+  "mongodb_uri": "mongodb://localhost:27017",
   "log_level": "debug",
   "temporal": {
     "host": "localhost",
     "port": 7233,
     "namespace": "pocket-ml-testbench",
-    "task_queue": "requester-local"
+    "task_queue": "requester-local",
+    "max_workers": 10
   }
 }
