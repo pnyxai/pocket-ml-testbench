@@ -9,7 +9,6 @@ logs
 **/*.log
 
 # local env files
-.env
 .env.*
 
 # Visual Studio Code

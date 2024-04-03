@@ -1,0 +1,119 @@
+version: "3.9"
+services:
+  postgresql:
+    container_name: postgresql
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_USER}
+      POSTGRES_USER: ${POSTGRES_PASSWORD}
+    image: postgres:${POSTGRESQL_VERSION}
+    networks:
+      - temporal-network
+      - postgres-network
+    ports:
+      - 5432:5432
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+  
+  pgadmin:
+    container_name: pgadmin
+    image: dpage/pgadmin4:8.4
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
+      PGADMIN_LISTEN_PORT: 5050
+    volumes:
+      - ./postgresql/servers.json:/pgadmin4/servers.json
+      - ./postgresql/pgpass:/pgadmin4/pgpass
+    depends_on:
+      - postgresql
+    ports:
+      - "5050:5050"
+    networks:
+      - postgres-network
+
+  temporal:
+    container_name: temporal
+    depends_on:
+      - postgresql
+    environment:
+      - DB=postgresql
+      - DB_PORT=5432
+      - POSTGRES_USER=temporal
+      - POSTGRES_PWD=temporal
+      - POSTGRES_SEEDS=postgresql
+      - DYNAMIC_CONFIG_FILE_PATH=config/dynamicconfig/development-sql.yaml
+    image: temporalio/auto-setup:${TEMPORAL_VERSION}
+    networks:
+      - temporal-network
+    ports:
+      - 7233:7233
+    volumes:
+      - ./temporal/dynamicconfig:/etc/temporal/config/dynamicconfig
+    labels:
+      kompose.volume.type: configMap
+
+  temporal-admin-tools:
+    container_name: temporal-admin-tools
+    depends_on:
+      - temporal
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CLI_ADDRESS=temporal:7233
+    image: temporalio/admin-tools:${TEMPORAL_VERSION}
+    networks:
+      - temporal-network
+    stdin_open: true
+    tty: true
+
+  temporal-ui:
+    container_name: temporal-ui
+    depends_on:
+      - temporal
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CORS_ORIGINS=http://localhost:3000
+    image: temporalio/ui:${TEMPORAL_UI_VERSION}
+    networks:
+      - temporal-network
+    ports:
+      - 8080:8080
+
+  mongodb:
+    image: mongo:latest
+    restart: always
+    command: [ "--replSet", "devRs", "--bind_ip_all" ]
+    ports:
+      - 27017:27017
+    volumes:
+      - mongodb-data:/data/db
+    networks:
+      - mongodb-network
+  
+  mongodb-init-replica:
+    image: mongo:latest
+    restart: on-failure
+    command: ["mongo", "--host", "mongodb", "/docker-entrypoint-initdb.d/init-mongo.js"]
+    volumes:
+      - ./mongodb/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
+    depends_on:
+      - mongodb
+    networks:
+      - mongodb-network
+
+volumes:
+  mongodb-data:
+  postgres-data:
+
+networks:
+  temporal-network:
+    driver: bridge
+    name: temporal-network
+    
+  postgres-network:
+    driver: bridge
+    name: postgres-network
+
+  mongodb-network:
+    driver: bridge
+    name: mongodb-network
