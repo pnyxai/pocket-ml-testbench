@@ -21,7 +21,13 @@ logs
 
 # Python
 __pycache__
+**/venv
+
 # Deleted files
 .fuse_hidden*
+
 # SQL
 infrastructure/postgresql/data/*
+
+# config.json - this should be only used locally and not added to VCS
+**/config.json
