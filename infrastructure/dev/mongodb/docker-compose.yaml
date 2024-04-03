@@ -1,0 +1,15 @@
+version: "3.9"
+
+services:
+  mongo:
+    image: mongo:7.0.8-rc0-jammy
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: root
+      MONGO_INITDB_DATABASE: pocket
+    volumes:
+      - ./data:/data/db
+      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro      
