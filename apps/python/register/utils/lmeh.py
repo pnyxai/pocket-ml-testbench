@@ -4,11 +4,11 @@ import os
 import sys
 from typing import Union
 from lm_eval import  utils
-from lm_eval.tasks import TaskManager, include_path, initialize_tasks
+from lm_eval.tasks import TaskManager
 from lm_eval.utils import eval_logger, positional_deprecated, simple_parse_args_string
 from lm_eval.tasks import TaskManager, get_task_dict
 from lm_eval.evaluator_utils import run_task_tests
-
+from lm_eval.__main__ import parse_eval_args
 from typing import List, Optional, Union
 
 
@@ -16,7 +16,7 @@ from utils.sql import create_dataset_table, register_task, create_task_table, ch
 import psycopg2
 
 
-def parse_eval_args() -> argparse.Namespace:
+def setup_parser() -> argparse.Namespace:
     '''
     Argument parsing for LM-Evaluation-Harness dataset uploading.
     '''
@@ -25,6 +25,7 @@ def parse_eval_args() -> argparse.Namespace:
         "--tasks",
         "-t",
         default=None,
+        type=str,
         metavar="task1,task2",
         help="To get full list of tasks, use the command lm-eval --tasks list",
     )
@@ -73,7 +74,7 @@ def parse_eval_args() -> argparse.Namespace:
         metavar="CRITICAL|ERROR|WARNING|INFO|DEBUG",
         help="Controls the reported logging error level. Set to DEBUG when testing + adding new task configurations for comprehensive log output.",
     )        
-    return parser.parse_args()
+    return parser
 
 def cli_register_task(args: Union[argparse.Namespace, None] = None) -> None:
     '''
@@ -84,18 +85,16 @@ def cli_register_task(args: Union[argparse.Namespace, None] = None) -> None:
     '''
     if not args:
         # we allow for args to be passed externally, else we parse them ourselves
-        args = parse_eval_args()
+        parser = setup_parser()
+        args = parse_eval_args(parser)
 
     eval_logger = utils.eval_logger
     eval_logger.setLevel(getattr(logging, f"{args.verbosity}"))
     eval_logger.info(f"Verbosity set to {args.verbosity}")
 
-    initialize_tasks(args.verbosity)
-    task_manager = TaskManager(args.verbosity, include_path=args.include_path)
-
     if args.include_path is not None:
         eval_logger.info(f"Including path: {args.include_path}")
-        include_path(args.include_path)
+    task_manager = TaskManager(args.verbosity, include_path=args.include_path)
 
     if args.tasks is None:
         eval_logger.error("Need to specify task to evaluate.")
@@ -247,10 +246,6 @@ def get_ConfigurableTask(
     if task_manager is None:
         task_manager = TaskManager(verbosity)
 
-    eval_logger.info(
-        "get_task_dict has been updated to accept an optional argument, `task_manager`"
-        "Read more here:https://github.com/EleutherAI/lm-evaluation-harness/blob/main/docs/interface.md#external-library-usage"
-    )
     task_dict = get_task_dict(tasks, task_manager)
     for task_name in task_dict.keys():
         task_obj = task_dict[task_name]
@@ -273,6 +268,8 @@ def get_ConfigurableTask(
             # we have to change the class properties post-hoc. This is pretty hacky.
             task_obj.override_metric(metric_name="bypass")
 
+        # override tasks' fewshot values to the provided num_fewshot arg value
+        # except if tasks have it set to 0 manually in their configs--then we should never overwrite that
         if num_fewshot is not None:
             if (default_num_fewshot := task_obj.get_config("num_fewshot")) == 0:
                 eval_logger.info(
@@ -283,6 +280,10 @@ def get_ConfigurableTask(
                     f"Overwriting default num_fewshot of {task_name} from {default_num_fewshot} to {num_fewshot}"
                 )
                 task_obj.set_config(key="num_fewshot", value=num_fewshot)
+        else:
+            # if num_fewshot not provided, and the task does not define a default one, default to 0
+            if (default_num_fewshot := task_obj.get_config("num_fewshot")) is None:
+                task_obj.set_config(key="num_fewshot", value=0)
 
     if check_integrity:
         run_task_tests(task_list=tasks)

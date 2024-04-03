@@ -16,13 +16,16 @@ import numpy as np
 from lm_eval import evaluator, utils
 from lm_eval.evaluator import request_caching_arg_to_dict
 from lm_eval.logging_utils import WandbLogger
-from lm_eval.tasks import TaskManager, include_path, initialize_tasks
+from lm_eval.tasks import TaskManager
 from lm_eval.utils import make_table, simple_parse_args_string
+
+from lm_eval.__main__ import parse_eval_args
 
 # Custom modules
 from utils.generator import get_ConfigurableTask 
 
-def parse_eval_args() -> argparse.Namespace:
+
+def setup_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument(
         "--pocket_args",
@@ -75,12 +78,13 @@ def parse_eval_args() -> argparse.Namespace:
         metavar="CRITICAL|ERROR|WARNING|INFO|DEBUG",
         help="Controls the reported logging error level. Set to DEBUG when testing + adding new task configurations for comprehensive log output.",
     )        
-    return parser.parse_args()
+    return parser
 
 def cli_register_task(args: Union[argparse.Namespace, None] = None) -> None:
     if not args:
         # we allow for args to be passed externally, else we parse them ourselves
-        args = parse_eval_args()
+        parser = setup_parser()
+        args = parse_eval_args(parser)
 
     eval_logger = utils.eval_logger
     eval_logger.setLevel(getattr(logging, f"{args.verbosity}"))
@@ -112,11 +116,9 @@ def cli_register_task(args: Union[argparse.Namespace, None] = None) -> None:
     # END: POCKET NETWORK CODE
     ############################################################
 
-    task_manager = TaskManager(args.verbosity, include_path=args.include_path)
-
     if args.include_path is not None:
         eval_logger.info(f"Including path: {args.include_path}")
-        include_path(args.include_path)
+    task_manager = TaskManager(args.verbosity, include_path=args.include_path)
 
     if tasks is None:
         eval_logger.error("Need to specify task to evaluate.")

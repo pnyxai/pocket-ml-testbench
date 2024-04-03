@@ -1,6 +1,7 @@
 import itertools
 import logging
 import random
+import time
 from collections import defaultdict
 from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
@@ -61,6 +62,7 @@ def get_ConfigurableTask(
         Task dictionary
     """
     eval_logger.setLevel(getattr(logging, f"{verbosity}"))
+    start_date = time.time()    
 
     seed_message = []
 
@@ -86,10 +88,6 @@ def get_ConfigurableTask(
     if task_manager is None:
         task_manager = PocketNetworkTaskManager(verbosity, pocket_args=pocket_args)
 
-    eval_logger.info(
-        "get_task_dict has been updated to accept an optional argument, `task_manager`"
-        "Read more here:https://github.com/EleutherAI/lm-evaluation-harness/blob/main/docs/interface.md#external-library-usage"
-    )
     task_dict = get_task_dict(tasks, task_manager)
     for task_name in task_dict.keys():
         task_obj = task_dict[task_name]
@@ -112,6 +110,8 @@ def get_ConfigurableTask(
             # we have to change the class properties post-hoc. This is pretty hacky.
             task_obj.override_metric(metric_name="bypass")
 
+        # override tasks' fewshot values to the provided num_fewshot arg value
+        # except if tasks have it set to 0 manually in their configs--then we should never overwrite that
         if num_fewshot is not None:
             if (default_num_fewshot := task_obj.get_config("num_fewshot")) == 0:
                 eval_logger.info(
@@ -122,6 +122,10 @@ def get_ConfigurableTask(
                     f"Overwriting default num_fewshot of {task_name} from {default_num_fewshot} to {num_fewshot}"
                 )
                 task_obj.set_config(key="num_fewshot", value=num_fewshot)
+        else:
+            # if num_fewshot not provided, and the task does not define a default one, default to 0
+            if (default_num_fewshot := task_obj.get_config("num_fewshot")) is None:
+                task_obj.set_config(key="num_fewshot", value=0)
 
     if check_integrity:
         run_task_tests(task_list=tasks)
