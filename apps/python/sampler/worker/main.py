@@ -14,7 +14,9 @@ from app.config import read_config
 
 from activities.lookup_task import lookup_task
 from activities.register_task import register_task
+from activities.sample import sample
 from workflows.register import Register
+from workflows.sampler import Sampler
 
 
 async def main():
@@ -38,18 +40,19 @@ async def main():
     # namespace = "pocket-ml-testbench"
     task_queue = get_from_dict(config, 'temporal.task_queue')
     # task_queue = "sampler-local"
+    max_workers = get_from_dict(config, "temporal.max_workers")
 
     client = await Client.connect(
         temporal_host,
         namespace=namespace
     )
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=100) as activity_executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as activity_executor:
         worker = Worker(
             client,
             task_queue=task_queue,
-            workflows=[Register],
-            activities=[lookup_task, register_task],
+            workflows=[Register, Sampler],
+            activities=[lookup_task, register_task, sample],
             activity_executor=activity_executor,
         )
 
@@ -60,5 +63,5 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("Interrupted by user. Exiting...")
+        print("interrupted by user. Exiting...")
 

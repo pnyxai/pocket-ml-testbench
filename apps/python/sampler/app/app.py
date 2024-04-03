@@ -3,7 +3,9 @@ from packages.python.logger.logger import get_logger
 
 app_config = {
     "config": {},
+    # set the postgres connection here
     "postgres": None,
+    # set the mongodb connection here
     "mongodb": None,
 }
 
