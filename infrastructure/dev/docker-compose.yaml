@@ -1,11 +1,11 @@
 version: "3.9"
 services:
   postgresql:
+    image: postgres:${POSTGRESQL_VERSION}
     container_name: postgresql
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_USER}
       POSTGRES_USER: ${POSTGRES_PASSWORD}
-    image: postgres:${POSTGRESQL_VERSION}
     networks:
       - temporal-network
       - postgres-network
@@ -15,8 +15,8 @@ services:
       - postgres-data:/var/lib/postgresql/data
   
   pgadmin:
+    image: dpage/pgadmin4:${PGADMIN_VERSION}
     container_name: pgadmin
-    image: dpage/pgadmin4:8.4
     restart: always
     environment:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
@@ -28,22 +28,22 @@ services:
     depends_on:
       - postgresql
     ports:
-      - "5050:5050"
+      - 5050:5050
     networks:
       - postgres-network
 
   temporal:
+    image: temporalio/auto-setup:${TEMPORAL_VERSION}
     container_name: temporal
     depends_on:
       - postgresql
     environment:
       - DB=postgresql
       - DB_PORT=5432
-      - POSTGRES_USER=temporal
-      - POSTGRES_PWD=temporal
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PWD=${POSTGRES_PASSWORD}
       - POSTGRES_SEEDS=postgresql
       - DYNAMIC_CONFIG_FILE_PATH=config/dynamicconfig/development-sql.yaml
-    image: temporalio/auto-setup:${TEMPORAL_VERSION}
     networks:
       - temporal-network
     ports:
@@ -54,33 +54,33 @@ services:
       kompose.volume.type: configMap
 
   temporal-admin-tools:
+    image: temporalio/admin-tools:${TEMPORAL_VERSION}
     container_name: temporal-admin-tools
     depends_on:
       - temporal
     environment:
       - TEMPORAL_ADDRESS=temporal:7233
       - TEMPORAL_CLI_ADDRESS=temporal:7233
-    image: temporalio/admin-tools:${TEMPORAL_VERSION}
     networks:
       - temporal-network
     stdin_open: true
     tty: true
 
   temporal-ui:
+    image: temporalio/ui:${TEMPORAL_UI_VERSION}
     container_name: temporal-ui
     depends_on:
       - temporal
     environment:
       - TEMPORAL_ADDRESS=temporal:7233
       - TEMPORAL_CORS_ORIGINS=http://localhost:3000
-    image: temporalio/ui:${TEMPORAL_UI_VERSION}
     networks:
       - temporal-network
     ports:
       - 8080:8080
 
   mongodb:
-    image: mongo:latest
+    image: mongo:${MONGODB_VERSION}
     restart: always
     command: [ "--replSet", "devRs", "--bind_ip_all" ]
     ports:
@@ -91,9 +91,9 @@ services:
       - mongodb-network
   
   mongodb-init-replica:
-    image: mongo:latest
-    restart: on-failure
-    command: ["mongo", "--host", "mongodb", "/docker-entrypoint-initdb.d/init-mongo.js"]
+    image: mongo:${MONGODB_VERSION}
+    restart: "no"
+    command: ["mongosh", "--host", "mongodb", "/docker-entrypoint-initdb.d/init-mongo.js"]
     volumes:
       - ./mongodb/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
     depends_on:
