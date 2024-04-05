@@ -24,7 +24,6 @@ class PocketNetworkTaskManager(TaskManager):
         self.logger.setLevel(getattr(logging, f"{verbosity}"))
 
         self._task_index = self.initialize_tasks(include_path=include_path)
-        print(f"Task index: {self._task_index}")
         self._all_tasks = sorted(list(self._task_index.keys()))
 
         self.task_group_map = collections.defaultdict(list)
@@ -65,7 +64,6 @@ class PocketNetworkTaskManager(TaskManager):
                 # START: POCKET NETWORK CODE
                 ############################################################
                 if 'metadata' in task_config.keys():
-                    print(f"Task config: {task_config}")
                     task_config['metadata'].update({'pocket_args':self.pocket_args[task_config['task']]})
                 else:
                     task_config['metadata'] = {'pocket_args':self.pocket_args[task_config['task']]}

@@ -10,6 +10,8 @@ services:
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_USER}
       POSTGRES_USER: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    image: postgres:${POSTGRESQL_VERSION}
     networks:
       - temporal
       - postgresql

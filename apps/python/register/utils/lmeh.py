@@ -32,19 +32,19 @@ def setup_parser() -> argparse.Namespace:
     parser.add_argument(
         "--dbname",
         type=str,
-        default="postgres",
+        default="lm-evaluation-harness",
         help="Name of the database",
     )
     parser.add_argument(
         "--user",
         type=str,
-        default="postgres",
+        default="admin",
         help="Name of the user",
     )
     parser.add_argument(
         "--password",
         type=str,
-        default="password",
+        default="admin",
         help="Password for the user",
     )
     parser.add_argument(
