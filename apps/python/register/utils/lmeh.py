@@ -191,7 +191,7 @@ def cli_register_task(args: Union[argparse.Namespace, None] = None) -> None:
             eval_logger.info(f"Task {task_name_i} already registered")
 
 
-# cutted def simple_evaluate(..) from lm-eval-harness to generate config task commit:7d9922c80114218eaf43975b7655bb48cda84f50
+# cutted def simple_evaluate(..) from lm-eval-harness to generate config task
 @positional_deprecated
 def get_ConfigurableTask(
     tasks: Optional[List[Union[str, dict, object]]] = None,

@@ -31,7 +31,7 @@ if TYPE_CHECKING:
     from lm_eval.tasks import Task
 
 
-# adapted from evaluator.py # def simple_evaluate(..) from lm-eval-harness to generate config task commit:7d9922c80114218eaf43975b7655bb48cda84f50
+# adapted from evaluator.py # def simple_evaluate(..) from lm-eval-harness to generate config task 
 @positional_deprecated
 def get_ConfigurableTask(
     tasks: Optional[List[Union[str, dict, object]]] = None,
@@ -132,4 +132,4 @@ def get_ConfigurableTask(
 
     return task_dict
 
-# adapted from evaluator.py # def evaluate(..) from lm-eval-harness to generate config task commit:7d9922c80114218eaf43975b7655bb48cda84f50
+# adapted from evaluator.py # def evaluate(..) from lm-eval-harness to generate config task 
