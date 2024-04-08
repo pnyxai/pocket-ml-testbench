@@ -1,0 +1,3 @@
+lm_eval[dev]==0.4.2
+psycopg2==2.9.9
+SQLAlchemy==2.0.29

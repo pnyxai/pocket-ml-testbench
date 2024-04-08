@@ -1,8 +1,9 @@
 import itertools
 import logging
 import random
+import time
 from collections import defaultdict
-from typing import TYPE_CHECKING, List, Optional, Union
+from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
 import numpy as np
 import torch
@@ -21,6 +22,7 @@ from lm_eval.evaluator_utils import (
 )
 from lm_eval.logging_utils import add_env_info, get_git_commit_hash
 from lm_eval.tasks import TaskManager, get_task_dict
+from utils.pocket_lm_eval.tasks import PocketNetworkTaskManager
 from lm_eval.utils import eval_logger, positional_deprecated, simple_parse_args_string
 
 
@@ -29,7 +31,7 @@ if TYPE_CHECKING:
     from lm_eval.tasks import Task
 
 
-# cutted def simple_evaluate(..) from lm-eval-harness to generate config task commit:7d9922c80114218eaf43975b7655bb48cda84f50
+# adapted from evaluator.py # def simple_evaluate(..) from lm-eval-harness to generate config task 
 @positional_deprecated
 def get_ConfigurableTask(
     tasks: Optional[List[Union[str, dict, object]]] = None,
@@ -39,6 +41,7 @@ def get_ConfigurableTask(
     task_manager: Optional[TaskManager] = None,
     verbosity: str = "INFO",
     predict_only: bool = False,
+    pocket_args: Optional[Dict] = None,
 
 ):
     """Instantiate and evaluate a model on a list of tasks.
@@ -59,6 +62,7 @@ def get_ConfigurableTask(
         Task dictionary
     """
     eval_logger.setLevel(getattr(logging, f"{verbosity}"))
+    start_date = time.time()    
 
     seed_message = []
 
@@ -82,12 +86,8 @@ def get_ConfigurableTask(
             gen_kwargs = None
 
     if task_manager is None:
-        task_manager = TaskManager(verbosity)
+        task_manager = PocketNetworkTaskManager(verbosity, pocket_args=pocket_args)
 
-    eval_logger.info(
-        "get_task_dict has been updated to accept an optional argument, `task_manager`"
-        "Read more here:https://github.com/EleutherAI/lm-evaluation-harness/blob/main/docs/interface.md#external-library-usage"
-    )
     task_dict = get_task_dict(tasks, task_manager)
     for task_name in task_dict.keys():
         task_obj = task_dict[task_name]
@@ -110,6 +110,8 @@ def get_ConfigurableTask(
             # we have to change the class properties post-hoc. This is pretty hacky.
             task_obj.override_metric(metric_name="bypass")
 
+        # override tasks' fewshot values to the provided num_fewshot arg value
+        # except if tasks have it set to 0 manually in their configs--then we should never overwrite that
         if num_fewshot is not None:
             if (default_num_fewshot := task_obj.get_config("num_fewshot")) == 0:
                 eval_logger.info(
@@ -120,8 +122,14 @@ def get_ConfigurableTask(
                     f"Overwriting default num_fewshot of {task_name} from {default_num_fewshot} to {num_fewshot}"
                 )
                 task_obj.set_config(key="num_fewshot", value=num_fewshot)
+        else:
+            # if num_fewshot not provided, and the task does not define a default one, default to 0
+            if (default_num_fewshot := task_obj.get_config("num_fewshot")) is None:
+                task_obj.set_config(key="num_fewshot", value=0)
 
     if check_integrity:
         run_task_tests(task_list=tasks)
 
     return task_dict
+
+# adapted from evaluator.py # def evaluate(..) from lm-eval-harness to generate config task 
