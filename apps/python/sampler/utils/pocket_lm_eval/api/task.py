@@ -79,8 +79,6 @@ def get_max_min_ids(uri:str, table_name:str):
                 MAX("__id") AS max_id
             FROM
                 {}
-            WHERE
-                "__split" IN ('train', 'validation', 'test')
             GROUP BY
                 "__split";
         """.format(table_name)
