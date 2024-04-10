@@ -2,7 +2,8 @@ package logger
 
 import (
 	"context"
-	"errors"
+	"encoding/json"
+	"github.com/iancoleman/strcase"
 	"github.com/rs/zerolog/log"
 	"go.temporal.io/sdk/activity"
 	temporalLogger "go.temporal.io/sdk/log"
@@ -11,34 +12,37 @@ import (
 
 type Fields map[string]interface{}
 
-// GetZerologAdapter retrieves the ZerologAdapter from the provided temporalLogger.Logger.
-// It performs a type assertion to check if the logger is of type *ZerologAdapter.
-// If the assertion is successful, it returns the *ZerologAdapter.
-// If the assertion fails, it terminates the program with a fatal log message indicating that the logger is not a zerolog adapter.
-func GetZerologAdapter(l temporalLogger.Logger) *ZerologAdapter {
-	// Type assertion
-	extLogger, ok := l.(*ZerologAdapter)
+func (f Fields) GetLoggerFields() []interface{} {
+	loggerFields := make([]interface{}, 0)
+	for k, v := range f {
+		loggerFields = append(loggerFields, strcase.ToCamel(k))
+		loggerFields = append(loggerFields, v)
+	}
+	return loggerFields
+}
 
-	if !ok {
-		// Handle the case where the logger is not an ExtendedLogger
-		log.Fatal().
-			Err(errors.New("logger is not a zerolog adapter")).
-			Msg("unable to get activity logger")
+func NewFieldsFromStruct(s interface{}) *Fields {
+	var fields Fields
+
+	if v, ok := s.(*Fields); ok {
+		return v
 	}
 
-	return extLogger
+	data, err := json.Marshal(s)
+	if err != nil {
+		log.Fatal().Err(err)
+	}
+	err = json.Unmarshal(data, &fields)
+	if err != nil {
+		log.Fatal().Err(err)
+	}
+	return &fields
 }
 
-// GetActivityLogger retrieves the ZerologAdapter from the provided context
-// and creates a new logger with the specified name, and additional parameters (if any)
-func GetActivityLogger(name string, ctx context.Context, params ...interface{}) *ZerologAdapter {
-	logger := GetZerologAdapter(activity.GetLogger(ctx))
-	return logger.WithContext(name, "activity", params)
+func GetActivityLogger(name string, ctx context.Context, params interface{}) temporalLogger.Logger {
+	return temporalLogger.With(activity.GetLogger(ctx), NewFieldsFromStruct(params).GetLoggerFields()...)
 }
 
-// GetWorkflowLogger retrieves the ZerologAdapter from the provided context
-// and creates a new logger with the specified name, and additional parameters (if any)
-func GetWorkflowLogger(name string, ctx workflow.Context, params ...interface{}) *ZerologAdapter {
-	logger := GetZerologAdapter(workflow.GetLogger(ctx))
-	return logger.WithContext(name, "workflow", params)
+func GetWorkflowLogger(name string, ctx workflow.Context, params interface{}) temporalLogger.Logger {
+	return temporalLogger.With(workflow.GetLogger(ctx), NewFieldsFromStruct(params).GetLoggerFields()...)
 }

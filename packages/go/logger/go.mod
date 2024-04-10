@@ -3,6 +3,7 @@ module logger
 go 1.21.6
 
 require (
+	github.com/iancoleman/strcase v0.3.0
 	github.com/rs/zerolog v1.32.0
 	go.temporal.io/sdk v1.26.0
 	packages/utils v0.0.0-00010101000000-000000000000
