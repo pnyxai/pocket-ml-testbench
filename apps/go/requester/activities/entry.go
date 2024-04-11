@@ -24,11 +24,27 @@ func SetAppConfig(ac *types.App) {
 
 // Register registers a worker activity with the provided activity function in the Ctx struct.
 func (aCtx *Ctx) Register(w worker.Worker) {
-	w.RegisterActivityWithOptions(aCtx.Dispatcher, activity.RegisterOptions{
-		Name: "",
+	w.RegisterActivityWithOptions(aCtx.GetApp, activity.RegisterOptions{
+		Name: GetAppName,
 	})
 
-	w.RegisterActivityWithOptions(aCtx.VerifyApp, activity.RegisterOptions{
-		Name: "",
+	w.RegisterActivityWithOptions(aCtx.GetHeight, activity.RegisterOptions{
+		Name: GetHeightName,
+	})
+
+	w.RegisterActivityWithOptions(aCtx.GetBlock, activity.RegisterOptions{
+		Name: GetBlockName,
+	})
+
+	w.RegisterActivityWithOptions(aCtx.GetSession, activity.RegisterOptions{
+		Name: GetSessionName,
+	})
+
+	w.RegisterActivityWithOptions(aCtx.LookupTaskRequest, activity.RegisterOptions{
+		Name: LookupTaskRequestName,
+	})
+
+	w.RegisterActivityWithOptions(aCtx.Relayer, activity.RegisterOptions{
+		Name: RelayerName,
 	})
 }

@@ -24,10 +24,7 @@ func SetAppConfig(ac *types.App) {
 
 // Register registers the SessionChecker and RelayTester workflows with the provided worker.
 func (wCtx *Ctx) Register(w worker.Worker) {
-	w.RegisterWorkflowWithOptions(wCtx.SessionChecker, workflow.RegisterOptions{
-		Name: SessionCheckerName,
-	})
-	w.RegisterWorkflowWithOptions(wCtx.RelayTester, workflow.RegisterOptions{
-		Name: RelayTesterName,
+	w.RegisterWorkflowWithOptions(wCtx.Requester, workflow.RegisterOptions{
+		Name: RequesterName,
 	})
 }
