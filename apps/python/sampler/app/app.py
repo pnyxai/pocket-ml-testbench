@@ -2,7 +2,9 @@ from packages.python.common.utils import get_from_dict
 from packages.python.logger.logger import get_logger
 
 app_config = {
-    "config": {},
+    "config": {
+        "log_level": "INFO"
+    },
     # set the postgres connection here
     "postgres": None,
     # set the mongodb connection here

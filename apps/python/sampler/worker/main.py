@@ -6,15 +6,14 @@ from temporalio.client import Client
 from temporalio.worker import Worker
 
 sys.path.append('.')
-sys.path.append('../packages/python')
+sys.path.append('../../../')
 
 from packages.python.common.utils import get_from_dict
 from app.app import setup_app, get_app_logger
 from app.config import read_config
 
-from activities.lookup_task import lookup_task
-from activities.register_task import register_task
-from activities.sample import sample
+from activities.lmeh.register_task import register_task as lmeh_register_task
+from activities.lmeh.sample import sample as lmeh_sample
 from workflows.register import Register
 from workflows.sampler import Sampler
 
@@ -52,7 +51,7 @@ async def main():
             client,
             task_queue=task_queue,
             workflows=[Register, Sampler],
-            activities=[lookup_task, register_task, sample],
+            activities=[lmeh_register_task, lmeh_sample],
             activity_executor=activity_executor,
         )
 

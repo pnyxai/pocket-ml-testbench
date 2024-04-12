@@ -32,7 +32,7 @@ def setup_parser() -> argparse.Namespace:
     parser.add_argument(
         "--dbname",
         type=str,
-        default="lm-evaluation-harness",
+        default="postgres",
         help="Name of the database",
     )
     parser.add_argument(
@@ -90,17 +90,17 @@ def cli_register_task(args: Union[argparse.Namespace, None] = None) -> None:
 
     eval_logger = utils.eval_logger
     eval_logger.setLevel(getattr(logging, f"{args.verbosity}"))
-    eval_logger.info(f"Verbosity set to {args.verbosity}")
+    eval_logger.debug(f"Verbosity set to {args.verbosity}")
 
     if args.include_path is not None:
-        eval_logger.info(f"Including path: {args.include_path}")
+        eval_logger.debug(f"Including path: {args.include_path}")
     task_manager = TaskManager(args.verbosity, include_path=args.include_path)
 
     if args.tasks is None:
         eval_logger.error("Need to specify task to evaluate.")
         sys.exit()
     elif args.tasks == "list":
-        eval_logger.info(
+        eval_logger.debug(
             "Available Tasks:\n - {}".format("\n - ".join(task_manager.all_tasks))
         )
         sys.exit()
@@ -153,7 +153,7 @@ def cli_register_task(args: Union[argparse.Namespace, None] = None) -> None:
             host=args.host,
             port=args.port
         )
-        eval_logger.info("Connected to the database")
+        eval_logger.debug("Connected to the database")
         # Obtain a DB Cursor
         cursor = conn.cursor()
     except Exception as e:
@@ -186,12 +186,12 @@ def cli_register_task(args: Union[argparse.Namespace, None] = None) -> None:
                 cursor.close()
                 conn.close()
                 exit(-1)
-            eval_logger.info(f"Task {task_name_i} registered successfully")
+            eval_logger.debug(f"Task {task_name_i} registered successfully")
         else:
-            eval_logger.info(f"Task {task_name_i} already registered")
+            eval_logger.debug(f"Task {task_name_i} already registered")
 
 
-# cutted def simple_evaluate(..) from lm-eval-harness to generate config task
+# adapted from evaluator.py # def simple_evaluate(..) from lm-eval-harness to generate config task 
 @positional_deprecated
 def get_ConfigurableTask(
     tasks: Optional[List[Union[str, dict, object]]] = None,
@@ -225,7 +225,7 @@ def get_ConfigurableTask(
     seed_message = []
 
     if seed_message:
-        eval_logger.info(" | ".join(seed_message))
+        eval_logger.debug(" | ".join(seed_message))
 
     if tasks is None:
         tasks = []
@@ -262,7 +262,7 @@ def get_ConfigurableTask(
 
         if predict_only:
             log_samples = True
-            eval_logger.info(
+            eval_logger.debug(
                 f"Processing {task_name} in output-only mode. Metrics will not be calculated!"
             )
             # we have to change the class properties post-hoc. This is pretty hacky.
@@ -272,7 +272,7 @@ def get_ConfigurableTask(
         # except if tasks have it set to 0 manually in their configs--then we should never overwrite that
         if num_fewshot is not None:
             if (default_num_fewshot := task_obj.get_config("num_fewshot")) == 0:
-                eval_logger.info(
+                eval_logger.debug(
                     f"num_fewshot has been set to 0 for {task_name} in its config. Manual configuration will be ignored."
                 )
             else:

@@ -1,12 +1,12 @@
 {
-  "postgres_uri": "postgres://USER:PASS@localhost:5432",
-  "mongodb_uri": "mongodb://localhost:27017",
-  "log_level": "debug",
+  "postgres_uri": "postgresql://USER:PASS@NETWORK:5432/TABLE",
+  "mongodb_uri": "mongodb://NETWORK:27017",
+  "log_level": "DEBUG",
   "temporal": {
-    "host": "localhost",
+    "host": "NETWORK",
     "port": 7233,
     "namespace": "pocket-ml-testbench",
-    "task_queue": "requester-local",
+    "task_queue": "sampler-local",
     "max_workers": 10
   }
 }

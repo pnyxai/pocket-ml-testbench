@@ -11,7 +11,6 @@ import torch
 import lm_eval.api.metrics
 import lm_eval.api.registry
 import lm_eval.models
-from lm_eval.caching.cache import delete_cache
 from lm_eval.evaluator_utils import (
     consolidate_results,
     get_sample_size,
@@ -20,16 +19,17 @@ from lm_eval.evaluator_utils import (
     print_writeout,
     run_task_tests,
 )
-from lm_eval.logging_utils import add_env_info, get_git_commit_hash
 from lm_eval.tasks import TaskManager, get_task_dict
 from utils.pocket_lm_eval.tasks import PocketNetworkTaskManager
-from lm_eval.utils import eval_logger, positional_deprecated, simple_parse_args_string
+from lm_eval.utils import positional_deprecated, simple_parse_args_string
 
 
 if TYPE_CHECKING:
     from lm_eval.api.model import LM
     from lm_eval.tasks import Task
 
+from protocol.protocol import PocketNetworkTaskRequest
+from temporalio.exceptions import ApplicationError
 
 # adapted from evaluator.py # def simple_evaluate(..) from lm-eval-harness to generate config task 
 @positional_deprecated
@@ -41,7 +41,8 @@ def get_ConfigurableTask(
     task_manager: Optional[TaskManager] = None,
     verbosity: str = "INFO",
     predict_only: bool = False,
-    pocket_args: Optional[Dict] = None,
+    pocket_args: PocketNetworkTaskRequest = None,
+    eval_logger: Optional[logging.Logger] = None,
 
 ):
     """Instantiate and evaluate a model on a list of tasks.
@@ -61,19 +62,18 @@ def get_ConfigurableTask(
     :return
         Task dictionary
     """
-    eval_logger.setLevel(getattr(logging, f"{verbosity}"))
     start_date = time.time()    
 
     seed_message = []
 
     if seed_message:
-        eval_logger.info(" | ".join(seed_message))
+        eval_logger.debug(" | ".join(seed_message))
 
     if tasks is None:
         tasks = []
     if len(tasks) == 0:
-        raise ValueError(
-            "No tasks specified, or no tasks found. Please verify the task names."
+        raise ApplicationError(
+            "No tasks specified, or no tasks found. Please verify the task names.", non_retryable=True
         )
 
     if gen_kwargs is not None:
@@ -86,7 +86,7 @@ def get_ConfigurableTask(
             gen_kwargs = None
 
     if task_manager is None:
-        task_manager = PocketNetworkTaskManager(verbosity, pocket_args=pocket_args)
+        task_manager = PocketNetworkTaskManager(verbosity, pocket_args=pocket_args, logger=eval_logger)
 
     task_dict = get_task_dict(tasks, task_manager)
     for task_name in task_dict.keys():
@@ -104,7 +104,7 @@ def get_ConfigurableTask(
 
         if predict_only:
             log_samples = True
-            eval_logger.info(
+            eval_logger.debug(
                 f"Processing {task_name} in output-only mode. Metrics will not be calculated!"
             )
             # we have to change the class properties post-hoc. This is pretty hacky.
@@ -114,7 +114,7 @@ def get_ConfigurableTask(
         # except if tasks have it set to 0 manually in their configs--then we should never overwrite that
         if num_fewshot is not None:
             if (default_num_fewshot := task_obj.get_config("num_fewshot")) == 0:
-                eval_logger.info(
+                eval_logger.debug(
                     f"num_fewshot has been set to 0 for {task_name} in its config. Manual configuration will be ignored."
                 )
             else:
@@ -131,5 +131,3 @@ def get_ConfigurableTask(
         run_task_tests(task_list=tasks)
 
     return task_dict
-
-# adapted from evaluator.py # def evaluate(..) from lm-eval-harness to generate config task 

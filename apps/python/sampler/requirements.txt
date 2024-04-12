@@ -1,2 +1,6 @@
 temporalio==1.5.1
 structlog==24.1.0
+lm_eval[dev]==0.4.2
+psycopg2==2.9.9
+SQLAlchemy==2.0.29
+pydantic==2.7.0
