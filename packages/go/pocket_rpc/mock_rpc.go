@@ -38,3 +38,18 @@ func (rpc *MockRpc) GetApp(address string) (*poktGoSdk.App, error) {
 
 	return response, args.Error(1)
 }
+
+func (rpc *MockRpc) GetNodes(height int64, service string) (nodes []*poktGoSdk.Node, e error) {
+	args := rpc.Called(height, service)
+	firstResponseArg := args.Get(0)
+	var response []*poktGoSdk.Node
+	if firstResponseArg != nil {
+		if v, ok := firstResponseArg.([]*poktGoSdk.Node); !ok {
+			return nil, errors.New(UnexpectedResponseType)
+		} else {
+			response = v
+		}
+	}
+
+	return response, args.Error(1)
+}
