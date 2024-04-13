@@ -10,6 +10,8 @@ import (
 	"time"
 )
 
+// todo: cleanup this list after we get everything we really need.
+// this was a copy paste from the pokt go package but they expose as V1Route
 const (
 	// ClientChallengeRoute represents client challenge route
 	ClientChallengeRoute = "/v1/client/challenge"

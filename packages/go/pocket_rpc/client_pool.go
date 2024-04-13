@@ -84,14 +84,16 @@ func NewClientPool(servers []string, opts *ClientPoolOptions, logger *zerolog.Lo
 func (cp *ClientPool) DoRRLoadBalanced(req *http.Request, timeout time.Duration) (*http.Response, int, error) {
 	retries := 0
 	backoff := NewBackoff(cp.opts.MinBackoff, cp.opts.MaxBackoff) // adjust min and max duration as necessary
+	clients := len(cp.clients)
+	allowBackoff := clients >= cp.opts.MaxRetries
 
-	for i := 0; i < len(cp.clients); i++ {
+	for {
 		if retries >= cp.opts.MaxRetries {
 			return nil, retries, fmt.Errorf("maximum retries exceeded")
 		}
 
-		if retries > 0 {
-			// if no timeout, wait some time before retrying
+		if allowBackoff && retries > clients {
+			// apply backoff only when the retries are more than the available clients
 			time.Sleep(backoff.Duration(retries))
 		}
 
@@ -129,8 +131,6 @@ func (cp *ClientPool) DoRRLoadBalanced(req *http.Request, timeout time.Duration)
 		cp.setClient(client)
 		return resp, retries, nil
 	}
-
-	return nil, retries, fmt.Errorf("there is not clients available")
 }
 
 func (cp *ClientPool) do(client *Client, req *http.Request, timeout time.Duration) (*http.Response, error) {
