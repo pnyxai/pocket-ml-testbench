@@ -14,14 +14,8 @@ type PocketRpc struct {
 	pageSize   int
 }
 
-type NodesQueryResponse struct {
-	Result     []*poktGoSdk.Node `json:"result"`
-	Page       int               `json:"page"`
-	TotalPages int               `json:"total_pages"`
-}
-
 type NodesPageChannelResponse struct {
-	Data  *NodesQueryResponse
+	Data  *poktGoSdk.GetNodesOutput
 	Error error
 }
 
@@ -168,7 +162,7 @@ func (rpc *PocketRpc) getNodesByPage(height int64, service string, page int, pag
 		}
 	}(resp.Body)
 
-	chResponse.Data, chResponse.Error = readResponse[NodesQueryResponse](resp)
+	chResponse.Data, chResponse.Error = readResponse[poktGoSdk.GetNodesOutput](resp)
 }
 
 func (rpc *PocketRpc) GetNodes(height int64, service string) (nodes []*poktGoSdk.Node, e error) {

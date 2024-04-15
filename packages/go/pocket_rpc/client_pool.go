@@ -86,6 +86,7 @@ func (cp *ClientPool) DoRRLoadBalanced(req *http.Request, timeout time.Duration)
 	backoff := NewBackoff(cp.opts.MinBackoff, cp.opts.MaxBackoff) // adjust min and max duration as necessary
 	clients := len(cp.clients)
 	allowBackoff := clients >= cp.opts.MaxRetries
+	backoffCounter := 0
 
 	for {
 		if retries >= cp.opts.MaxRetries {
@@ -94,7 +95,8 @@ func (cp *ClientPool) DoRRLoadBalanced(req *http.Request, timeout time.Duration)
 
 		if allowBackoff && retries > clients {
 			// apply backoff only when the retries are more than the available clients
-			time.Sleep(backoff.Duration(retries))
+			time.Sleep(backoff.Duration(backoffCounter))
+			backoffCounter++
 		}
 
 		client := cp.getClient()
