@@ -14,6 +14,18 @@ type PocketRpc struct {
 	pageSize   int
 }
 
+type PageAndServiceParams struct {
+	// this one on v0 is still called blockchain, but will be service on v1
+	Service string `json:"blockchain"`
+	Page    int    `json:"page"`
+	PerPage int    `json:"per_page"`
+}
+
+type HeightAndOptsParams struct {
+	Height int64                `json:"height"`
+	Opts   PageAndServiceParams `json:"opts"`
+}
+
 type NodesPageChannelResponse struct {
 	Data  *poktGoSdk.GetNodesOutput
 	Error error
@@ -116,18 +128,17 @@ func (rpc *PocketRpc) GetApp(address string) (*poktGoSdk.App, error) {
 	return readResponse[poktGoSdk.App](resp)
 }
 
-func (rpc *PocketRpc) getNodesByPage(height int64, service string, page int, pageSize int, ch chan NodesPageChannelResponse) {
+func (rpc *PocketRpc) getNodesByPage(service string, page int, pageSize int, ch chan NodesPageChannelResponse) {
 	chResponse := NodesPageChannelResponse{}
 	defer func(ch chan<- NodesPageChannelResponse, response *NodesPageChannelResponse) {
 		ch <- *response
-		close(ch)
 	}(ch, &chResponse)
-	params := map[string]any{
-		"height": height,
-		"opts": map[string]any{
-			"blockchain": service,
-			"page":       page,
-			"per_page":   pageSize,
+	params := HeightAndOptsParams{
+		Height: 0,
+		Opts: PageAndServiceParams{
+			Service: service,
+			Page:    page,
+			PerPage: pageSize,
 		},
 	}
 
@@ -165,12 +176,12 @@ func (rpc *PocketRpc) getNodesByPage(height int64, service string, page int, pag
 	chResponse.Data, chResponse.Error = readResponse[poktGoSdk.GetNodesOutput](resp)
 }
 
-func (rpc *PocketRpc) GetNodes(height int64, service string) (nodes []*poktGoSdk.Node, e error) {
+func (rpc *PocketRpc) GetNodes(service string) (nodes []*poktGoSdk.Node, e error) {
 	nodes = make([]*poktGoSdk.Node, 0)
 	chGetNodes := make(chan NodesPageChannelResponse, 5)
 	defer close(chGetNodes)
 
-	rpc.getNodesByPage(height, service, 1, rpc.pageSize, chGetNodes)
+	rpc.getNodesByPage(service, 1, rpc.pageSize, chGetNodes)
 
 	firstNodesPage := <-chGetNodes
 	if firstNodesPage.Error != nil {
@@ -183,7 +194,7 @@ func (rpc *PocketRpc) GetNodes(height int64, service string) (nodes []*poktGoSdk
 	defer close(chNextPages)
 
 	for i := 1; i < totalPages; i++ {
-		go rpc.getNodesByPage(height, service, i+1, rpc.pageSize, chNextPages)
+		go rpc.getNodesByPage(service, i+1, rpc.pageSize, chNextPages)
 	}
 
 	nodes = append(nodes, firstNodesPage.Data.Result...)

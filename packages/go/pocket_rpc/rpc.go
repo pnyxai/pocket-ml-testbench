@@ -74,5 +74,5 @@ type Rpc interface {
 	GetClientPool() *ClientPool
 	SetClientPool(clientPool *ClientPool)
 	GetApp(address string) (*poktGoSdk.App, error)
-	GetNodes(height int64) ([]*poktGoSdk.Node, error)
+	GetNodes(service string) ([]*poktGoSdk.Node, error)
 }

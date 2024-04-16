@@ -1,0 +1,62 @@
+{
+    "result": [
+      {
+        "address": "7c08e2e1265246a66d7d022b163970114dda124e",
+        "public_key": "33e1eac17dfce97abaa1387db52cea318edce277bfe5c790448f8ba22f602800",
+        "jailed": false,
+        "status": 2,
+        "tokens": "60000000000",
+        "service_url": "http://lean1.dev:8071",
+        "chains": [
+          "0001",
+          "0021",
+          "0040"
+        ],
+        "unstaking_time": "0001-01-01T00:00:00Z"
+      },
+      {
+        "address": "9ab105b900c4633657f60974ad0e243c8f50ae1e",
+        "public_key": "7bdc0d52b37654e88273d3db2e5a8e5366d58ddc21b9b3dbb3263528812d9bb7",
+        "jailed": false,
+        "status": 2,
+        "tokens": "60000000000",
+        "service_url": "http://lean2.dev:8081",
+        "chains": [
+          "0001",
+          "0021",
+          "0040"
+        ],
+        "unstaking_time": "0001-01-01T00:00:00Z"
+      },
+      {
+        "address": "cb85946c8171e3bbe78f5dbc01469053419b7be1",
+        "public_key": "b02f4a2d8c887a24a7172fa9ce982d0c0825d35fab37816101ff5ab8a6272dc0",
+        "jailed": false,
+        "status": 2,
+        "tokens": "60000000000",
+        "service_url": "http://lean3.dev:8091",
+        "chains": [
+          "0001",
+          "0021",
+          "0040"
+        ],
+        "unstaking_time": "0001-01-01T00:00:00Z"
+      },
+      {
+        "address": "5e6949faf0a176fd0f3a0e2ef948d7a70ee2867b",
+        "public_key": "b2ef60d9f83d4250adca27aaa26a234502e009167bbf29328871c0f7dacc19a6",
+        "jailed": false,
+        "status": 2,
+        "tokens": "60000000000",
+        "service_url": "http://local1.dev:8071",
+        "chains": [
+          "0001",
+          "0021",
+          "0040"
+        ],
+        "unstaking_time": "0001-01-01T00:00:00Z"
+      }
+    ],
+    "page": 1,
+    "total_pages": 1
+}
