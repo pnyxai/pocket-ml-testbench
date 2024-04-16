@@ -1,5 +1,5 @@
 {
-  "postgres_uri": "postgresql://USER:PASS@NETWORK:5432/TABLE",
+  "postgres_uri": "postgresql://USER:PASS@NETWORK:5432/DATABASE",
   "mongodb_uri": "mongodb://NETWORK:27017",
   "log_level": "DEBUG",
   "temporal": {
