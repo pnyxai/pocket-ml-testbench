@@ -12,7 +12,7 @@ from lm_eval.tasks import TaskManager
 
 # add file path to sys.path
 sys.path.append(os.path.dirname(os.path.realpath(__file__)))
-from activities.lmeh.utils import register as lmeh_register
+from activities.lmeh.utils import generator as lmeh_generator
 from activities.lmeh.utils import sql as lmeh_sql
 from urllib.parse import urlparse
 import psycopg2
@@ -112,14 +112,15 @@ async def register_task(args: PocketNetworkRegisterTaskRequest) -> bool:
         if not lmeh_sql.checked_task(task_name_i, connection= conn):
             try:
                 eval_logger.info("Generating ConfigurableTask", task=task_name_i)
-                task_dict_i = lmeh_register.get_ConfigurableTask(
+                task_dict_i = lmeh_generator.get_ConfigurableTask(
                     tasks=[task_name_i],
                     num_fewshot=None,
                     check_integrity=False,
                     gen_kwargs=None,
-                    task_manager= None,
-                    verbosity= "INFO",
-                    predict_only= False,    
+                    task_manager=task_manager,
+                    verbosity="INFO",
+                    predict_only=False,
+                    eval_logger=eval_logger
                 )
                 eval_logger.info("ConfigurableTask generatation successful")
             except Exception as e:

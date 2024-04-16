@@ -28,7 +28,7 @@ sys.path.append(os.path.dirname(os.path.realpath(__file__)))
 # Custom modules
 from activities.lmeh.utils import generator as lmeh_generator
 from protocol.protocol import PocketNetworkTaskRequest
-
+from activities.lmeh.utils.pocket_lm_eval.tasks import PocketNetworkTaskManager
 
 @activity.defn
 async def sample(args: PocketNetworkTaskRequest) -> bool:
@@ -89,18 +89,17 @@ async def sample(args: PocketNetworkTaskRequest) -> bool:
                 )
 
     eval_logger.info("Generating ConfigurableTask")
-
+    task_manager = PocketNetworkTaskManager(args.verbosity, pocket_args=args, logger=eval_logger)
     try:
         task_dict = lmeh_generator.get_ConfigurableTask(
-            tasks=task_names,
-            num_fewshot=None,
-            check_integrity=False,
-            gen_kwargs=None,
-            task_manager= None,
-            verbosity= args.verbosity,
-            predict_only= False,
-            pocket_args=args,
-            eval_logger= eval_logger,
+            tasks = task_names,
+            num_fewshot = None,
+            check_integrity = False,
+            gen_kwargs = None,
+            task_manager = task_manager,
+            verbosity =  args.verbosity,
+            predict_only = False,
+            eval_logger = eval_logger,
         )
         eval_logger.info("ConfigurableTask generated successfully:", task_dict=task_dict)
     except ApplicationError as e:

@@ -20,7 +20,7 @@ from lm_eval.evaluator_utils import (
     run_task_tests,
 )
 from lm_eval.tasks import TaskManager, get_task_dict
-from utils.pocket_lm_eval.tasks import PocketNetworkTaskManager
+from activities.lmeh.utils.pocket_lm_eval.tasks import PocketNetworkTaskManager
 from lm_eval.utils import positional_deprecated, simple_parse_args_string
 
 
@@ -28,7 +28,6 @@ if TYPE_CHECKING:
     from lm_eval.api.model import LM
     from lm_eval.tasks import Task
 
-from protocol.protocol import PocketNetworkTaskRequest
 from temporalio.exceptions import ApplicationError
 
 # adapted from evaluator.py # def simple_evaluate(..) from lm-eval-harness to generate config task 
@@ -38,12 +37,10 @@ def get_ConfigurableTask(
     num_fewshot: Optional[int] = None,
     check_integrity: bool = False,
     gen_kwargs: Optional[str] = None,
-    task_manager: Optional[TaskManager] = None,
+    task_manager: Optional[List[TaskManager, PocketNetworkTaskManager]] = None,
     verbosity: str = "INFO",
     predict_only: bool = False,
-    pocket_args: PocketNetworkTaskRequest = None,
     eval_logger: Optional[logging.Logger] = None,
-
 ):
     """Instantiate and evaluate a model on a list of tasks.
 
@@ -62,7 +59,6 @@ def get_ConfigurableTask(
     :return
         Task dictionary
     """
-    start_date = time.time()    
 
     seed_message = []
 
@@ -86,7 +82,7 @@ def get_ConfigurableTask(
             gen_kwargs = None
 
     if task_manager is None:
-        task_manager = PocketNetworkTaskManager(verbosity, pocket_args=pocket_args, logger=eval_logger)
+        task_manager = TaskManager(verbosity)
 
     task_dict = get_task_dict(tasks, task_manager)
     for task_name in task_dict.keys():
