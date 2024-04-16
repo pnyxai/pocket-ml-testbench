@@ -1,9 +1,9 @@
 {
-  "postgres_uri": "postgresql://USER:PASS@NETWORK:5432/DATABASE",
-  "mongodb_uri": "mongodb://NETWORK:27017",
+  "postgres_uri": "postgresql://admin:admin@postgresql:5432/postgres",
+  "mongodb_uri": "mongodb://127.0.0.1:27017/?replicaSet=devRs",
   "log_level": "DEBUG",
   "temporal": {
-    "host": "NETWORK",
+    "host": "temporal",
     "port": 7233,
     "namespace": "pocket-ml-testbench",
     "task_queue": "sampler-local",

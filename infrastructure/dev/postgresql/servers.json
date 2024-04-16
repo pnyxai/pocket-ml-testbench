@@ -5,7 +5,7 @@
       "Group": "Servers",
       "Host": "postgresql",
       "Port": 5432,
-      "MaintenanceDB": "lm-evaluation-harness",
+      "MaintenanceDB": "postgres",
       "Username": "admin",
       "PassFile": "/pgadmin4/pgpass",
       "SSLMode": "prefer"

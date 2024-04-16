@@ -46,7 +46,9 @@ def get_logger(name, level=logging.INFO):
     logger.setLevel(level)
     # Add console handler for the logger
     ch = logging.StreamHandler(sys.stdout)
-    logger.addHandler(ch)
+    # only add the handler if it doesn't already exist
+    if not logger.hasHandlers():
+        logger.addHandler(ch)
     configure_structlog()
     logger = structlog.wrap_logger(logger)
     loggers[name] = logger

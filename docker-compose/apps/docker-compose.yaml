@@ -1,0 +1,19 @@
+services:
+  sampler-worker:
+    image: docker.io/library/pocket_sampler:latest
+    container_name: sampler
+    environment:
+      CONFIG_PATH: /config/config.json
+    volumes:
+      - $SAMPLER_CONFIG_FILE:/config/config.json
+    networks:
+     - postgresql
+     - temporal
+
+networks:
+  temporal:
+    name: temporal
+    external: true
+  postgresql:
+    name: postgresql
+    external: true

@@ -27,10 +27,13 @@ from lm_eval.api.task import ConfigurableTask, TaskConfig, ALL_OUTPUT_TYPES
 from lm_eval.filters import build_filter_ensemble
 from lm_eval.prompts import get_prompt
 
-eval_logger = logging.getLogger("lm-eval")
+from app.app import get_app_logger
+eval_logger = get_app_logger("sample")
+
 
 import psycopg2
 from urllib.parse import urlparse
+from temporalio.exceptions import ApplicationError
 
 def get_max_min_ids(uri:str, table_name:str):
     """
@@ -78,23 +81,28 @@ def get_max_min_ids(uri:str, table_name:str):
                 MIN("__id") AS min_id,
                 MAX("__id") AS max_id
             FROM
-                {}
+                "{}"
             GROUP BY
                 "__split";
         """.format(table_name)
-
+        eval_logger.debug(f"SQL query:", sql_query=sql_query)
         # Execute the SQL query
         cursor.execute(sql_query)
 
         # Fetch all rows from the result
         rows = cursor.fetchall()
+        # assert that rows is not empty
+        if len(rows) == 0:
+            eval_logger.error(f"No rows found in table:", table_name=table_name, sql_query=sql_query)
+            raise ApplicationError(f"No rows found in table {table_name}", non_retryable=True)
+
         _split_ranges = {}
-        # Print the result
         for row in rows:
             _split_ranges[row[0]] = {'min':row[1], 'max': row[2]}
 
     except (Exception, psycopg2.Error) as error:
-        print("Error while connecting to PostgreSQL", error)
+        eval_logger.error(f"Error while connecting to PostgreSQL:", error=error)
+        raise ApplicationError("Error while connecting to PostgreSQL", non_retryable=True)
 
     finally:
         # Close the cursor and database connection
@@ -138,11 +146,13 @@ def get_split_from_ids(_split_ranges : dict, __ids:List[int]):
                 break
     # all ids should belong to a split range
     if len(split_range) != len(__ids):
-        raise ValueError("Some ids do not belong to any split range")
+        eval_logger.error(f"Ids not in split range:", split_range=split_range, __ids=__ids)
+        raise ApplicationError("Some ids do not belong to any split range", non_retryable=True)
 
     # all ids should belong to a unique split range
     if len(set(split_range)) != 1:
-        raise ValueError("Some ids belong to more than one split. Please check that ids belong to only one split (test or validation).")
+        eval_logger.error(f"Ids in more than one split:", __ids=__ids, split_range=split_range)
+        raise ApplicationError("Some ids belong to more than one split.", non_retryable=True)
 
 
     return list(set(split_range))[0]
@@ -157,8 +167,10 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
         This function checks if a self.config.split exists in the keys of _split_ranges
         """
         if split not in _split_ranges.keys():
-            raise ValueError(
-                f"'{split}' split not found in _split_ranges: {_split_ranges.keys()}"
+            eval_logger.error(f"Split not found in _split_ranges:", split=split, _split_ranges=_split_ranges)
+            raise ApplicationError(
+                f"'{split}' split not found in _split_ranges: {_split_ranges.keys()}",
+                non_retryable=True
             )
         
     def add_string_ids_range(self, split: str, id_list_str: str, _split_ranges: dict):
@@ -175,7 +187,7 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
         """
         min_range = _split_ranges[split]['min']
         max_range = _split_ranges[split]['max']+1
-        eval_logger.debug(f"adding split \'{split}\' to id_list_str from ranges: {min_range}-{max_range}")
+        eval_logger.debug(f"Adding ids from split range:", split=split, min_range=min_range, max_range=max_range)
         id_list_str += ', '.join(str(id) for id in range(min_range, max_range))
         return id_list_str
     
@@ -185,7 +197,11 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
         """
         # check that the quantity of numbers to generate is less than the range
         if qty > (max - min + 1):
-            raise ValueError("Quantity of numbers to generate is greater than the range")
+            eval_logger.error(f"quantity overflow:", table_name=table_name, _split=_split, qty=qty, range_min=min, range_max=max)
+            raise ApplicationError(
+                "Quantity of numbers to generate is greater than the range", 
+                non_retryable=True
+                )
         # Generate a list of random numbers within the range [min, max] excluding the blacklist
         ints = set(range(min, max+1))
         if blacklist is not None:
@@ -194,7 +210,11 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
             ints = ints - set(blacklist)
             # Check that the blacklist numbers were removed
             if len(ints) == original_len:
-                raise ValueError("Blacklist numbers corresponding to '{}' table & '{}' split were not founded in the range [min, max] generated: [{}-{}]".format(table_name, _split, min, max))
+                eval_logger.error(f"Blacklist out of range:", table_name=table_name, _split=_split, range_min=min, range_max=max, blacklist=blacklist)
+                raise ApplicationError(
+                    "Blacklist corresponding to '{}' table & '{}' split were not founded in the range: [{}-{}]".format(table_name, _split, min, max), 
+                    non_retryable=True
+                    )
 
         choices = list(np.random.choice(list(ints), qty, replace=False))
 
@@ -208,16 +228,16 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
 
         id_list_str = ''
         if self.config.test_split:
-            eval_logger.debug("in self.config.test_split")
             self.check_split_exist(self.config.test_split, _split_ranges)
             if _split != self.config.test_split:
-                raise ValueError(
-                    f"_split '{_split}' not equal to test_split '{self.config.test_split}'"
+                eval_logger.error(f"mismatch test_split:", _split=_split, test_split=self.config.test_split)
+                raise ApplicationError(
+                    f"_split '{_split}' not equal to test_split '{self.config.test_split}'",
+                    non_retryable=True
                 )
             
             id_list_str += ', '.join(str(id) for id in indexes)+', '
 
-            eval_logger.debug(f"Test split:\n {id_list_str}")
             if self.config.validation_split:
                 self.check_split_exist(self.config.validation_split, _split_ranges)
                 id_list_str = self.add_string_ids_range(self.config.validation_split, id_list_str, _split_ranges)
@@ -231,14 +251,14 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
                 id_list_str = self.add_string_ids_range(self.config.fewshot_split, id_list_str, _split_ranges)
 
         elif self.config.validation_split:
-            eval_logger.debug(f"in self.config.validation_split")            
             self.check_split_exist(self.config.validation_split, _split_ranges)
             if _split != self.config.validation_split:
-                raise ValueError(
-                    f"_split '{_split}' not equal to validation_split '{self.config.validation_split}'"
+                eval_logger.error(f"mismatch validation_split:", _split=_split, validation_split=self.config.validation_split)
+                raise ApplicationError(
+                    f"_split '{_split}' not equal to validation_split '{self.config.validation_split}'",
+                    non_retryable=True
                 )
             id_list_str += ', '.join(str(id) for id in indexes)+', '
-            eval_logger.debug(f"Validation split:\n {id_list_str}")
             if self.config.training_split:
                 self.check_split_exist(self.config.training_split, _split_ranges)
                 id_list_str = self.add_string_ids_range(self.config.training_split, id_list_str, _split_ranges)
@@ -247,8 +267,11 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
                 self.check_split_exist(self.config.fewshot_split, _split_ranges)
                 id_list_str = self.add_string_ids_range(self.config.fewshot_split, id_list_str, _split_ranges)
         else:
-            # error
-            raise ValueError("Neither test_split nor validation_split in config, cannot proceed, please check get_SQL_where_clause")
+            eval_logger.error(f"Config without splits:", config=self.config)
+            raise ApplicationError(
+                "Neither test_split nor validation_split in config, cannot proceed, please check get_SQL_where_clause",
+                non_retryable=True                
+                )
         
         where_clause = f"__id IN ({id_list_str})"
 
@@ -256,12 +279,13 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
     
     def download(self, dataset_kwargs: Optional[Dict[str, Any]] = None) -> None:
 
-        blacklist = self._config.metadata['pocket_args']['blacklist']
-        qty = self._config.metadata['pocket_args']['qty']
-        uri = self._config.metadata['pocket_args']['uri']
+        blacklist = self._config.metadata['pocket_args'].blacklist
+        qty = self._config.metadata['pocket_args'].qty
+        postgres_uri = self._config.metadata['pocket_args'].postgres_uri
         table_name = self.DATASET_PATH + "--" + self.DATASET_NAME if self.DATASET_NAME else self.DATASET_PATH
-        _split_ranges = get_max_min_ids(table_name=table_name, uri=uri)
-        eval_logger.debug(f"Split ranges:\n{ _split_ranges}")
+        eval_logger.debug(f"table_name:",table_name=table_name)
+        _split_ranges = get_max_min_ids(table_name=table_name, uri=postgres_uri)
+        eval_logger.debug(f"Split ranges:",_split_ranges=_split_ranges)
 
         # Its necesarry to detect wich is the split used to test to take the range, and then get random indexes
         if self.config.test_split:
@@ -273,18 +297,21 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
             # validate that the split exists in the _split_ranges
             self.check_split_exist(_split, _split_ranges)
         else:
-            raise ValueError(f"Neither {self.config.test_split} nor {self.config.validation_split} in splits were found in '_split_ranges'. Available splits are {_split_ranges.keys()}")
+            eval_logger.error(f"Config without splits:", config=self.config)
+            raise ApplicationError(
+                f"Neither {self.config.test_split} nor {self.config.validation_split} in splits were found in '_split_ranges'. Available splits are {_split_ranges.keys()}",
+                non_retryable=True
+                )
 
         _range = _split_ranges[_split]
         indexes = self.generate_random_numbers(table_name, _split, qty, _range['min'], _range['max'], blacklist)
 
         where_clause = self.get_SQL_where_clause(indexes, _split, _split_ranges)
         # Construct the full SQL query
-        sql_query = f"SELECT * FROM {table_name} WHERE {where_clause};"
-    
-        ds = datasets.Dataset.from_sql(sql_query, con = uri)
+        sql_query = f"SELECT * FROM \"{table_name}\" WHERE {where_clause};"
+        ds = datasets.Dataset.from_sql(sql_query, con = postgres_uri)
         dataset = datasets.DatasetDict()
         for split in ds.unique("__split"):
-            eval_logger.debug(f"Split: {split}")
+            eval_logger.debug(f"Adding split to DatasetDict:", split=split)
             dataset[split] = ds.filter(lambda x: x["__split"] == split)
         self.dataset = dataset.remove_columns(["__id", "__split"])

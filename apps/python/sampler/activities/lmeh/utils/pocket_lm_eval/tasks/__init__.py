@@ -9,6 +9,8 @@ from lm_eval.api.task import Task
 from lm_eval.tasks import TaskManager
 from utils.pocket_lm_eval.api.task import PocketNetworkConfigurableTask
 
+from protocol.protocol import PocketNetworkTaskRequest
+from temporalio.exceptions import ApplicationError
 
 class PocketNetworkTaskManager(TaskManager):
     """PocketNetworkTaskManager indexes all tasks from the default `lm_eval/tasks/`
@@ -16,12 +18,16 @@ class PocketNetworkTaskManager(TaskManager):
 
     """
 
-    def __init__(self, verbosity="INFO", include_path: Optional[str] = None, pocket_args: Optional[Dict] = None) -> None:
+    def __init__(self, verbosity="INFO", 
+                 include_path: Optional[str] = None, 
+                 pocket_args: PocketNetworkTaskRequest = None, 
+                 logger: Optional[logging.Logger] = None
+                 ) -> None:
         self.verbosity = verbosity
         self.include_path = include_path
         self.pocket_args = pocket_args
-        self.logger = utils.eval_logger
-        self.logger.setLevel(getattr(logging, f"{verbosity}"))
+        self.logger = logger
+        # self.logger.setLevel(getattr(logging, f"{verbosity}"))
 
         self._task_index = self.initialize_tasks(include_path=include_path)
         self._all_tasks = sorted(list(self._task_index.keys()))
@@ -38,7 +44,7 @@ class PocketNetworkTaskManager(TaskManager):
         def load_task(config, task, group=None, yaml_path=None):
             if "include" in config:
                 if yaml_path is None:
-                    raise ValueError
+                    raise ApplicationError(f"YAML path not provided for {task}", non_retryable=True)
                 config.update(
                     utils.load_yaml_config(
                         yaml_path,
@@ -64,9 +70,9 @@ class PocketNetworkTaskManager(TaskManager):
                 # START: POCKET NETWORK CODE
                 ############################################################
                 if 'metadata' in task_config.keys():
-                    task_config['metadata'].update({'pocket_args':self.pocket_args[task_config['task']]})
+                    task_config['metadata'].update({'pocket_args':self.pocket_args})
                 else:
-                    task_config['metadata'] = {'pocket_args':self.pocket_args[task_config['task']]}
+                    task_config['metadata'] = {'pocket_args':self.pocket_args}
                 ############################################################
                 # END: POCKET NETWORK CODE
                 ############################################################                    
@@ -141,9 +147,9 @@ class PocketNetworkTaskManager(TaskManager):
                         # START: POCKET NETWORK CODE
                         ############################################################
                         if 'metadata' in task_config.keys():
-                            task_config['metadata'].update({'pocket_args':self.pocket_args[task_config['task']]})
+                            task_config['metadata'].update({'pocket_args':self.pocket_args})
                         else:
-                            task_config['metadata'] = {'pocket_args':self.pocket_args[task_config['task']]}
+                            task_config['metadata'] = {'pocket_args':self.pocket_args}
                         ############################################################
                         # END: POCKET NETWORK CODE
                         ############################################################

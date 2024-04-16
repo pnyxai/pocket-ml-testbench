@@ -21,6 +21,7 @@ logs
 # Python
 __pycache__
 **/venv
+**/.venv
 
 # Deleted files
 .fuse_hidden*

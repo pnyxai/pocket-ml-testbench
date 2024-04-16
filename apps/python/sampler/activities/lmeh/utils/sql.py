@@ -122,7 +122,6 @@ def create_dataset_table(table_name:str, data:datasets.DatasetDict, connection:p
     connection.commit()
 
     # Insert data into the table
-    #insert_query = sql.SQL("INSERT INTO {} ({}) VALUES ({}) ON CONFLICT DO NOTHING;").format(
     insert_query = sql.SQL("INSERT INTO {} ({}) VALUES ({});").format(        
         sql.Identifier(table_name),
         sql.SQL(', ').join(map(sql.Identifier, columns.keys())),

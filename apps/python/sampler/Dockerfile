@@ -3,14 +3,20 @@ FROM python:3.11.8-slim-bookworm
 RUN apt-get update -y && \ 
     apt-get install -y libpq-dev gcc git
 
-RUN mkdir -p /code
-COPY ./requirements_dev.txt /code/requirements_dev.txt
-RUN pip install --no-cache-dir -r /code/requirements_dev.txt
+RUN mkdir -p /app
+RUN mkdir -p /configs
 
+COPY apps/python/sampler/pyproject.toml /app/pyproject.toml
 
+WORKDIR /app
 
-# Mirror folder without unnecesary files
-COPY ./sampler.py /code/sampler.py
-COPY ./utils /code/utils
+RUN pip3 install poetry
 
-ENTRYPOINT ["python3"]
+RUN poetry config virtualenvs.create false
+
+RUN poetry install
+
+COPY apps/python/sampler /app
+COPY packages /app/packages
+
+ENTRYPOINT ["poetry", "run", "python3", "worker/main.py"]
