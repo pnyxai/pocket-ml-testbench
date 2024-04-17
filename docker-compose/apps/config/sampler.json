@@ -1,6 +1,6 @@
 {
-  "postgres_uri": "postgresql://admin:admin@postgresql:5432/postgres",
-  "mongodb_uri": "mongodb://127.0.0.1:27017/?replicaSet=devRs",
+  "postgres_uri": "postgresql://admin:admin@postgresql:5432/pocket-ml-testbench",
+  "mongodb_uri": "mongodb://mongodb:27017/pocket-ml-testbench?replicaSet=devRs",
   "log_level": "DEBUG",
   "temporal": {
     "host": "temporal",

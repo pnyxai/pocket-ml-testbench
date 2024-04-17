@@ -1,22 +1,36 @@
 FROM python:3.11.8-slim-bookworm
 
-RUN apt-get update -y && \ 
-    apt-get install -y libpq-dev gcc git
+RUN apt-get update -y && \
+    apt-get install -y libpq-dev gcc git && \
+    groupadd -r app && \
+    useradd -r -g app -d /home/app -s /sbin/nologin -c "Docker image user" app && \
+    mkdir /home/app && \
+    mkdir -p /home/app/code && \
+    mkdir -p /home/app/configs && \
+    chown -R app:app /home/app
 
-RUN mkdir -p /app
-RUN mkdir -p /configs
+# create default working directory
+WORKDIR /home/app/code
 
-COPY apps/python/sampler/pyproject.toml /app/pyproject.toml
+# install poetry as root and give app user access to it
+RUN pip3 install poetry && chown app:app /usr/local/bin/poetry
 
-WORKDIR /app
+# copy poetry dependencies files
+COPY apps/python/sampler/pyproject.toml /home/app/code/pyproject.toml
+COPY apps/python/sampler/poetry.lock /home/app/code/poetry.lock
 
-RUN pip3 install poetry
+# set app user as the user that will runs the commands below
+USER app
 
-RUN poetry config virtualenvs.create false
+# install only external dependencies without source code
+RUN poetry  install --only main --no-root --no-directory
 
-RUN poetry install
+# copy source code
+COPY apps/python/sampler /home/app/code
+COPY packages /home/app/code/packages
 
-COPY apps/python/sampler /app
-COPY packages /app/packages
+# install local packages (todo: implement our local packages to use this)
+RUN poetry install --only main
 
+# default entry point
 ENTRYPOINT ["poetry", "run", "python3", "worker/main.py"]
