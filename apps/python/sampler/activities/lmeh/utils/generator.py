@@ -37,7 +37,7 @@ def get_ConfigurableTask(
     num_fewshot: Optional[int] = None,
     check_integrity: bool = False,
     gen_kwargs: Optional[str] = None,
-    task_manager: Optional[List[TaskManager, PocketNetworkTaskManager]] = None,
+    task_manager: Optional[List[Union[TaskManager, PocketNetworkTaskManager]]] = None,
     verbosity: str = "INFO",
     predict_only: bool = False,
     eval_logger: Optional[logging.Logger] = None,
