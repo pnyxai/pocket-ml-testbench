@@ -1,14 +1,18 @@
 services:
   sampler-worker:
-    image: docker.io/library/pocket_sampler:latest
+    build:
+      context: ../../
+      dockerfile: apps/python/sampler/Dockerfile
+    image: pocket_sampler:dev
     container_name: sampler
     environment:
-      CONFIG_PATH: /config/config.json
+      CONFIG_PATH: /home/app/configs/config.json
     volumes:
-      - $SAMPLER_CONFIG_FILE:/config/config.json
+      - $SAMPLER_CONFIG_FILE:/home/app/configs/config.json
     networks:
      - postgresql
      - temporal
+     - mongodb
 
 networks:
   temporal:
@@ -16,4 +20,7 @@ networks:
     external: true
   postgresql:
     name: postgresql
+    external: true
+  mongodb:
+    name: mongodb
     external: true
