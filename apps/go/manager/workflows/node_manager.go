@@ -46,7 +46,7 @@ func (wCtx *Ctx) NodeManager(ctx workflow.Context, params NodeManagerParams) (*N
 		l.Error().Msg("Task array cannot be empty.")
 		return &result, fmt.Errorf("task array cannot be empty")
 	}
-	if len(params.Tasks) == 0 {
+	if len(params.Services) == 0 {
 		l.Error().Msg("Services array cannot be empty.")
 		return &result, fmt.Errorf("services array cannot be empty")
 	}
@@ -56,13 +56,17 @@ func (wCtx *Ctx) NodeManager(ctx workflow.Context, params NodeManagerParams) (*N
 	// -------------------------------------------------------------------------
 	// Set timeout to get staked nodes activity
 	ctxTimeout := workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
-		ScheduleToStartTimeout: time.Minute,
-		StartToCloseTimeout:    time.Minute,
+		ScheduleToStartTimeout: time.Minute * 5,
+		StartToCloseTimeout:    time.Minute * 5,
 	})
+	// Set activity input
+	getStakedInput := activities.GetStakedParams{
+		Services: params.Services,
+	}
 	// Results will be kept logged by temporal
 	var stakedNodes activities.GetStakedResults
 	// Execute activity
-	err := workflow.ExecuteActivity(ctxTimeout, activities.GetStakedName).Get(ctx, &stakedNodes)
+	err := workflow.ExecuteActivity(ctxTimeout, activities.GetStakedName, getStakedInput).Get(ctx, &stakedNodes)
 	if err != nil {
 		return &result, err
 	}

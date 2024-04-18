@@ -17,6 +17,7 @@ import (
 	"manager/types"
 	"manager/workflows"
 	"packages/mongodb"
+	"packages/pocket_rpc"
 	"time"
 )
 
@@ -32,12 +33,22 @@ func Initialize() *types.App {
 	// Initialize connection to mongo db
 	collectionNames := []string{"nodes"}
 	mongoCon := mongodb.Initialize(cfg.MongodbUri, collectionNames, l)
+	// Initialize connection to RPC
+	clientPoolOpts := pocket_rpc.ClientPoolOptions{
+		MaxRetries: cfg.Rpc.Retries,
+		ReqPerSec:  cfg.Rpc.ReqPerSec,
+		MinBackoff: time.Duration(cfg.Rpc.MinBackoff),
+		MaxBackoff: time.Duration(cfg.Rpc.MaxBackoff),
+	}
+	clientPool := pocket_rpc.NewClientPool(cfg.Rpc.Urls, &clientPoolOpts, l)
+	pocketRpc := pocket_rpc.NewPocketRpc(clientPool)
 
 	// Create instance of App data
 	ac := &types.App{
-		Logger:  l,
-		Config:  cfg,
-		Mongodb: mongoCon,
+		Logger:    l,
+		Config:    cfg,
+		Mongodb:   mongoCon,
+		PocketRpc: pocketRpc,
 	}
 
 	// SetAppConfig sets the provided app config to the Workflows global variable in the Ctx struct.

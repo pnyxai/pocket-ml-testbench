@@ -2,7 +2,6 @@ package activities
 
 import (
 	"context"
-	"fmt"
 )
 
 type GetStakedParams struct {
@@ -25,19 +24,42 @@ func (aCtx *Ctx) GetStaked(ctx context.Context, params GetStakedParams) (*GetSta
 	l := aCtx.App.Logger
 	l.Debug().Msg("Collecting staked nodes from network.")
 
-	// Get all nodes in given chain
-
-	// Fill json
-
-	// Return data
-
-	// cheap mock
 	result := GetStakedResults{}
 
-	for i := 0; i < 5; i++ {
-		thisNode := NodeData{Address: fmt.Sprint(i), Service: fmt.Sprint(i * 10)}
-		result.Nodes = append(result.Nodes, thisNode)
+	// Get all nodes in given chain
+	for _, service := range params.Services {
+		l.Debug().Str("service", service).Msg("Querying service...")
+		nodes, err := aCtx.App.PocketRpc.GetNodes(service)
+		if err != nil {
+			l.Error().Str("service", service).Msg("Could not retrieve staked nodes.")
+			return nil, err
+		}
+		if len(nodes) == 0 {
+			l.Warn().Str("service", service).Msg("No nodes found staked.")
+		}
+		for _, node := range nodes {
+			if !node.Jailed {
+				this_node := NodeData{
+					Address: node.Address,
+					Service: service,
+				}
+				result.Nodes = append(result.Nodes, this_node)
+			}
+		}
+
 	}
+
+	if len(result.Nodes) == 0 {
+		l.Warn().Msg("No nodes were found on any of the given services")
+	} else {
+		l.Info().Int("nodes_staked", len(result.Nodes)).Msg("Successfully pulled staked node-services.")
+	}
+
+	// // cheap mock
+	// for i := 0; i < 5; i++ {
+	// 	thisNode := NodeData{Address: fmt.Sprint(i), Service: fmt.Sprint(i * 10)}
+	// 	result.Nodes = append(result.Nodes, thisNode)
+	// }
 
 	return &result, nil
 }
