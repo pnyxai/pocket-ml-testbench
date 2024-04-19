@@ -10,7 +10,7 @@ import (
 )
 
 type NodeManagerParams struct {
-	Services      []string `json:"service"`
+	Service       string   `json:"service"`
 	SessionHeight int64    `json:"session_height"`
 	Tasks         []string `json:"tasks"`
 }
@@ -46,9 +46,9 @@ func (wCtx *Ctx) NodeManager(ctx workflow.Context, params NodeManagerParams) (*N
 		l.Error().Msg("Task array cannot be empty.")
 		return &result, fmt.Errorf("task array cannot be empty")
 	}
-	if len(params.Services) == 0 {
-		l.Error().Msg("Services array cannot be empty.")
-		return &result, fmt.Errorf("services array cannot be empty")
+	if len(params.Service) != 4 {
+		l.Error().Msg("Service must be a 4 letter string (4 digit hex number).")
+		return &result, fmt.Errorf("service must be a 4 letter string (4 digit hex number)")
 	}
 
 	// -------------------------------------------------------------------------
@@ -61,7 +61,7 @@ func (wCtx *Ctx) NodeManager(ctx workflow.Context, params NodeManagerParams) (*N
 	})
 	// Set activity input
 	getStakedInput := activities.GetStakedParams{
-		Services: params.Services,
+		Service: params.Service,
 	}
 	// Results will be kept logged by temporal
 	var stakedNodes activities.GetStakedResults

@@ -2,7 +2,7 @@ package activities
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -17,14 +17,14 @@ const CircularBufferLength uint32 = 50
 
 // Keep track of circular buffer start and end indexes
 type CircularIndexes struct {
-	Start uint32
-	End   uint32
+	Start uint32 `bson:"cir_start"`
+	End   uint32 `bson:"cir_end"`
 }
 
 // All information for a given task
 // Each task will have its own buffer and will be updated independently from others
 type TaskRecord struct {
-	Task          string                          `json:"task"`
+	Task          string                          `bson:"task"`
 	MeanScore     float32                         `bson:"mean_scores"`
 	StdScore      float32                         `bson:"std_scores"`
 	NumSamples    uint32                          `bson:"num_samples"`
@@ -36,14 +36,14 @@ type TaskRecord struct {
 // DB entry of a given node-service pair
 // The "Tasks" array will hold as many entries as tasks being tested
 type NodeRecord struct {
-	Address        string       `json:"address"`
-	Service        string       `json:"service"`
-	LastSeenHeight uint32       `json:"height"`
-	LastSeenTime   time.Time    `json:"time"`
-	Tasks          []TaskRecord `json:"tasks"`
+	Address        string       `bson:"address"`
+	Service        string       `bson:"service"`
+	LastSeenHeight uint32       `bson:"last_seen_height"`
+	LastSeenTime   time.Time    `bson:"last_seen_time"`
+	Tasks          []TaskRecord `bson:"tasks"`
 }
 
-func (record *NodeRecord) LoadNode(node NodeData, collection *mongo.Collection, l *zerolog.Logger) (bool, error) {
+func (record *NodeRecord) FindAndLoadNode(node NodeData, collection *mongo.Collection, l *zerolog.Logger) (bool, error) {
 
 	// Set filtering for this node-service pair data
 	node_filter := bson.D{{Key: "address", Value: node.Address}, {Key: "service", Value: node.Service}}
@@ -62,7 +62,7 @@ func (record *NodeRecord) LoadNode(node NodeData, collection *mongo.Collection, 
 			l.Warn().Str("address", node.Address).Str("service", node.Service).Msg("Node entry not found.")
 			found = false
 		} else {
-			l.Fatal().Msg("Could not retrieve node data from MongoDB.")
+			l.Error().Msg("Could not retrieve node data from MongoDB.")
 			return false, err
 		}
 	}
@@ -84,7 +84,7 @@ func (record *NodeRecord) Init(params AnalyzeNodeParams, l *zerolog.Logger) erro
 
 	// Create all tasks
 	if len(params.Tasks) == 0 {
-		return fmt.Errorf(`task array cannot be empty`)
+		return errors.New(`task array cannot be empty`)
 	}
 	for _, task := range params.Tasks {
 		var timeArray [CircularBufferLength]time.Time
@@ -128,7 +128,7 @@ func (record *NodeRecord) UpdateNode(collection *mongo.Collection, l *zerolog.Lo
 			l.Warn().Str("address", record.Address).Str("service", record.Service).Msg("Node entry not found, a new one was created.")
 			found = false
 		} else {
-			l.Fatal().Msg("Could not retrieve node data from MongoDB.")
+			l.Error().Msg("Could not retrieve node data from MongoDB.")
 			return false, err
 		}
 	}

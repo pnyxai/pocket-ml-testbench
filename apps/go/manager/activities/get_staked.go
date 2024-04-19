@@ -5,7 +5,7 @@ import (
 )
 
 type GetStakedParams struct {
-	Services []string
+	Service string
 }
 
 type NodeData struct {
@@ -27,26 +27,23 @@ func (aCtx *Ctx) GetStaked(ctx context.Context, params GetStakedParams) (*GetSta
 	result := GetStakedResults{}
 
 	// Get all nodes in given chain
-	for _, service := range params.Services {
-		l.Debug().Str("service", service).Msg("Querying service...")
-		nodes, err := aCtx.App.PocketRpc.GetNodes(service)
-		if err != nil {
-			l.Error().Str("service", service).Msg("Could not retrieve staked nodes.")
-			return nil, err
-		}
-		if len(nodes) == 0 {
-			l.Warn().Str("service", service).Msg("No nodes found staked.")
-		}
-		for _, node := range nodes {
-			if !node.Jailed {
-				this_node := NodeData{
-					Address: node.Address,
-					Service: service,
-				}
-				result.Nodes = append(result.Nodes, this_node)
+	l.Debug().Str("service", params.Service).Msg("Querying service...")
+	nodes, err := aCtx.App.PocketRpc.GetNodes(params.Service)
+	if err != nil {
+		l.Error().Str("service", params.Service).Msg("Could not retrieve staked nodes.")
+		return nil, err
+	}
+	if len(nodes) == 0 {
+		l.Warn().Str("service", params.Service).Msg("No nodes found staked.")
+	}
+	for _, node := range nodes {
+		if !node.Jailed {
+			this_node := NodeData{
+				Address: node.Address,
+				Service: params.Service,
 			}
+			result.Nodes = append(result.Nodes, this_node)
 		}
-
 	}
 
 	if len(result.Nodes) == 0 {

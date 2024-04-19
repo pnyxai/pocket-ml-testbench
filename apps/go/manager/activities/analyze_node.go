@@ -29,7 +29,7 @@ func (aCtx *Ctx) AnalyzeNode(ctx context.Context, params AnalyzeNodeParams) (*An
 
 	// Retrieve this node entry
 	var thisNodeData NodeRecord
-	found, err := thisNodeData.LoadNode(params.Node, nodesCollection, l)
+	found, err := thisNodeData.FindAndLoadNode(params.Node, nodesCollection, l)
 	if err != nil {
 		return nil, err
 	}
