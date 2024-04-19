@@ -127,3 +127,73 @@ def get_ConfigurableTask(
         run_task_tests(task_list=tasks)
 
     return task_dict
+
+def get_Instances(
+    task_dict,
+    limit: Optional[int] = None,
+    cache_requests: bool = False,
+    rewrite_requests_cache: bool = False,
+    write_out: bool = False,
+    log_samples: bool = True,
+    eval_logger: Optional[logging.Logger] = None,
+):
+    """Instantiate and evaluate a model on a list of tasks.
+
+    :param task_dict: dict[str, Task]
+        Dictionary of tasks. Tasks will be taken to have name type(task).config.task .
+    :param limit: int, optional
+        Limit the number of examples per task (only use this for testing)
+    :param write_out: bool
+        If True, write out an example document and model input for checking task integrity
+    :param log_samples: bool
+        If True, write out all model outputs and documents for per-sample measurement and post-hoc analysis
+    :return
+        Dictionary of results
+    """
+
+    # tracks all Instances/requests a model must generate output on.
+    requests = defaultdict(list)
+
+    # get lists of group hierarchy and each type of request
+    task_hierarchy, eval_tasks = get_task_list(task_dict)
+    if not log_samples:
+        if not all(
+            "bypass" not in getattr(task_output.task, "_metric_fn_list", {}).keys()
+            for task_output in eval_tasks
+        ):
+            raise ValueError("log_samples must be True for 'bypass' metric-only tasks")
+    for task_output in eval_tasks:
+        task: Task = task_output.task
+        limit = get_sample_size(task, limit)
+        task.build_all_requests(
+            limit=limit,
+            rank=0,
+            world_size=1,
+            cache_requests=cache_requests,
+            rewrite_requests_cache=rewrite_requests_cache,
+        )
+        eval_logger.debug(
+            f"Task: {task_output.task_name}; number of requests on this rank: {len(task.instances)}"
+        )
+
+        if write_out:
+            print_writeout(task)
+        # aggregate Instances by LM method requested to get output.
+        for instance in task.instances:
+            reqtype = instance.request_type
+            requests[reqtype].append(instance)
+        
+        ############################################################
+        # START: POCKET NETWORK CODE
+        ############################################################
+        # Verify that all request id are in task.config.metadata due to ConfigurableTask was modified.
+        for reqtype, rs in requests.items():
+            for r in rs:
+                task_n, doc_id = r.metadata[0], r.doc_id
+                if doc_id not in task_dict[task_n].config.metadata['pocket_args'].doc_ids:
+                    eval_logger.error(f"Instance id not found in task.config.metadata[\"pocket_args\"].doc_ids", instance_id=doc_id, task=task_n, task_ids=task_dict[task_n].config.metadata['pocket_args'].doc_ids)
+                    raise ApplicationError(f"Request id {doc_id} not found in task.config.metadata", non_retryable=True)
+        ############################################################
+        # END: POCKET NETWORK CODE
+        ############################################################                
+        return requests

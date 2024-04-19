@@ -23,7 +23,9 @@ from lm_eval.api.registry import (
     get_metric_aggregation,
     is_higher_better,
 )
+from tqdm import tqdm
 from lm_eval.api.task import ConfigurableTask, TaskConfig, ALL_OUTPUT_TYPES
+from lm_eval.caching.cache import load_from_cache, save_to_cache
 from lm_eval.filters import build_filter_ensemble
 from lm_eval.prompts import get_prompt
 
@@ -162,6 +164,95 @@ def get_split_from_ids(_split_ranges : dict, __ids:List[int]):
 
 class PocketNetworkConfigurableTask(ConfigurableTask):
 
+    def build_all_requests(
+        self,
+        *,
+        limit=None,
+        rank=None,
+        world_size=None,
+        cache_requests=False,
+        rewrite_requests_cache=False,
+    ) -> None:
+        """Build a set of Instances for a task, and store them in task.instances"""
+
+        # used with caching
+        og_limit = limit
+
+        cache_key = f"requests-{self._config.task}-{self.config.num_fewshot}shot-rank{rank}-world_size{world_size}"
+
+        cached_instances = load_from_cache(file_name=cache_key)
+
+        if cache_requests and cached_instances and not rewrite_requests_cache:
+            cached_instances = cached_instances[:limit]
+
+            flattened_instances = [
+                instance
+                for instance_group in cached_instances
+                for instance in instance_group
+            ]
+
+            self._instances = flattened_instances
+            return
+
+        eval_logger.info(f"Building contexts for {self.config.task} on rank {rank}...")
+
+        instances = []
+
+        # process all documents when caching is specified for simplicity
+        if (
+            cache_requests
+            and (not cached_instances or rewrite_requests_cache)
+            and limit is not None
+        ):
+            limit = None
+
+        doc_id_docs = list(
+            self.doc_iterator(rank=rank, limit=limit, world_size=world_size)
+        )
+
+        num_docs = len(doc_id_docs)
+
+        for doc_id, doc in tqdm(
+            doc_id_docs,
+            total=num_docs,
+        ):
+            # sample fewshot context #TODO: need to offset doc_id by rank now!
+            fewshot_ctx = self.fewshot_context(
+                doc,
+                0 if self.config.num_fewshot is None else self.config.num_fewshot,
+            )
+
+            # TODO: we should override self.config.repeats if doing greedy gen so users don't waste time+compute
+            pocket_id = self.config.metadata['pocket_args'].doc_ids[doc_id]
+            inst = self.construct_requests(
+                doc=doc,
+                ctx=fewshot_ctx,
+                metadata=(self.config["task"], pocket_id, self.config.repeats),
+            )
+
+            if not isinstance(inst, list):
+                inst = [inst]
+
+            instances.append(inst)
+
+        # now flatten, this is to allow slicing to work with pickles
+
+        sliced_instances = instances[:og_limit]
+
+        flattened_instances = [
+            instance
+            for instance_group in sliced_instances
+            for instance in instance_group
+        ]
+
+        self._instances = flattened_instances
+
+        if len(self._instances) == 0:
+            raise ValueError("task.build_requests() did not find any docs!")
+
+        if cache_requests and (not cached_instances or rewrite_requests_cache):
+            save_to_cache(file_name=cache_key, obj=instances)    
+
     def check_split_exist(self, split: str, _split_ranges: dict):
         """
         This function checks if a self.config.split exists in the keys of _split_ranges
@@ -215,9 +306,9 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
                     "Blacklist corresponding to '{}' table & '{}' split were not founded in the range: [{}-{}]".format(table_name, _split, min, max), 
                     non_retryable=True
                     )
-
-        choices = list(np.random.choice(list(ints), qty, replace=False))
-
+        # sorted random numbers
+        choices = sorted(np.random.choice(list(ints), qty, replace=False).tolist())
+        eval_logger.debug(f"Random numbers generated:", choices=choices)
         return choices
     
     def get_SQL_where_clause(self, indexes, _split: str, _split_ranges: dict):
@@ -315,3 +406,5 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
             eval_logger.debug(f"Adding split to DatasetDict:", split=split)
             dataset[split] = ds.filter(lambda x: x["__split"] == split)
         self.dataset = dataset.remove_columns(["__id", "__split"])
+        # save in config the indexes used to download the dataset
+        self._config.metadata['pocket_args'].doc_ids = indexes

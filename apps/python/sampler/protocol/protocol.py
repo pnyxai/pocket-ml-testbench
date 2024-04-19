@@ -13,9 +13,20 @@ class PocketNetworkTaskRequest(PocketNetworkRegisterTaskRequest):
     address: str
     blacklist: Optional[List[int]] = []
     qty: int
+    doc_ids: Optional[List[int]] = []
     # assert that "qty" is greater than 0
     @field_validator("qty")
     def check_qty(cls, v):
         if v <= 0:
             raise ValueError("qty must be greater than 0")
         return v
+
+
+class PocketNetworkMongoDBTask(BaseModel):
+    evaluation: Literal["lmeh", "helm"]
+    address: str
+    blacklist: Optional[List[int]] = []
+    qty: int
+    tasks: str
+    total_instances: int
+    request_type: str

@@ -27,8 +27,13 @@ from lm_eval.utils import make_table, simple_parse_args_string
 sys.path.append(os.path.dirname(os.path.realpath(__file__)))
 # Custom modules
 from activities.lmeh.utils import generator as lmeh_generator
-from protocol.protocol import PocketNetworkTaskRequest
+from protocol.protocol import PocketNetworkTaskRequest, PocketNetworkMongoDBTask
 from activities.lmeh.utils.pocket_lm_eval.tasks import PocketNetworkTaskManager
+
+from pymongo import MongoClient
+from collections import defaultdict
+from dataclasses import asdict
+
 
 @activity.defn
 async def sample(args: PocketNetworkTaskRequest) -> bool:
@@ -40,6 +45,13 @@ async def sample(args: PocketNetworkTaskRequest) -> bool:
     eval_logger.info(f"Starting activity sample:", task_name=args.tasks, address=args.address, blacklist=args.blacklist, qty=args.qty)
     args.postgres_uri = config["postgres_uri"]
     args.mongodb_uri = config["mongodb_uri"]
+    mongo_client = config["mongo_client"]
+    try:
+        # The ping command is cheap and does not require auth.
+        mongo_client.admin.command('ping')
+    except Exception as e:
+        eval_logger.error(f"Mongo DB connection failed.")
+        raise ApplicationError("Mongo DB connection failed.", non_retryable=True)
     ############################################################
     # END: POCKET NETWORK CODE
     ############################################################
@@ -106,4 +118,29 @@ async def sample(args: PocketNetworkTaskRequest) -> bool:
         raise e
     except Exception as e:
         raise e
+    
+    requests = lmeh_generator.get_Instances(task_dict, eval_logger=eval_logger)
+    eval_logger.info("Instances generated successfully:", task_names=task_names)
+
+    try:
+        # Save instances to MongoDB
+        for request_type, instances in requests.items():
+            # save task into MongoDB
+            task_mongodb = PocketNetworkMongoDBTask(**{
+                **args.model_dump(),
+                **{"total_instances": len(instances),
+                "request_type": request_type}}) 
+            task_id = mongo_client['pocket-ml-testbench']['tasks'].insert_one(task_mongodb.model_dump()).inserted_id
+            for instance in instances:
+                instance_mongo = asdict(instance)
+                instance_mongo['task_id'] = task_id
+                mongo_client['pocket-ml-testbench']['instances'].insert_one(instance_mongo)
+        
+        eval_logger.info("Instances saved to MongoDB successfully.")
+    except Exception as e:
+        eval_logger.error("Failed to save Instances to MongoDB.")
+        raise ApplicationError("Failed to save instances to MongoDB.", error=e, non_retryable=True)
+    
+    # TODO Populate Requests collection. Regard! ALL_OUTPUT_TYPES = ["loglikelihood", "multiple_choice", "loglikelihood_rolling", "generate_until"]
+
     return True

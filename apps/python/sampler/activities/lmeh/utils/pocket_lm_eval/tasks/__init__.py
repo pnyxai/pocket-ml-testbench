@@ -7,7 +7,7 @@ from typing import Dict, List, Mapping, Optional, Union
 from lm_eval import utils
 from lm_eval.api.task import Task
 from lm_eval.tasks import TaskManager
-from utils.pocket_lm_eval.api.task import PocketNetworkConfigurableTask
+from activities.lmeh.utils.pocket_lm_eval.api.task import PocketNetworkConfigurableTask
 
 from protocol.protocol import PocketNetworkTaskRequest
 from temporalio.exceptions import ApplicationError
