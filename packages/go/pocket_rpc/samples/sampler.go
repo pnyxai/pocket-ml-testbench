@@ -11,18 +11,22 @@ import (
 )
 
 var (
-	Block     = path.Join("samples", "query_block.json")
-	App       = path.Join("samples", "query_app.json")
-	Dispatch  = path.Join("samples", "query_dispatch.json")
-	AllParams = path.Join("samples", "query_allparams.json")
-	Nodes     = path.Join("samples", "query_nodes.json")
+	Block     = "query_block.json"
+	App       = "query_app.json"
+	Dispatch  = "query_dispatch.json"
+	AllParams = "query_allparams.json"
+	Nodes     = "query_nodes.json"
+	BasePath  = "."
 )
+
+func SetBasePath(bPath string) {
+	BasePath = bPath
+}
 
 func GetSampleFromFile[T interface{}](filename string) (*T, error) {
 	var res T
-
 	// Read the file
-	data, err := os.ReadFile(filename)
+	data, err := os.ReadFile(path.Join(BasePath, filename))
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Unable to read file: %v", err))
 	}

@@ -53,3 +53,48 @@ func (rpc *MockRpc) GetNodes(service string) (nodes []*poktGoSdk.Node, e error) 
 
 	return response, args.Error(1)
 }
+
+func (rpc *MockRpc) GetBlock(height int64) (*poktGoSdk.GetBlockOutput, error) {
+	args := rpc.Called(height)
+	firstResponseArg := args.Get(0)
+	var response *poktGoSdk.GetBlockOutput
+	if firstResponseArg != nil {
+		if v, ok := firstResponseArg.(*poktGoSdk.GetBlockOutput); !ok {
+			return nil, errors.New(UnexpectedResponseType)
+		} else {
+			response = v
+		}
+	}
+
+	return response, args.Error(1)
+}
+
+func (rpc *MockRpc) GetAllParams(height int64) (*poktGoSdk.AllParams, error) {
+	args := rpc.Called(height)
+	firstResponseArg := args.Get(0)
+	var response *poktGoSdk.AllParams
+	if firstResponseArg != nil {
+		if v, ok := firstResponseArg.(*poktGoSdk.AllParams); !ok {
+			return nil, errors.New(UnexpectedResponseType)
+		} else {
+			response = v
+		}
+	}
+
+	return response, args.Error(1)
+}
+
+func (rpc *MockRpc) GetSession(application, service string) (*poktGoSdk.DispatchOutput, error) {
+	args := rpc.Called(application, service)
+	firstResponseArg := args.Get(0)
+	var response *poktGoSdk.DispatchOutput
+	if firstResponseArg != nil {
+		if v, ok := firstResponseArg.(*poktGoSdk.DispatchOutput); !ok {
+			return nil, errors.New(UnexpectedResponseType)
+		} else {
+			response = v
+		}
+	}
+
+	return response, args.Error(1)
+}

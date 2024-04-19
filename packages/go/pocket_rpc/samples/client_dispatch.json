@@ -2,70 +2,66 @@
     "block_height": 1,
     "session": {
       "header": {
-        "app_public_key": "f6f1f166536c55d3ad7b1b2629f0bce8a0a3dbd455d576ccb235419bcbfed7fd",
+        "app_public_key": "1802f4116b9d3798e2766a2452fbeb4d280fa99e77e61193df146ca4d88b38af",
         "chain": "0001",
         "session_height": 1
       },
       "key": "pY2rZUEkygFRUZ21iT0XiyQDkifIQC74IkoQN2YvisU=",
       "nodes": [
         {
-          "address": "ebea4171cee8eff0f388e1ed97c83a73022228d0",
-          "chains": [
-            "0001"
-          ],
+          "address": "7c08e2e1265246a66d7d022b163970114dda124e",
+          "public_key": "33e1eac17dfce97abaa1387db52cea318edce277bfe5c790448f8ba22f602800",
           "jailed": false,
-          "public_key": "b31b52daa582838b72d71628814e8523d5b9ea08bb0b49a438693eb5269b4635",
-          "service_url": "https://foo.bar:8080",
           "status": 2,
-          "tokens": "10000000",
+          "tokens": "60000000000",
+          "service_url": "http://lean1.dev:8071",
+          "chains": [
+            "0001",
+            "0021",
+            "0040"
+          ],
           "unstaking_time": "0001-01-01T00:00:00Z"
         },
         {
-          "address": "8de67229b1232b2bb77dc2c3ab247a62f47968d3",
-          "chains": [
-            "0001"
-          ],
+          "address": "9ab105b900c4633657f60974ad0e243c8f50ae1e",
+          "public_key": "7bdc0d52b37654e88273d3db2e5a8e5366d58ddc21b9b3dbb3263528812d9bb7",
           "jailed": false,
-          "public_key": "993366e5b648b1e9f544daab0652b8fc9b3657eb9a0ee54afc53852d66b1c2d5",
-          "service_url": "https://foo.bar:8080",
           "status": 2,
-          "tokens": "10000000",
+          "tokens": "60000000000",
+          "service_url": "http://lean2.dev:8081",
+          "chains": [
+            "0001",
+            "0021",
+            "0040"
+          ],
           "unstaking_time": "0001-01-01T00:00:00Z"
         },
         {
-          "address": "fefe600f9b257e96633245731eff6c34efbb9a50",
-          "chains": [
-            "0001"
-          ],
+          "address": "cb85946c8171e3bbe78f5dbc01469053419b7be1",
+          "public_key": "b02f4a2d8c887a24a7172fa9ce982d0c0825d35fab37816101ff5ab8a6272dc0",
           "jailed": false,
-          "public_key": "f6f1f166536c55d3ad7b1b2629f0bce8a0a3dbd455d576ccb235419bcbfed7fd",
-          "service_url": "https://foo.bar:8080",
           "status": 2,
-          "tokens": "10000000",
+          "tokens": "60000000000",
+          "service_url": "http://lean3.dev:8091",
+          "chains": [
+            "0001",
+            "0021",
+            "0040"
+          ],
           "unstaking_time": "0001-01-01T00:00:00Z"
         },
         {
-          "address": "fe6bff490b6dc4b2435c5c9d4960f2e79c792b1d",
-          "chains": [
-            "0001"
-          ],
+          "address": "5e6949faf0a176fd0f3a0e2ef948d7a70ee2867b",
+          "public_key": "b2ef60d9f83d4250adca27aaa26a234502e009167bbf29328871c0f7dacc19a6",
           "jailed": false,
-          "public_key": "5527f0f7f3d16bcec4e268a5fa8a9745f60e1497ea6745e58e2d985f2ac03875",
-          "service_url": "https://foo.bar:8080",
           "status": 2,
-          "tokens": "1000000000000000000",
-          "unstaking_time": "0001-01-01T00:00:00Z"
-        },
-        {
-          "address": "b97de5e4da9bb3978b4afb76abef9e04e6b86605",
+          "tokens": "60000000000",
+          "service_url": "http://local1.dev:8071",
           "chains": [
-            "0001"
+            "0001",
+            "0021",
+            "0040"
           ],
-          "jailed": false,
-          "public_key": "f11ab260c80cc835d5258c51f6aad69008bba1fd484f8c55d21e8bc85f737a21",
-          "service_url": "https://foo.bar:8080",
-          "status": 2,
-          "tokens": "10000000",
           "unstaking_time": "0001-01-01T00:00:00Z"
         }
       ]
