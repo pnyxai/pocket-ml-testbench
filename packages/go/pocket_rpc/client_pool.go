@@ -81,7 +81,7 @@ func NewClientPool(servers []string, opts *ClientPoolOptions, logger *zerolog.Lo
 	return &cp
 }
 
-func (cp *ClientPool) DoRRLoadBalanced(req *http.Request, timeout time.Duration) (*http.Response, int, error) {
+func (cp *ClientPool) DoRRLoadBalanced(req *http.Request, ctx context.Context) (*http.Response, int, error) {
 	retries := 0
 	backoff := NewBackoff(cp.opts.MinBackoff, cp.opts.MaxBackoff) // adjust min and max duration as necessary
 	clients := len(cp.clients)
@@ -115,7 +115,7 @@ func (cp *ClientPool) DoRRLoadBalanced(req *http.Request, timeout time.Duration)
 
 		req.URL = newURL
 
-		resp, doError := cp.do(client, req, timeout)
+		resp, doError := cp.do(client, req, ctx)
 
 		if doError != nil || resp.StatusCode >= 500 {
 			if doError != nil && !errors.Is(doError, context.DeadlineExceeded) {
@@ -135,15 +135,11 @@ func (cp *ClientPool) DoRRLoadBalanced(req *http.Request, timeout time.Duration)
 	}
 }
 
-func (cp *ClientPool) do(client *Client, req *http.Request, timeout time.Duration) (*http.Response, error) {
+func (cp *ClientPool) do(client *Client, req *http.Request, ctx context.Context) (*http.Response, error) {
 	lim := rate.NewLimiter(rate.Every(time.Second/time.Duration(cp.opts.ReqPerSec)), 1)
 
-	// Create a new context with a timeout
-	reqCtx, cancelFunc := context.WithTimeout(req.Context(), timeout)
-	defer cancelFunc() // Ensure the context is canceled even if the http.Client.Do function panics
-
 	// Wait for the rate limiter
-	err := lim.Wait(reqCtx)
+	err := lim.Wait(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +156,7 @@ func (cp *ClientPool) do(client *Client, req *http.Request, timeout time.Duratio
 	req.URL = newURL
 
 	// Make the request, passing in the new context
-	return client.Do(req.WithContext(reqCtx))
+	return client.Do(req.WithContext(ctx))
 }
 
 func (cp *ClientPool) getClient() *Client {

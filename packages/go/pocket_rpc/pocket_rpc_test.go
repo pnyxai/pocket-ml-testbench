@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path"
 	"pocket_rpc/samples"
 	"reflect"
 	"testing"
@@ -126,6 +127,7 @@ func (s *UnitTestSuite) Test_PocketRpc_GetApp() {
 	type args struct {
 		address string
 	}
+	app := samples.GetAppMock(s.logger)
 	tests := []struct {
 		name    string
 		fields  fields
@@ -134,39 +136,37 @@ func (s *UnitTestSuite) Test_PocketRpc_GetApp() {
 		wantErr bool
 	}{
 		{
-			name: "all_good",
+			name: "rpc_ok",
 			fields: fields{
 				clientPool: s.NewMockClientPoolServer(MockResponse{
 					Route:  QueryAppRoute,
 					Method: http.MethodPost,
-					Data: &poktGoSdk.App{
-						Address:       "f3abbe313689a603a1a6d6a43330d0440a552288",
-						PublicKey:     "1802f4116b9d3798e2766a2452fbeb4d280fa99e77e61193df146ca4d88b38af",
-						Jailed:        false,
-						Status:        2,
-						Chains:        []string{"0001"},
-						StakedTokens:  "15000000000",
-						MaxRelays:     "10000",
-						UnstakingTime: time.Time{},
-					},
-					Code: http.StatusOK,
+					Data:   app,
+					Code:   http.StatusOK,
 				}),
-				pageSize: 0,
 			},
 			args: args{
-				address: "f3abbe313689a603a1a6d6a43330d0440a552288",
+				address: app.Address,
 			},
-			want: &poktGoSdk.App{
-				Address:       "f3abbe313689a603a1a6d6a43330d0440a552288",
-				PublicKey:     "1802f4116b9d3798e2766a2452fbeb4d280fa99e77e61193df146ca4d88b38af",
-				Jailed:        false,
-				Status:        2,
-				Chains:        []string{"0001"},
-				StakedTokens:  "15000000000",
-				MaxRelays:     "10000",
-				UnstakingTime: time.Time{},
-			},
+			want:    app,
 			wantErr: false,
+		},
+		{
+			name: "rpc_error",
+			fields: fields{
+				clientPool: s.NewMockClientPoolServer(MockResponse{
+					Route:  QueryAppRoute,
+					Method: http.MethodPost,
+					Data: poktGoSdk.RPCError{
+						Code:    1,
+						Message: "mock error",
+					},
+					Code: http.StatusBadRequest,
+				}),
+			},
+			args:    args{},
+			want:    nil,
+			wantErr: true,
 		},
 	}
 
@@ -212,7 +212,7 @@ func (s *UnitTestSuite) Test_PocketRpc_GetNodes() {
 		wantErr bool
 	}{
 		{
-			name: "all_good",
+			name: "rpc_ok",
 			fields: fields{
 				clientPool: s.NewMockClientPoolServer(MockResponse{
 					Route:   QueryNodesRoute,
@@ -227,6 +227,23 @@ func (s *UnitTestSuite) Test_PocketRpc_GetNodes() {
 			},
 			want:    nodesSample.Result,
 			wantErr: false,
+		},
+		{
+			name: "rpc_error",
+			fields: fields{
+				clientPool: s.NewMockClientPoolServer(MockResponse{
+					Route:  QueryNodesRoute,
+					Method: http.MethodPost,
+					Data: poktGoSdk.RPCError{
+						Code:    1,
+						Message: "mock error",
+					},
+					Code: http.StatusBadRequest,
+				}),
+			},
+			args:    args{},
+			want:    make([]*poktGoSdk.Node, 0),
+			wantErr: true,
 		},
 	}
 
@@ -249,6 +266,148 @@ func (s *UnitTestSuite) Test_PocketRpc_GetNodes() {
 	}
 }
 
+func (s *UnitTestSuite) Test_PocketRpc_GetBlock() {
+	type fields struct {
+		clientPool *ClientPool
+		pageSize   int
+	}
+	type args struct {
+		height int64
+	}
+	block := samples.GetBlockMock(s.logger)
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    *poktGoSdk.GetBlockOutput
+		wantErr bool
+	}{
+		{
+			name: "rpc_ok",
+			fields: fields{
+				clientPool: s.NewMockClientPoolServer(MockResponse{
+					Route:  QueryBlockRoute,
+					Method: http.MethodPost,
+					Data:   block,
+					Code:   http.StatusOK,
+				}),
+				pageSize: 0,
+			},
+			args: args{
+				height: 1,
+			},
+			want:    block,
+			wantErr: false,
+		},
+		{
+			name: "rpc_error",
+			fields: fields{
+				clientPool: s.NewMockClientPoolServer(MockResponse{
+					Route:  QueryBlockRoute,
+					Method: http.MethodPost,
+					Data: poktGoSdk.RPCError{
+						Code:    1,
+						Message: "mock error",
+					},
+					Code: http.StatusBadRequest,
+				}),
+			},
+			args:    args{},
+			want:    nil,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		suiteT := s.T()
+		suiteT.Run(tt.name, func(t *testing.T) {
+			rpc := &PocketRpc{
+				clientPool: tt.fields.clientPool,
+				pageSize:   tt.fields.pageSize,
+			}
+			got, err := rpc.GetBlock(tt.args.height)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetBlock() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GetBlock() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func (s *UnitTestSuite) Test_PocketRpc_GetAllParams() {
+	type fields struct {
+		clientPool *ClientPool
+		pageSize   int
+	}
+	type args struct {
+		height int64
+	}
+	allParams := samples.GetAllParamsMock(s.logger)
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    *poktGoSdk.AllParams
+		wantErr bool
+	}{
+		{
+			name: "rpc_ok",
+			fields: fields{
+				clientPool: s.NewMockClientPoolServer(MockResponse{
+					Route:  QueryAllParamsRoute,
+					Method: http.MethodPost,
+					Data:   allParams,
+					Code:   http.StatusOK,
+				}),
+				pageSize: 0,
+			},
+			args: args{
+				height: 1,
+			},
+			want:    allParams,
+			wantErr: false,
+		},
+		{
+			name: "rpc_error",
+			fields: fields{
+				clientPool: s.NewMockClientPoolServer(MockResponse{
+					Route:  QueryAllParamsRoute,
+					Method: http.MethodPost,
+					Data: poktGoSdk.RPCError{
+						Code:    1,
+						Message: "mock error",
+					},
+					Code: http.StatusBadRequest,
+				}),
+			},
+			args:    args{},
+			want:    nil,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		suiteT := s.T()
+		suiteT.Run(tt.name, func(t *testing.T) {
+			rpc := &PocketRpc{
+				clientPool: tt.fields.clientPool,
+				pageSize:   tt.fields.pageSize,
+			}
+			got, err := rpc.GetAllParams(tt.args.height)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetAllParams() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GetAllParams() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func (s *UnitTestSuite) SetupTest() {
 	l := zerolog.New(
 		zerolog.ConsoleWriter{
@@ -256,6 +415,7 @@ func (s *UnitTestSuite) SetupTest() {
 			TimeFormat: time.RFC3339,
 		},
 	).Level(zerolog.DebugLevel).With().Caller().Timestamp().Logger()
+	samples.SetBasePath(path.Join("samples"))
 	s.logger = &l
 }
 

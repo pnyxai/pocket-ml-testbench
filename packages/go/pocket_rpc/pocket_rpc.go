@@ -2,6 +2,7 @@ package pocket_rpc
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	poktGoSdk "github.com/pokt-foundation/pocket-go/provider"
 	"io"
@@ -51,8 +52,11 @@ func readResponse[T interface{}](resp *http.Response) (*T, error) {
 	}
 
 	if string(resp.Status[0]) == "2" {
+
 		var r T
-		decodeError := json.NewDecoder(resp.Body).Decode(&r)
+		b, _ := io.ReadAll(resp.Body)
+		decodeError := json.Unmarshal(b, &r)
+		//decodeError := json.NewDecoder(resp.Body).Decode(&r)
 
 		if decodeError != nil {
 			return nil, poktGoSdk.ErrNonJSONResponse
@@ -114,7 +118,10 @@ func (rpc *PocketRpc) GetApp(address string) (*poktGoSdk.App, error) {
 
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, _, err := rpc.clientPool.DoRRLoadBalanced(req, 10*time.Second)
+	reqCtx, cancelFunc := context.WithTimeout(req.Context(), 10*time.Second)
+	defer cancelFunc()
+
+	resp, _, err := rpc.clientPool.DoRRLoadBalanced(req, reqCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +167,10 @@ func (rpc *PocketRpc) getNodesByPage(service string, page int, pageSize int, ch 
 
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, _, err := rpc.clientPool.DoRRLoadBalanced(req, 10*time.Second)
+	reqCtx, cancelFunc := context.WithTimeout(req.Context(), 10*time.Second)
+	defer cancelFunc()
+
+	resp, _, err := rpc.clientPool.DoRRLoadBalanced(req, reqCtx)
 	if err != nil {
 		chResponse.Error = err
 		return
@@ -209,4 +219,122 @@ func (rpc *PocketRpc) GetNodes(service string) (nodes []*poktGoSdk.Node, e error
 	}
 
 	return
+}
+
+func (rpc *PocketRpc) GetBlock(height int64) (*poktGoSdk.GetBlockOutput, error) {
+	params := map[string]any{
+		"height": height,
+	}
+
+	payloadBytes, err := json.Marshal(params)
+	if err != nil {
+		rpc.clientPool.logger.Error().Err(err).Msg("error occurred while encoding data")
+		return nil, ErrMarshalingRequestParams
+	}
+
+	body := bytes.NewReader(payloadBytes)
+
+	req, err := http.NewRequest("POST", QueryBlockRoute, body)
+	if err != nil {
+		rpc.clientPool.logger.Error().Err(err).Msg("error occurred creating http.NewRequest")
+		return nil, ErrCreatingRequest
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	reqCtx, cancelFunc := context.WithTimeout(req.Context(), 10*time.Second)
+	defer cancelFunc()
+
+	resp, _, err := rpc.clientPool.DoRRLoadBalanced(req, reqCtx)
+	if err != nil {
+		return nil, err
+	}
+
+	defer func(Body io.ReadCloser) {
+		closeError := Body.Close()
+		if closeError != nil {
+			rpc.clientPool.logger.Error().Err(closeError).Msg("error deferring body close")
+		}
+	}(resp.Body)
+
+	r, e := readResponse[poktGoSdk.GetBlockOutput](resp)
+
+	return r, e
+}
+
+func (rpc *PocketRpc) GetAllParams(height int64) (*poktGoSdk.AllParams, error) {
+	params := map[string]any{
+		"height": height,
+	}
+
+	payloadBytes, err := json.Marshal(params)
+	if err != nil {
+		rpc.clientPool.logger.Error().Err(err).Msg("error occurred while encoding data")
+		return nil, ErrMarshalingRequestParams
+	}
+
+	body := bytes.NewReader(payloadBytes)
+
+	req, err := http.NewRequest("POST", QueryAllParamsRoute, body)
+	if err != nil {
+		rpc.clientPool.logger.Error().Err(err).Msg("error occurred creating http.NewRequest")
+		return nil, ErrCreatingRequest
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	reqCtx, cancelFunc := context.WithTimeout(req.Context(), 10*time.Second)
+	defer cancelFunc()
+
+	resp, _, err := rpc.clientPool.DoRRLoadBalanced(req, reqCtx)
+	if err != nil {
+		return nil, err
+	}
+	defer func(Body io.ReadCloser) {
+		closeError := Body.Close()
+		if closeError != nil {
+			rpc.clientPool.logger.Error().Err(closeError).Msg("error deferring body close")
+		}
+	}(resp.Body)
+
+	return readResponse[poktGoSdk.AllParams](resp)
+}
+
+func (rpc *PocketRpc) GetSession(application, service string) (*poktGoSdk.DispatchOutput, error) {
+	params := map[string]any{
+		"app_public_key": application,
+		"chain":          service,
+	}
+
+	payloadBytes, err := json.Marshal(params)
+	if err != nil {
+		rpc.clientPool.logger.Error().Err(err).Msg("error occurred while encoding data")
+		return nil, ErrMarshalingRequestParams
+	}
+
+	body := bytes.NewReader(payloadBytes)
+
+	req, err := http.NewRequest("POST", ClientDispatchRoute, body)
+	if err != nil {
+		rpc.clientPool.logger.Error().Err(err).Msg("error occurred creating http.NewRequest")
+		return nil, ErrCreatingRequest
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	reqCtx, cancelFunc := context.WithTimeout(req.Context(), 10*time.Second)
+	defer cancelFunc()
+
+	resp, _, err := rpc.clientPool.DoRRLoadBalanced(req, reqCtx)
+	if err != nil {
+		return nil, err
+	}
+	defer func(Body io.ReadCloser) {
+		closeError := Body.Close()
+		if closeError != nil {
+			rpc.clientPool.logger.Error().Err(closeError).Msg("error deferring body close")
+		}
+	}(resp.Body)
+
+	return readResponse[poktGoSdk.DispatchOutput](resp)
 }
