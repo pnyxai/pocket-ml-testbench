@@ -35,7 +35,7 @@ Files that follow the structure of `lm-eval-harness`. The intention, for instanc
 
 ### Accessing the DB with PG Admin
 
-To explore the generated database, the PG Admin is available in the docker compose (`infrastructure/dev/docker-compose.yaml`).
+To explore the generated database, the PG Admin is available in the docker compose (`docker-compose/dependencies/docker-compose.yaml`).
 To access the service just go to `127.0.0.1:5050` and use the credentials `admin@local.dev:admin`. 
 Then in the PG Admin page click on `Add New Server` and fill the data:
 General tab:
@@ -54,7 +54,7 @@ Connection tab:
 apps/python/sampler/build.sh
 ```
 
-2. Generate infraestructure following instructions in `infrastructure/dev/README.md`
+2. Generate infrastructure following instructions in the [docker-compose README](../../../docker-compose/README.md)
 
 3. Both for Register and Sampler workers generate their corresponding `config.json` like:
 
