@@ -42,7 +42,7 @@ async def sample(args: PocketNetworkTaskRequest) -> bool:
     ############################################################
     config = get_app_config()['config']
     eval_logger = get_app_logger("sample")
-    eval_logger.info(f"Starting activity sample:", task_name=args.tasks, address=args.address, blacklist=args.blacklist, qty=args.qty)
+    eval_logger.info(f"Starting activity sample:", task_name=args.tasks, address=args.requester_args.address, blacklist=args.blacklist, qty=args.qty)
     args.postgres_uri = config["postgres_uri"]
     args.mongodb_uri = config["mongodb_uri"]
     mongo_client = config["mongo_client"]

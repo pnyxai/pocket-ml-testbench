@@ -4,6 +4,7 @@ import concurrent.futures
 
 from temporalio.client import Client
 from temporalio.worker import Worker
+from temporalio import workflow
 
 sys.path.append('.')
 sys.path.append('../../../')
@@ -17,6 +18,12 @@ from activities.lmeh.sample import sample as lmeh_sample
 from workflows.register import Register
 from workflows.sampler import Sampler
 
+# We always want to pass through external modules to the sandbox that we know
+# are safe for workflow use
+with workflow.unsafe.imports_passed_through():
+    from pydantic import BaseModel
+
+    from protocol.converter import pydantic_data_converter
 
 async def main():
     """
@@ -43,7 +50,8 @@ async def main():
 
     client = await Client.connect(
         temporal_host,
-        namespace=namespace
+        namespace=namespace,
+        data_converter=pydantic_data_converter
     )
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as activity_executor:

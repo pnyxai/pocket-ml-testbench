@@ -122,7 +122,7 @@ temporal_docker workflow start \
 temporal_docker workflow start \
  --task-queue sampler-local \
  --type Sampler \
- --input '{"evaluation": "lmeh","tasks": "mmlu_high_school_macroeconomics", "address": "random", "blacklist": [11, 12], "qty": 15}' \
+ --input '{"evaluation": "lmeh","tasks": "mmlu_high_school_macroeconomics", "requester_args": {"address": "random", "service": "random", "method": "random", "path": "random"}, "blacklist": [11, 12], "qty": 15}' \
  --namespace pocket-ml-testbench
 ```
 

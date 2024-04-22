@@ -7,6 +7,8 @@ with workflow.unsafe.imports_passed_through():
     # add any activity that need to be used on this workflow
     from activities.lmeh.register_task import register_task as lmeh_register_task
     from protocol.protocol import PocketNetworkRegisterTaskRequest
+    from pydantic import BaseModel
+    from protocol.converter import pydantic_data_converter    
 
 
 @workflow.defn

@@ -9,8 +9,14 @@ class PocketNetworkRegisterTaskRequest(BaseModel):
     postgres_uri: Optional[str] = None
     mongodb_uri: Optional[str] = None
 
-class PocketNetworkTaskRequest(PocketNetworkRegisterTaskRequest):
+class RequesterArgs(BaseModel):
     address: str
+    service: str
+    method: str
+    path: str
+    
+class PocketNetworkTaskRequest(PocketNetworkRegisterTaskRequest):
+    requester_args: RequesterArgs
     blacklist: Optional[List[int]] = []
     qty: int
     doc_ids: Optional[List[int]] = []
@@ -24,7 +30,7 @@ class PocketNetworkTaskRequest(PocketNetworkRegisterTaskRequest):
 
 class PocketNetworkMongoDBTask(BaseModel):
     evaluation: Literal["lmeh", "helm"]
-    address: str
+    requester_args: RequesterArgs
     blacklist: Optional[List[int]] = []
     qty: int
     tasks: str
