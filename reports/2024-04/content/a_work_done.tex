@@ -1,0 +1,22 @@
+\section{Progress Overview}\label{sec:a}
+
+During the month of April, the socket achieved the following milestones:
+
+\begin{itemize}
+    \item Helped in the creation of the \emph{POKT Square RAG Agent}\footnote{\url{https://github.com/pokt-scan/pokt-square}}.
+    \item Finished the architectural design of the asynchronic testing procedure (the Pocket \gls{ML} Test-Bench).
+    \item Merged issues on the Test-Bench code:
+    \begin{itemize}
+        \item Template code for Temporal IO on Python: \url{https://github.com/pokt-scan/pocket-ml-testbench/issues/9}.
+        \item Created docker-compose files for deploying the test-bench for development: \url{https://github.com/pokt-scan/pocket-ml-testbench/issues/12}.
+        \item Merged the task of storing \gls{HF} datasets with the Sampler to create a single Temporal App for both \url{https://github.com/pokt-scan/pocket-ml-testbench/issues/18}.
+    \end{itemize}
+    \item A lot of code was also merged code without a matching issue (due to premature stage of the project), it includes:
+    \begin{itemize}
+        \item Creating a proper logger function for both Go and Python that rungs OK with temporal.
+        \item Added initial \emph{Sampler} workflow code in Python.
+        \item Cleaned all Readmes for better understanding of the repository.
+        \item Make the code more independent from \gls{LMEH}.
+        \item Added packages for Pocket RPC and MongoDB connection handling in Go.
+    \end{itemize}
+\end{itemize}

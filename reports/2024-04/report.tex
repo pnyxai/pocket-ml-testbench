@@ -1,0 +1,189 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Sullivan Business Report
+% LaTeX Template
+% Version 1.0 (May 5, 2022)
+%
+% This template originates from:
+% https://www.LaTeXTemplates.com
+%
+% Author:
+% Vel (vel@latextemplates.com)
+%
+% License:
+% CC BY-NC-SA 4.0 (https://creativecommons.org/licenses/by-nc-sa/4.0/)
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%----------------------------------------------------------------------------------------
+%	CLASS, PACKAGES AND OTHER DOCUMENT CONFIGURATIONS
+%----------------------------------------------------------------------------------------
+
+\documentclass[
+	a4paper, % Paper size, use either a4paper or letterpaper
+	12pt, % Default font size, the template is designed to look good at 12pt so it's best not to change this
+	%unnumberedsections, % Uncomment for no section numbering
+]{CSSullivanBusinessReport}
+
+\addbibresource{references.bib} % BibLaTeX bibliography file
+
+
+% \usepackage{background} 
+% \backgroundsetup{contents=DRAFT-2} % Set your own text 
+
+%----------------------------------------------------------------------------------------
+%	REPORT INFORMATION
+%----------------------------------------------------------------------------------------
+
+\reporttitle{POKT AI Lab} % The report title to appear on the title page and page headers, do not create manual new lines here as this will carry over to page headers
+
+\reportsubtitle{Report II} % Report subtitle, include new lines if needed
+
+\reportauthors{Authors:\\\smallskip  Nicolas Aguirre (nicolas@poktscan.com)\\ Ramiro Rodr\'iguez Colmeiro (ramiro@poktscan.com)\\ POKTscan Data Science Team }
+
+\reportdate{\today} % Report date, include new lines for additional information if needed
+
+\rightheadercontent{\includegraphics[width=3cm]{POKT_logo.png}} % The content in the right header, you may want to add your own company logo or use your company/department name or leave this command empty for no right header content
+
+%----------------------------------------------------------------------------------------
+
+%\usepackage[printwatermark]{xwatermark}
+%\newwatermark[allpages,color=red!30,angle=45,scale=6,xpos=-2cm,ypos=0]{DRAFT}  
+
+\usepackage{placeins}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%
+% Subplots
+%%%%%%%%%%%%%%%%%%%%%%%%%
+%\usepackage{subcaption}
+%\usepackage[labelformat=simple]{subcaption} %Para subplots con parentesis
+%\renewcommand\thesubfigure{(\alph{subfigure})}
+
+
+\usepackage{amsmath,amssymb,amsfonts,amsbsy,latexsym,mathtools,bm}%,bbm} 
+
+\usepackage[acronym,toc,nomain,nonumberlist,nogroupskip]{glossaries-extra}
+\setglossarystyle{alttree} %Description tabulation
+\glssetwidest{Holistic Evaluation of Language Models} % Longest acronym
+\makeglossaries
+\loadglsentries{acronym_def} % file.tex
+
+%%%%%%%%%%%%%%%%%%%%%%%%%
+% Espacio entre palabras: \usepackage{setspace}
+%%%%%%%%%%%%%%%%%%%%%%%%%
+\usepackage{setspace}
+\onehalfspacing
+%%%%%%%%%%%%%%%%%%%%%%%%%
+% Para fracciones con slash
+%%%%%%%%%%%%%%%%%%%%%%%%%
+\usepackage{nicefrac, xfrac}
+
+%Texbox
+\usepackage{tcolorbox}
+\usepackage{lipsum}
+
+\begin{document}
+
+%----------------------------------------------------------------------------------------
+%	TITLE PAGE
+%----------------------------------------------------------------------------------------
+
+\thispagestyle{empty} % Suppress headers and footers on this page
+
+%\begin{fullwidth} % Use the whole page width
+	\vspace*{-0.075\textheight} % Pull POKT latex template logo into the top margin
+	
+	\hfill\includegraphics[width=5cm]{POKT_logo.png} % Company logo
+
+	\vspace{0.15\textheight} % Vertical whitespace
+
+	\parbox{0.9\textwidth}{\fontsize{50pt}{52pt}\selectfont\raggedright\textbf{\reporttitle}\par} % Report title, intentionally at less than full width for nice wrapping. Adjust the width of the \parbox and the font size as needed for your title to look good.
+	
+	\vspace{0.03\textheight} % Vertical whitespace
+	
+	{\LARGE\textit{\textbf{\reportsubtitle}}\par} % Subtitle
+	
+	\vfill % Vertical whitespace
+	
+	{\Large\reportauthors\par} % Report authors, group or department
+	
+	\vfill\vfill\vfill % Vertical whitespace
+	
+	{\large\reportdate\par} % Report date
+%\end{fullwidth}
+
+\newpage
+
+%----------------------------------------------------------------------------------------
+%	DISCLAIMER/COPYRIGHT PAGE
+%----------------------------------------------------------------------------------------
+
+\thispagestyle{empty} % Suppress headers and footers on this page
+
+%\begin{twothirdswidth} % Content in this environment to be at two-thirds of the whole page width
+	\footnotesize % Reduce font size
+	
+	\subsection*{Disclaimer}
+	
+	This work was partially founded by Pocket Scan Technologies LLC, a company operating on the Pocket Network.
+
+	\vfill % Push the following down to the bottom of the page
+	
+	\subsubsection*{Changelog}
+	
+	\scriptsize % Reduce font size further
+	
+	\begin{tabular}{@{} L{0.05\linewidth} L{0.15\linewidth} L{0.6\linewidth} @{}} % Column widths specified here, change as needed for your content
+		\toprule
+		v1.0 & 2024-05-01 & First version.\\
+		\bottomrule
+	\end{tabular}
+%\end{twothirdswidth}
+
+\normalsize
+\newpage
+
+%----------------------------------------------------------------------------------------
+%	TABLE OF CONTENTS
+%----------------------------------------------------------------------------------------
+
+%\begin{twothirdswidth} % Content in this environment to be at two-thirds of the whole page width
+    \doublespacing
+    \tableofcontents % Output the table of contents, automatically generated from the section commands used in the document
+    \onehalfspacing
+%\end{twothirdswidth}
+
+\newpage
+
+%----------------------------------------------------------------------------------------
+%	SECTIONS
+%----------------------------------------------------------------------------------------
+\include{content/a_work_done}
+\include{content/b_leaderboards}
+\include{content/c_test_bench}
+\include{content/z_future}
+\newpage
+
+
+%----------------------------------------------------------------------------------------
+%	 Acronyms
+%----------------------------------------------------------------------------------------
+\printglossary[type=\acronymtype,title=List of Acronyms]
+
+%----------------------------------------------------------------------------------------
+%	 REFERENCES/BIBLIOGRAPHY
+%----------------------------------------------------------------------------------------
+
+\newpage
+
+\addcontentsline{toc}{section}{Reference List} % Add the bibliography to the table of contents
+
+%\begin{twothirdswidth} % Content in this environment to be at two-thirds of the whole page width
+	\printbibliography[title=Reference List] % Output the bibliography with a custom section title
+%\end{twothirdswidth}
+
+
+%----------------------------------------------------------------------------------------
+
+\end{document}	
+
+
