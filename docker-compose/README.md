@@ -34,6 +34,16 @@ The Temporal UI is available at [http://localhost:8080](http://localhost:8080).
 Finally, you can connect to the MongoDB using the following connection string (and a tool like MongoDB Compass):
 `mongodb://127.0.0.1:27017/?replicaSet=devRs`
 
+In order to have quicker access to the Temporal client, create an alias:
+```bash
+alias temporal_docker="docker exec temporal-admin-tools temporal"
+```
+
+Then create the namespace for the test-bench:
+```bash
+temporal_docker operator namespace create pocket-ml-testbench
+```
+
 
 ## Test-Bench Apps
 
@@ -47,13 +57,3 @@ cd apps && docker compose down -v
 ```
 
 The deployment configuration can be found at `./apps/config`.
-
-In order to have quicker access to the Temporal client, create an alias:
-```bash
-alias temporal_docker="docker exec temporal-admin-tools temporal"
-```
-
-Then create the namespace for the test-bench:
-```bash
-temporal_docker operator namespace create pocket-ml-testbench
-```
