@@ -27,10 +27,12 @@ from lm_eval.utils import make_table, simple_parse_args_string
 sys.path.append(os.path.dirname(os.path.realpath(__file__)))
 # Custom modules
 from activities.lmeh.utils import generator as lmeh_generator
+from activities.lmeh.utils import mongodb as lmeh_mongodb 
 from protocol.protocol import PocketNetworkTaskRequest, PocketNetworkMongoDBTask
 from activities.lmeh.utils.pocket_lm_eval.tasks import PocketNetworkTaskManager
 
 from pymongo import MongoClient
+from bson.objectid import ObjectId
 from collections import defaultdict
 from dataclasses import asdict
 
@@ -103,7 +105,7 @@ async def sample(args: PocketNetworkTaskRequest) -> bool:
     eval_logger.info("Generating ConfigurableTask")
     task_manager = PocketNetworkTaskManager(args.verbosity, pocket_args=args, logger=eval_logger)
     try:
-        task_dict = lmeh_generator.get_ConfigurableTask(
+        task_dict = lmeh_generator.get_configurable_task(
             tasks = task_names,
             num_fewshot = None,
             check_integrity = False,
@@ -119,28 +121,37 @@ async def sample(args: PocketNetworkTaskRequest) -> bool:
     except Exception as e:
         raise e
     
-    requests = lmeh_generator.get_Instances(task_dict, eval_logger=eval_logger)
+    requests = lmeh_generator.get_instances(task_dict, eval_logger=eval_logger)
     eval_logger.info("Instances generated successfully:", task_names=task_names)
+    # TODO Populate Requests collection. Regard! ALL_OUTPUT_TYPES = ["loglikelihood", "multiple_choice", "loglikelihood_rolling", "generate_until"]
+    # TODO: Generate prompts/request
 
+    insert_mongo_tasks = []
+    insert_mongo_instances = []
+    for request_type, instances in requests.items():
+        # save task into MongoDB
+        task_mongodb = PocketNetworkMongoDBTask(**{
+            **args.model_dump(),
+            **{"total_instances": len(instances),
+            "request_type": request_type}})
+        insert_mongo_tasks.append(task_mongodb.model_dump())
+        for instance in instances:
+            instance_mongo = lmeh_mongodb.instance_to_dict(instance=instance, task_id = task_mongodb._id)
+            insert_mongo_instances.append(instance_mongo)
+
+        # TODO: Relate prompts with instances (save requester_args also)
+
+    # Save into MongoDB
     try:
-        # Save instances to MongoDB
-        for request_type, instances in requests.items():
-            # save task into MongoDB
-            task_mongodb = PocketNetworkMongoDBTask(**{
-                **args.model_dump(),
-                **{"total_instances": len(instances),
-                "request_type": request_type}}) 
-            task_id = mongo_client['pocket-ml-testbench']['tasks'].insert_one(task_mongodb.model_dump()).inserted_id
-            for instance in instances:
-                instance_mongo = asdict(instance)
-                instance_mongo['task_id'] = task_id
-                mongo_client['pocket-ml-testbench']['instances'].insert_one(instance_mongo)
-        
-        eval_logger.info("Instances saved to MongoDB successfully.")
+        with mongo_client.start_session() as session:
+            with session.start_transaction():
+                mongo_client['pocket-ml-testbench']['tasks'].insert_many(insert_mongo_tasks, ordered=False, session=session)
+                mongo_client['pocket-ml-testbench']['instances'].insert_many(insert_mongo_instances, ordered=False, session=session)                     
+                # TODO: add prompts here
+                eval_logger.info("Instances saved to MongoDB successfully.")
     except Exception as e:
         eval_logger.error("Failed to save Instances to MongoDB.")
         raise ApplicationError("Failed to save instances to MongoDB.", error=e, non_retryable=True)
     
-    # TODO Populate Requests collection. Regard! ALL_OUTPUT_TYPES = ["loglikelihood", "multiple_choice", "loglikelihood_rolling", "generate_until"]
 
     return True

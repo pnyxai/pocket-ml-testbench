@@ -1,5 +1,6 @@
 from typing import List, Literal, Optional
-from pydantic import BaseModel, field_validator
+from bson.objectid import ObjectId
+from pydantic import BaseModel, field_validator, model_validator
 
 class PocketNetworkRegisterTaskRequest(BaseModel):
     evaluation: Literal["lmeh", "helm"]
@@ -36,3 +37,11 @@ class PocketNetworkMongoDBTask(BaseModel):
     tasks: str
     total_instances: int
     request_type: str
+    _id: Optional[ObjectId] = None
+
+    @model_validator(mode="after")
+    def create_id(cls, values):
+        if "_id" not in values:
+            values._id = ObjectId()
+        return values
+    

@@ -1,8 +1,9 @@
-import pymongo
+from dataclasses import asdict
 from bson.objectid import ObjectId
 from lm_eval.api.instance import Instance
+import pymongo
 
-def reconstruct_Instance(_id: str, collection: pymongo.collection.Collection):
+def reconstruct_instance(_id: str, collection: pymongo.collection.Collection):
     """
     Reconstructs an Instance object from a MongoDB document.
 
@@ -27,3 +28,13 @@ def reconstruct_Instance(_id: str, collection: pymongo.collection.Collection):
     #           req.resps.append(x)
     
     return instance
+
+
+def instance_to_dict(instance:Instance, task_id: ObjectId)-> dict:
+
+    instance_mongo = asdict(instance)
+    instance_mongo.pop('resps', None)
+    instance_mongo.pop('filtered_resps', None)
+    instance_mongo['task_id'] = task_id
+    instance_mongo['_id'] = ObjectId()
+    return instance_mongo            

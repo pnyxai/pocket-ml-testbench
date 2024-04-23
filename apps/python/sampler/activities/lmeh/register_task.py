@@ -112,7 +112,7 @@ async def register_task(args: PocketNetworkRegisterTaskRequest) -> bool:
         if not lmeh_sql.checked_task(task_name_i, connection= conn):
             try:
                 eval_logger.info("Generating ConfigurableTask", task=task_name_i)
-                task_dict_i = lmeh_generator.get_ConfigurableTask(
+                task_dict_i = lmeh_generator.get_configurable_task(
                     tasks=[task_name_i],
                     num_fewshot=None,
                     check_integrity=False,

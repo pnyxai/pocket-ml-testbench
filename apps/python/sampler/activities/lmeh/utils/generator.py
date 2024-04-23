@@ -32,7 +32,7 @@ from temporalio.exceptions import ApplicationError
 
 # adapted from evaluator.py # def simple_evaluate(..) from lm-eval-harness to generate config task 
 @positional_deprecated
-def get_ConfigurableTask(
+def get_configurable_task(
     tasks: Optional[List[Union[str, dict, object]]] = None,
     num_fewshot: Optional[int] = None,
     check_integrity: bool = False,
@@ -128,7 +128,7 @@ def get_ConfigurableTask(
 
     return task_dict
 
-def get_Instances(
+def get_instances(
     task_dict,
     limit: Optional[int] = None,
     cache_requests: bool = False,

@@ -23,11 +23,8 @@ def setup_app(cfg) -> dict:
     # use get_from_dict(dict, "path") or get_from_dict(dict, "nested.path") to:
     # connect postgres
     # connect mongodb
-    try:
-        app_config["config"]["mongo_client"] = MongoClient(app_config["config"]['mongodb_uri'])
-        app_config["config"]["mongo_client"].admin.command('ping')
-    except Exception as e:
-        raise e
+    app_config["config"]["mongo_client"] = MongoClient(app_config["config"]['mongodb_uri'])
+    app_config["config"]["mongo_client"].admin.command('ping')
     # do whatever else
     # store those shared elements on app_config
     return app_config

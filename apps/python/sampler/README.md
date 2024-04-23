@@ -31,10 +31,10 @@ Files that follow the structure of `lm-eval-harness`. The intention, for instanc
     * `def build_all_requests` was modified in order to inyecet the postgres document id into the `Instance.doc_id`.
 
 **generator.py**
-* `get_ConfigurableTask`: A function to return only `ConfigurableTask` based on the `task_manager`. 
+* `get_configurable_task`: A function to return only `ConfigurableTask` based on the `task_manager`. 
     * If `task_manager` is `TaskManager`, then all samples from all splits are part of the dataset. 
     * If `task_manager` is `PocketNetworkTaskManager`, random samples are generated based on the configuration split and the blacklist provided in `pocket_args`.
-* `get_Instances`: A functions to generate `requests` that is a `dict` ( with keys `ALL_OUTPUT_TYPES = ["loglikelihood", "multiple_choice", "loglikelihood_rolling", "generate_until"]`) that contains `List[Instance]`.
+* `get_instances`: A functions to generate `requests` that is a `dict` ( with keys `ALL_OUTPUT_TYPES = ["loglikelihood", "multiple_choice", "loglikelihood_rolling", "generate_until"]`) that contains `List[Instance]`.
 
 
 
@@ -68,7 +68,7 @@ apps/python/sampler/build.sh
 ```json
 {
     "postgres_uri": "postgresql://admin:admin@postgresql:5432/postgres",
-  "mongodb_uri": "mongodb://127.0.0.1:27017/?replicaSet=devRs",
+  "mongodb_uri": "mongodb://mongodb:27017/?replicaSet=devRs",
   "log_level": "DEBUG",
   "temporal": {
       "host": "temporal",
@@ -85,7 +85,7 @@ apps/python/sampler/build.sh
 ```json
 {
     "postgres_uri": "postgresql://admin:admin@postgresql:5432/postgres",
-  "mongodb_uri": "mongodb://127.0.0.1:27017/?replicaSet=devRs",
+  "mongodb_uri": "mongodb://mongodb:27017/?replicaSet=devRs",
   "log_level": "DEBUG",
   "temporal": {
       "host": "temporal",
