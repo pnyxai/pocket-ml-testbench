@@ -14,8 +14,12 @@ structlog = "^24.1.0"
 psycopg2 = "^2.9.9"
 sqlalchemy = "^2.0.29"
 pydantic = "^2.7.0"
+pymongo = "^4.6.3"
 
 
+
+[tool.poetry.group.dev.dependencies]
+ipykernel = "^6.29.4"
 
 [build-system]
 requires = ["poetry-core"]

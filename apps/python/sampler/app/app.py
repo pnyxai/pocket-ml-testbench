@@ -1,9 +1,10 @@
 from packages.python.common.utils import get_from_dict
 from packages.python.logger.logger import get_logger
+from pymongo import MongoClient
 
 app_config = {
     "config": {
-        "log_level": "INFO"
+        "log_level": "DEBUG"
     },
     # set the postgres connection here
     "postgres": None,
@@ -22,6 +23,8 @@ def setup_app(cfg) -> dict:
     # use get_from_dict(dict, "path") or get_from_dict(dict, "nested.path") to:
     # connect postgres
     # connect mongodb
+    app_config["config"]["mongo_client"] = MongoClient(app_config["config"]['mongodb_uri'])
+    app_config["config"]["mongo_client"].admin.command('ping')
     # do whatever else
     # store those shared elements on app_config
     return app_config
