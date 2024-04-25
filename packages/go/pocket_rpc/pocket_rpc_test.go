@@ -13,13 +13,14 @@ import (
 	"os"
 	"path"
 	"pocket_rpc/samples"
+	"pocket_rpc/types"
 	"reflect"
 	"testing"
 	"time"
 )
 
 // define a test suite struct
-type UnitTestSuite struct {
+type PocketRpcTestSuite struct {
 	suite.Suite
 	logger *zerolog.Logger
 }
@@ -40,7 +41,7 @@ type PagedOutput[T any] struct {
 
 func GetPagedEntity[T interface{}](items []T) func([]byte) (interface{}, error) {
 	return func(body []byte) (interface{}, error) {
-		params := HeightAndOptsParams{}
+		params := types.HeightAndOptsParams{}
 		if e := json.Unmarshal(body, &params); e != nil {
 			return nil, e
 		}
@@ -66,7 +67,7 @@ func GetPagedEntity[T interface{}](items []T) func([]byte) (interface{}, error) 
 	}
 }
 
-func (s *UnitTestSuite) NewMockClientPoolServer(mockResponse MockResponse) *ClientPool {
+func (s *PocketRpcTestSuite) NewMockClientPoolServer(mockResponse MockResponse) *ClientPool {
 	server := httptest.NewServer(
 		http.HandlerFunc(
 			func(w http.ResponseWriter, r *http.Request) {
@@ -119,7 +120,70 @@ func (s *UnitTestSuite) NewMockClientPoolServer(mockResponse MockResponse) *Clie
 	return NewClientPool([]string{server.URL}, nil, s.logger)
 }
 
-func (s *UnitTestSuite) Test_PocketRpc_GetApp() {
+func (s *PocketRpcTestSuite) Test_PocketRpc_GetHeight() {
+	type fields struct {
+		clientPool *ClientPool
+		pageSize   int
+	}
+	queryHeightOutput := samples.GetHeightMock(s.logger)
+	expectedHeight, _ := queryHeightOutput.Height.Int64()
+	tests := []struct {
+		name    string
+		fields  fields
+		want    int64
+		wantErr bool
+	}{
+		{
+			name: "rpc_ok",
+			fields: fields{
+				clientPool: s.NewMockClientPoolServer(MockResponse{
+					Route:  QueryHeightRoute,
+					Method: http.MethodPost,
+					Data:   queryHeightOutput,
+					Code:   http.StatusOK,
+				}),
+			},
+			want:    expectedHeight,
+			wantErr: false,
+		},
+		{
+			name: "rpc_error",
+			fields: fields{
+				clientPool: s.NewMockClientPoolServer(MockResponse{
+					Route:  QueryHeightRoute,
+					Method: http.MethodPost,
+					Data: poktGoSdk.RPCError{
+						Code:    1,
+						Message: "mock error",
+					},
+					Code: http.StatusBadRequest,
+				}),
+			},
+			want:    0,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		suiteT := s.T()
+		suiteT.Run(tt.name, func(t *testing.T) {
+			rpc := &PocketRpc{
+				clientPool: tt.fields.clientPool,
+				pageSize:   tt.fields.pageSize,
+			}
+			got, err := rpc.GetHeight()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetHeight() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GetHeight() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func (s *PocketRpcTestSuite) Test_PocketRpc_GetApp() {
 	type fields struct {
 		clientPool *ClientPool
 		pageSize   int
@@ -189,7 +253,7 @@ func (s *UnitTestSuite) Test_PocketRpc_GetApp() {
 	}
 }
 
-func (s *UnitTestSuite) Test_PocketRpc_GetNodes() {
+func (s *PocketRpcTestSuite) Test_PocketRpc_GetNodes() {
 	type fields struct {
 		clientPool *ClientPool
 		pageSize   int
@@ -242,7 +306,7 @@ func (s *UnitTestSuite) Test_PocketRpc_GetNodes() {
 				}),
 			},
 			args:    args{},
-			want:    make([]*poktGoSdk.Node, 0),
+			want:    nil,
 			wantErr: true,
 		},
 	}
@@ -266,7 +330,7 @@ func (s *UnitTestSuite) Test_PocketRpc_GetNodes() {
 	}
 }
 
-func (s *UnitTestSuite) Test_PocketRpc_GetBlock() {
+func (s *PocketRpcTestSuite) Test_PocketRpc_GetBlock() {
 	type fields struct {
 		clientPool *ClientPool
 		pageSize   int
@@ -337,7 +401,7 @@ func (s *UnitTestSuite) Test_PocketRpc_GetBlock() {
 	}
 }
 
-func (s *UnitTestSuite) Test_PocketRpc_GetAllParams() {
+func (s *PocketRpcTestSuite) Test_PocketRpc_GetAllParams() {
 	type fields struct {
 		clientPool *ClientPool
 		pageSize   int
@@ -408,7 +472,7 @@ func (s *UnitTestSuite) Test_PocketRpc_GetAllParams() {
 	}
 }
 
-func (s *UnitTestSuite) SetupTest() {
+func (s *PocketRpcTestSuite) SetupTest() {
 	l := zerolog.New(
 		zerolog.ConsoleWriter{
 			Out:        os.Stderr,
@@ -419,7 +483,7 @@ func (s *UnitTestSuite) SetupTest() {
 	s.logger = &l
 }
 
-func TestUnitTestSuite(t *testing.T) {
+func TestPocketRpcTestSuite(t *testing.T) {
 	// run all the tests
-	suite.Run(t, new(UnitTestSuite))
+	suite.Run(t, new(PocketRpcTestSuite))
 }

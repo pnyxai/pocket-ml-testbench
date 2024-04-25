@@ -24,6 +24,21 @@ func (rpc *MockRpc) GetClientPool() *ClientPool {
 func (rpc *MockRpc) SetClientPool(_ *ClientPool) {
 }
 
+func (rpc *MockRpc) GetHeight() (int64, error) {
+	args := rpc.Called()
+	firstResponseArg := args.Get(0)
+	var response int64
+	if firstResponseArg != nil {
+		if v, ok := firstResponseArg.(int64); !ok {
+			return 0, errors.New(UnexpectedResponseType)
+		} else {
+			response = v
+		}
+	}
+
+	return response, args.Error(1)
+}
+
 func (rpc *MockRpc) GetApp(address string) (*poktGoSdk.App, error) {
 	args := rpc.Called(address)
 	firstResponseArg := args.Get(0)

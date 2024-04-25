@@ -4,24 +4,35 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/alitto/pond"
+	"github.com/puzpuzpuz/xsync"
 	"github.com/rs/zerolog"
+	"github.com/stretchr/testify/mock"
 	"golang.org/x/time/rate"
 	"math"
 	"net/http"
 	"net/url"
+	"packages/utils"
+	"sync"
+	"sync/atomic"
 	"time"
 )
 
-type Backoff struct {
+type ReplicatedResponse struct {
+	Response *http.Response
+	Error    error
+}
+
+type Backoff interface {
+	Duration(n int) time.Duration
+}
+
+type ClientBackoff struct {
 	min time.Duration
 	max time.Duration
 }
 
-func NewBackoff(min, max time.Duration) *Backoff {
-	return &Backoff{min: min, max: max}
-}
-
-func (b *Backoff) Duration(n int) time.Duration {
+func (b *ClientBackoff) Duration(n int) time.Duration {
 	if n == 0 {
 		return b.min
 	}
@@ -30,6 +41,19 @@ func (b *Backoff) Duration(n int) time.Duration {
 		return b.max
 	}
 	return duration
+}
+
+func NewBackoff(min, max time.Duration) *ClientBackoff {
+	return &ClientBackoff{min: min, max: max}
+}
+
+type MockClientBackoff struct {
+	mock.Mock
+}
+
+func (ms *MockClientBackoff) Duration(n int) time.Duration {
+	ms.Called(n)
+	return time.Duration(n)
 }
 
 type Client struct {
@@ -41,25 +65,42 @@ func (c Client) Do(req *http.Request) (*http.Response, error) {
 	return c.client.Do(req)
 }
 
+type RotatingClientQueue chan *Client
+
+func (rc RotatingClientQueue) Get() *Client {
+	return <-rc
+}
+
+func (rc RotatingClientQueue) Set(client *Client) {
+	rc <- client
+}
+
 type ClientPoolOptions struct {
-	MaxRetries int
-	ReqPerSec  int
-	MinBackoff time.Duration
-	MaxBackoff time.Duration
+	MaxRetries    int
+	ReqPerSec     int
+	MinBackoff    time.Duration
+	MaxBackoff    time.Duration
+	RetryOnUnkErr bool
+	RetryOn4xx    bool
+	RetryOn5xx    bool
 }
 
 type ClientPool struct {
-	clients chan *Client
+	clients *xsync.MapOf[string, *Client]
+	sleeper Backoff
 	logger  *zerolog.Logger
 	opts    *ClientPoolOptions
 }
 
 func NewDefaultClientPoolOptions() *ClientPoolOptions {
 	return &ClientPoolOptions{
-		MaxRetries: 3,
-		ReqPerSec:  10,
-		MinBackoff: 10 * time.Second,
-		MaxBackoff: 60 * time.Second,
+		MaxRetries:    1,
+		ReqPerSec:     10,
+		MinBackoff:    1 * time.Second,
+		MaxBackoff:    10 * time.Second,
+		RetryOnUnkErr: true,
+		RetryOn4xx:    true,
+		RetryOn5xx:    true,
 	}
 }
 
@@ -69,41 +110,42 @@ func NewClientPool(servers []string, opts *ClientPoolOptions, logger *zerolog.Lo
 	}
 
 	cp := ClientPool{
-		clients: make(chan *Client, len(servers)),
+		clients: xsync.NewMapOf[*Client](),
+		sleeper: NewBackoff(opts.MinBackoff, opts.MaxBackoff),
 		logger:  logger,
 		opts:    opts,
 	}
 
 	for _, server := range servers {
-		cp.setClient(&Client{url: server, client: &http.Client{Timeout: 1 * time.Minute}})
+		cp.addServer(server)
 	}
 
 	return &cp
 }
 
-func (cp *ClientPool) DoRRLoadBalanced(req *http.Request, ctx context.Context) (*http.Response, int, error) {
-	retries := 0
-	backoff := NewBackoff(cp.opts.MinBackoff, cp.opts.MaxBackoff) // adjust min and max duration as necessary
-	clients := len(cp.clients)
-	allowBackoff := clients >= cp.opts.MaxRetries
+func (cp *ClientPool) DoRRLoadBalanced(req *http.Request, ctx context.Context) (resp *http.Response, retries int, err error) {
+	rc := cp.getClientQueue()
+	clients := len(rc)
 	backoffCounter := 0
 
 	for {
-		if retries >= cp.opts.MaxRetries {
-			return nil, retries, fmt.Errorf("maximum retries exceeded")
+		if len(rc) == 0 {
+			// on certain errors the clients are not set back because they will not be able to be used, so
+			// this channel could be empty at some point
+			return nil, retries, fmt.Errorf("there is no more clients to get a response")
 		}
 
-		if allowBackoff && retries > clients {
+		if retries > clients {
 			// apply backoff only when the retries are more than the available clients
-			time.Sleep(backoff.Duration(backoffCounter))
+			time.Sleep(cp.sleeper.Duration(backoffCounter))
 			backoffCounter++
 		}
 
-		client := cp.getClient()
+		client := rc.Get()
 
 		newURL, parseError := url.Parse(client.url)
 		if parseError != nil {
-			cp.setClient(client)
+			// do not add the client back because try again will not give a different result for the error
 			cp.logger.Error().Err(parseError).Str("server", client.url).Msg("failed to parse server url")
 			continue
 		}
@@ -115,24 +157,161 @@ func (cp *ClientPool) DoRRLoadBalanced(req *http.Request, ctx context.Context) (
 
 		req.URL = newURL
 
-		resp, doError := cp.do(client, req, ctx)
+		resp, err = cp.do(client, req, ctx)
 
-		if doError != nil || resp.StatusCode >= 500 {
-			if doError != nil && !errors.Is(doError, context.DeadlineExceeded) {
-				// if no timeout and no response, then we break and return
-				cp.setClient(client)
-				return resp, retries, doError
+		if err != nil {
+			if cp.opts.RetryOnUnkErr {
+				if retries >= cp.opts.MaxRetries {
+					err = fmt.Errorf("maximum retries exceeded")
+					resp = nil
+					break
+				}
+				// mark retry and add a client back to the rotated client queue to retry with it or another one
+				retries++
+				rc.Set(client)
+				continue
 			}
-
-			retries++
-			cp.setClient(client)
-
-			continue
+			break
 		}
 
-		cp.setClient(client)
-		return resp, retries, nil
+		if string(resp.Status[0]) == "4" {
+			if cp.opts.RetryOn4xx {
+				if retries >= cp.opts.MaxRetries {
+					err = fmt.Errorf("maximum retries exceeded")
+					resp = nil
+					break
+				}
+				// mark retry and add a client back to the rotated client queue to retry with it or another one
+				retries++
+				rc.Set(client)
+				continue
+			}
+			break
+		}
+
+		if string(resp.Status[0]) == "5" {
+			if cp.opts.RetryOn5xx {
+				if retries >= cp.opts.MaxRetries {
+					err = fmt.Errorf("maximum retries exceeded")
+					resp = nil
+					break
+				}
+				// mark retry and add a client back to the rotated client queue to retry with it or another one
+				retries++
+				rc.Set(client)
+				continue
+			}
+		}
+		break
 	}
+
+	return
+}
+
+func (cp *ClientPool) ReplicateRequest(r *http.Request, ctx context.Context, maxReplicas int) (responses []*http.Response, _errors []error, e error) {
+	rc := cp.getClientQueue()
+	clients := len(rc)
+	replicas := utils.MinInt(clients, maxReplicas)
+	responseCounter := int32(0)
+	responseChan := make(chan *ReplicatedResponse, clients)
+	// so we try to hit them asap
+	wPool := pond.New(clients, clients, pond.MinWorkers(replicas), pond.Strategy(pond.Eager()))
+	cancellableCtx, cancel := context.WithCancel(context.Background())
+	group, groupCtx := wPool.GroupContext(cancellableCtx)
+	replicasReach := errors.New("replicas reached")
+	var once sync.Once
+	worker := func(client *Client) func() error {
+		return func() error {
+			req := *r
+			rr := ReplicatedResponse{}
+
+			newURL, parseError := url.Parse(client.url)
+			if parseError != nil {
+				// we do not add the client back because no matter how much time we try parse again the result will be the same
+				cp.logger.Error().Err(parseError).Str("server", client.url).Msg("failed to parse server url")
+				rr.Error = parseError
+				responseChan <- &rr
+				return nil
+			}
+
+			// Keep the same path and other components
+			newURL.Path = r.URL.Path
+			newURL.RawQuery = r.URL.RawQuery
+			newURL.Fragment = r.URL.Fragment
+
+			req.URL = newURL
+
+			resp, err := cp.do(client, &req, groupCtx)
+
+			select {
+			case <-ctx.Done():
+				return replicasReach
+			default:
+				if err != nil {
+					if ctx.Err() != nil {
+						return replicasReach
+					}
+					rr.Error = err
+					responseChan <- &rr
+					return nil
+				}
+
+				if resp.StatusCode >= http.StatusBadRequest {
+					rr.Error = fmt.Errorf(resp.Status)
+					responseChan <- &rr
+					return nil
+				}
+
+				responseChan <- &rr
+
+				var c int32
+				if rr.Response != nil && rr.Error == nil {
+					c = atomic.AddInt32(&responseCounter, 1)
+				}
+
+				if c >= int32(replicas) {
+					once.Do(func() {
+						cancel()
+					})
+					return replicasReach
+				}
+
+				rr.Response = resp
+				return nil
+			}
+		}
+	}
+
+	cp.clients.Range(func(_ string, c *Client) bool {
+		group.Submit(worker(c))
+		return true
+	})
+
+	err := group.Wait()
+	if err != nil && !errors.Is(err, replicasReach) {
+		e = err
+		return
+	}
+
+	wPool.StopAndWait()
+
+	close(responseChan)
+
+	for rr := range responseChan {
+		if rr.Error != nil {
+			_errors = append(_errors, rr.Error)
+		}
+		if rr.Response != nil {
+			responses = append(responses, rr.Response)
+		}
+	}
+
+	if (len(_errors) > 0 && len(responses) == 0) || len(responses) == 0 {
+		e = ErrUnableToGetReplicateResponse
+		return
+	}
+
+	return
 }
 
 func (cp *ClientPool) do(client *Client, req *http.Request, ctx context.Context) (*http.Response, error) {
@@ -159,10 +338,34 @@ func (cp *ClientPool) do(client *Client, req *http.Request, ctx context.Context)
 	return client.Do(req.WithContext(ctx))
 }
 
-func (cp *ClientPool) getClient() *Client {
-	return <-cp.clients
+func (cp *ClientPool) getClientQueue() RotatingClientQueue {
+	rc := make(RotatingClientQueue, cp.clients.Size())
+	cp.clients.Range(func(_ string, client *Client) bool {
+		rc.Set(client)
+		return true
+	})
+	return rc
 }
 
-func (cp *ClientPool) setClient(client *Client) {
-	cp.clients <- client
+func (cp *ClientPool) addServer(url string) {
+	// if already there, omit
+	if _, ok := cp.clients.Load(url); ok {
+		return
+	}
+
+	cp.clients.Store(url, &Client{
+		url: url,
+		client: &http.Client{
+			Timeout: 1 * time.Minute,
+		},
+	})
+}
+
+func (cp *ClientPool) hasServer(url string) bool {
+	_, ok := cp.clients.Load(url)
+	return ok
+}
+
+func (cp *ClientPool) hasServers() bool {
+	return cp.clients.Size() > 0
 }

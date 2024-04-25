@@ -3,6 +3,7 @@ package activities
 import (
 	"context"
 	poktGoSdk "github.com/pokt-foundation/pocket-go/provider"
+	"go.temporal.io/sdk/temporal"
 )
 
 type GetBlockParams struct {
@@ -17,7 +18,18 @@ type GetBlockResults struct {
 
 var GetBlockName = "get_block"
 
-func (aCtx *Ctx) GetBlock(ctx context.Context, params GetBlockParams) (*GetBlockResults, error) {
-	result := GetBlockResults{}
+func (aCtx *Ctx) GetBlock(_ context.Context, params GetBlockParams) (*GetBlockResults, error) {
+	block, err := aCtx.App.PocketRpc.GetBlock(params.Height)
+	if err != nil {
+		return nil, temporal.NewApplicationError("unable to get block", "GetBlock", err)
+	}
+	allParams, err := aCtx.App.PocketRpc.GetAllParams(params.Height)
+	if err != nil {
+		return nil, temporal.NewApplicationError("unable to get all params", "GetAllParams", err)
+	}
+	result := GetBlockResults{
+		Block:  block,
+		Params: allParams,
+	}
 	return &result, nil
 }

@@ -65,14 +65,18 @@ const (
 )
 
 var (
-	ErrOnRelayRequest          = errors.New("error on relay request")
-	ErrMarshalingRequestParams = errors.New("error marshaling request params")
-	ErrCreatingRequest         = errors.New("error creating request")
+	ErrOnRelayRequest               = errors.New("error on relay request")
+	ErrOnRpcRequest                 = errors.New("error on rpc request")
+	ErrUnableToGetReplicateResponse = errors.New("was not possible to get at least one response")
+	ErrMarshalingRequestParams      = errors.New("error marshaling request params")
+	ErrBadRequestParams             = errors.New("bad request")
+	ErrCreatingRequest              = errors.New("error creating request")
 )
 
 type Rpc interface {
 	GetClientPool() *ClientPool
 	SetClientPool(clientPool *ClientPool)
+	GetHeight() (int64, error)
 	GetApp(address string) (*poktGoSdk.App, error)
 	GetNodes(service string) ([]*poktGoSdk.Node, error)
 	GetBlock(height int64) (*poktGoSdk.GetBlockOutput, error)

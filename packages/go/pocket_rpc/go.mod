@@ -3,11 +3,16 @@ module pocket_rpc
 go 1.21.6
 
 require (
+	github.com/alitto/pond v1.8.3
 	github.com/pokt-foundation/pocket-go v0.17.0
+	github.com/puzpuzpuz/xsync v1.5.2
 	github.com/rs/zerolog v1.32.0
 	github.com/stretchr/testify v1.8.0
 	golang.org/x/time v0.5.0
+	packages/utils v0.0.0-00010101000000-000000000000
 )
+
+replace packages/utils => ./../utils
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect

@@ -16,10 +16,15 @@ type Ctx struct {
 var Activities *Ctx
 
 // SetAppConfig sets the provided app configuration to the global Activities variable in the Ctx struct.
-func SetAppConfig(ac *types.App) {
-	Activities = &Ctx{
-		App: ac,
+func SetAppConfig(ac *types.App) *Ctx {
+	if Activities != nil {
+		Activities.App = ac
+	} else {
+		Activities = &Ctx{
+			App: ac,
+		}
 	}
+	return Activities
 }
 
 // Register registers a worker activity with the provided activity function in the Ctx struct.

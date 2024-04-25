@@ -24,13 +24,13 @@ func Initialize() *types.App {
 	cfg := LoadConfigFile()
 	// initialize logger
 	l := InitLogger(cfg)
-
-	ac := &types.App{
-		Logger: l,
-		Config: cfg,
-	}
-
-	mongodb.Initialize(cfg.MongodbUri, l)
+	// initialize mongodb
+	m := mongodb.Initialize(cfg.MongodbUri, []string{
+		types.TaskCollection,
+		types.InstanceCollection,
+		types.PromptsCollection,
+		types.ResponseCollection,
+	}, l)
 
 	clientPoolOpts := pocket_rpc.ClientPoolOptions{
 		MaxRetries: cfg.Rpc.Retries,
@@ -39,7 +39,14 @@ func Initialize() *types.App {
 		MaxBackoff: time.Duration(cfg.Rpc.MaxBackoff),
 	}
 	clientPool := pocket_rpc.NewClientPool(cfg.Rpc.Urls, &clientPoolOpts, l)
-	ac.PocketRpc = pocket_rpc.NewPocketRpc(clientPool)
+	pocketRpc := pocket_rpc.NewPocketRpc(clientPool)
+
+	ac := &types.App{
+		Logger:    l,
+		Config:    cfg,
+		PocketRpc: pocketRpc,
+		Mongodb:   m,
+	}
 
 	// set this to workflows and activities to avoid use of context.Context
 	workflows.SetAppConfig(ac)

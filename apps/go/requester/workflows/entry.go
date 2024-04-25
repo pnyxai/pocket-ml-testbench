@@ -16,10 +16,15 @@ type Ctx struct {
 var Workflows *Ctx
 
 // SetAppConfig sets the provided app config to the Workflows global variable in the Ctx struct.
-func SetAppConfig(ac *types.App) {
-	Workflows = &Ctx{
-		App: ac,
+func SetAppConfig(ac *types.App) *Ctx {
+	if Workflows != nil {
+		Workflows.App = ac
+	} else {
+		Workflows = &Ctx{
+			App: ac,
+		}
 	}
+	return Workflows
 }
 
 // Register registers the SessionChecker and RelayTester workflows with the provided worker.

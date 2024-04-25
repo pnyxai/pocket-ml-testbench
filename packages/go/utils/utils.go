@@ -12,3 +12,40 @@ func KeyValToMap(kvPairs ...interface{}) map[string]interface{} {
 	}
 	return kvMap
 }
+
+// StringInSlice checks if a string is present in a slice of strings.
+// Returns true if the string is found, otherwise false.
+func StringInSlice(str string, list []string) bool {
+	for _, v := range list {
+		if v == str {
+			return true
+		}
+	}
+	return false
+}
+
+// MaxInt returns the maximum of two integers.
+func MaxInt(x, y int) int {
+	if x > y {
+		return x
+	}
+	return y
+}
+
+// MinInt returns the minimum of two integers.
+func MinInt(x, y int) int {
+	if x < y {
+		return x
+	}
+	return y
+}
+
+func GetMaxInt64FromArray(numbers []int64) (max int64) {
+	for _, number := range numbers {
+		if number > max {
+			max = number
+		}
+	}
+
+	return max
+}
