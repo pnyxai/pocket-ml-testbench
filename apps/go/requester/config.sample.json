@@ -1,7 +1,17 @@
 {
-  "postgres_uri": "postgres://USER:PASS@localhost:5432",
-  "apps": ["APP_PK"],
-  "rpc_url": ["http://localhost:8081"],
+  "mongodb_uri": "mongodb://127.0.0.1:27017/pocket-ml-testbench?replicaSet=devRs",
+  "apps": [
+    "APP_PK"
+  ],
+  "rpc": {
+    "urls": [
+      "http://localhost:8081"
+    ],
+    "retries": 3,
+    "min_backoff": 10,
+    "max_backoff": 60,
+    "req_per_sec": 10
+  },
   "log_level": "debug",
   "temporal": {
     "host": "localhost",

@@ -10,6 +10,8 @@ import (
 	"io"
 	"os"
 	"packages/logger"
+	"packages/mongodb"
+	"packages/pocket_rpc"
 	"path/filepath"
 	"requester/activities"
 	"requester/types"
@@ -22,10 +24,28 @@ func Initialize() *types.App {
 	cfg := LoadConfigFile()
 	// initialize logger
 	l := InitLogger(cfg)
-	// todo: initialize postgresql connection to read sampler requests
+	// initialize mongodb
+	m := mongodb.Initialize(cfg.MongodbUri, []string{
+		types.TaskCollection,
+		types.InstanceCollection,
+		types.PromptsCollection,
+		types.ResponseCollection,
+	}, l)
+
+	clientPoolOpts := pocket_rpc.ClientPoolOptions{
+		MaxRetries: cfg.Rpc.Retries,
+		ReqPerSec:  cfg.Rpc.ReqPerSec,
+		MinBackoff: time.Duration(cfg.Rpc.MinBackoff),
+		MaxBackoff: time.Duration(cfg.Rpc.MaxBackoff),
+	}
+	clientPool := pocket_rpc.NewClientPool(cfg.Rpc.Urls, &clientPoolOpts, l)
+	pocketRpc := pocket_rpc.NewPocketRpc(clientPool)
+
 	ac := &types.App{
-		Logger: l,
-		Config: cfg,
+		Logger:    l,
+		Config:    cfg,
+		PocketRpc: pocketRpc,
+		Mongodb:   m,
 	}
 
 	// set this to workflows and activities to avoid use of context.Context
@@ -37,6 +57,7 @@ func Initialize() *types.App {
 
 // InitLogger - initialize logger
 func InitLogger(config *types.Config) *zerolog.Logger {
+
 	lvl := zerolog.InfoLevel
 
 	if config.LogLevel != "" {
@@ -60,7 +81,7 @@ func InitLogger(config *types.Config) *zerolog.Logger {
 		ctx = ctx.Caller()
 	}
 
-	l := ctx.Str("app", "requester").Logger()
+	l := ctx.Str("App", "requester").Logger()
 
 	zerolog.TimestampFieldName = "t"
 	zerolog.MessageFieldName = "msg"
@@ -132,7 +153,10 @@ func main() {
 	defer temporalClient.Close()
 
 	// Create ac new Worker
-	w := worker.New(temporalClient, ac.Config.Temporal.TaskQueue, worker.Options{})
+	w := worker.New(temporalClient, ac.Config.Temporal.TaskQueue, worker.Options{
+		// turn on replay logs only when debug level is on
+		EnableLoggingInReplay: ac.Logger.GetLevel() == zerolog.DebugLevel,
+	})
 
 	// Register Workflows
 	workflows.Workflows.Register(w)

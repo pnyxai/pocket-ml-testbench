@@ -16,19 +16,40 @@ type Ctx struct {
 var Activities *Ctx
 
 // SetAppConfig sets the provided app configuration to the global Activities variable in the Ctx struct.
-func SetAppConfig(ac *types.App) {
-	Activities = &Ctx{
-		App: ac,
+func SetAppConfig(ac *types.App) *Ctx {
+	if Activities != nil {
+		Activities.App = ac
+	} else {
+		Activities = &Ctx{
+			App: ac,
+		}
 	}
+	return Activities
 }
 
 // Register registers a worker activity with the provided activity function in the Ctx struct.
 func (aCtx *Ctx) Register(w worker.Worker) {
-	w.RegisterActivityWithOptions(aCtx.Dispatcher, activity.RegisterOptions{
-		Name: "",
+	w.RegisterActivityWithOptions(aCtx.GetApp, activity.RegisterOptions{
+		Name: GetAppName,
 	})
 
-	w.RegisterActivityWithOptions(aCtx.VerifyApp, activity.RegisterOptions{
-		Name: "",
+	w.RegisterActivityWithOptions(aCtx.GetHeight, activity.RegisterOptions{
+		Name: GetHeightName,
+	})
+
+	w.RegisterActivityWithOptions(aCtx.GetBlock, activity.RegisterOptions{
+		Name: GetBlockName,
+	})
+
+	w.RegisterActivityWithOptions(aCtx.GetSession, activity.RegisterOptions{
+		Name: GetSessionName,
+	})
+
+	w.RegisterActivityWithOptions(aCtx.LookupTaskRequest, activity.RegisterOptions{
+		Name: LookupTaskRequestName,
+	})
+
+	w.RegisterActivityWithOptions(aCtx.Relayer, activity.RegisterOptions{
+		Name: RelayerName,
 	})
 }

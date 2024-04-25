@@ -8,9 +8,11 @@ import (
 	"github.com/rs/zerolog"
 	"os"
 	"path"
+	"pocket_rpc/types"
 )
 
 var (
+	Height    = "query_height.json"
 	Block     = "query_block.json"
 	App       = "query_app.json"
 	Dispatch  = "query_dispatch.json"
@@ -39,6 +41,15 @@ func GetSampleFromFile[T interface{}](filename string) (*T, error) {
 	return &res, nil
 }
 
+func GetHeightMock(logger *zerolog.Logger) *types.QueryHeightOutput {
+	if v, err := GetSampleFromFile[types.QueryHeightOutput](Height); err != nil {
+		logger.Fatal().Err(err).Msg("Failed to get height mock")
+		return nil
+	} else {
+		return v
+	}
+}
+
 func GetBlockMock(logger *zerolog.Logger) *poktGoSdk.GetBlockOutput {
 	if v, err := GetSampleFromFile[poktGoSdk.GetBlockOutput](Block); err != nil {
 		logger.Fatal().Err(err).Msg("Failed to get block mock")
@@ -57,7 +68,7 @@ func GetAppMock(logger *zerolog.Logger) *poktGoSdk.App {
 	}
 }
 
-func GetDispatchMock(logger *zerolog.Logger) *poktGoSdk.DispatchOutput {
+func GetSessionMock(logger *zerolog.Logger) *poktGoSdk.DispatchOutput {
 	if v, err := GetSampleFromFile[poktGoSdk.DispatchOutput](Dispatch); err != nil {
 		logger.Fatal().Err(err).Msg("Failed to get dispatch mock")
 		return nil

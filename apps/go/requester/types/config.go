@@ -11,12 +11,20 @@ type TemporalConfig struct {
 	TaskQueue string `json:"task_queue"`
 }
 
+type RPCConfig struct {
+	Urls       []string `json:"urls"`
+	Retries    int      `json:"retries"`
+	MinBackoff int      `json:"min_backoff"`
+	MaxBackoff int      `json:"max_backoff"`
+	ReqPerSec  int      `json:"req_per_sec"`
+}
+
 type Config struct {
-	PostgresUri string          `json:"postgres_uri"`
-	Apps        []string        `json:"apps"`
-	RpcUrl      []string        `json:"rpc_url"`
-	LogLevel    string          `json:"log_level"`
-	Temporal    *TemporalConfig `json:"temporal"`
+	MongodbUri string          `json:"mongodb_uri"`
+	Apps       []string        `json:"apps"`
+	Rpc        *RPCConfig      `json:"rpc"`
+	LogLevel   string          `json:"log_level"`
+	Temporal   *TemporalConfig `json:"temporal"`
 }
 
 // UnmarshalJSON implement the Unmarshaler interface on Config
@@ -24,10 +32,16 @@ func (c *Config) UnmarshalJSON(b []byte) error {
 	// We create an alias for the Config type to avoid recursive calls to the UnmarshalJSON method
 	type Alias Config
 	defaultValues := &Alias{
-		PostgresUri: DefaultPostgresUri,
-		Apps:        []string{},
-		RpcUrl:      []string{},
-		LogLevel:    DefaultLogLevel,
+		MongodbUri: DefaultMongodbUri,
+		Apps:       []string{},
+		Rpc: &RPCConfig{
+			Urls:       []string{},
+			Retries:    3,
+			MinBackoff: 10,
+			MaxBackoff: 60,
+			ReqPerSec:  10,
+		},
+		LogLevel: DefaultLogLevel,
 		Temporal: &TemporalConfig{
 			Host:      DefaultTemporalHost,
 			Port:      DefaultTemporalPort,

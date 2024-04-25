@@ -1,7 +1,7 @@
 package types
 
 var (
-	DefaultPostgresUri       = "postgres://localhost:5432"
+	DefaultMongodbUri        = "mongodb://localhost:27017"
 	DefaultLogLevel          = "info"
 	DefaultTemporalHost      = "localhost"
 	DefaultTemporalPort      = uint(7233)
