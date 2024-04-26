@@ -12,11 +12,12 @@ type TemporalConfig struct {
 }
 
 type RPCConfig struct {
-	Urls       []string `json:"urls"`
-	Retries    int      `json:"retries"`
-	MinBackoff int      `json:"min_backoff"`
-	MaxBackoff int      `json:"max_backoff"`
-	ReqPerSec  int      `json:"req_per_sec"`
+	Urls             []string `json:"urls"`
+	Retries          int      `json:"retries"`
+	MinBackoff       int      `json:"min_backoff"`
+	MaxBackoff       int      `json:"max_backoff"`
+	ReqPerSec        int      `json:"req_per_sec"`
+	SessionTolerance int64    `json:"session_tolerance"`
 }
 
 type Config struct {
@@ -35,11 +36,12 @@ func (c *Config) UnmarshalJSON(b []byte) error {
 		MongodbUri: DefaultMongodbUri,
 		Apps:       []string{},
 		Rpc: &RPCConfig{
-			Urls:       []string{},
-			Retries:    3,
-			MinBackoff: 10,
-			MaxBackoff: 60,
-			ReqPerSec:  10,
+			Urls:             []string{},
+			Retries:          3,
+			MinBackoff:       10,
+			MaxBackoff:       60,
+			ReqPerSec:        10,
+			SessionTolerance: 1,
 		},
 		LogLevel: DefaultLogLevel,
 		Temporal: &TemporalConfig{

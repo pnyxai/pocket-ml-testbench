@@ -2,6 +2,7 @@ package mongodb
 
 import (
 	"context"
+	"github.com/puzpuzpuz/xsync/v3"
 	"github.com/rs/zerolog"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -9,16 +10,20 @@ import (
 	"time"
 )
 
-type Collections map[string]*mongo.Collection
+type MongoDb interface {
+	GetDatabaseName(uri string, defaultName string) string
+	GetCollection(name string) CollectionAPI
+	CloseConnection()
+}
 
-type MongoDb struct {
+type Client struct {
 	Uri         string
 	Client      *mongo.Client
-	Collections Collections
+	Collections *xsync.MapOf[string, CollectionAPI]
 	Logger      *zerolog.Logger
 }
 
-func (m *MongoDb) GetDatabaseName(uri string, defaultName string) string {
+func (m *Client) GetDatabaseName(uri string, defaultName string) string {
 	u, err := url.Parse(uri)
 	if err != nil {
 		panic(err)
@@ -34,15 +39,15 @@ func (m *MongoDb) GetDatabaseName(uri string, defaultName string) string {
 	return dbName
 }
 
-func (m *MongoDb) GetCollection(name string) *mongo.Collection {
-	coll := m.Collections[name]
-	if coll == nil {
+func (m *Client) GetCollection(name string) CollectionAPI {
+	if coll, ok := m.Collections.Load(name); !ok {
 		panic("collection " + name + " not exists")
+	} else {
+		return coll
 	}
-	return coll
 }
 
-func (m *MongoDb) CloseConnection() {
+func (m *Client) CloseConnection() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	defer func() {
@@ -53,11 +58,11 @@ func (m *MongoDb) CloseConnection() {
 	}()
 }
 
-func Initialize(uri string, collections []string, l *zerolog.Logger) *MongoDb {
-	m := MongoDb{
+func NewClient(uri string, collections []string, l *zerolog.Logger) MongoDb {
+	m := Client{
 		Uri:         uri,
 		Client:      nil,
-		Collections: make(map[string]*mongo.Collection),
+		Collections: xsync.NewMapOf[string, CollectionAPI](),
 		Logger:      l,
 	}
 	// Set client options
@@ -91,8 +96,7 @@ func Initialize(uri string, collections []string, l *zerolog.Logger) *MongoDb {
 				l.Fatal().Err(err).Str("collection", collectionName).Msg("Errored preparing collection")
 			}
 		}
-
-		m.Collections[collectionName] = collection
+		m.Collections.Store(collectionName, &Collection{collection: collection})
 	}
 
 	return &m

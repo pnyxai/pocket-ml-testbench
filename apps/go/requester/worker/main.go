@@ -25,7 +25,7 @@ func Initialize() *types.App {
 	// initialize logger
 	l := InitLogger(cfg)
 	// initialize mongodb
-	m := mongodb.Initialize(cfg.MongodbUri, []string{
+	m := mongodb.NewClient(cfg.MongodbUri, []string{
 		types.TaskCollection,
 		types.InstanceCollection,
 		types.PromptsCollection,
@@ -57,7 +57,6 @@ func Initialize() *types.App {
 
 // InitLogger - initialize logger
 func InitLogger(config *types.Config) *zerolog.Logger {
-
 	lvl := zerolog.InfoLevel
 
 	if config.LogLevel != "" {
@@ -151,6 +150,8 @@ func main() {
 		ac.Logger.Fatal().Err(err).Msg("unable to create ac Temporal Client")
 	}
 	defer temporalClient.Close()
+
+	ac.TemporalClient = temporalClient
 
 	// Create ac new Worker
 	w := worker.New(temporalClient, ac.Config.Temporal.TaskQueue, worker.Options{

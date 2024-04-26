@@ -10,7 +10,8 @@
     "retries": 3,
     "min_backoff": 10,
     "max_backoff": 60,
-    "req_per_sec": 10
+    "req_per_sec": 10,
+    "session_tolerance": 1
   },
   "log_level": "debug",
   "temporal": {

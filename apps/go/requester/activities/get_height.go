@@ -2,6 +2,7 @@ package activities
 
 import (
 	"context"
+	"go.temporal.io/sdk/temporal"
 )
 
 type GetHeightResults struct {
@@ -10,7 +11,10 @@ type GetHeightResults struct {
 
 var GetHeightName = "get_height"
 
-func (aCtx *Ctx) GetHeight(ctx context.Context) (*GetHeightResults, error) {
-	result := GetHeightResults{}
-	return &result, nil
+func (aCtx *Ctx) GetHeight(_ context.Context) (int64, error) {
+	height, err := aCtx.App.PocketRpc.GetHeight()
+	if err != nil || height <= 0 {
+		return height, temporal.NewApplicationError("unable to get height", "GetHeight", err)
+	}
+	return height, nil
 }
