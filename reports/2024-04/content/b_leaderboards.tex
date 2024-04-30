@@ -9,11 +9,11 @@ In the engineering world live in a constant fight between these two concepts, tr
 
 
 Through the time, and more specifically in the field of engineering, having a \gls{CTF} helped set the objectives and measure the improvements of a given field, let it be machine translation, hand-written character recognition, or any task. A \gls{CTF} is normally composed of~\cite{donoho201750}:
-\begin{itemize}
+\begin{enumerate}
     \item A public dataset, feature measurements and labels.
     \item A set of participants, engaged in the task of predicting labels.
     \item A scoring referee, to which competitors can submit their work for evaluation.
-\end{itemize}
+\end{enumerate}
 The field of \gls{ML} grew very used to these kinds of setups to track and guide the advancement of research, and many important competitions were created following these patterns, for example using EMNIST~\cite{cohen2017emnist} for hand-written number recognition or SuperGLUE~\cite{wang2019superglue} for text understanding.
 
 As we know, the \glspl{LLM} are \gls{ML} models and as such the way that we measure them is by mean of \glspl{CTF}. An special quality of the \glspl{LLM} is that they are not used for a single thing and these makes them a little harder to measure. For example, in the past it was enough for a vision model to achieve a great score in the MNIST dataset to revolutionize the field of \gls{ML}, like AlexNet~\cite{krizhevsky2012imagenet} did. Today \glspl{LLM} need to past several of these tests to create impact. It's not enough for \glspl{LLM} to excel at a single \gls{CTF}, a \gls{LLM} needs to be good at a large variety of them. Now the question is: Which of them? There are many \glspl{CTF} from where to choose, testing all of them is expensive and making sense of all the generated numbers is difficult. To solve this the scientific community came up with collections of \glspl{CTF} that are organized into \emph{leaderboards} or \emph{benchmarks}, being the most publicly known the \gls{HELM}~\cite{liang_holistic_2023} and \gls{LMEH}~\cite{eval-harness}.
@@ -27,7 +27,7 @@ We can see how measuring a \gls{LLM} is far more complicated that measuring the 
 \subsection{Language Model Evaluation Harness}
 
 Today there are a large number of benchmarks that can be implemented to describe the quality of a \gls{LLM}. Their number grows constantly, so we wont try to mention all of them. In this section we will focus on a single one of them, the \gls{LMEH}.
-We choose to use this framework due to be the one used to compute the \gls{HF} Open \gls{LLM} leaderboard~\cite{open-llm-leaderboard}, shown in figure \ref{fig:hf_leaderboard}. This leaderboard is usually referenced when comparing different language models and since the Pocket Network will be composed of mostly open models, it is an easy choice that will provide the Pocket \gls{MLTB} with a direct comparison.
+We choose to use this framework due to be the one used to compute the \gls{HF} Open \gls{LLM} leaderboard~\cite{open-llm-leaderboard}, shown in figure \ref{fig:hf_leaderboard}. This leaderboard is usually referenced when comparing different language models, and since the Pocket Network will be composed of mostly open models, it is an easy choice that will provide the Pocket \gls{MLTB} with a direct comparison.
 
 \begin{figure}[H]
     \centering

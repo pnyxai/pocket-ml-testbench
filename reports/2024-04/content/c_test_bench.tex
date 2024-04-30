@@ -12,7 +12,7 @@ This first version of the \gls{MLTB} is focused on implementing the \gls{LMEH} f
     \item \textbf{Identity/quality changes}: A node is not forced to provide a fixed model, as \gls{QoS} is expected to change over time (improve, adapt to consumers choices). This means that a node's metrics should be tracked over time and not just instantly and never repeated.
 \end{itemize}
 
-These conditions shaped the test-bench design, leading us to adopt an asynchronic approach to the problem. The solution that we are proposing is shown in figure~\ref{fig:bench_overview}, where we can see that the process is articulated using 4 different modules (shown in orange), a database for the tests data or datasets (shown in blue) and coordination services (shown in white).
+These conditions shaped the test-bench design, leading us to adopt an asynchronic approach to the problem. The solution that we are proposing is shown in figure~\ref{fig:bench_overview}, where we can see that the process is articulated using 4 different modules (shown in orange), a database for the tests data or datasets (shown in blue) and coordination services (shown in black).
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.95\textwidth]{bench_overview.png}
@@ -27,7 +27,7 @@ Each of the \gls{MLTB} four main blocks work together to track the selected \gls
     \item \textbf{Evaluator:} This is the final block of the measurement process, it takes the task information and the node's response and finishes the task requirement. For each task it will create a result (a value of a metric specific to the task at hand) and write it back to the database.
 \end{itemize}
 
-The coordination of all these blocks is done using Temporal IO~\footnote{\url{https://temporal.io/}} where each block translates into a different work queues. This framework was chosen due to its robustness and scaling capabilities. As the Pocket Network grows, the number of nodes and tasks to test will grow too, in order to keep fresh track of all nodes, the measurement process needs to be easily parallelized and modular.
+The coordination of all these blocks is done using Temporal IO~\footnote{\url{https://temporal.io/}} where each block translates into a different work queue. This framework was chosen due to its robustness and scaling capabilities. As the Pocket Network grows, the number of nodes and tasks to test will grow too, in order to keep fresh track of all nodes, the measurement process needs to be easily parallelized and modular.
 
 The data between the workers and also the data that composes the node's profiles (used to create the leaderboard) is managed using MongoDB~\footnote{\url{https://www.mongodb.com/}} because it offer us the possibility of adding new fields to the records without re-writing the whole database. This is needed when a new \gls{CTF} is added to a collection of nodes that are already in the test rotation.
 
@@ -41,7 +41,7 @@ To keep the language concise, we opted to follow the \gls{LMEH} nomenclature to 
     \begin{itemize}
         \item Reference ID: A unique identifier of the job.
         \item Requester Args: Set of arguments to be used by the requester to make the call like: node address, service, method, path.
-        \item Evaluation: A high order grouping or framework name like \gls{LMEH} or \gls{HELM}.
+        \item Framework: A high order grouping (or framework name) like \gls{LMEH} or \gls{HELM}.
         \item Task: The name of the \gls{CTF} to test, like \emph{mmlu\_high\_school\_macroeconomics}"
         \item Quantity: The amount of tests to do, a job run commonly tests only a sub-set of all the samples available in the \gls{CTF}.
         \item Blacklist: The sample's indexes that were already performed and should not be part of futures jobs. This is used to not repeat part of the \gls{CTF} on successive calls.
@@ -66,7 +66,7 @@ Each of these elements of the \gls{CTF} are in fact different collections in the
     \caption{Detail of the Pocket's \gls{MLTB} internal working, including databases relations to execution of work queues, triggering signals (in violet) and collections references for task reconstruction.}
     \label{fig:bench_detail}
 \end{figure} 
-The different workers' queues of the \gls{MLTB} (shown in colors: orange, blue, red and green) are controlled by the Temporal IO triggers (shown in violet). The manager and requester are the two processes controlling the workflow and executing periodically (cadency depends on configurations), they are responsible on executing the sampler and evaluator workflows respectively. The MongoDB collections are shown in white, and each collection corresponds to a part of the \gls{CTF} job being executed (described above). The PostgreSQL databases are shown in grey and they only interact with the sampler workflow.
+The different workers' queues of the \gls{MLTB} (shown in colors: orange, blue, red and green) are controlled by the Temporal IO triggers (shown in violet). The manager and requester are the two processes controlling the workflow and executing periodically (cadency depends on configurations), they are responsible on executing the sampler and evaluator workflows respectively. The MongoDB collections are shown in black, and each collection corresponds to a part of the \gls{CTF} job being executed (described above). The PostgreSQL databases are shown in grey and they only interact with the sampler workflow.
 
 A \gls{MLTB} job lifecicle has the following steps:
 \begin{enumerate}
@@ -74,7 +74,7 @@ A \gls{MLTB} job lifecicle has the following steps:
     \item The sampler will create a task definition and save it to the \emph{Tasks} collection, along with its instance and prompts data in their respective collections: \emph{Instances} and \emph{Prompts}. All these entries are referenced using unique job IDs. 
     \item Later, when the requester checks for sessions and finds the target node in a controlled session, it will start the prompt process. This process begins by reconstructing the prompt from the \emph{Instances} and \emph{Prompts} collections. After obtaining a response it will write it to the \emph{Responses} collections and trigger the execution of the evaluator workflow for this task.
     \item The evaluator will finally recreate the \gls{CTF} job by means of the task ID and all referencing IDs, calculate the necessary metrics and write the results in the \emph{Results} collection.
-    \item The job is closed in a subsequent manager workflow execution that will read the evaluators metrics written to the \emph{Results} collection, clear the \emph{Tasks} entry (and referenced IDs) and update the \emph{Nodes} collection entry. 
+    \item The job is closed in a subsequent manager workflow execution that will read the evaluator's metrics written to the \emph{Results} collection, clear the \emph{Tasks} entry (and referenced IDs) and update the \emph{Nodes} collection entry. 
 \end{enumerate}
 
 
@@ -88,7 +88,7 @@ The data required to recreate a leaderboard using the \gls{MLTB} data is found o
     \item Last seen time (ISO date)
     \item Tasks : A vector of all the tracked \glspl{CTF}, containing:
     \begin{itemize}
-        \item Evaluation : Name of the evaluation framework.
+        \item Framework : Name of the evaluation framework.
         \item Task : Name of the task or \gls{CTF}.
         \item Mean score : Mean value of the tracked scores.
         \item Std. score : Standard deviation of the tracked scores.
