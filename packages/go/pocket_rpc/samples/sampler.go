@@ -7,8 +7,8 @@ import (
 	poktGoSdk "github.com/pokt-foundation/pocket-go/provider"
 	"github.com/rs/zerolog"
 	"os"
+	"packages/pocket_rpc/types"
 	"path"
-	"pocket_rpc/types"
 )
 
 var (

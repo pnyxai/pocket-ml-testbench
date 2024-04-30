@@ -15,3 +15,16 @@ func (m *TemporalClientMock) ExecuteWorkflow(ctx context.Context, options client
 	argsOut := m.Called(ctx, options, workflow, args)
 	return argsOut.Get(0).(client.WorkflowRun), argsOut.Error(1)
 }
+
+type FakeWorkflowRun struct {
+	mock.Mock
+	client.WorkflowRun
+}
+
+func (w *FakeWorkflowRun) GetID() string {
+	return w.Called().String(0)
+}
+
+func (w *FakeWorkflowRun) GetRunID() string {
+	return w.Called().String(0)
+}

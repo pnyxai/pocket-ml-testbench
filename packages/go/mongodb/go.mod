@@ -1,6 +1,6 @@
 module mongodb
 
-go 1.21.6
+go 1.22.2
 
 require (
 	github.com/puzpuzpuz/xsync/v3 v3.1.0

@@ -1,6 +1,6 @@
 module manager
 
-go 1.21.9
+go 1.22.2
 
 require (
 	github.com/rs/zerolog v1.32.0

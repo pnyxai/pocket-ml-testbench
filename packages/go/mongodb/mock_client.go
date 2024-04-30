@@ -8,6 +8,7 @@ import (
 
 type MockClient struct {
 	mock.Mock
+	Client
 	Uri         string
 	Collections *xsync.MapOf[string, CollectionAPI]
 	Logger      *zerolog.Logger
@@ -35,16 +36,11 @@ func (mc *MockClient) GetCollection(name string) (response CollectionAPI) {
 	return
 }
 
-func (mc *MockClient) CloseConnection() {
-	// not really needed to be mocked but need to complete the interface
-	return
-}
-
-func NewMockClient(uri string, l *zerolog.Logger) MockClient {
+func NewMockClient(uri string, l *zerolog.Logger) *MockClient {
 	// will not handle collection or client because how use the Mongodb interface instance should
 	// never need to access the client directly.
 	// if that becomes a use case, this will need to be revisited or the code that does that
-	return MockClient{
+	return &MockClient{
 		Uri:    uri,
 		Logger: l,
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	poktGoSdk "github.com/pokt-foundation/pocket-go/provider"
+	poktGoUtils "github.com/pokt-foundation/pocket-go/utils"
 	"go.temporal.io/sdk/temporal"
 	"packages/pocket_rpc"
 )
@@ -16,8 +17,8 @@ type GetAppParams struct {
 var GetAppName = "get_app"
 
 func (aCtx *Ctx) GetApp(_ context.Context, params GetAppParams) (*poktGoSdk.App, error) {
-	if e := pocket_rpc.AddressVerification(params.Address); e != nil {
-		return nil, temporal.NewNonRetryableApplicationError("bad params", "BadParams", e)
+	if ok := poktGoUtils.ValidateAddress(params.Address); !ok {
+		return nil, temporal.NewNonRetryableApplicationError("bad params", "BadParams", nil)
 	}
 
 	app, err := aCtx.App.PocketRpc.GetApp(params.Address)

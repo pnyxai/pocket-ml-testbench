@@ -3,29 +3,16 @@ package pocket_rpc
 import (
 	"bytes"
 	"context"
-	ed255192 "crypto/ed25519"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	poktGoSdk "github.com/pokt-foundation/pocket-go/provider"
+	poktGoUtils "github.com/pokt-foundation/pocket-go/utils"
 	"io"
 	"net/http"
+	"packages/pocket_rpc/common"
+	"packages/pocket_rpc/types"
 	"packages/utils"
-	"pocket_rpc/types"
 	"time"
-)
-
-const (
-	// Ed25519PrivKeySize copied from pocket-core
-	Ed25519PrivKeySize = ed255192.PrivateKeySize
-	// Ed25519PubKeySize copied from pocket-core
-	Ed25519PubKeySize = 32
-	// Ed25519SignatureSize copied from pocket-core
-	Ed25519SignatureSize = 64
-	// AddrLength copied from pocket-core
-	AddrLength = 20
-	// NetworkIdentifierLength copied from pocket-core
-	NetworkIdentifierLength = 4
 )
 
 type PocketRpc struct {
@@ -86,57 +73,6 @@ func returnRpcError(route string, body io.ReadCloser) error {
 	}
 
 	return &output
-}
-
-func PubKeyVerification(pk string) error {
-	// decode the bz
-	pkBz, err := hex.DecodeString(pk)
-	if err != nil {
-		return errors.New("error decoding the public key string into hex bytes")
-	}
-	// ensure Length
-	if len(pkBz) != Ed25519PubKeySize {
-		return errors.New("the public key is not the correct cap")
-	}
-	return nil
-}
-
-func AddressVerification(address string) error {
-	// decode the address
-	decodedString, err := hex.DecodeString(address)
-	if err != nil {
-		return errors.New("the hex string could not be decoded")
-	}
-	sLen := len(decodedString)
-	// ensure Length isn't 0
-	if sLen == 0 {
-		return errors.New("the hex provided is empty")
-	}
-	// ensure Length
-	if sLen != AddrLength {
-		return errors.New("the merkleHash Length is not valid")
-	}
-
-	return nil
-}
-
-func ServiceIdentifierVerification(service string) error {
-	// decode the address
-	decodedString, err := hex.DecodeString(service)
-	if err != nil {
-		return errors.New("the hex string could not be decoded")
-	}
-	sLen := len(decodedString)
-	// ensure Length isn't 0
-	if sLen == 0 {
-		return errors.New("the hex provided is empty")
-	}
-	// ensure Length
-	if sLen > NetworkIdentifierLength {
-		return errors.New("the merkleHash Length is not valid")
-	}
-
-	return nil
 }
 
 func (rpc *PocketRpc) GetClientPool() *ClientPool {
@@ -222,7 +158,7 @@ func (rpc *PocketRpc) GetHeight() (int64, error) {
 }
 
 func (rpc *PocketRpc) GetApp(address string) (*poktGoSdk.App, error) {
-	if e := AddressVerification(address); e != nil {
+	if ok := poktGoUtils.ValidateAddress(address); !ok {
 		return nil, ErrBadRequestParams
 	}
 
@@ -316,7 +252,7 @@ func (rpc *PocketRpc) getNodesByPage(service string, page int, pageSize int, ch 
 }
 
 func (rpc *PocketRpc) GetNodes(service string) (nodes []*poktGoSdk.Node, e error) {
-	if e := ServiceIdentifierVerification(service); e != nil {
+	if e := common.ServiceIdentifierVerification(service); e != nil {
 		return nil, ErrBadRequestParams
 	}
 
@@ -434,11 +370,11 @@ func (rpc *PocketRpc) GetAllParams(height int64) (*poktGoSdk.AllParams, error) {
 }
 
 func (rpc *PocketRpc) GetSession(application, service string) (*poktGoSdk.DispatchOutput, error) {
-	if e := PubKeyVerification(application); e != nil {
+	if ok := poktGoUtils.ValidatePublicKey(application); !ok {
 		return nil, ErrBadRequestParams
 	}
 
-	if e := ServiceIdentifierVerification(service); e != nil {
+	if e := common.ServiceIdentifierVerification(service); e != nil {
 		return nil, ErrBadRequestParams
 	}
 

@@ -9,6 +9,7 @@ import (
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 	"requester/activities"
+	"strconv"
 	"time"
 )
 
@@ -37,8 +38,9 @@ type RequesterResults struct {
 }
 
 type LookupChanResponse struct {
-	Request  *activities.LookupTaskRequestParams
-	Response *activities.LookupTaskRequestResults
+	Node     *poktGoSdk.Node
+	Request  *activities.GetTasksParams
+	Response *activities.GetTaskRequestResults
 }
 
 type RelayerChanResponse struct {
@@ -48,68 +50,100 @@ type RelayerChanResponse struct {
 
 var RequesterName = "requester"
 
+func GetBlocksPerSession(params *poktGoSdk.AllParams) (int64, error) {
+	blocksPerSessionStr, ok := params.NodeParams.Get("pos/BlocksPerSession")
+	if !ok {
+		return 0, temporal.NewApplicationError("unable to get pos/BlocksPerSession from block params", "GetBlockParam")
+	}
+	blocksPerSession, parseIntErr := strconv.ParseInt(blocksPerSessionStr, 10, 64)
+	if parseIntErr != nil {
+		return 0, temporal.NewApplicationErrorWithCause("unable to parse to int the value provided by pos/BlocksPerSession from block params", "ParseInt", parseIntErr, blocksPerSessionStr)
+	}
+	return blocksPerSession, nil
+}
+
 // Requester check sessions
 func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *RequesterResults, e error) {
 	ao := workflow.ActivityOptions{
-		StartToCloseTimeout: 10 * time.Second,
+		StartToCloseTimeout: 10000 * time.Second,
 	}
-	ctx = workflow.WithActivityOptions(ctx, ao)
+	activityCtx := workflow.WithActivityOptions(ctx, ao)
 
 	// GetApp will try to retrieve the application state from the RPC
 	// with this we ensure it exists and has the chain staked
-	getAppResults := poktGoSdk.App{}
-	getAppErr := workflow.ExecuteActivity(ctx, activities.Activities.GetApp, activities.GetAppParams{
+	getAppResults := &poktGoSdk.App{}
+	getAppErr := workflow.ExecuteActivity(activityCtx, activities.Activities.GetApp, activities.GetAppParams{
 		Address: params.App,
 		Service: params.Service,
-	}).Get(ctx, &getAppResults)
-
+	}).Get(activityCtx, getAppResults)
 	if getAppErr != nil {
 		e = temporal.NewApplicationErrorWithCause("unable to get app", "GetApp", getAppErr)
 		return
 	}
 
+	// get session
 	sessionResult := poktGoSdk.DispatchOutput{}
 	getSessionErr := workflow.ExecuteActivity(
-		ctx,
+		activityCtx,
 		activities.Activities.GetSession,
 		activities.GetSessionParams{
 			App:     params.App,
 			Service: params.Service,
 		},
-	).Get(ctx, &sessionResult)
+	).Get(activityCtx, &sessionResult)
 	if getSessionErr != nil {
 		e = temporal.NewApplicationErrorWithCause("unable to get session", "GetSession", getSessionErr)
 		return
+	}
+
+	// get_block_params
+	allParams := poktGoSdk.AllParams{}
+	getBlockErr := workflow.ExecuteActivity(
+		activityCtx,
+		activities.Activities.GetBlockParams,
+		// latest height always
+		int64(0),
+	).Get(activityCtx, &allParams)
+
+	if getBlockErr != nil {
+		e = temporal.NewApplicationErrorWithCause("unable to get block params", "GetBlockParams", getBlockErr)
+		return
+	}
+
+	blocksPerSession, blocksPerSessionErr := GetBlocksPerSession(&allParams)
+	if blocksPerSessionErr != nil {
+		return nil, temporal.NewApplicationErrorWithCause(blocksPerSessionErr.Error(), "GetBlocksPerSession", blocksPerSessionErr)
 	}
 
 	selector := workflow.NewSelector(ctx)
 	sessionHeight := int64(sessionResult.Session.Header.SessionHeight)
 	nodes := sessionResult.Session.Nodes
 	nodeAddresses := make([]string, len(nodes))
-	// Define a channel to store LookupTaskRequestResults objects
+	// Define a channel to store GetTaskRequestResults objects
 	lookupTaskResultsChan := make(chan LookupChanResponse, len(nodes))
 
 	for _, node := range nodes {
 		nodeAddresses = append(nodeAddresses, node.Address)
-		request := activities.LookupTaskRequestParams{
+		request := activities.GetTasksParams{
 			Node:    node.Address,
 			Service: params.Service,
 		}
-		ltr := activities.LookupTaskRequestResults{}
+		ltr := activities.GetTaskRequestResults{}
 		selector.AddFuture(
 			workflow.ExecuteActivity(
-				ctx,
-				activities.Activities.LookupTaskRequest,
+				activityCtx,
+				activities.Activities.GetTasks,
 				request,
 			),
 			func(f workflow.Future) {
-				err1 := f.Get(ctx, &ltr)
+				err1 := f.Get(activityCtx, &ltr)
 				if err1 != nil {
 					e = err1
 					return
 				}
-				// Add the LookupTaskRequestResults object to the channel
+				// Add the GetTaskRequestResults object to the channel
 				lookupTaskResultsChan <- LookupChanResponse{
+					Node:     &node,
 					Request:  &request,
 					Response: &ltr,
 				}
@@ -138,13 +172,15 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 			// You can access desired attributes here.
 			relayerRequest := activities.RelayerParams{
 				// todo: check if need to add anything else
-				App:           params.App,
-				Node:          request.Node,
-				Service:       request.Service,
-				SessionHeight: sessionHeight,
-				TaskId:        tr.TaskId,
-				InstanceId:    tr.TaskId,
-				PromptId:      tr.PromptId,
+				App:     getAppResults,
+				Node:    ltr.Node,
+				Session: sessionResult.Session,
+
+				Service:          request.Service,
+				SessionHeight:    sessionHeight,
+				BlocksPerSession: blocksPerSession,
+
+				PromptId: tr.PromptId,
 			}
 
 			workflowOptions := client.StartWorkflowOptions{
@@ -185,7 +221,7 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 		Nodes:   nodeAddresses,
 		// check if this is the height of the block when the session is get or what
 		Height:             int64(sessionResult.BlockHeight),
-		SessionHeight:      int64(sessionHeight),
+		SessionHeight:      sessionHeight,
 		TriggeredWorkflows: triggeredWorkflows,
 		SkippedWorkflows:   skippedWorkflows,
 	}

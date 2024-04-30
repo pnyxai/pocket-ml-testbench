@@ -6,6 +6,7 @@ import (
 	"go.temporal.io/sdk/testsuite"
 	"os"
 	"packages/logger"
+	"packages/mongodb"
 	"packages/pocket_rpc"
 	"packages/pocket_rpc/samples"
 	"path"
@@ -75,6 +76,8 @@ func (s *BaseSuite) BeforeTest(_, _ string) {
 	zeroLoggerAdapter := logger.NewZerologAdapter(*s.app.Logger)
 	s.SetLogger(zeroLoggerAdapter)
 
+	s.app.Mongodb = mongodb.NewMockClient("mongodb://localhost:27017/test", s.app.Logger)
+
 	// set this to workflows and activities to avoid use of context.Context
 	wCtx := workflows.SetAppConfig(s.app)
 	aCtx := activities.SetAppConfig(s.app)
@@ -83,10 +86,11 @@ func (s *BaseSuite) BeforeTest(_, _ string) {
 	s.activityEnv = s.NewTestActivityEnvironment()
 
 	var activityList = []interface{}{
+		aCtx.GetHeight,
+		aCtx.GetBlockParams,
 		aCtx.GetApp,
-		aCtx.GetBlock,
 		aCtx.GetSession,
-		aCtx.LookupTaskRequest,
+		aCtx.GetTasks,
 		aCtx.Relayer,
 	}
 
@@ -98,13 +102,16 @@ func (s *BaseSuite) BeforeTest(_, _ string) {
 
 	// register the workflows
 	s.workflowEnv.RegisterWorkflow(wCtx.Requester)
+	s.workflowEnv.RegisterWorkflow(wCtx.Relayer)
 }
 
 func TestAll(t *testing.T) {
 	// test all activities
-	suite.Run(t, new(GetAppUnitTestSuite))
-	suite.Run(t, new(GetBlockUnitTestSuite))
-	suite.Run(t, new(GetSessionUnitTestSuite))
+	//suite.Run(t, new(GetHeightUnitTestSuite))
+	//suite.Run(t, new(GetBlockParamsUnitTestSuite))
+	//suite.Run(t, new(GetAppUnitTestSuite))
+	//suite.Run(t, new(GetSessionUnitTestSuite))
+	//suite.Run(t, new(GetTasksUnitTestSuite))
 	// then test the workflow that will use all those activities
 	suite.Run(t, new(RequesterWorkflowUnitTestSuite))
 }

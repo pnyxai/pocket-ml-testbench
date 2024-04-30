@@ -2,9 +2,13 @@ package tests
 
 import (
 	"context"
+	"fmt"
 	poktGoSdk "github.com/pokt-foundation/pocket-go/provider"
 	"github.com/stretchr/testify/mock"
+	"go.temporal.io/api/enums/v1"
+	"go.temporal.io/sdk/client"
 	"packages/pocket_rpc/samples"
+	"reflect"
 	"requester/activities"
 	"requester/workflows"
 )
@@ -16,6 +20,7 @@ type RequesterWorkflowUnitTestSuite struct {
 
 // Test the ideal scenario where we get everything right
 func (s *RequesterWorkflowUnitTestSuite) Test_No_Errors() {
+	height := int64(0)
 	params := workflows.RequesterParams{
 		App:     "f3abbe313689a603a1a6d6a43330d0440a552288",
 		Service: "0001",
@@ -24,35 +29,94 @@ func (s *RequesterWorkflowUnitTestSuite) Test_No_Errors() {
 		Address: params.App,
 		Service: params.Service,
 	}
-	getBlockParams := activities.GetBlockParams{
-		Height: 0,
-	}
 	getSessionParams := activities.GetSessionParams{
 		App:     params.App,
 		Service: params.Service,
 	}
 	dispatchOutput := samples.GetSessionMock(s.app.Logger)
-	taskRequestParam := activities.CompactTaskRequest{
+	appMock := samples.GetAppMock(s.app.Logger)
+	allParams := samples.GetAllParamsMock(s.app.Logger)
+	sessionHeight := int64(dispatchOutput.Session.Header.SessionHeight)
+	taskRequestParam := activities.TaskRequest{
 		TaskId:     "1",
 		InstanceId: "1",
 		PromptId:   "1",
 	}
 	nodesInSession := len(dispatchOutput.Session.Nodes)
+	blocksPerSession, _ := workflows.GetBlocksPerSession(allParams)
+
+	temporalClient := &TemporalClientMock{}
+	s.app.TemporalClient = temporalClient
+
+	for i := range dispatchOutput.Session.Nodes {
+		node := &dispatchOutput.Session.Nodes[i]
+		wfId := fmt.Sprintf(
+			"%s-%s-%s-%s-%s-%s-%d",
+			params.App, node.Address, params.Service,
+			taskRequestParam.TaskId, taskRequestParam.InstanceId, taskRequestParam.PromptId,
+			sessionHeight,
+		)
+		wfRunId := fmt.Sprintf("%s-run", wfId)
+		relayerRequest := activities.RelayerParams{
+			App:     appMock,
+			Node:    node,
+			Session: dispatchOutput.Session,
+
+			Service:          params.Service,
+			SessionHeight:    sessionHeight,
+			BlocksPerSession: blocksPerSession,
+
+			PromptId: taskRequestParam.PromptId,
+		}
+		workflowOptions := client.StartWorkflowOptions{
+			// with this format: "app-node-service-taskId-instanceId-promptId-sessionHeight"
+			// we are sure that when its workflow runs again inside the same session and the task is still not done,
+			// we will not get the same relayer workflow executed twice
+			ID:                    wfId,
+			WorkflowIDReusePolicy: enums.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE_FAILED_ONLY,
+		}
+		mockWorkflowRun := &FakeWorkflowRun{}
+		mockWorkflowRun.On("GetID").Return(wfId)
+		mockWorkflowRun.On("GetRunID").Return(wfRunId)
+		temporalClient.
+			On("ExecuteWorkflow", mock.Anything, workflowOptions, mock.Anything, mock.MatchedBy(func(v []interface{}) bool {
+				if len(v) == 0 {
+					return false
+				}
+				params, ok := v[0].(activities.RelayerParams)
+				if !ok {
+					return false
+				}
+				if params.Service != relayerRequest.Service {
+					return false
+				}
+				if params.SessionHeight != relayerRequest.SessionHeight {
+					return false
+				}
+				if params.BlocksPerSession != relayerRequest.BlocksPerSession {
+					return false
+				}
+				if params.PromptId != relayerRequest.PromptId {
+					return false
+				}
+				if params.Node == nil || !reflect.DeepEqual(params.Node, relayerRequest.Node) {
+					return false
+				}
+				if params.App == nil || !reflect.DeepEqual(params.App, relayerRequest.App) {
+					return false
+				}
+				if params.Session == nil || !reflect.DeepEqual(params.Session, dispatchOutput.Session) {
+					return false
+				}
+				return true
+			})).
+			Return(mockWorkflowRun, nil).Times(1)
+	}
 
 	s.workflowEnv.OnActivity(activities.Activities.GetApp, mock.Anything, getAppParams).
 		Return(func(_ context.Context, _ activities.GetAppParams) (*poktGoSdk.App, error) {
 			// mock GetApp activity response here
-			return samples.GetAppMock(s.app.Logger), nil
-		}).
-		Times(1)
-
-	s.workflowEnv.OnActivity(activities.Activities.GetBlock, mock.Anything, getBlockParams).
-		Return(func(_ context.Context, _ activities.GetBlockParams) (*activities.GetBlockResults, error) {
-			// mock GetBlock activity response here
-			return &activities.GetBlockResults{
-				Block:  samples.GetBlockMock(s.app.Logger),
-				Params: samples.GetAllParamsMock(s.app.Logger),
-			}, nil
+			return appMock, nil
 		}).
 		Times(1)
 
@@ -63,66 +127,34 @@ func (s *RequesterWorkflowUnitTestSuite) Test_No_Errors() {
 		}).
 		Times(1)
 
-	s.workflowEnv.OnActivity(
-		activities.Activities.LookupTaskRequest,
-		mock.Anything,
-		mock.MatchedBy(func(param activities.LookupTaskRequestParams) bool {
-			// check for app and service if they are different no matter about node
-			appAndService := param.App == params.App && param.Service == params.Service
-
-			if !appAndService {
-				return appAndService
-			}
-
-			for _, node := range dispatchOutput.Session.Nodes {
-				if param.Node == node.Address {
-					return true
-				}
-			}
-
-			return false
-		}),
-	).
-		Return(func(_ context.Context, _ activities.LookupTaskRequestParams) (*activities.LookupTaskRequestResults, error) {
-			// mock LookupTaskRequest activity response here
-			return &activities.LookupTaskRequestResults{
-				TaskRequests: []activities.CompactTaskRequest{taskRequestParam},
-			}, nil
+	s.workflowEnv.OnActivity(activities.Activities.GetBlockParams, mock.Anything, height).
+		Return(func(_ context.Context, _ int64) (*poktGoSdk.AllParams, error) {
+			// mock GetBlock activity response here
+			return allParams, nil
 		}).
-		Times(nodesInSession)
+		Times(1)
 
 	s.workflowEnv.OnActivity(
-		activities.Activities.Relayer, mock.Anything,
-		mock.MatchedBy(func(param activities.RelayerParams) bool {
-			// check for app, service, taskId, instanceId and promptId if they are different no matter about node
-			appAndService := param.App == params.App &&
-				param.Service == params.Service &&
-				param.TaskId == taskRequestParam.TaskId &&
-				param.InstanceId == taskRequestParam.InstanceId &&
-				param.PromptId == taskRequestParam.PromptId
-
-			if !appAndService {
-				return appAndService
+		activities.Activities.GetTasks,
+		mock.Anything,
+		mock.MatchedBy(func(param activities.GetTasksParams) bool {
+			// check for app and service if they are different no matter about node
+			if param.Service != params.Service {
+				return false
 			}
-
+			// check node is part of the read session
 			for _, node := range dispatchOutput.Session.Nodes {
 				if param.Node == node.Address {
 					return true
 				}
 			}
-
 			return false
 		}),
 	).
-		Return(func(_ context.Context, _ activities.RelayerParams) (*activities.RelayerResults, error) {
-			// mock Relay activity response here
-			return &activities.RelayerResults{
-				ResponseId: "1",
-				Success:    true,
-				Code:       0,
-				Error:      "",
-				Ms:         10,
-				Retries:    0,
+		Return(func(_ context.Context, _ activities.GetTasksParams) (*activities.GetTaskRequestResults, error) {
+			// mock LookupTaskRequest activity response here
+			return &activities.GetTaskRequestResults{
+				TaskRequests: []activities.TaskRequest{taskRequestParam},
 			}, nil
 		}).
 		Times(nodesInSession)
@@ -132,6 +164,7 @@ func (s *RequesterWorkflowUnitTestSuite) Test_No_Errors() {
 	s.True(s.workflowEnv.IsWorkflowCompleted())
 	s.NoError(s.workflowEnv.GetWorkflowError())
 	s.workflowEnv.AssertExpectations(s.T())
+	temporalClient.AssertExpectations(s.T())
 }
 
 func (s *RequesterWorkflowUnitTestSuite) Test_Fail_GetApp() {
