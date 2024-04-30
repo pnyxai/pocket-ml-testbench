@@ -5,26 +5,10 @@ import (
 	"time"
 
 	"manager/activities"
+	"manager/types"
 
 	"go.temporal.io/sdk/workflow"
 )
-
-type NodeManagerParams struct {
-	Service       string   `json:"service"`
-	SessionHeight int64    `json:"session_height"`
-	Tasks         []string `json:"tasks"`
-}
-
-type NodeManagerResults struct {
-	Success  uint `json:"success"`
-	Failed   uint `json:"failed"`
-	NewNodes uint `json:"new_nodes"`
-}
-
-type NodeAnalysisChanResponse struct {
-	Request  *activities.NodeData
-	Response *activities.AnalyzeNodeResults
-}
 
 var NodeManagerName = "node_manager"
 
@@ -33,18 +17,18 @@ var NodeManagerName = "node_manager"
 // - Staked nodes retrieval
 // - Analyze nodes data
 // - Triggering new evaluation tasks
-func (wCtx *Ctx) NodeManager(ctx workflow.Context, params NodeManagerParams) (*NodeManagerResults, error) {
+func (wCtx *Ctx) NodeManager(ctx workflow.Context, params types.NodeManagerParams) (*types.NodeManagerResults, error) {
 
 	l := wCtx.App.Logger
 	l.Debug().Msg("Starting Node Manager Workflow.")
 
 	// Create result
-	result := NodeManagerResults{Success: 0}
+	result := types.NodeManagerResults{Success: 0}
 
 	// Check parameters
-	if len(params.Tasks) == 0 {
-		l.Error().Msg("Task array cannot be empty.")
-		return &result, fmt.Errorf("task array cannot be empty")
+	if len(params.Tests) == 0 {
+		l.Error().Msg("Tests array cannot be empty.")
+		return &result, fmt.Errorf("tests array cannot be empty")
 	}
 	if len(params.Service) != 4 {
 		l.Error().Msg("Service must be a 4 letter string (4 digit hex number).")
@@ -60,11 +44,11 @@ func (wCtx *Ctx) NodeManager(ctx workflow.Context, params NodeManagerParams) (*N
 		StartToCloseTimeout:    time.Minute * 5,
 	})
 	// Set activity input
-	getStakedInput := activities.GetStakedParams{
+	getStakedInput := types.GetStakedParams{
 		Service: params.Service,
 	}
 	// Results will be kept logged by temporal
-	var stakedNodes activities.GetStakedResults
+	var stakedNodes types.GetStakedResults
 	// Execute activity
 	err := workflow.ExecuteActivity(ctxTimeout, activities.GetStakedName, getStakedInput).Get(ctx, &stakedNodes)
 	if err != nil {
@@ -85,16 +69,16 @@ func (wCtx *Ctx) NodeManager(ctx workflow.Context, params NodeManagerParams) (*N
 	// The channel requests are the nodes data
 	nodes := stakedNodes.Nodes
 	// Define a channel to store NodeAnalysisChanResponse objects
-	nodeAnalysisResultsChan := make(chan NodeAnalysisChanResponse, len(nodes))
+	nodeAnalysisResultsChan := make(chan types.NodeAnalysisChanResponse, len(nodes))
 	// defer close lookup task results channel
 	defer close(nodeAnalysisResultsChan)
 	// Iterate all nodes and execute the analysis in futures
 	for _, node := range nodes {
-		input := activities.AnalyzeNodeParams{
+		input := types.AnalyzeNodeParams{
 			Node:  node,
-			Tasks: params.Tasks,
+			Tests: params.Tests,
 		}
-		ltr := activities.AnalyzeNodeResults{}
+		ltr := types.AnalyzeNodeResults{}
 		selector.AddFuture(
 			workflow.ExecuteActivity(
 				ctxTimeout,
@@ -109,7 +93,7 @@ func (wCtx *Ctx) NodeManager(ctx workflow.Context, params NodeManagerParams) (*N
 					return
 				}
 				// Fill the output channel
-				nodeAnalysisResultsChan <- NodeAnalysisChanResponse{
+				nodeAnalysisResultsChan <- types.NodeAnalysisChanResponse{
 					Request:  &node,
 					Response: &ltr,
 				}
