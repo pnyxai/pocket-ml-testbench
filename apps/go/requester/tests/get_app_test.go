@@ -18,7 +18,7 @@ func (s *GetAppUnitTestSuite) Test_GetApp_Activity() {
 		Service: "0001",
 	}
 
-	s.mockRpc.
+	s.GetPocketRpcMock().
 		On("GetApp", getAppParams.Address).
 		Return(samples.GetAppMock(s.app.Logger), nil).
 		Times(1)
@@ -28,7 +28,7 @@ func (s *GetAppUnitTestSuite) Test_GetApp_Activity() {
 	// Check there was no error on the call to execute the Activity
 	s.NoError(err)
 	// rpc must be called once
-	s.mockRpc.AssertExpectations(s.T())
+	s.GetPocketRpcMock().AssertExpectations(s.T())
 	// Check that there was no error returned from the Activity
 	result := poktGoSdk.App{}
 	s.NoError(future.Get(&result))
@@ -42,7 +42,7 @@ func (s *GetAppUnitTestSuite) Test_GetApp_Error_Activity() {
 		Service: "0001",
 	}
 
-	s.mockRpc.
+	s.GetPocketRpcMock().
 		On("GetApp", getAppParams.Address).
 		Return(nil, errors.New("not found"))
 

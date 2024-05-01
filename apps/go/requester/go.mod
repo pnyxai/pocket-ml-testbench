@@ -6,7 +6,7 @@ require (
 	github.com/pokt-foundation/pocket-go v0.17.0
 	github.com/rs/zerolog v1.32.0
 	github.com/stretchr/testify v1.9.0
-	go.mongodb.org/mongo-driver v1.14.0
+	go.mongodb.org/mongo-driver v1.15.0
 	go.temporal.io/api v1.29.1
 	go.temporal.io/sdk v1.26.0
 	packages/logger v0.0.0-00010101000000-000000000000

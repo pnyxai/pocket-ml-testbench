@@ -4,7 +4,7 @@ go 1.22.2
 
 require (
 	github.com/rs/zerolog v1.32.0
-	go.mongodb.org/mongo-driver v1.14.0
+	go.mongodb.org/mongo-driver v1.15.0
 	go.temporal.io/sdk v1.26.0
 	packages/logger v0.0.0-00010101000000-000000000000
 	packages/mongodb v0.0.0-00010101000000-000000000000

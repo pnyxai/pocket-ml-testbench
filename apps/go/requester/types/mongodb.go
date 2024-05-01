@@ -1,7 +1,11 @@
 package types
 
 import (
+	"context"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo/options"
+	"packages/mongodb"
 	"time"
 )
 
@@ -55,12 +59,12 @@ func (p *Prompt) GetTimeoutDuration() time.Duration {
 	return time.Duration(p.Timeout) * time.Millisecond
 }
 
-type Response struct {
+type RelayResponse struct {
 	Id       primitive.ObjectID `bson:"_id"`
-	Response string             `bson:"response"`
 	Ok       bool               `bson:"ok"`
 	Code     int                `bson:"error_code"`
 	Ms       int64              `bson:"ms"`
+	Response string             `bson:"response"`
 	Error    string             `bson:"error"`
 	// cross references
 	TaskId     primitive.ObjectID `bson:"task_id"`
@@ -68,8 +72,16 @@ type Response struct {
 	PromptId   primitive.ObjectID `bson:"prompt_id"`
 }
 
-func (r *Response) SetError(code int, e error) {
+func (r *RelayResponse) SetError(code int, e error) {
 	r.Ok = false
 	r.Code = code
 	r.Error = e.Error()
+}
+
+func (r *RelayResponse) Save(ctx context.Context, collection mongodb.CollectionAPI) (err error) {
+	opts := options.Update().SetUpsert(true)
+	filter := bson.M{"_id": r.Id}
+	update := bson.M{"$set": r}
+	_, err = collection.UpdateOne(ctx, filter, update, opts)
+	return
 }

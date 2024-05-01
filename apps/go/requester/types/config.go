@@ -11,6 +11,11 @@ type TemporalConfig struct {
 	TaskQueue string `json:"task_queue"`
 }
 
+type EvaluatorConfig struct {
+	WorkflowName string `json:"workflow_name"`
+	TaskQueue    string `json:"task_queue"`
+}
+
 type RPCConfig struct {
 	Urls             []string `json:"urls"`
 	Retries          int      `json:"retries"`
@@ -21,11 +26,12 @@ type RPCConfig struct {
 }
 
 type Config struct {
-	MongodbUri string          `json:"mongodb_uri"`
-	Apps       []string        `json:"apps"`
-	Rpc        *RPCConfig      `json:"rpc"`
-	LogLevel   string          `json:"log_level"`
-	Temporal   *TemporalConfig `json:"temporal"`
+	MongodbUri string           `json:"mongodb_uri"`
+	Apps       []string         `json:"apps"`
+	Rpc        *RPCConfig       `json:"rpc"`
+	LogLevel   string           `json:"log_level"`
+	Temporal   *TemporalConfig  `json:"temporal"`
+	Evaluator  *EvaluatorConfig `json:"evaluator"`
 }
 
 // UnmarshalJSON implement the Unmarshaler interface on Config
@@ -49,6 +55,10 @@ func (c *Config) UnmarshalJSON(b []byte) error {
 			Port:      DefaultTemporalPort,
 			Namespace: DefaultTemporalNamespace,
 			TaskQueue: DefaultTemporalTaskQueue,
+		},
+		Evaluator: &EvaluatorConfig{
+			WorkflowName: "evaluator",
+			TaskQueue:    "evaluator",
 		},
 	}
 

@@ -14,7 +14,7 @@ type GetHeightUnitTestSuite struct {
 func (s *GetHeightUnitTestSuite) Test_GetHeight_Activity() {
 	getHeightOutput := samples.GetHeightMock(s.app.Logger)
 	mockHeight, _ := getHeightOutput.Height.Int64()
-	s.mockRpc.
+	s.GetPocketRpcMock().
 		On("GetHeight").
 		Return(mockHeight, nil)
 
@@ -30,7 +30,7 @@ func (s *GetHeightUnitTestSuite) Test_GetHeight_Activity() {
 }
 
 func (s *GetHeightUnitTestSuite) Test_GetHeight_Error_Activity() {
-	s.mockRpc.
+	s.GetPocketRpcMock().
 		On("GetHeight", 0).
 		Return(nil, errors.New("not found"))
 

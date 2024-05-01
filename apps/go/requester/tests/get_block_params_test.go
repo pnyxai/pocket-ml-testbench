@@ -15,7 +15,7 @@ type GetBlockParamsUnitTestSuite struct {
 func (s *GetBlockParamsUnitTestSuite) Test_GetBlockParams_Activity() {
 	height := int64(0)
 	getAllParamsOutput := samples.GetAllParamsMock(s.app.Logger)
-	s.mockRpc.
+	s.GetPocketRpcMock().
 		On("GetAllParams", height).
 		Return(getAllParamsOutput, nil)
 
@@ -32,7 +32,7 @@ func (s *GetBlockParamsUnitTestSuite) Test_GetBlockParams_Activity() {
 
 func (s *GetBlockParamsUnitTestSuite) Test_GetBlockParams_Error_Activity() {
 	height := int64(0)
-	s.mockRpc.
+	s.GetPocketRpcMock().
 		On("GetAllParams", height).
 		Return(nil, errors.New("not found"))
 

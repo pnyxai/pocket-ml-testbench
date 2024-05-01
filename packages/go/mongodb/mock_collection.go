@@ -111,7 +111,7 @@ func (c *MockCollection) UpdateOne(ctx context.Context, filter interface{}, upda
 	//	 UpsertedCount int64 // The number of documents upserted by the operation.
 	//	 UpsertedID    interface{} // The _id field of the upserted document, or nil if no upsert was done.
 	// }
-	args := c.Called(ctx, filter, opts)
+	args := c.Called(ctx, filter, update, opts)
 	e = args.Error(1)
 	firstResponseArg := args.Get(0)
 

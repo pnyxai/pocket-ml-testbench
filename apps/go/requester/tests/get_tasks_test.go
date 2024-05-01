@@ -22,7 +22,7 @@ func interfaceSlice[T interface{}](elements []T) []interface{} {
 	return out
 }
 
-func (s *GetTasksUnitTestSuite) Test_AllGood() {
+func (s *GetTasksUnitTestSuite) Test_GetTasks_AllGood() {
 	// fake data
 	task := types.Task{
 		Id: primitive.NewObjectID(),
@@ -114,7 +114,7 @@ func (s *GetTasksUnitTestSuite) Test_AllGood() {
 	}
 }
 
-func (s *GetTasksUnitTestSuite) Test_NoTasks() {
+func (s *GetTasksUnitTestSuite) Test_GetTasks_NoTasks() {
 	taskMockCollection := mongodb.MockCollection{}
 	taskMockCollection.On("Find", mock.Anything, mock.Anything, mock.Anything).
 		Return(mongo.NewCursorFromDocuments(make([]interface{}, 0), nil, nil)).
@@ -142,7 +142,7 @@ func (s *GetTasksUnitTestSuite) Test_NoTasks() {
 	taskMockCollection.AssertExpectations(s.T())
 }
 
-func (s *GetTasksUnitTestSuite) Test_MissingInstance() {
+func (s *GetTasksUnitTestSuite) Test_GetTasks_MissingInstance() {
 	// fake data
 	task := types.Task{
 		Id: primitive.NewObjectID(),
@@ -186,7 +186,7 @@ func (s *GetTasksUnitTestSuite) Test_MissingInstance() {
 	instancesMockCollection.AssertExpectations(s.T())
 }
 
-func (s *GetTasksUnitTestSuite) Test_MissingPrompts() {
+func (s *GetTasksUnitTestSuite) Test_GetTasks_MissingPrompts() {
 	// fake data
 	task := types.Task{
 		Id: primitive.NewObjectID(),

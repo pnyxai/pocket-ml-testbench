@@ -52,4 +52,8 @@ func (aCtx *Ctx) Register(w worker.Worker) {
 	w.RegisterActivityWithOptions(aCtx.Relayer, activity.RegisterOptions{
 		Name: RelayerName,
 	})
+
+	w.RegisterActivityWithOptions(aCtx.UpdateTaskTree, activity.RegisterOptions{
+		Name: UpdateTaskTreeName,
+	})
 }

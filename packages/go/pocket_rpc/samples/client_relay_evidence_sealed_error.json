@@ -1,8 +1,8 @@
 {
     "error": {
-      "code": 25,
+      "code": 90,
       "codespace": "pocketcore",
-      "message": "the payload data of the relay request is empty"
+      "message": "the evidence is sealed, either max relays reached or claim already submitted"
     },
     "dispatch": {
       "block_height": 1,

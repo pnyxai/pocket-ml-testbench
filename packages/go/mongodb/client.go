@@ -13,6 +13,7 @@ import (
 type MongoDb interface {
 	GetDatabaseName(uri string, defaultName string) string
 	GetCollection(name string) CollectionAPI
+	StartSession(opts ...*options.SessionOptions) (mongo.Session, error)
 	CloseConnection()
 }
 
@@ -45,6 +46,10 @@ func (m *Client) GetCollection(name string) CollectionAPI {
 	} else {
 		return coll
 	}
+}
+
+func (m *Client) StartSession(opts ...*options.SessionOptions) (mongo.Session, error) {
+	return m.Client.StartSession(opts...)
 }
 
 func (m *Client) CloseConnection() {

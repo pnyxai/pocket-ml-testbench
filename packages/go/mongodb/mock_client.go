@@ -4,6 +4,8 @@ import (
 	"github.com/puzpuzpuz/xsync/v3"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/mock"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type MockClient struct {
@@ -34,6 +36,11 @@ func (mc *MockClient) GetCollection(name string) (response CollectionAPI) {
 	}
 
 	return
+}
+
+func (mc *MockClient) StartSession(opts ...*options.SessionOptions) (mongo.Session, error) {
+	args := mc.Called(opts)
+	return args.Get(0).(mongo.Session), args.Error(1)
 }
 
 func NewMockClient(uri string, l *zerolog.Logger) *MockClient {

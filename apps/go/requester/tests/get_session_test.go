@@ -21,7 +21,7 @@ func (s *GetSessionUnitTestSuite) Test_GetSession_Activity() {
 	}
 
 	getSessionOutput := samples.GetSessionMock(s.app.Logger)
-	s.mockRpc.
+	s.GetPocketRpcMock().
 		On("GetSession", getSessionParams.App, getSessionParams.Service).
 		Return(getSessionOutput, nil)
 
@@ -42,7 +42,7 @@ func (s *GetSessionUnitTestSuite) Test_GetSession_Rpc_Errored_Activity() {
 		Service: "0001",
 	}
 
-	s.mockRpc.
+	s.GetPocketRpcMock().
 		On("GetSession", getSessionParams.App, getSessionParams.Service).
 		Return(nil, errors.New("not found")).
 		Times(1)
@@ -52,7 +52,7 @@ func (s *GetSessionUnitTestSuite) Test_GetSession_Rpc_Errored_Activity() {
 	// Check there was no error on the call to execute the Activity
 	s.Error(err)
 	// GetSession should be called at least once
-	s.mockRpc.AssertExpectations(s.T())
+	s.GetPocketRpcMock().AssertExpectations(s.T())
 }
 
 func (s *GetSessionUnitTestSuite) Test_GetSession_Params_Errored_Activity() {
@@ -98,7 +98,7 @@ func (s *GetSessionUnitTestSuite) Test_GetSession_Params_Errored_Activity() {
 					Service: tt.fields.service,
 				},
 			)
-			s.mockRpc.AssertNotCalled(t, "GetSession")
+			s.GetPocketRpcMock().AssertNotCalled(t, "GetSession")
 			// Check there was no error on the call to execute the Activity
 			s.Error(err)
 			isAppError := temporal.IsApplicationError(err)

@@ -9,21 +9,13 @@ import (
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 	"requester/activities"
-	"strconv"
+	"requester/common"
 	"time"
 )
 
 type RequesterParams struct {
 	App     string `json:"app"`
 	Service string `json:"service"`
-}
-
-type RequesterNodeResults struct {
-	Address string  `json:"address"`
-	Relays  uint    `json:"relays"`
-	Success uint    `json:"success"`
-	Failed  uint    `json:"failed"`
-	AvgMs   float32 `json:"avg_ms"`
 }
 
 type RequesterResults struct {
@@ -43,24 +35,7 @@ type LookupChanResponse struct {
 	Response *activities.GetTaskRequestResults
 }
 
-type RelayerChanResponse struct {
-	Request  *activities.RelayerParams
-	Response *activities.RelayerResults
-}
-
 var RequesterName = "requester"
-
-func GetBlocksPerSession(params *poktGoSdk.AllParams) (int64, error) {
-	blocksPerSessionStr, ok := params.NodeParams.Get("pos/BlocksPerSession")
-	if !ok {
-		return 0, temporal.NewApplicationError("unable to get pos/BlocksPerSession from block params", "GetBlockParam")
-	}
-	blocksPerSession, parseIntErr := strconv.ParseInt(blocksPerSessionStr, 10, 64)
-	if parseIntErr != nil {
-		return 0, temporal.NewApplicationErrorWithCause("unable to parse to int the value provided by pos/BlocksPerSession from block params", "ParseInt", parseIntErr, blocksPerSessionStr)
-	}
-	return blocksPerSession, nil
-}
 
 // Requester check sessions
 func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *RequesterResults, e error) {
@@ -110,7 +85,7 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 		return
 	}
 
-	blocksPerSession, blocksPerSessionErr := GetBlocksPerSession(&allParams)
+	blocksPerSession, blocksPerSessionErr := common.GetBlocksPerSession(&allParams)
 	if blocksPerSessionErr != nil {
 		return nil, temporal.NewApplicationErrorWithCause(blocksPerSessionErr.Error(), "GetBlocksPerSession", blocksPerSessionErr)
 	}

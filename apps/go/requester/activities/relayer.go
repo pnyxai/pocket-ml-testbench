@@ -9,6 +9,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.temporal.io/sdk/temporal"
+	"packages/logger"
 	"packages/mongodb"
 	poktRpcCommon "packages/pocket_rpc/common"
 	"requester/types"
@@ -30,13 +31,36 @@ type RelayerParams struct {
 	PromptId string `json:"prompt_id"`
 }
 
-type RelayerResults struct {
-	// response record id
+type RelayerResponse struct {
 	ResponseId string `json:"response_id"`
-	Success    bool   `json:"success"`
-	Code       int    `json:"code"`
-	Error      string `json:"error"`
-	Ms         int64  `json:"ms"`
+}
+
+type RelayResponseCodesEnum struct {
+	Ok             int
+	Relay          int
+	Node           int
+	OutOfSession   int
+	BadParams      int
+	PromptNotFound int
+	DatabaseRead   int
+	PocketRpc      int
+	SignerNotFound int
+	SignerError    int
+	AATSignature   int
+}
+
+var RelayResponseCodes = RelayResponseCodesEnum{
+	Ok:             0,
+	Relay:          1,
+	Node:           2,
+	OutOfSession:   3,
+	BadParams:      4,
+	PromptNotFound: 5,
+	DatabaseRead:   6,
+	PocketRpc:      7,
+	SignerNotFound: 8,
+	SignerError:    9,
+	AATSignature:   10,
 }
 
 var RelayerName = "relayer"
@@ -44,23 +68,6 @@ var RelayerName = "relayer"
 var (
 	ErrSignerNotFound = errors.New("signer not found")
 	ErrPromptNotFound = errors.New("prompt not found")
-)
-
-const (
-	// RelayOk relayer does not return an error, but the response could be an error if the blockchain returns that
-	RelayOk = iota
-	// RelayErrorCode pocket node returns a 400 on a relay call
-	RelayErrorCode
-	// NodeErrorCode some other code that is not 200 or 400 comes from pocket node relay call
-	NodeErrorCode
-	OutOfSessionErrorCode
-	BadParamsErrorCode
-	PromptNotFoundErrorCode
-	DatabaseReadErrorCode
-	PocketRpcErrorCode
-	SignerNotFoundErrorCode
-	SignerErrorCode
-	AATSignatureError
 )
 
 func GetSignerOfApp(app *poktGoProvider.App, apps []string) (*poktGoSigner.Signer, error) {
@@ -71,7 +78,6 @@ func GetSignerOfApp(app *poktGoProvider.App, apps []string) (*poktGoSigner.Signe
 			return signer, nil
 		}
 	}
-
 	return nil, ErrSignerNotFound
 }
 
@@ -120,7 +126,7 @@ func GetPromptWithRequesterArgs(ctx context.Context, promptsCollection, tasksCol
 	}
 	defer cursor.Close(ctx)
 	docs := make([]*types.Prompt, 0)
-	if e := cursor.All(ctx, docs); e != nil {
+	if e := cursor.All(ctx, &docs); e != nil {
 		return nil, e
 	}
 	if len(docs) == 0 {
@@ -129,24 +135,39 @@ func GetPromptWithRequesterArgs(ctx context.Context, promptsCollection, tasksCol
 	return docs[0], nil
 }
 
-func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (response types.Response, err error) {
+func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result RelayerResponse, _ error) {
+	l := logger.GetActivityLogger(RelayerName, ctx, nil)
+	// create the response record id and assign to the activity result,
+	// so no mater the result it will contain at least that
+	response := types.RelayResponse{Id: primitive.NewObjectID()}
+	result.ResponseId = response.Id.Hex()
 	defer func() {
 		// persist response
-		// response.Save()
+		collection := aCtx.App.Mongodb.GetCollection(types.ResponseCollection)
+		if err := response.Save(ctx, collection); err != nil {
+			data, err2 := bson.MarshalExtJSON(response, true, false)
+			if err2 != nil {
+				l.Error("Error marshalling relayer response using bson", "error", err2)
+			} else {
+				l.Error("Error saving relayer response", "error", err, "response", data)
+			}
+		}
 	}()
-
-	if params.SessionHeight <= 0 {
-		err = temporal.NewNonRetryableApplicationError("session height <= 0", "BadParams", nil)
-		response.SetError(BadParamsErrorCode, err)
-		return
-	}
 
 	var promptId primitive.ObjectID
 	var e error
 
 	if promptId, e = primitive.ObjectIDFromHex(params.PromptId); e != nil {
-		err = temporal.NewNonRetryableApplicationError("prompt_id must be a valid ObjectId", "BadParams", nil)
-		response.SetError(BadParamsErrorCode, err)
+		err := temporal.NewNonRetryableApplicationError("prompt_id must be a valid ObjectId", "BadParams", nil)
+		response.SetError(RelayResponseCodes.BadParams, err)
+		return
+	}
+
+	response.PromptId = promptId
+
+	if params.SessionHeight <= 0 {
+		err := temporal.NewNonRetryableApplicationError("session height <= 0", "BadParams", nil)
+		response.SetError(RelayResponseCodes.BadParams, err)
 		return
 	}
 
@@ -158,20 +179,24 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (response ty
 	prompt, getPromptError := GetPromptWithRequesterArgs(getPromptCtx, promptCollection, taskCollection, &promptId)
 	if getPromptError != nil {
 		if errors.Is(getPromptError, ErrPromptNotFound) {
-			err = temporal.NewNonRetryableApplicationError(getPromptError.Error(), "PromptNotFound", getPromptError, params.PromptId)
-			response.SetError(PromptNotFoundErrorCode, err)
+			err := temporal.NewNonRetryableApplicationError(getPromptError.Error(), "PromptNotFound", getPromptError, params.PromptId)
+			response.SetError(RelayResponseCodes.PromptNotFound, err)
 			return
 		}
-		err = temporal.NewApplicationErrorWithCause("unexpected error reading prompt", "GetPromptWithRequesterArgs", getPromptError)
-		response.SetError(DatabaseReadErrorCode, err)
+		err := temporal.NewApplicationErrorWithCause("unexpected error reading prompt", "GetPromptWithRequesterArgs", getPromptError)
+		response.SetError(RelayResponseCodes.DatabaseRead, err)
 		return
 	}
+
+	// fill response id ref once we have from where get them
+	response.TaskId = prompt.TaskId
+	response.InstanceId = prompt.InstanceId
 
 	// get_height
 	height, getHeightErr := aCtx.App.PocketRpc.GetHeight()
 	if getHeightErr != nil {
-		err = temporal.NewApplicationErrorWithCause("unable to get height", "GetHeight", getHeightErr)
-		response.SetError(PocketRpcErrorCode, err)
+		err := temporal.NewApplicationErrorWithCause("unable to get height", "GetHeight", getHeightErr)
+		response.SetError(RelayResponseCodes.PocketRpc, err)
 		return
 	}
 
@@ -181,8 +206,8 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (response ty
 	// the session height in the params. Also, contemplate the session tolerance, basically how many sessions out it will
 	// anyway try to dispatch the relay.
 	if !CanHandleRelayWithinTolerance(currentSessionHeight, params.SessionHeight, params.BlocksPerSession, aCtx.App.Config.Rpc.SessionTolerance) {
-		err = temporal.NewNonRetryableApplicationError("out of session", "OutOfSession", nil)
-		response.SetError(OutOfSessionErrorCode, err)
+		err := temporal.NewNonRetryableApplicationError("out of session", "OutOfSession", nil)
+		response.SetError(RelayResponseCodes.OutOfSession, err)
 		return
 	}
 
@@ -191,12 +216,12 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (response ty
 
 	if signerErr != nil {
 		if errors.Is(signerErr, ErrSignerNotFound) {
-			err = temporal.NewNonRetryableApplicationError(signerErr.Error(), "SignerNotFoundErrorCode", signerErr)
-			response.SetError(SignerNotFoundErrorCode, err)
+			err := temporal.NewNonRetryableApplicationError(signerErr.Error(), "SignerNotFoundErrorCode", signerErr)
+			response.SetError(RelayResponseCodes.SignerNotFound, err)
 			return
 		}
-		err = temporal.NewApplicationErrorWithCause(signerErr.Error(), "SignerError", signerErr)
-		response.SetError(SignerErrorCode, err)
+		err := temporal.NewApplicationErrorWithCause(signerErr.Error(), "SignerError", signerErr)
+		response.SetError(RelayResponseCodes.SignerError, err)
 		return
 	}
 
@@ -205,8 +230,7 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (response ty
 
 	aat, aatErr := poktRpcCommon.NewPocketAATFromPrivKey(signer.GetPrivateKey())
 	if aatErr != nil {
-		err = aatErr
-		response.SetError(AATSignatureError, aatErr)
+		response.SetError(RelayResponseCodes.AATSignature, aatErr)
 		return
 	}
 
@@ -232,21 +256,27 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (response ty
 	response.Ms = time.Since(startTime).Milliseconds()
 	if relayErr != nil {
 		// not an rpc error
-		err = relayErr
 		response.Ok = false
 		response.Error = relayErr.Error()
 		var rpcError *poktGoProvider.RPCError
+		var relayError *poktGoProvider.RelayError
 		if errors.As(relayErr, &rpcError) {
 			if rpcError.Code == 90 {
-				response.Code = OutOfSessionErrorCode
+				response.Code = RelayResponseCodes.OutOfSession
 			} else {
-				response.Code = RelayErrorCode
+				response.Code = RelayResponseCodes.Relay
+			}
+		} else if errors.As(relayErr, &relayError) {
+			if relayError.Code == 90 {
+				response.Code = RelayResponseCodes.OutOfSession
+			} else {
+				response.Code = RelayResponseCodes.Relay
 			}
 		} else {
-			response.Code = NodeErrorCode
+			response.Code = RelayResponseCodes.Node
 		}
 	} else {
-		response.Code = RelayOk
+		response.Code = RelayResponseCodes.Ok
 		response.Ok = true
 		response.Response = relay.RelayOutput.Response
 	}

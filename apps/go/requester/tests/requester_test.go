@@ -10,6 +10,7 @@ import (
 	"packages/pocket_rpc/samples"
 	"reflect"
 	"requester/activities"
+	"requester/common"
 	"requester/workflows"
 )
 
@@ -19,7 +20,7 @@ type RequesterWorkflowUnitTestSuite struct {
 }
 
 // Test the ideal scenario where we get everything right
-func (s *RequesterWorkflowUnitTestSuite) Test_No_Errors() {
+func (s *RequesterWorkflowUnitTestSuite) Test_RequesterWorkflow_No_Errors() {
 	height := int64(0)
 	params := workflows.RequesterParams{
 		App:     "f3abbe313689a603a1a6d6a43330d0440a552288",
@@ -43,7 +44,7 @@ func (s *RequesterWorkflowUnitTestSuite) Test_No_Errors() {
 		PromptId:   "1",
 	}
 	nodesInSession := len(dispatchOutput.Session.Nodes)
-	blocksPerSession, _ := workflows.GetBlocksPerSession(allParams)
+	blocksPerSession, _ := common.GetBlocksPerSession(allParams)
 
 	temporalClient := &TemporalClientMock{}
 	s.app.TemporalClient = temporalClient
@@ -167,30 +168,40 @@ func (s *RequesterWorkflowUnitTestSuite) Test_No_Errors() {
 	temporalClient.AssertExpectations(s.T())
 }
 
-func (s *RequesterWorkflowUnitTestSuite) Test_Fail_GetApp() {
+func (s *RequesterWorkflowUnitTestSuite) Test_RequesterWorkflow_Fail_GetApp() {
+	s.T().Skip("TBD")
 	// Could be:
 	// 1. Missing a private key for retrieved app address
 	// 2. App does not have service staked
 	// 3. App not found on rpc provider
 }
-func (s *RequesterWorkflowUnitTestSuite) Test_Fail_GetBlock() {
+
+func (s *RequesterWorkflowUnitTestSuite) Test_RequesterWorkflow_Fail_GetBlock() {
+	s.T().Skip("TBD")
 	// Could be:
 	// 1. rpc error
 }
-func (s *RequesterWorkflowUnitTestSuite) Test_Fail_GetSession() {
+
+func (s *RequesterWorkflowUnitTestSuite) Test_RequesterWorkflow_Fail_GetSession() {
+	s.T().Skip("TBD")
 	// Could be:
 	// 1. rpc error
 }
-func (s *RequesterWorkflowUnitTestSuite) Test_Fail_LookupTaskRequest() {
+
+func (s *RequesterWorkflowUnitTestSuite) Test_RequesterWorkflow_Fail_LookupTaskRequest() {
+	s.T().Skip("TBD")
 	// Could be:
 	// 1. database error
 }
-func (s *RequesterWorkflowUnitTestSuite) Test_Fail_Relayer() {
+
+func (s *RequesterWorkflowUnitTestSuite) Test_RequesterWorkflow_Fail_Relayer() {
+	s.T().Skip("TBD")
 	// Could be:
 	// 1. database error
 	// 2. any other pocket hashing error?
 }
 
-func (s *RequesterWorkflowUnitTestSuite) Test_Zero_Nodes_In_Session() {
+func (s *RequesterWorkflowUnitTestSuite) Test_RequesterWorkflow_Zero_Nodes_In_Session() {
+	s.T().Skip("TBD")
 	// everything is ok, but there is any task request for the nodes in the retrieved session
 }

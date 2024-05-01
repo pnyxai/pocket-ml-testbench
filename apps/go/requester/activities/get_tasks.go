@@ -4,11 +4,9 @@ import (
 	"context"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.temporal.io/sdk/temporal"
 	"packages/logger"
-	"packages/mongodb"
+	"requester/common"
 	"requester/types"
 	"time"
 )
@@ -37,23 +35,6 @@ type promptFilter struct {
 
 var GetTasksName = "get_tasks"
 
-func GetRecords[T interface{}](ctx context.Context, collection mongodb.CollectionAPI, filter interface{}, opts ...*options.FindOptions) (docs []*T, e error) {
-	cursor, err := collection.Find(ctx, filter, opts...)
-	if err != nil {
-		e = err
-		return
-	}
-	defer func(cursor *mongo.Cursor, ctx context.Context) {
-		er := cursor.Close(ctx)
-		if er != nil {
-		}
-	}(cursor, ctx)
-	if e = cursor.All(context.Background(), &docs); e != nil {
-		return nil, e
-	}
-	return
-}
-
 func (aCtx *Ctx) GetTasks(ctx context.Context, params GetTasksParams) (result *GetTaskRequestResults, e error) {
 	result = &GetTaskRequestResults{
 		TaskRequests: make([]TaskRequest, 0),
@@ -65,7 +46,7 @@ func (aCtx *Ctx) GetTasks(ctx context.Context, params GetTasksParams) (result *G
 	// get tasks for the retrieved node and service that are not done yet
 	taskCollection := aCtx.App.Mongodb.GetCollection(types.TaskCollection)
 	taskFilter := bson.M{"node": params.Node, "service": params.Service, "done": false}
-	tasks, taskErr := GetRecords[types.Task](tasksCtx, taskCollection, taskFilter, nil)
+	tasks, taskErr := common.GetRecords[types.Task](tasksCtx, taskCollection, taskFilter, nil)
 	if taskErr != nil {
 		l.Error("Failed to lookup tasks", "error", taskErr)
 		e = temporal.NewApplicationErrorWithCause("unable to find tasks on database", "Database", taskErr)
@@ -88,7 +69,7 @@ func (aCtx *Ctx) GetTasks(ctx context.Context, params GetTasksParams) (result *G
 	// get instances of the read tasks that are not done yet
 	instanceCollection := aCtx.App.Mongodb.GetCollection(types.InstanceCollection)
 	instancesFilter := bson.M{"task_id": bson.M{"$in": tasksIds}, "done": false}
-	instances, instanceErr := GetRecords[types.Instance](instanceCtx, instanceCollection, instancesFilter, nil)
+	instances, instanceErr := common.GetRecords[types.Instance](instanceCtx, instanceCollection, instancesFilter, nil)
 	if instanceErr != nil {
 		l.Error("Failed to lookup instances", "error", instanceErr, "filter", instancesFilter)
 		e = temporal.NewApplicationErrorWithCause("unable to find instances on database", "Database", instanceErr)
@@ -122,7 +103,7 @@ func (aCtx *Ctx) GetTasks(ctx context.Context, params GetTasksParams) (result *G
 			"done":        true,
 		})
 	}
-	prompts, promptsErr := GetRecords[types.Prompt](promptsCtx, promptsCollection, promptsFilter, nil)
+	prompts, promptsErr := common.GetRecords[types.Prompt](promptsCtx, promptsCollection, promptsFilter, nil)
 	if promptsErr != nil {
 		l.Error("Failed to lookup prompts", "error", promptsErr, "filter", promptsFilter)
 		e = temporal.NewApplicationErrorWithCause("unable to find prompts on database", "Database", promptsErr)
