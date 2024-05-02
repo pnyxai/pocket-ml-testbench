@@ -28,7 +28,7 @@ func (wCtx *Ctx) Relayer(ctx workflow.Context, params activities.RelayerParams) 
 	}
 	ctx = workflow.WithActivityOptions(ctx, ao)
 
-	if _, ok := wCtx.App.SignerByAddress.Load(params.App.Address); !ok {
+	if _, ok := wCtx.App.AppAccounts.Load(params.App.Address); !ok {
 		e = temporal.NewApplicationError("application not found", "ApplicationNotFound", nil)
 		return
 	}

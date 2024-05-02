@@ -6,6 +6,7 @@ import (
 	"errors"
 	poktGoSdk "github.com/pokt-foundation/pocket-go/provider"
 	poktGoSigner "github.com/pokt-foundation/pocket-go/signer"
+	"golang.org/x/crypto/sha3"
 )
 
 const (
@@ -38,20 +39,35 @@ func NewPocketAATFromPrivKey(privKey string) (*poktGoSdk.PocketAAT, error) {
 	if err != nil {
 		return nil, err
 	}
-	aat := poktGoSdk.PocketAAT{
+
+	unsignedAAt := poktGoSdk.PocketAAT{
 		Version:      CurrentAATVersion,
 		AppPubKey:    signer.GetPublicKey(),
 		ClientPubKey: signer.GetPublicKey(),
 		Signature:    "",
 	}
-	b, err := json.Marshal(aat)
+
+	marshaledAAT, err := json.Marshal(unsignedAAt)
 	if err != nil {
 		return nil, err
 	}
-	signature, err := signer.Sign(b)
+
+	hasher := sha3.New256()
+
+	_, err = hasher.Write(marshaledAAT)
 	if err != nil {
 		return nil, err
 	}
-	aat.Signature = signature
-	return &aat, nil
+
+	unsignedAAtHash := hasher.Sum(nil)
+
+	s, e := signer.Sign(unsignedAAtHash)
+	if e != nil {
+		return nil, e
+	}
+
+	signedAAt := unsignedAAt
+	signedAAt.Signature = s
+
+	return &signedAAt, nil
 }

@@ -2,18 +2,15 @@ package activities
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	poktGoProvider "github.com/pokt-foundation/pocket-go/provider"
 	poktGoRelayer "github.com/pokt-foundation/pocket-go/relayer"
-	poktGoSigner "github.com/pokt-foundation/pocket-go/signer"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.temporal.io/sdk/temporal"
 	"packages/logger"
 	"packages/mongodb"
-	poktRpcCommon "packages/pocket_rpc/common"
 	"requester/types"
 	"time"
 )
@@ -68,20 +65,8 @@ var RelayResponseCodes = RelayResponseCodesEnum{
 var RelayerName = "relayer"
 
 var (
-	ErrSignerNotFound = errors.New("signer not found")
 	ErrPromptNotFound = errors.New("prompt not found")
 )
-
-func GetSignerOfApp(app *poktGoProvider.App, apps []string) (*poktGoSigner.Signer, error) {
-	for _, privKey := range apps {
-		if signer, err := poktGoSigner.NewSignerFromPrivateKey(privKey); err != nil {
-			continue
-		} else if signer.GetAddress() == app.Address {
-			return signer, nil
-		}
-	}
-	return nil, ErrSignerNotFound
-}
 
 func GetCurrentSession(currentHeight, blocksPerSession int64) int64 {
 	currentSessionHeight := int64(0)
@@ -215,29 +200,18 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 	}
 
 	// here we get all the data needed to dispatch the relay
-	signer, signerErr := GetSignerOfApp(params.App, aCtx.App.Config.Apps)
+	appAccount, appFound := aCtx.App.AppAccounts.Load(params.App.Address)
 
-	if signerErr != nil {
-		if errors.Is(signerErr, ErrSignerNotFound) {
-			err := temporal.NewNonRetryableApplicationError(signerErr.Error(), "SignerNotFoundErrorCode", signerErr)
-			response.SetError(RelayResponseCodes.SignerNotFound, err)
-			return
-		}
-		err := temporal.NewApplicationErrorWithCause(signerErr.Error(), "SignerError", signerErr)
-		response.SetError(RelayResponseCodes.SignerError, err)
+	if !appFound {
+		err := temporal.NewNonRetryableApplicationError("signer not found", "SignerNotFoundErrorCode", nil, params.App)
+		response.SetError(RelayResponseCodes.SignerNotFound, err)
 		return
 	}
 
 	servicerUrl := params.Node.ServiceURL
 	provider := poktGoProvider.NewProvider(servicerUrl, []string{servicerUrl})
 
-	aat, aatErr := poktRpcCommon.NewPocketAATFromPrivKey(signer.GetPrivateKey())
-	if aatErr != nil {
-		response.SetError(RelayResponseCodes.AATSignature, aatErr)
-		return
-	}
-
-	relayer := poktGoRelayer.NewRelayer(signer, provider)
+	relayer := poktGoRelayer.NewRelayer(appAccount.Signer, provider)
 
 	relayInput := poktGoRelayer.Input{
 		Blockchain: params.Service,
@@ -246,14 +220,12 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 		Method:     prompt.Task.RequesterArgs.Method,
 		Node:       params.Node,
 		Path:       prompt.Task.RequesterArgs.Path,
-		PocketAAT:  aat,
+		PocketAAT:  appAccount.SignedAAT,
 		Session:    params.Session,
 	}
 	relayOpts := &poktGoProvider.RelayRequestOptions{
 		RejectSelfSignedCertificates: true,
 	}
-	relaysInputStr, _ := json.MarshalIndent(relayInput, "", "    ")
-	println("relayInput", string(relaysInputStr))
 	startTime := time.Now()
 	relayerCtx, cancelRelayerFn := context.WithTimeout(ctx, prompt.GetTimeoutDuration())
 	defer cancelRelayerFn()

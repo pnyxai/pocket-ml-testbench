@@ -3,8 +3,6 @@ package x
 import (
 	"encoding/json"
 	"fmt"
-	poktGoSigner "github.com/pokt-foundation/pocket-go/signer"
-	"github.com/puzpuzpuz/xsync/v3"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"go.temporal.io/sdk/client"
@@ -42,16 +40,6 @@ func Initialize() *types.App {
 	clientPool := pocket_rpc.NewClientPool(cfg.Rpc.Urls, &clientPoolOpts, l)
 	pocketRpc := pocket_rpc.NewPocketRpc(clientPool)
 
-	signerMap := xsync.NewMapOf[string, *poktGoSigner.Signer]()
-
-	for i, pk := range cfg.Apps {
-		if signer, err := poktGoSigner.NewSignerFromPrivateKey(pk); err != nil {
-			l.Fatal().Err(err).Msg(fmt.Sprintf("failed to create signer for app at index %d", i))
-		} else {
-			signerMap.Store(signer.GetAddress(), signer)
-		}
-	}
-
 	clientOptions := client.Options{
 		HostPort:  fmt.Sprintf("%s:%d", cfg.Temporal.Host, cfg.Temporal.Port),
 		Namespace: cfg.Temporal.Namespace,
@@ -63,13 +51,15 @@ func Initialize() *types.App {
 	}
 
 	ac := &types.App{
-		Logger:          l,
-		Config:          cfg,
-		SignerByAddress: signerMap,
-		PocketRpc:       pocketRpc,
-		Mongodb:         m,
-		TemporalClient:  temporalClient,
+		Logger:         l,
+		Config:         cfg,
+		PocketRpc:      pocketRpc,
+		Mongodb:        m,
+		TemporalClient: temporalClient,
 	}
+
+	// generate app accounts
+	ac.GenerateAppAccounts()
 
 	// set this to workflows and activities to avoid use of context.Context
 	workflows.SetAppConfig(ac)

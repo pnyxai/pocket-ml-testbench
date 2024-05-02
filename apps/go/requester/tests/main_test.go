@@ -1,9 +1,6 @@
 package tests
 
 import (
-	"fmt"
-	poktGoSigner "github.com/pokt-foundation/pocket-go/signer"
-	"github.com/puzpuzpuz/xsync/v3"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/suite"
 	"go.temporal.io/sdk/testsuite"
@@ -65,23 +62,16 @@ func (s *BaseSuite) InitializeTestApp() {
 		},
 	}
 
-	signerMap := xsync.NewMapOf[string, *poktGoSigner.Signer]()
-	for i, pk := range cfg.Apps {
-		if signer, err := poktGoSigner.NewSignerFromPrivateKey(pk); err != nil {
-			l.Fatal().Err(err).Msg(fmt.Sprintf("failed to create signer for app at index %d", i))
-		} else {
-			signerMap.Store(signer.GetAddress(), signer)
-		}
+	ac := &types.App{
+		Logger:         &l,
+		Config:         cfg,
+		PocketRpc:      pocket_rpc.NewMockRpc(),
+		Mongodb:        &mongodb.MockClient{},
+		TemporalClient: &TemporalClientMock{},
 	}
 
-	ac := &types.App{
-		Logger:          &l,
-		Config:          cfg,
-		PocketRpc:       pocket_rpc.NewMockRpc(),
-		SignerByAddress: signerMap,
-		Mongodb:         &mongodb.MockClient{},
-		TemporalClient:  &TemporalClientMock{},
-	}
+	// generate app accounts
+	ac.GenerateAppAccounts()
 
 	// set the app to test env
 	s.app = ac

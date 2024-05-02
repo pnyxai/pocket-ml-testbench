@@ -3,7 +3,6 @@ package tests
 import (
 	"context"
 	poktGoSdk "github.com/pokt-foundation/pocket-go/provider"
-	poktGoSigner "github.com/pokt-foundation/pocket-go/signer"
 	"github.com/puzpuzpuz/xsync/v3"
 	"github.com/stretchr/testify/mock"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -167,7 +166,7 @@ func (s *RelayerWorkflowUnitTestSuite) Test_RelayerWorkflow_Fail_AppNotFound() {
 		BlocksPerSession: blocksPerSession,
 		PromptId:         prompt.Id.Hex(),
 	}
-	s.app.SignerByAddress = xsync.NewMapOf[string, *poktGoSigner.Signer]()
+	s.app.AppAccounts = xsync.NewMapOf[string, *types.AppAccount]()
 
 	s.workflowEnv.ExecuteWorkflow(workflows.Workflows.Relayer, relayerParams)
 	s.True(s.workflowEnv.IsWorkflowCompleted())

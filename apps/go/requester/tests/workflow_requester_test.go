@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	poktGoSdk "github.com/pokt-foundation/pocket-go/provider"
-	poktGoSigner "github.com/pokt-foundation/pocket-go/signer"
 	"github.com/puzpuzpuz/xsync/v3"
 	"github.com/stretchr/testify/mock"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -15,6 +14,7 @@ import (
 	"reflect"
 	"requester/activities"
 	"requester/common"
+	"requester/types"
 	"requester/workflows"
 )
 
@@ -73,6 +73,7 @@ func (s *RequesterWorkflowUnitTestSuite) Test_RequesterWorkflow_No_Errors() {
 			// we will not get the same relayer workflow executed twice
 			ID:                    wfId,
 			WorkflowIDReusePolicy: enums.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE_FAILED_ONLY,
+			TaskQueue:             s.app.Config.Temporal.TaskQueue,
 		}
 		mockWorkflowRun := &FakeWorkflowRun{}
 		mockWorkflowRun.On("GetID").Return(wfId)
@@ -231,6 +232,7 @@ func (s *RequesterWorkflowUnitTestSuite) Test_RequesterWorkflow_No_Errors_FewNod
 			// we will not get the same relayer workflow executed twice
 			ID:                    wfId,
 			WorkflowIDReusePolicy: enums.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE_FAILED_ONLY,
+			TaskQueue:             s.app.Config.Temporal.TaskQueue,
 		}
 		mockWorkflowRun := &FakeWorkflowRun{}
 		mockWorkflowRun.On("GetID").Return(wfId)
@@ -346,7 +348,7 @@ func (s *RequesterWorkflowUnitTestSuite) Test_RequesterWorkflow_No_Errors_FewNod
 }
 
 func (s *RequesterWorkflowUnitTestSuite) Test_RequesterWorkflow_Fail_ApplicationNotFound() {
-	s.app.SignerByAddress = xsync.NewMapOf[string, *poktGoSigner.Signer]()
+	s.app.AppAccounts = xsync.NewMapOf[string, *types.AppAccount]()
 	params := workflows.RequesterParams{
 		App:     "f3abbe313689a603a1a6d6a43330d0440a552288",
 		Service: "0001",

@@ -20,7 +20,8 @@ func (s *GetSessionUnitTestSuite) Test_GetSession_Activity() {
 		App:     "f3abbe313689a603a1a6d6a43330d0440a552288",
 		Service: "0001",
 	}
-	signer, _ := s.app.SignerByAddress.Load(getSessionParams.App)
+	appAccount, _ := s.app.AppAccounts.Load(getSessionParams.App)
+	signer := appAccount.Signer
 
 	getSessionOutput := samples.GetSessionMock(s.app.Logger)
 	s.GetPocketRpcMock().
@@ -46,9 +47,10 @@ func (s *GetSessionUnitTestSuite) Test_GetSession_Rpc_Errored_Activity() {
 		App:     "f3abbe313689a603a1a6d6a43330d0440a552288",
 		Service: "0001",
 	}
-
+	appAccount, _ := s.app.AppAccounts.Load(getSessionParams.App)
+	signer := appAccount.Signer
 	s.GetPocketRpcMock().
-		On("GetSession", getSessionParams.App, getSessionParams.Service).
+		On("GetSession", signer.GetPublicKey(), getSessionParams.Service).
 		Return(nil, errors.New("not found")).
 		Times(1)
 

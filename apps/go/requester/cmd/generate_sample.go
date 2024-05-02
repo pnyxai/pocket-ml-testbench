@@ -19,9 +19,8 @@ func GetTask(node string) *types.Task {
 		RequesterArgs: types.RequesterArgs{
 			// found in localnet
 			Address: node,
-			Service: "0021",
-			Method:  "POST",
-			Path:    "/",
+			Service: "0001",
+			Path:    "/v1/query/height",
 		},
 		Done: false,
 	}
@@ -58,7 +57,7 @@ func GetPrompt(task *types.Task, instance *types.Instance) *types.Prompt {
 	prompt := types.Prompt{
 		Id: primitive.NewObjectID(),
 		// ethereum mainnet mock
-		Data:    "[{\"jsonrpc\":\"2.0\",\"method\":\"eth_getBalance\",\"params\":[\"0xF02c1c8e6114b1Dbe8937a39260b5b0a374432bB\", \"latest\"],\"id\":1}]",
+		Data:    "{}",
 		Timeout: 10000,
 		Done:    false,
 	}
@@ -101,8 +100,8 @@ func main() {
 	// this node is the one on the localnet repository
 	nodes := []string{
 		//"7c08e2e1265246a66d7d022b163970114dda124e",
-		"9ab105b900c4633657f60974ad0e243c8f50ae1e",
-		//"cb85946c8171e3bbe78f5dbc01469053419b7be1",
+		//"9ab105b900c4633657f60974ad0e243c8f50ae1e",
+		"cb85946c8171e3bbe78f5dbc01469053419b7be1", // d2b31be6e4c2740a5daec2abe95d3f44c419085ea9c938042aa886ac67ebb592b02f4a2d8c887a24a7172fa9ce982d0c0825d35fab37816101ff5ab8a6272dc0
 		//"5e6949faf0a176fd0f3a0e2ef948d7a70ee2867b",
 		//"4202057f345d63b0af02f76dcb42aa46bf9b6d43",
 		//"a31eba7042bd2c87c5dc0462d92dd1c961c81249",

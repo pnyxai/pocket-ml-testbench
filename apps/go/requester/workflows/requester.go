@@ -44,7 +44,7 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 	}
 	activityCtx := workflow.WithActivityOptions(ctx, ao)
 
-	if _, ok := wCtx.App.SignerByAddress.Load(params.App); !ok {
+	if _, ok := wCtx.App.AppAccounts.Load(params.App); !ok {
 		e = temporal.NewApplicationError("application not found", "ApplicationNotFound", nil)
 		return
 	}
