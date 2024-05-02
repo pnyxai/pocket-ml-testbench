@@ -3,6 +3,7 @@ package activities
 import (
 	"context"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.temporal.io/sdk/temporal"
 	"requester/common"
@@ -26,7 +27,12 @@ func UpdateTaskTreeSessionWrapper(aCtx *Ctx, params *UpdateTaskTreeRequest) func
 		response = &result
 		// lookup for the prompt
 		promptCollection := aCtx.App.Mongodb.GetCollection(types.PromptsCollection)
-		promptIdFilter := bson.M{"_id": params.PromptId}
+		promptId, objIdErr := primitive.ObjectIDFromHex(params.PromptId)
+		if objIdErr != nil {
+			err = temporal.NewApplicationErrorWithCause("invalid prompt id", "BadParams", objIdErr, params)
+			return
+		}
+		promptIdFilter := bson.M{"_id": promptId}
 		prompt, promptErr := common.GetRecord[types.Prompt](ctx, promptCollection, promptIdFilter)
 		if promptErr != nil {
 			err = temporal.NewApplicationErrorWithCause("error finding prompt", "DatabaseFindOneError", promptErr)

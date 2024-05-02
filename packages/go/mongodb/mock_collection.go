@@ -14,6 +14,7 @@ var (
 
 type MockCollection struct {
 	mock.Mock
+	mongo.Collection
 }
 
 func (c *MockCollection) Name() string {

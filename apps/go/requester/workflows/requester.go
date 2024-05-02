@@ -44,6 +44,11 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 	}
 	activityCtx := workflow.WithActivityOptions(ctx, ao)
 
+	if _, ok := wCtx.App.SignerByAddress.Load(params.App); !ok {
+		e = temporal.NewApplicationError("application not found", "ApplicationNotFound", nil)
+		return
+	}
+
 	// GetApp will try to retrieve the application state from the RPC
 	// with this we ensure it exists and has the chain staked
 	getAppResults := &poktGoSdk.App{}
@@ -93,12 +98,11 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 	selector := workflow.NewSelector(ctx)
 	sessionHeight := int64(sessionResult.Session.Header.SessionHeight)
 	nodes := sessionResult.Session.Nodes
-	nodeAddresses := make([]string, len(nodes))
+	nodeAddresses := make([]string, 0)
 	// Define a channel to store GetTaskRequestResults objects
 	lookupTaskResultsChan := make(chan LookupChanResponse, len(nodes))
 
 	for _, node := range nodes {
-		nodeAddresses = append(nodeAddresses, node.Address)
 		request := activities.GetTasksParams{
 			Node:    node.Address,
 			Service: params.Service,
@@ -144,6 +148,8 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 	for ltr := range lookupTaskResultsChan {
 		request := ltr.Request
 		for _, tr := range ltr.Response.TaskRequests {
+			// add only those nodes that get pending tasks
+			nodeAddresses = append(nodeAddresses, ltr.Node.Address)
 			// You can access desired attributes here.
 			relayerRequest := activities.RelayerParams{
 				// todo: check if need to add anything else
@@ -167,6 +173,7 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 					params.App, request.Node, request.Service,
 					tr.TaskId, tr.InstanceId, tr.PromptId, sessionHeight,
 				),
+				TaskQueue: wCtx.App.Config.Temporal.TaskQueue,
 				// todo: check if this is the proper strategy here.
 				WorkflowIDReusePolicy: enums.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE_FAILED_ONLY,
 			}

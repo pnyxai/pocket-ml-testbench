@@ -35,7 +35,7 @@ type Instance struct {
 	// -- Relations Below --
 	// id and/or entity if load with a $lookup
 	TaskId primitive.ObjectID `bson:"task_id"`
-	Task   *Task              `bson:"task"`
+	Task   *Task              `bson:"task,omitempty"`
 }
 
 type Prompt struct {
@@ -46,10 +46,10 @@ type Prompt struct {
 	// -- Relations Below --
 	// id and/or entity if load with a $lookup
 	TaskId primitive.ObjectID `bson:"task_id"`
-	Task   *Task              `bson:"task"`
+	Task   *Task              `bson:"task,omitempty"`
 	// id and/or entity if load with a $lookup
 	InstanceId primitive.ObjectID `bson:"instance_id"`
-	Instance   *Instance          `bson:"instance"`
+	Instance   *Instance          `bson:"instance,omitempty"`
 }
 
 func (p *Prompt) GetTimeoutDuration() time.Duration {

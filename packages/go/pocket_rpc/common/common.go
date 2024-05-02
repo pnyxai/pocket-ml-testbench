@@ -6,7 +6,6 @@ import (
 	"errors"
 	poktGoSdk "github.com/pokt-foundation/pocket-go/provider"
 	poktGoSigner "github.com/pokt-foundation/pocket-go/signer"
-	poktGoUtils "github.com/pokt-foundation/pocket-go/utils"
 )
 
 const (
@@ -39,11 +38,10 @@ func NewPocketAATFromPrivKey(privKey string) (*poktGoSdk.PocketAAT, error) {
 	if err != nil {
 		return nil, err
 	}
-	pubKey := poktGoUtils.PublicKeyFromPrivate(privKey)
 	aat := poktGoSdk.PocketAAT{
 		Version:      CurrentAATVersion,
-		AppPubKey:    pubKey,
-		ClientPubKey: pubKey,
+		AppPubKey:    signer.GetPublicKey(),
+		ClientPubKey: signer.GetPublicKey(),
 		Signature:    "",
 	}
 	b, err := json.Marshal(aat)

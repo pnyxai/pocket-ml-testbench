@@ -7,7 +7,7 @@
     "urls": [
       "http://localhost:8081"
     ],
-    "retries": 3,
+    "retries": 1,
     "min_backoff": 10,
     "max_backoff": 60,
     "req_per_sec": 10,
@@ -18,6 +18,10 @@
     "host": "localhost",
     "port": 7233,
     "namespace": "pocket-ml-testbench",
-    "task_queue": "requester-local"
+    "task_queue": "requester"
+  },
+  "evaluator": {
+    "workflow_name": "evaluator",
+    "task_queue": "evaluator"
   }
 }

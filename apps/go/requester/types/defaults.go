@@ -1,10 +1,35 @@
 package types
 
 var (
-	DefaultMongodbUri        = "mongodb://localhost:27017"
-	DefaultLogLevel          = "info"
-	DefaultTemporalHost      = "localhost"
-	DefaultTemporalPort      = uint(7233)
-	DefaultTemporalNamespace = "default"
-	DefaultTemporalTaskQueue = "relay-tester"
+	DefaultMongodbUri            = "mongodb://127.0.0.1:27017/pocket-ml-testbench?replicaSet=devRs"
+	DefaultLogLevel              = "info"
+	DefaultTemporalHost          = "localhost"
+	DefaultTemporalPort          = uint(7233)
+	DefaultTemporalNamespace     = "pocket-ml-testbench"
+	DefaultTemporalTaskQueue     = "requester"
+	DefaultEvaluatorWorkflowName = "evaluator"
+	DefaultEvaluatorTaskQueue    = "evaluator"
+	DefaultRpcRetries            = 3
+	DefaultMinBackoff            = 10
+	DefaultMaxBackoff            = 60
+	DefaultReqPerSec             = 10
+	DefaultSessionTolerance      = int64(1)
+	DefaultRpc                   = RPCConfig{
+		Urls:             []string{},
+		Retries:          DefaultRpcRetries,
+		MinBackoff:       DefaultMinBackoff,
+		MaxBackoff:       DefaultMaxBackoff,
+		ReqPerSec:        DefaultReqPerSec,
+		SessionTolerance: DefaultSessionTolerance,
+	}
+	DefaultTemporal = TemporalConfig{
+		Host:      DefaultTemporalHost,
+		Port:      DefaultTemporalPort,
+		Namespace: DefaultTemporalNamespace,
+		TaskQueue: DefaultTemporalTaskQueue,
+	}
+	DefaultEvaluator = EvaluatorConfig{
+		WorkflowName: DefaultEvaluatorWorkflowName,
+		TaskQueue:    DefaultEvaluatorTaskQueue,
+	}
 )

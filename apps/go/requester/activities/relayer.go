@@ -2,12 +2,14 @@ package activities
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	poktGoProvider "github.com/pokt-foundation/pocket-go/provider"
 	poktGoRelayer "github.com/pokt-foundation/pocket-go/relayer"
 	poktGoSigner "github.com/pokt-foundation/pocket-go/signer"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.temporal.io/sdk/temporal"
 	"packages/logger"
 	"packages/mongodb"
@@ -102,7 +104,7 @@ func CanHandleRelayWithinTolerance(currentSessionHeight, requestedSessionHeight,
 
 func GetPromptWithRequesterArgs(ctx context.Context, promptsCollection, tasksCollection mongodb.CollectionAPI, promptId *primitive.ObjectID) (*types.Prompt, error) {
 	matchStage := bson.D{
-		{"$match", bson.D{{"_id", promptId}}},
+		{"$match", bson.M{"_id": promptId, "done": false}},
 	}
 	lookupStage := bson.D{
 		{"$lookup", bson.M{
@@ -111,15 +113,16 @@ func GetPromptWithRequesterArgs(ctx context.Context, promptsCollection, tasksCol
 			"foreignField": "_id",
 			"as":           "task",
 		}},
+	}
+	unwindStage := bson.D{
 		{"$unwind", bson.M{
-			"path":                       "task",
-			"preserveNullAndEmptyArrays": false,
+			"path": "$task",
 		}},
 	}
 	limit := bson.D{
 		{"$limit", 1}, // we just should load 1 document
 	}
-	pipeline := []bson.D{matchStage, lookupStage, limit}
+	pipeline := mongo.Pipeline{matchStage, lookupStage, unwindStage, limit}
 	cursor, err := promptsCollection.Aggregate(ctx, pipeline)
 	if err != nil {
 		return nil, err
@@ -249,6 +252,8 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 	relayOpts := &poktGoProvider.RelayRequestOptions{
 		RejectSelfSignedCertificates: true,
 	}
+	relaysInputStr, _ := json.MarshalIndent(relayInput, "", "    ")
+	println("relayInput", string(relaysInputStr))
 	startTime := time.Now()
 	relayerCtx, cancelRelayerFn := context.WithTimeout(ctx, prompt.GetTimeoutDuration())
 	defer cancelRelayerFn()

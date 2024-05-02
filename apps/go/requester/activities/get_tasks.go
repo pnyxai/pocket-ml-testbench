@@ -2,6 +2,7 @@ package activities
 
 import (
 	"context"
+	"fmt"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.temporal.io/sdk/temporal"
@@ -45,7 +46,7 @@ func (aCtx *Ctx) GetTasks(ctx context.Context, params GetTasksParams) (result *G
 	defer taskCancelFn()
 	// get tasks for the retrieved node and service that are not done yet
 	taskCollection := aCtx.App.Mongodb.GetCollection(types.TaskCollection)
-	taskFilter := bson.M{"node": params.Node, "service": params.Service, "done": false}
+	taskFilter := bson.M{"requester_args.address": params.Node, "requester_args.service": params.Service, "done": false}
 	tasks, taskErr := common.GetRecords[types.Task](tasksCtx, taskCollection, taskFilter, nil)
 	if taskErr != nil {
 		l.Error("Failed to lookup tasks", "error", taskErr)
@@ -59,8 +60,8 @@ func (aCtx *Ctx) GetTasks(ctx context.Context, params GetTasksParams) (result *G
 	}
 
 	tasksIds := make([]primitive.ObjectID, len(tasks))
-	for i, _ := range tasks {
-		tasksIds = append(tasksIds, tasks[i].Id)
+	for i := range tasks {
+		tasksIds[i] = tasks[i].Id
 	}
 
 	instanceCtx, instanceCancelFn := context.WithTimeout(ctx, 10*time.Second)
@@ -83,11 +84,11 @@ func (aCtx *Ctx) GetTasks(ctx context.Context, params GetTasksParams) (result *G
 	}
 
 	tasksInstances := make([]promptFilter, len(instances))
-	for i, _ := range instances {
-		tasksInstances = append(tasksInstances, promptFilter{
+	for i := range instances {
+		tasksInstances[i] = promptFilter{
 			TaskId:     instances[i].TaskId,
-			InstanceId: instances[i].TaskId,
-		})
+			InstanceId: instances[i].Id,
+		}
 	}
 
 	promptsCtx, promptCancelFn := context.WithTimeout(ctx, 10*time.Second)
@@ -95,14 +96,15 @@ func (aCtx *Ctx) GetTasks(ctx context.Context, params GetTasksParams) (result *G
 
 	promptsCollection := aCtx.App.Mongodb.GetCollection(types.PromptsCollection)
 	promptsOrFilter := make(bson.A, 0)
-	promptsFilter := bson.M{"$or": promptsOrFilter}
 	for i, _ := range tasksInstances {
+		println(fmt.Sprintf("task %s instance %s", tasksInstances[i].TaskId.Hex(), tasksInstances[i].InstanceId.Hex()))
 		promptsOrFilter = append(promptsOrFilter, bson.M{
 			"task_id":     tasksInstances[i].TaskId,
-			"instance_id": tasksInstances[i].TaskId,
-			"done":        true,
+			"instance_id": tasksInstances[i].InstanceId,
+			"done":        false,
 		})
 	}
+	promptsFilter := bson.M{"$or": promptsOrFilter}
 	prompts, promptsErr := common.GetRecords[types.Prompt](promptsCtx, promptsCollection, promptsFilter, nil)
 	if promptsErr != nil {
 		l.Error("Failed to lookup prompts", "error", promptsErr, "filter", promptsFilter)

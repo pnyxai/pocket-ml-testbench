@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	poktGoSdk "github.com/pokt-foundation/pocket-go/provider"
+	poktGoSigner "github.com/pokt-foundation/pocket-go/signer"
 	poktGoUtils "github.com/pokt-foundation/pocket-go/utils"
 	"go.temporal.io/sdk/temporal"
 	poktRpc "packages/pocket_rpc"
@@ -18,7 +19,7 @@ type GetSessionParams struct {
 var GetSessionName = "get_session"
 
 func (aCtx *Ctx) GetSession(_ context.Context, params GetSessionParams) (*poktGoSdk.DispatchOutput, error) {
-	if ok := poktGoUtils.ValidatePublicKey(params.App); !ok {
+	if ok := poktGoUtils.ValidateAddress(params.App); !ok {
 		return nil, temporal.NewNonRetryableApplicationError("bad params", "BadParams", nil)
 	}
 
@@ -26,7 +27,13 @@ func (aCtx *Ctx) GetSession(_ context.Context, params GetSessionParams) (*poktGo
 		return nil, temporal.NewNonRetryableApplicationError("bad params", "BadParams", e)
 	}
 
-	result, err := aCtx.App.PocketRpc.GetSession(params.App, params.Service)
+	var signer *poktGoSigner.Signer
+	var ok bool
+	if signer, ok = aCtx.App.SignerByAddress.Load(params.App); !ok {
+		return nil, temporal.NewApplicationError("application not found", "ApplicationNotFound", nil)
+	}
+
+	result, err := aCtx.App.PocketRpc.GetSession(signer.GetPublicKey(), params.Service)
 	if err != nil {
 		if errors.Is(err, poktRpc.ErrBadRequestParams) {
 			return nil, temporal.NewNonRetryableApplicationError("bad params", "BadParams", err)

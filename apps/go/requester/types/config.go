@@ -41,25 +41,10 @@ func (c *Config) UnmarshalJSON(b []byte) error {
 	defaultValues := &Alias{
 		MongodbUri: DefaultMongodbUri,
 		Apps:       []string{},
-		Rpc: &RPCConfig{
-			Urls:             []string{},
-			Retries:          3,
-			MinBackoff:       10,
-			MaxBackoff:       60,
-			ReqPerSec:        10,
-			SessionTolerance: 1,
-		},
-		LogLevel: DefaultLogLevel,
-		Temporal: &TemporalConfig{
-			Host:      DefaultTemporalHost,
-			Port:      DefaultTemporalPort,
-			Namespace: DefaultTemporalNamespace,
-			TaskQueue: DefaultTemporalTaskQueue,
-		},
-		Evaluator: &EvaluatorConfig{
-			WorkflowName: "evaluator",
-			TaskQueue:    "evaluator",
-		},
+		Rpc:        &DefaultRpc,
+		LogLevel:   DefaultLogLevel,
+		Temporal:   &DefaultTemporal,
+		Evaluator:  &DefaultEvaluator,
 	}
 
 	if err := json.Unmarshal(b, &defaultValues); err != nil {

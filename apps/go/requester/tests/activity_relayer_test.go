@@ -1,158 +1,49 @@
 package tests
 
 import (
-	"encoding/json"
-	poktGoSdk "github.com/pokt-foundation/pocket-go/provider"
 	"github.com/stretchr/testify/mock"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"io"
 	"net/http"
-	"net/http/httptest"
 	"packages/mongodb"
 	"packages/pocket_rpc"
 	"packages/pocket_rpc/samples"
 	"packages/utils"
 	"requester/activities"
-	"requester/common"
 	"requester/types"
 	"time"
 )
-
-type MockResponse struct {
-	Route   string
-	Method  string
-	Data    interface{}
-	GetData func(body []byte) (interface{}, error)
-	Code    int
-	Delay   *time.Duration
-}
 
 // define a test suite struct
 type RelayerUnitTestSuite struct {
 	BaseSuite
 }
 
-func (s *RelayerUnitTestSuite) NewMockServicerMockServer(mockResponse MockResponse) (server *httptest.Server, url string) {
-	server = httptest.NewServer(
-		http.HandlerFunc(
-			func(w http.ResponseWriter, r *http.Request) {
-				// Check if the path is "/test"
-				if r.URL.Path != mockResponse.Route {
-					http.Error(w, "Not found", http.StatusNotFound)
-					return
-				}
-				// Check if the method is GET
-				if r.Method != mockResponse.Method {
-					http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-					return
-				}
-
-				var data interface{}
-
-				if mockResponse.GetData != nil {
-					body, err := io.ReadAll(r.Body)
-					if err != nil || len(body) == 0 {
-						http.Error(w, "Wrong Payload", http.StatusBadRequest)
-						return
-					}
-					defer func() {
-						if e := r.Body.Close(); e != nil {
-							s.app.Logger.Error().Err(e).Msg("error closing body")
-						}
-					}()
-
-					// implemented to do paginated responses
-					data, err = mockResponse.GetData(body)
-
-					if err != nil {
-						http.Error(w, "Wrong data resolution", http.StatusInternalServerError)
-						return
-					}
-				} else if mockResponse.Data != nil {
-					data = mockResponse.Data
-				}
-
-				if mockResponse.Delay != nil {
-					time.Sleep(*mockResponse.Delay)
-				}
-
-				// write a json response with the proper response header and status code 200
-				w.WriteHeader(mockResponse.Code)
-				var err error
-
-				if data != nil {
-					err = json.NewEncoder(w).Encode(data)
-				} else {
-					_, err = w.Write([]byte{})
-				}
-
-				if err != nil {
-					http.Error(w, "Unable to write response to JSON", http.StatusInternalServerError)
-					return
-				}
-			},
-		),
-	)
-	url = server.URL
-	return
-}
-
 func (s *RelayerUnitTestSuite) Test_Relayer_AllGood() {
-	// fake data
-	task := types.Task{
-		Id: primitive.NewObjectID(),
-		RequesterArgs: types.RequesterArgs{
-			Address: "1234",
-			Service: "0001",
-			Method:  "GET",
-			Path:    "/test",
-		},
-		Done: false,
-	}
-	prompt := types.Prompt{
-		Id:         primitive.NewObjectID(),
-		Data:       "{\"data\":\"test\"}",
-		Timeout:    10000,
-		Done:       false,
-		TaskId:     task.Id,
-		Task:       &task,
-		InstanceId: primitive.NewObjectID(),
-	}
-	prompts := []*types.Prompt{&prompt}
-	relayResponse := samples.GetSuccessRelayOutput(s.app.Logger)
-	height, _ := samples.GetHeightMock(s.app.Logger).Height.Int64()
-	session := samples.GetSessionMock(s.app.Logger).Session
-	blockParams := samples.GetAllParamsMock(s.app.Logger)
-	app := samples.GetAppMock(s.app.Logger)
-	node := utils.GetRandomFromSlice[poktGoSdk.Node](session.Nodes)
-	service := *utils.GetRandomFromSlice[string](app.Chains)
-	sessionHeight := int64(session.Header.SessionHeight)
-	blocksPerSession, _ := common.GetBlocksPerSession(blockParams)
+	task := GetMockTask()
+	prompts := GetMockPrompts(1, task, nil)
+	prompt := prompts[0]
+	relayMockData := GetRelayMockData(s.app.Logger)
+
 	relayDelay := time.Duration(100) * time.Millisecond
-	mockServer, mockServerUrl := s.NewMockServicerMockServer(MockResponse{
+	mockResponse := MockHttpReqRes{
 		Route:   pocket_rpc.ClientRelayRoute,
 		Method:  http.MethodPost,
-		Data:    relayResponse,
+		Data:    relayMockData.RelayResponse,
 		GetData: nil,
 		Code:    http.StatusOK,
 		Delay:   &relayDelay,
-	})
-	s.T().Cleanup(func() {
-		mockServer.Close()
-	})
-	node.ServiceURL = mockServerUrl
-	// end of fake data
+	}
+	_, mockServerUrl := mockResponse.NewMockServer(s.T())
+	relayMockData.Node.ServiceURL = mockServerUrl
 
-	s.GetPocketRpcMock().
-		On("GetHeight").
-		Return(height, nil)
+	s.GetPocketRpcMock().On("GetHeight").Return(relayMockData.Height, nil).Times(1)
 
 	tasksMockCollection := mongodb.MockCollection{}
 	tasksMockCollection.On("Name").Return(types.TaskCollection).Times(1)
 	promptMockCollection := mongodb.MockCollection{}
 	promptMockCollection.On("Aggregate", mock.Anything, mock.Anything, mock.Anything).
-		Return(mongo.NewCursorFromDocuments(interfaceSlice[*types.Prompt](prompts), nil, nil)).
+		Return(mongo.NewCursorFromDocuments(utils.InterfaceSlice[*types.Prompt](prompts), nil, nil)).
 		Times(1)
 	responseMockCollection := mongodb.MockCollection{}
 	responseMockCollection.On(
@@ -166,7 +57,7 @@ func (s *RelayerUnitTestSuite) Test_Relayer_AllGood() {
 			s.True(relayerResponse.Ok)
 			s.Equal(activities.RelayResponseCodes.Ok, relayerResponse.Code)
 			s.GreaterOrEqual(relayerResponse.Ms, relayDelay.Milliseconds())
-			s.Equal(relayResponse.Response, relayerResponse.Response)
+			s.Equal(relayMockData.RelayResponse.Response, relayerResponse.Response)
 			s.Equal("", relayerResponse.Error)
 			s.Equal(task.Id, relayerResponse.TaskId)
 			s.Equal(prompt.InstanceId, relayerResponse.InstanceId)
@@ -189,12 +80,12 @@ func (s *RelayerUnitTestSuite) Test_Relayer_AllGood() {
 	mockClient.On("GetCollection", types.ResponseCollection).Return(&responseMockCollection).Times(1)
 
 	relayerParams := activities.RelayerParams{
-		Session:          session,
-		Node:             node,
-		App:              app,
-		Service:          service,
-		SessionHeight:    sessionHeight,
-		BlocksPerSession: blocksPerSession,
+		Session:          relayMockData.Session,
+		Node:             relayMockData.Node,
+		App:              relayMockData.App,
+		Service:          relayMockData.Service,
+		SessionHeight:    relayMockData.SessionHeight,
+		BlocksPerSession: relayMockData.BlocksPerSession,
 		PromptId:         prompt.Id.Hex(),
 	}
 	// Run the Activity in the test environment
@@ -211,65 +102,37 @@ func (s *RelayerUnitTestSuite) Test_Relayer_AllGood() {
 	tasksMockCollection.AssertExpectations(s.T())
 	promptMockCollection.AssertExpectations(s.T())
 	responseMockCollection.AssertExpectations(s.T())
+	s.GetPocketRpcMock().AssertExpectations(s.T())
 
 	s.NotNil(relayerResponse)
 	s.NotEmpty(relayerResponse.ResponseId)
 }
 
 func (s *RelayerUnitTestSuite) Test_Relayer_Error() {
-	// fake data
-	task := types.Task{
-		Id: primitive.NewObjectID(),
-		RequesterArgs: types.RequesterArgs{
-			Address: "1234",
-			Service: "0001",
-			Method:  "GET",
-			Path:    "/test",
-		},
-		Done: false,
-	}
-	prompt := types.Prompt{
-		Id:      primitive.NewObjectID(),
-		Data:    "{\"data\":\"test\"}",
-		Timeout: 10000,
-		Done:    false,
-		TaskId:  task.Id,
-		Task:    &task,
-	}
-	prompts := []*types.Prompt{&prompt}
+	task := GetMockTask()
+	prompts := GetMockPrompts(1, task, nil)
+	prompt := prompts[0]
 	relayDelay := time.Duration(100) * time.Millisecond
+	relayMockData := GetRelayMockData(s.app.Logger)
 	relayResponse := samples.GetErroredRelayOutput(s.app.Logger)
-	height, _ := samples.GetHeightMock(s.app.Logger).Height.Int64()
-	session := samples.GetSessionMock(s.app.Logger).Session
-	blockParams := samples.GetAllParamsMock(s.app.Logger)
-	app := samples.GetAppMock(s.app.Logger)
-	node := utils.GetRandomFromSlice[poktGoSdk.Node](session.Nodes)
-	service := *utils.GetRandomFromSlice[string](app.Chains)
-	sessionHeight := int64(session.Header.SessionHeight)
-	blocksPerSession, _ := common.GetBlocksPerSession(blockParams)
-	mockServer, mockServerUrl := s.NewMockServicerMockServer(MockResponse{
+	mockReqRes := MockHttpReqRes{
 		Route:   pocket_rpc.ClientRelayRoute,
 		Method:  http.MethodPost,
-		Data:    relayResponse, // todo: check how we can "build" what is supposed to be on the relay payload here because poktGoSdk does not expose buildRelay method
+		Data:    relayResponse,
 		GetData: nil,
 		Code:    http.StatusBadRequest,
 		Delay:   &relayDelay,
-	})
-	s.T().Cleanup(func() {
-		mockServer.Close()
-	})
-	node.ServiceURL = mockServerUrl
-	// end of fake data
+	}
+	_, mockServerUrl := mockReqRes.NewMockServer(s.T())
+	relayMockData.Node.ServiceURL = mockServerUrl
 
-	s.GetPocketRpcMock().
-		On("GetHeight").
-		Return(height, nil)
+	s.GetPocketRpcMock().On("GetHeight").Return(relayMockData.Height, nil).Times(1)
 
 	tasksMockCollection := mongodb.MockCollection{}
 	tasksMockCollection.On("Name").Return(types.TaskCollection).Times(1)
 	promptMockCollection := mongodb.MockCollection{}
 	promptMockCollection.On("Aggregate", mock.Anything, mock.Anything, mock.Anything).
-		Return(mongo.NewCursorFromDocuments(interfaceSlice[*types.Prompt](prompts), nil, nil)).
+		Return(mongo.NewCursorFromDocuments(utils.InterfaceSlice[*types.Prompt](prompts), nil, nil)).
 		Times(1)
 	responseMockCollection := mongodb.MockCollection{}
 	responseMockCollection.On(
@@ -307,12 +170,12 @@ func (s *RelayerUnitTestSuite) Test_Relayer_Error() {
 	mockClient.On("GetCollection", types.ResponseCollection).Return(&responseMockCollection).Times(1)
 
 	relayerParams := activities.RelayerParams{
-		Session:          session,
-		Node:             node,
-		App:              app,
-		Service:          service,
-		SessionHeight:    sessionHeight,
-		BlocksPerSession: blocksPerSession,
+		Session:          relayMockData.Session,
+		Node:             relayMockData.Node,
+		App:              relayMockData.App,
+		Service:          relayMockData.Service,
+		SessionHeight:    relayMockData.SessionHeight,
+		BlocksPerSession: relayMockData.BlocksPerSession,
 		PromptId:         prompt.Id.Hex(),
 	}
 	// Run the Activity in the test environment
@@ -329,65 +192,37 @@ func (s *RelayerUnitTestSuite) Test_Relayer_Error() {
 	tasksMockCollection.AssertExpectations(s.T())
 	promptMockCollection.AssertExpectations(s.T())
 	responseMockCollection.AssertExpectations(s.T())
+	s.GetPocketRpcMock().AssertExpectations(s.T())
 
 	s.NotNil(relayerResponse)
 	s.NotEmpty(relayerResponse.ResponseId)
 }
 
 func (s *RelayerUnitTestSuite) Test_Relayer_Out_of_Session_Error() {
-	// fake data
-	task := types.Task{
-		Id: primitive.NewObjectID(),
-		RequesterArgs: types.RequesterArgs{
-			Address: "1234",
-			Service: "0001",
-			Method:  "GET",
-			Path:    "/test",
-		},
-		Done: false,
-	}
-	prompt := types.Prompt{
-		Id:      primitive.NewObjectID(),
-		Data:    "{\"data\":\"test\"}",
-		Timeout: 10000,
-		Done:    false,
-		TaskId:  task.Id,
-		Task:    &task,
-	}
-	prompts := []*types.Prompt{&prompt}
+	task := GetMockTask()
+	prompts := GetMockPrompts(1, task, nil)
+	prompt := prompts[0]
 	relayDelay := time.Duration(100) * time.Millisecond
+	relayMockData := GetRelayMockData(s.app.Logger)
 	relayResponse := samples.GetEvidenceSealedRelayOutput(s.app.Logger)
-	height, _ := samples.GetHeightMock(s.app.Logger).Height.Int64()
-	session := samples.GetSessionMock(s.app.Logger).Session
-	blockParams := samples.GetAllParamsMock(s.app.Logger)
-	app := samples.GetAppMock(s.app.Logger)
-	node := utils.GetRandomFromSlice[poktGoSdk.Node](session.Nodes)
-	service := *utils.GetRandomFromSlice[string](app.Chains)
-	sessionHeight := int64(session.Header.SessionHeight)
-	blocksPerSession, _ := common.GetBlocksPerSession(blockParams)
-	mockServer, mockServerUrl := s.NewMockServicerMockServer(MockResponse{
+	mockReqRes := MockHttpReqRes{
 		Route:   pocket_rpc.ClientRelayRoute,
 		Method:  http.MethodPost,
 		Data:    relayResponse,
 		GetData: nil,
 		Code:    http.StatusBadRequest,
 		Delay:   &relayDelay,
-	})
-	s.T().Cleanup(func() {
-		mockServer.Close()
-	})
-	node.ServiceURL = mockServerUrl
-	// end of fake data
+	}
+	_, mockServerUrl := mockReqRes.NewMockServer(s.T())
+	relayMockData.Node.ServiceURL = mockServerUrl
 
-	s.GetPocketRpcMock().
-		On("GetHeight").
-		Return(height, nil)
+	s.GetPocketRpcMock().On("GetHeight").Return(relayMockData.Height, nil).Times(1)
 
 	tasksMockCollection := mongodb.MockCollection{}
 	tasksMockCollection.On("Name").Return(types.TaskCollection).Times(1)
 	promptMockCollection := mongodb.MockCollection{}
 	promptMockCollection.On("Aggregate", mock.Anything, mock.Anything, mock.Anything).
-		Return(mongo.NewCursorFromDocuments(interfaceSlice[*types.Prompt](prompts), nil, nil)).
+		Return(mongo.NewCursorFromDocuments(utils.InterfaceSlice[*types.Prompt](prompts), nil, nil)).
 		Times(1)
 	responseMockCollection := mongodb.MockCollection{}
 	responseMockCollection.On(
@@ -425,12 +260,12 @@ func (s *RelayerUnitTestSuite) Test_Relayer_Out_of_Session_Error() {
 	mockClient.On("GetCollection", types.ResponseCollection).Return(&responseMockCollection).Times(1)
 
 	relayerParams := activities.RelayerParams{
-		Session:          session,
-		Node:             node,
-		App:              app,
-		Service:          service,
-		SessionHeight:    sessionHeight,
-		BlocksPerSession: blocksPerSession,
+		Session:          relayMockData.Session,
+		Node:             relayMockData.Node,
+		App:              relayMockData.App,
+		Service:          relayMockData.Service,
+		SessionHeight:    relayMockData.SessionHeight,
+		BlocksPerSession: relayMockData.BlocksPerSession,
 		PromptId:         prompt.Id.Hex(),
 	}
 	// Run the Activity in the test environment
@@ -447,65 +282,36 @@ func (s *RelayerUnitTestSuite) Test_Relayer_Out_of_Session_Error() {
 	tasksMockCollection.AssertExpectations(s.T())
 	promptMockCollection.AssertExpectations(s.T())
 	responseMockCollection.AssertExpectations(s.T())
+	s.GetPocketRpcMock().AssertExpectations(s.T())
 
 	s.NotNil(relayerResponse)
 	s.NotEmpty(relayerResponse.ResponseId)
 }
 
 func (s *RelayerUnitTestSuite) Test_Relayer_Node_Error() {
-	// fake data
-	task := types.Task{
-		Id: primitive.NewObjectID(),
-		RequesterArgs: types.RequesterArgs{
-			Address: "1234",
-			Service: "0001",
-			Method:  "GET",
-			Path:    "/test",
-		},
-		Done: false,
-	}
-	prompt := types.Prompt{
-		Id:      primitive.NewObjectID(),
-		Data:    "{\"data\":\"test\"}",
-		Timeout: 10000,
-		Done:    false,
-		TaskId:  task.Id,
-		Task:    &task,
-	}
-	prompts := []*types.Prompt{&prompt}
+	task := GetMockTask()
+	prompts := GetMockPrompts(1, task, nil)
+	prompt := prompts[0]
 	relayDelay := time.Duration(100) * time.Millisecond
-	//relayResponse := samples.GetEvidenceSealedRelayOutput(s.app.Logger)
-	height, _ := samples.GetHeightMock(s.app.Logger).Height.Int64()
-	session := samples.GetSessionMock(s.app.Logger).Session
-	blockParams := samples.GetAllParamsMock(s.app.Logger)
-	app := samples.GetAppMock(s.app.Logger)
-	node := utils.GetRandomFromSlice[poktGoSdk.Node](session.Nodes)
-	service := *utils.GetRandomFromSlice[string](app.Chains)
-	sessionHeight := int64(session.Header.SessionHeight)
-	blocksPerSession, _ := common.GetBlocksPerSession(blockParams)
-	mockServer, mockServerUrl := s.NewMockServicerMockServer(MockResponse{
+	relayMockData := GetRelayMockData(s.app.Logger)
+	mockReqRes := MockHttpReqRes{
 		Route:   pocket_rpc.ClientRelayRoute,
 		Method:  http.MethodPost,
 		Data:    nil,
 		GetData: nil,
 		Code:    http.StatusInternalServerError,
 		Delay:   &relayDelay,
-	})
-	s.T().Cleanup(func() {
-		mockServer.Close()
-	})
-	node.ServiceURL = mockServerUrl
-	// end of fake data
+	}
+	_, mockServerUrl := mockReqRes.NewMockServer(s.T())
+	relayMockData.Node.ServiceURL = mockServerUrl
 
-	s.GetPocketRpcMock().
-		On("GetHeight").
-		Return(height, nil)
+	s.GetPocketRpcMock().On("GetHeight").Return(relayMockData.Height, nil).Times(1)
 
 	tasksMockCollection := mongodb.MockCollection{}
 	tasksMockCollection.On("Name").Return(types.TaskCollection).Times(1)
 	promptMockCollection := mongodb.MockCollection{}
 	promptMockCollection.On("Aggregate", mock.Anything, mock.Anything, mock.Anything).
-		Return(mongo.NewCursorFromDocuments(interfaceSlice[*types.Prompt](prompts), nil, nil)).
+		Return(mongo.NewCursorFromDocuments(utils.InterfaceSlice[*types.Prompt](prompts), nil, nil)).
 		Times(1)
 	responseMockCollection := mongodb.MockCollection{}
 	responseMockCollection.On(
@@ -543,12 +349,12 @@ func (s *RelayerUnitTestSuite) Test_Relayer_Node_Error() {
 	mockClient.On("GetCollection", types.ResponseCollection).Return(&responseMockCollection).Times(1)
 
 	relayerParams := activities.RelayerParams{
-		Session:          session,
-		Node:             node,
-		App:              app,
-		Service:          service,
-		SessionHeight:    sessionHeight,
-		BlocksPerSession: blocksPerSession,
+		Session:          relayMockData.Session,
+		Node:             relayMockData.Node,
+		App:              relayMockData.App,
+		Service:          relayMockData.Service,
+		SessionHeight:    relayMockData.SessionHeight,
+		BlocksPerSession: relayMockData.BlocksPerSession,
 		PromptId:         prompt.Id.Hex(),
 	}
 	// Run the Activity in the test environment
@@ -565,6 +371,7 @@ func (s *RelayerUnitTestSuite) Test_Relayer_Node_Error() {
 	tasksMockCollection.AssertExpectations(s.T())
 	promptMockCollection.AssertExpectations(s.T())
 	responseMockCollection.AssertExpectations(s.T())
+	s.GetPocketRpcMock().AssertExpectations(s.T())
 
 	s.NotNil(relayerResponse)
 	s.NotEmpty(relayerResponse.ResponseId)
