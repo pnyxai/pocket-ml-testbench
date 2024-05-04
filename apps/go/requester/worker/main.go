@@ -1,7 +1,6 @@
 package main
 
 import (
-	"github.com/rs/zerolog"
 	"go.temporal.io/sdk/worker"
 	"requester/activities"
 	"requester/workflows"
@@ -16,10 +15,7 @@ func main() {
 	defer ac.Mongodb.CloseConnection()
 
 	// Create ac new Worker
-	w := worker.New(ac.TemporalClient, ac.Config.Temporal.TaskQueue, worker.Options{
-		// turn on replay logs only when debug level is on
-		EnableLoggingInReplay: ac.Logger.GetLevel() == zerolog.DebugLevel,
-	})
+	w := worker.New(ac.TemporalClient, ac.Config.Temporal.TaskQueue, ac.Config.Temporal.GetWorkerOptions())
 
 	// Register Workflows
 	workflows.Workflows.Register(w)

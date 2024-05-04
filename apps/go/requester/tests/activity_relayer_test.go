@@ -126,6 +126,16 @@ func (s *RelayerUnitTestSuite) Test_Relayer_Error() {
 	_, mockServerUrl := mockReqRes.NewMockServer(s.T())
 	relayMockData.Node.ServiceURL = mockServerUrl
 
+	relayerParams := activities.RelayerParams{
+		Session:          relayMockData.Session,
+		Node:             relayMockData.Node,
+		App:              relayMockData.App,
+		Service:          relayMockData.Service,
+		SessionHeight:    relayMockData.SessionHeight,
+		BlocksPerSession: relayMockData.BlocksPerSession,
+		PromptId:         prompt.Id.Hex(),
+	}
+
 	s.GetPocketRpcMock().On("GetHeight").Return(relayMockData.Height, nil).Times(1)
 
 	tasksMockCollection := mongodb.MockCollection{}
@@ -151,6 +161,8 @@ func (s *RelayerUnitTestSuite) Test_Relayer_Error() {
 			s.Equal(task.Id, relayerResponse.TaskId)
 			s.Equal(prompt.InstanceId, relayerResponse.InstanceId)
 			s.Equal(prompt.Id, relayerResponse.PromptId)
+			s.Equal(relayerParams.SessionHeight, relayerResponse.SessionHeight)
+			s.Equal(relayMockData.Height, relayerResponse.Height)
 			return true
 		}),
 		mock.Anything,
@@ -169,15 +181,6 @@ func (s *RelayerUnitTestSuite) Test_Relayer_Error() {
 	mockClient.On("GetCollection", types.PromptsCollection).Return(&promptMockCollection).Times(1)
 	mockClient.On("GetCollection", types.ResponseCollection).Return(&responseMockCollection).Times(1)
 
-	relayerParams := activities.RelayerParams{
-		Session:          relayMockData.Session,
-		Node:             relayMockData.Node,
-		App:              relayMockData.App,
-		Service:          relayMockData.Service,
-		SessionHeight:    relayMockData.SessionHeight,
-		BlocksPerSession: relayMockData.BlocksPerSession,
-		PromptId:         prompt.Id.Hex(),
-	}
 	// Run the Activity in the test environment
 	future, err := s.activityEnv.ExecuteActivity(activities.Activities.Relayer, relayerParams)
 	// Check there was no error on the call to execute the Activity

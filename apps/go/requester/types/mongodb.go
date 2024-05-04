@@ -54,18 +54,20 @@ type Prompt struct {
 
 func (p *Prompt) GetTimeoutDuration() time.Duration {
 	if p.Timeout == 0 {
-		return time.Duration(120000) * time.Millisecond
+		return time.Duration(120) * time.Second
 	}
-	return time.Duration(p.Timeout) * time.Millisecond
+	return time.Duration(p.Timeout) * time.Second
 }
 
 type RelayResponse struct {
-	Id       primitive.ObjectID `bson:"_id"`
-	Ok       bool               `bson:"ok"`
-	Code     int                `bson:"error_code"`
-	Ms       int64              `bson:"ms"`
-	Response string             `bson:"response"`
-	Error    string             `bson:"error"`
+	Id            primitive.ObjectID `bson:"_id"`
+	Ok            bool               `bson:"ok"`
+	Code          int                `bson:"error_code"`
+	Ms            int64              `bson:"ms"`
+	Response      string             `bson:"response"`
+	Error         string             `bson:"error"`
+	Height        int64              `bson:"height"`
+	SessionHeight int64              `bson:"session_height"`
 	// cross references
 	TaskId     primitive.ObjectID `bson:"task_id"`
 	InstanceId primitive.ObjectID `bson:"instance_id"`

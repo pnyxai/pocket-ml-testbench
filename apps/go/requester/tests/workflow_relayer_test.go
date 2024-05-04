@@ -57,7 +57,7 @@ func (s *RelayerWorkflowUnitTestSuite) Test_RelayerWorkflow_AllGood() {
 	prompt := types.Prompt{
 		Id:      primitive.NewObjectID(),
 		Data:    "{\"data\":\"test\"}",
-		Timeout: 10000,
+		Timeout: 10,
 		Done:    false,
 		TaskId:  task.Id,
 		Task:    &task,
@@ -70,6 +70,7 @@ func (s *RelayerWorkflowUnitTestSuite) Test_RelayerWorkflow_AllGood() {
 		SessionHeight:    sessionHeight,
 		BlocksPerSession: blocksPerSession,
 		PromptId:         prompt.Id.Hex(),
+		RelayTimeout:     10,
 	}
 	relayerResponse := activities.RelayerResponse{ResponseId: primitive.NewObjectID().Hex()}
 	s.workflowEnv.OnActivity(activities.Activities.Relayer, mock.Anything, relayerParams).
@@ -89,14 +90,14 @@ func (s *RelayerWorkflowUnitTestSuite) Test_RelayerWorkflow_AllGood() {
 	mockTemporalClient := s.GetTemporalClientMock()
 	evaluatorWorkflowOptions := client.StartWorkflowOptions{
 		ID:                    task.Id.Hex(),
-		TaskQueue:             s.app.Config.Evaluator.TaskQueue,
+		TaskQueue:             s.app.Config.Temporal.Evaluator.TaskQueue,
 		WorkflowIDReusePolicy: enums.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE_FAILED_ONLY,
 	}
 	evaluatorParams := workflows.EvaluatorWorkflowParams{TaskId: task.Id.Hex()}
 	mockTemporalClient.
 		On(
 			"ExecuteWorkflow", mock.Anything,
-			evaluatorWorkflowOptions, s.app.Config.Evaluator.WorkflowName, mock.MatchedBy(func(v []interface{}) bool {
+			evaluatorWorkflowOptions, s.app.Config.Temporal.Evaluator.WorkflowName, mock.MatchedBy(func(v []interface{}) bool {
 				if len(v) == 0 {
 					return false
 				}

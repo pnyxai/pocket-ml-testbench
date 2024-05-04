@@ -27,9 +27,10 @@ var (
 		Port:      DefaultTemporalPort,
 		Namespace: DefaultTemporalNamespace,
 		TaskQueue: DefaultTemporalTaskQueue,
-	}
-	DefaultEvaluator = EvaluatorConfig{
-		WorkflowName: DefaultEvaluatorWorkflowName,
-		TaskQueue:    DefaultEvaluatorTaskQueue,
+		Evaluator: &EvaluatorConfig{
+			WorkflowName: DefaultEvaluatorWorkflowName,
+			TaskQueue:    DefaultEvaluatorTaskQueue,
+		},
+		Worker: &TemporalWorkerOptions{},
 	}
 )

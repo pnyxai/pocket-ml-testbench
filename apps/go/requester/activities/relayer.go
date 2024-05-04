@@ -27,7 +27,8 @@ type RelayerParams struct {
 	BlocksPerSession int64  `json:"blocks_per_session"`
 
 	// requester data related
-	PromptId string `json:"prompt_id"`
+	PromptId     string  `json:"prompt_id"`
+	RelayTimeout float64 `json:"relay_timeout"`
 }
 
 type RelayerResponse struct {
@@ -127,7 +128,7 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 	l := logger.GetActivityLogger(RelayerName, ctx, nil)
 	// create the response record id and assign to the activity result,
 	// so no mater the result it will contain at least that
-	response := types.RelayResponse{Id: primitive.NewObjectID()}
+	response := types.RelayResponse{Id: primitive.NewObjectID(), SessionHeight: params.SessionHeight}
 	result.ResponseId = response.Id.Hex()
 	defer func() {
 		// persist response
@@ -188,6 +189,7 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 		return
 	}
 
+	response.Height = height
 	currentSessionHeight := GetCurrentSession(height, params.BlocksPerSession)
 
 	// Verify if the relay is able to be dispatched base on the current session height (calculated by the height) and
@@ -227,6 +229,7 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 		RejectSelfSignedCertificates: true,
 	}
 	startTime := time.Now()
+
 	relayerCtx, cancelRelayerFn := context.WithTimeout(ctx, prompt.GetTimeoutDuration())
 	defer cancelRelayerFn()
 	relay, relayErr := relayer.RelayWithCtx(relayerCtx, &relayInput, relayOpts)

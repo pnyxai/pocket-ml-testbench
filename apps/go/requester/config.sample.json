@@ -18,10 +18,17 @@
     "host": "localhost",
     "port": 7233,
     "namespace": "pocket-ml-testbench",
-    "task_queue": "requester"
-  },
-  "evaluator": {
-    "workflow_name": "evaluator",
-    "task_queue": "evaluator"
+    "task_queue": "requester",
+    "worker": {
+      "identity": "requester",
+      "enable_logging_in_replay": false,
+      "max_concurrent_activity_task_pollers": 40,
+      "max_concurrent_workflow_task_pollers": 10,
+      "deadlock_detection_timeout": 120
+    },
+    "evaluator": {
+      "workflow_name": "evaluator",
+      "task_queue": "evaluator"
+    }
   }
 }

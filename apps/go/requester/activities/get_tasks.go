@@ -2,130 +2,115 @@ package activities
 
 import (
 	"context"
-	"fmt"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.temporal.io/sdk/temporal"
-	"packages/logger"
-	"requester/common"
+	"go.mongodb.org/mongo-driver/mongo"
 	"requester/types"
 	"time"
 )
 
 type GetTasksParams struct {
 	// Pass a 0 to get the latest
-	Node string `json:"node"`
+	Nodes []string `json:"nodes"`
 	// chain (morse) service (shannon)
 	Service string `json:"service"`
 }
 
 type TaskRequest struct {
-	TaskId     string `json:"task_id"`
-	InstanceId string `json:"instance_id"`
-	PromptId   string `json:"prompt_id"`
+	TaskId       string  `json:"task_id" bson:"task_id"`
+	InstanceId   string  `json:"instance_id" bson:"instance_id"`
+	PromptId     string  `json:"prompt_id" bson:"prompt_id"`
+	Node         string  `json:"node" bson:"node"`
+	RelayTimeout float64 `json:"relay_timeout" bson:"relay_timeout"`
 }
 
 type GetTaskRequestResults struct {
 	TaskRequests []TaskRequest `json:"task_requests"`
 }
 
-type promptFilter struct {
-	TaskId     primitive.ObjectID
-	InstanceId primitive.ObjectID
-}
-
 var GetTasksName = "get_tasks"
 
-func (aCtx *Ctx) GetTasks(ctx context.Context, params GetTasksParams) (result *GetTaskRequestResults, e error) {
-	result = &GetTaskRequestResults{
-		TaskRequests: make([]TaskRequest, 0),
+func getTaskRequestPipeline(nodes []string, service string) mongo.Pipeline {
+	nodesFilter := make(bson.A, len(nodes))
+	for i, node := range nodes {
+		nodesFilter[i] = bson.M{"requester_args.address": node}
 	}
-	l := logger.GetActivityLogger(GetTasksName, ctx, params)
 
+	return mongo.Pipeline{
+		bson.D{{"$match", bson.D{
+			{"$and", bson.A{
+				bson.D{{"$or", nodesFilter}},
+				bson.D{
+					{"requester_args.service", service},
+					{"done", false},
+				},
+			}},
+		}}},
+		bson.D{{"$lookup", bson.D{
+			{"from", "instances"},
+			{"let", bson.D{{"task", "$_id"}}},
+			{"pipeline", bson.A{
+				bson.D{{"$match", bson.D{
+					{"$expr", bson.D{
+						{"$and", bson.A{
+							bson.D{{"$eq", bson.A{"$task_id", "$$task"}}},
+							bson.D{{"$eq", bson.A{"$done", false}}},
+						}},
+					}},
+				}}}}},
+			{"as", "instance"},
+		}}},
+		bson.D{{"$unwind", bson.D{
+			{"path", "$instance"},
+			{"preserveNullAndEmptyArrays", false},
+		}}},
+		bson.D{{"$lookup", bson.D{
+			{"from", "prompts"},
+			{"let", bson.D{
+				{"task", "$_id"},
+				{"instance", "$instance._id"},
+			}},
+			{"pipeline", bson.A{
+				bson.D{{"$match", bson.D{
+					{"$expr", bson.D{
+						{"$and", bson.A{
+							bson.D{{"$eq", bson.A{"$task_id", "$$task"}}},
+							bson.D{{"$eq", bson.A{"$instance_id", "$$instance"}}},
+							bson.D{{"$eq", bson.A{"$done", false}}},
+						}},
+					}},
+				}}},
+			}},
+			{"as", "prompt"},
+		}}},
+		bson.D{{"$unwind", bson.D{
+			{"path", "$prompt"},
+			{"preserveNullAndEmptyArrays", false},
+		}}},
+		bson.D{{"$project", bson.D{
+			{"_id", 0},
+			{"task_id", "$_id"},
+			{"instance_id", "$instance._id"},
+			{"prompt_id", "$prompt._id"},
+			{"node", "$requester_args.address"},
+			{"relay_timeout", "$prompt.timeout"},
+		}}},
+	}
+}
+
+func (aCtx *Ctx) GetTasks(ctx context.Context, params GetTasksParams) (result *GetTaskRequestResults, e error) {
+	result = &GetTaskRequestResults{TaskRequests: make([]TaskRequest, 0)}
 	tasksCtx, taskCancelFn := context.WithTimeout(ctx, 10*time.Second)
 	defer taskCancelFn()
 	// get tasks for the retrieved node and service that are not done yet
 	taskCollection := aCtx.App.Mongodb.GetCollection(types.TaskCollection)
-	taskFilter := bson.M{"requester_args.address": params.Node, "requester_args.service": params.Service, "done": false}
-	tasks, taskErr := common.GetRecords[types.Task](tasksCtx, taskCollection, taskFilter, nil)
-	if taskErr != nil {
-		l.Error("Failed to lookup tasks", "error", taskErr)
-		e = temporal.NewApplicationErrorWithCause("unable to find tasks on database", "Database", taskErr)
-		return
+	pipeline := getTaskRequestPipeline(params.Nodes, params.Service)
+	cursor, AggErr := taskCollection.Aggregate(tasksCtx, pipeline)
+	if AggErr != nil {
+		return nil, AggErr
 	}
-
-	if len(tasks) == 0 {
-		// nothing to do
-		return
+	decodeErr := cursor.All(tasksCtx, &result.TaskRequests)
+	if decodeErr != nil {
+		return nil, AggErr
 	}
-
-	tasksIds := make([]primitive.ObjectID, len(tasks))
-	for i := range tasks {
-		tasksIds[i] = tasks[i].Id
-	}
-
-	instanceCtx, instanceCancelFn := context.WithTimeout(ctx, 10*time.Second)
-	defer instanceCancelFn()
-
-	// get instances of the read tasks that are not done yet
-	instanceCollection := aCtx.App.Mongodb.GetCollection(types.InstanceCollection)
-	instancesFilter := bson.M{"task_id": bson.M{"$in": tasksIds}, "done": false}
-	instances, instanceErr := common.GetRecords[types.Instance](instanceCtx, instanceCollection, instancesFilter, nil)
-	if instanceErr != nil {
-		l.Error("Failed to lookup instances", "error", instanceErr, "filter", instancesFilter)
-		e = temporal.NewApplicationErrorWithCause("unable to find instances on database", "Database", instanceErr)
-		return
-	}
-
-	if len(instances) == 0 {
-		l.Error("0 documents read from instances when looking for existent Task Ids", "filter", instancesFilter)
-		e = temporal.NewApplicationError("0 documents read from instances when looking for existent Task Ids", "Database", instancesFilter)
-		return
-	}
-
-	tasksInstances := make([]promptFilter, len(instances))
-	for i := range instances {
-		tasksInstances[i] = promptFilter{
-			TaskId:     instances[i].TaskId,
-			InstanceId: instances[i].Id,
-		}
-	}
-
-	promptsCtx, promptCancelFn := context.WithTimeout(ctx, 10*time.Second)
-	defer promptCancelFn()
-
-	promptsCollection := aCtx.App.Mongodb.GetCollection(types.PromptsCollection)
-	promptsOrFilter := make(bson.A, 0)
-	for i, _ := range tasksInstances {
-		println(fmt.Sprintf("task %s instance %s", tasksInstances[i].TaskId.Hex(), tasksInstances[i].InstanceId.Hex()))
-		promptsOrFilter = append(promptsOrFilter, bson.M{
-			"task_id":     tasksInstances[i].TaskId,
-			"instance_id": tasksInstances[i].InstanceId,
-			"done":        false,
-		})
-	}
-	promptsFilter := bson.M{"$or": promptsOrFilter}
-	prompts, promptsErr := common.GetRecords[types.Prompt](promptsCtx, promptsCollection, promptsFilter, nil)
-	if promptsErr != nil {
-		l.Error("Failed to lookup prompts", "error", promptsErr, "filter", promptsFilter)
-		e = temporal.NewApplicationErrorWithCause("unable to find prompts on database", "Database", promptsErr)
-		return
-	}
-
-	if len(prompts) == 0 {
-		l.Error("0 documents read from prompts when looking for existent Task Ids and Instance Id", "filter", promptsFilter)
-		e = temporal.NewApplicationError("0 documents read from prompts when looking for existent Task Ids and Instance Id", "Database", promptsFilter)
-		return
-	}
-
-	for i, _ := range prompts {
-		prompt := prompts[i]
-		result.TaskRequests = append(result.TaskRequests, TaskRequest{
-			TaskId:     prompt.TaskId.Hex(),
-			InstanceId: prompt.InstanceId.Hex(),
-			PromptId:   prompt.Id.Hex(),
-		})
-	}
-
 	return
 }

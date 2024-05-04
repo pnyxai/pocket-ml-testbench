@@ -55,10 +55,10 @@ func (s *BaseSuite) InitializeTestApp() {
 			Port:      types.DefaultTemporalPort,
 			Namespace: types.DefaultTemporalNamespace,
 			TaskQueue: types.DefaultTemporalTaskQueue,
-		},
-		Evaluator: &types.EvaluatorConfig{
-			WorkflowName: "evaluator",
-			TaskQueue:    "evaluator",
+			Evaluator: &types.EvaluatorConfig{
+				WorkflowName: "evaluator",
+				TaskQueue:    "evaluator",
+			},
 		},
 	}
 

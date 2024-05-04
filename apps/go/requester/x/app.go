@@ -1,11 +1,18 @@
 package x
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/sdk/client"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"io"
 	"os"
 	"packages/logger"
@@ -17,6 +24,40 @@ import (
 	"requester/workflows"
 	"time"
 )
+
+func ensureTemporalNamespaceExists(opts *client.Options, l *zerolog.Logger) {
+	grpcClient, err := grpc.Dial(opts.HostPort, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock()) //Replace with your Temporal Server host and port
+	if err != nil {
+		l.Fatal().Err(err).Msg("unable to create a Temporal GRPC Client")
+	}
+	defer func(grpcClient *grpc.ClientConn) {
+		e := grpcClient.Close()
+		if e != nil {
+			l.Error().Err(e).Msg("unable to close a Temporal GRPC Client")
+		}
+	}(grpcClient)
+
+	// Make register namespace request
+	namespaceRegistry := workflowservice.NewWorkflowServiceClient(grpcClient)
+	namespaceRequest := &workflowservice.RegisterNamespaceRequest{
+		Namespace:                        opts.Namespace,
+		WorkflowExecutionRetentionPeriod: &durationpb.Duration{Seconds: int64(1 * 24 * 60 * 60)},
+	}
+
+	// Try to register namespace
+	_, err = namespaceRegistry.RegisterNamespace(context.Background(), namespaceRequest)
+	if err != nil {
+		grpcStatus := status.Convert(err)
+
+		// If already exist error, ignore, else return error
+		if grpcStatus.Code() != codes.AlreadyExists {
+			l.Fatal().Err(err).Msg("Temporal Namespace registration failed")
+		}
+		l.Info().Str("Namespace", opts.Namespace).Msg("Namespace already exists")
+	} else {
+		l.Info().Str("Namespace", opts.Namespace).Msg("Namespace created successfully")
+	}
+}
 
 func Initialize() *types.App {
 	// get App config
@@ -40,15 +81,20 @@ func Initialize() *types.App {
 	clientPool := pocket_rpc.NewClientPool(cfg.Rpc.Urls, &clientPoolOpts, l)
 	pocketRpc := pocket_rpc.NewPocketRpc(clientPool)
 
-	clientOptions := client.Options{
+	temporalClientOptions := client.Options{
 		HostPort:  fmt.Sprintf("%s:%d", cfg.Temporal.Host, cfg.Temporal.Port),
 		Namespace: cfg.Temporal.Namespace,
 		Logger:    logger.NewZerologAdapter(*l),
 	}
-	temporalClient, err := client.Dial(clientOptions)
+	ensureTemporalNamespaceExists(&temporalClientOptions, l)
+	temporalClient, err := client.Dial(temporalClientOptions)
 	if err != nil {
 		l.Fatal().Err(err).Msg("unable to create ac Temporal Client")
 	}
+	l.Info().
+		Str("Namespace", temporalClientOptions.Namespace).
+		Str("TaskQueue", cfg.Temporal.TaskQueue).
+		Msg("Successfully connected to Temporal Server")
 
 	ac := &types.App{
 		Logger:         l,

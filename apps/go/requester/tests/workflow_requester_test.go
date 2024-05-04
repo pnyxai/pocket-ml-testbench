@@ -16,6 +16,7 @@ import (
 	"requester/common"
 	"requester/types"
 	"requester/workflows"
+	"time"
 )
 
 // define a test suite struct
@@ -25,6 +26,7 @@ type RequesterWorkflowUnitTestSuite struct {
 
 // Test the ideal scenario where we get everything right
 func (s *RequesterWorkflowUnitTestSuite) Test_RequesterWorkflow_No_Errors() {
+	relayTimeoutInSeconds := float64(1)
 	params := workflows.RequesterParams{
 		App:     "f3abbe313689a603a1a6d6a43330d0440a552288",
 		Service: "0001",
@@ -44,11 +46,18 @@ func (s *RequesterWorkflowUnitTestSuite) Test_RequesterWorkflow_No_Errors() {
 	sessionHeight := int64(dispatchOutput.Session.Header.SessionHeight)
 	nodesInSession := len(dispatchOutput.Session.Nodes)
 	blocksPerSession, _ := common.GetBlocksPerSession(allParams)
-
+	taskRequests := make([]activities.TaskRequest, 0)
 	temporalClient := s.GetTemporalClientMock()
 
 	for i := range dispatchOutput.Session.Nodes {
 		node := &dispatchOutput.Session.Nodes[i]
+		taskRequests = append(taskRequests, activities.TaskRequest{
+			TaskId:       node.Address,
+			InstanceId:   node.Address,
+			PromptId:     node.Address,
+			Node:         node.Address,
+			RelayTimeout: relayTimeoutInSeconds,
+		})
 		wfId := fmt.Sprintf(
 			"%s-%s-%s-%s-%s-%s-%d",
 			params.App, node.Address, params.Service,
@@ -65,15 +74,21 @@ func (s *RequesterWorkflowUnitTestSuite) Test_RequesterWorkflow_No_Errors() {
 			SessionHeight:    sessionHeight,
 			BlocksPerSession: blocksPerSession,
 
-			PromptId: primitive.NewObjectID().Hex(),
+			PromptId:     primitive.NewObjectID().Hex(),
+			RelayTimeout: relayTimeoutInSeconds,
 		}
 		workflowOptions := client.StartWorkflowOptions{
 			// with this format: "app-node-service-taskId-instanceId-promptId-sessionHeight"
 			// we are sure that when its workflow runs again inside the same session and the task is still not done,
 			// we will not get the same relayer workflow executed twice
-			ID:                    wfId,
-			WorkflowIDReusePolicy: enums.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE_FAILED_ONLY,
-			TaskQueue:             s.app.Config.Temporal.TaskQueue,
+			ID:                                       wfId,
+			TaskQueue:                                s.app.Config.Temporal.TaskQueue,
+			WorkflowExecutionErrorWhenAlreadyStarted: true,
+			WorkflowIDReusePolicy:                    enums.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE_FAILED_ONLY,
+			WorkflowTaskTimeout:                      time.Duration(relayerRequest.RelayTimeout) * time.Second,
+			RetryPolicy: &temporal.RetryPolicy{
+				MaximumAttempts: 3,
+			},
 		}
 		mockWorkflowRun := &FakeWorkflowRun{}
 		mockWorkflowRun.On("GetID").Return(wfId)
@@ -94,6 +109,9 @@ func (s *RequesterWorkflowUnitTestSuite) Test_RequesterWorkflow_No_Errors() {
 					return false
 				}
 				if p.BlocksPerSession != relayerRequest.BlocksPerSession {
+					return false
+				}
+				if p.RelayTimeout != relayerRequest.RelayTimeout {
 					return false
 				}
 				if p.PromptId == "" {
@@ -143,25 +161,19 @@ func (s *RequesterWorkflowUnitTestSuite) Test_RequesterWorkflow_No_Errors() {
 				return false
 			}
 			// check node is part of the read session
-			for _, node := range dispatchOutput.Session.Nodes {
-				if param.Node == node.Address {
-					return true
-				}
+			if len(param.Nodes) != len(dispatchOutput.Session.Nodes) {
+				return false
 			}
-			return false
+			return true
 		}),
 	).
 		Return(func(_ context.Context, p activities.GetTasksParams) (*activities.GetTaskRequestResults, error) {
 			// mock LookupTaskRequest activity response here
 			return &activities.GetTaskRequestResults{
-				TaskRequests: []activities.TaskRequest{{
-					TaskId:     p.Node,
-					InstanceId: p.Node,
-					PromptId:   p.Node,
-				}},
+				TaskRequests: taskRequests,
 			}, nil
 		}).
-		Times(nodesInSession)
+		Times(1)
 
 	s.workflowEnv.ExecuteWorkflow(workflows.Workflows.Requester, params)
 
@@ -183,6 +195,7 @@ func (s *RequesterWorkflowUnitTestSuite) Test_RequesterWorkflow_No_Errors() {
 
 func (s *RequesterWorkflowUnitTestSuite) Test_RequesterWorkflow_No_Errors_FewNodes() {
 	subsetOfNodes := 3
+	relayTimeoutInSeconds := float64(1)
 	params := workflows.RequesterParams{
 		App:     "f3abbe313689a603a1a6d6a43330d0440a552288",
 		Service: "0001",
@@ -200,14 +213,20 @@ func (s *RequesterWorkflowUnitTestSuite) Test_RequesterWorkflow_No_Errors_FewNod
 	appMock := samples.GetAppMock(s.app.Logger)
 	allParams := samples.GetAllParamsMock(s.app.Logger)
 	sessionHeight := int64(dispatchOutput.Session.Header.SessionHeight)
-	nodesInSession := len(dispatchOutput.Session.Nodes)
 	blocksPerSession, _ := common.GetBlocksPerSession(allParams)
 	firstThreeNodes := dispatchOutput.Session.Nodes[:subsetOfNodes]
 	temporalClient := s.GetTemporalClientMock()
-
+	taskRequests := make([]activities.TaskRequest, 0)
 	// mock temporal client to hold only a subset of nodes calls
 	for i := range firstThreeNodes {
 		node := &firstThreeNodes[i]
+		taskRequests = append(taskRequests, activities.TaskRequest{
+			TaskId:       node.Address,
+			InstanceId:   node.Address,
+			PromptId:     node.Address,
+			Node:         node.Address,
+			RelayTimeout: relayTimeoutInSeconds,
+		})
 		wfId := fmt.Sprintf(
 			"%s-%s-%s-%s-%s-%s-%d",
 			params.App, node.Address, params.Service,
@@ -224,15 +243,21 @@ func (s *RequesterWorkflowUnitTestSuite) Test_RequesterWorkflow_No_Errors_FewNod
 			SessionHeight:    sessionHeight,
 			BlocksPerSession: blocksPerSession,
 
-			PromptId: primitive.NewObjectID().Hex(),
+			PromptId:     primitive.NewObjectID().Hex(),
+			RelayTimeout: relayTimeoutInSeconds,
 		}
 		workflowOptions := client.StartWorkflowOptions{
 			// with this format: "app-node-service-taskId-instanceId-promptId-sessionHeight"
 			// we are sure that when its workflow runs again inside the same session and the task is still not done,
 			// we will not get the same relayer workflow executed twice
-			ID:                    wfId,
-			WorkflowIDReusePolicy: enums.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE_FAILED_ONLY,
-			TaskQueue:             s.app.Config.Temporal.TaskQueue,
+			ID:                                       wfId,
+			TaskQueue:                                s.app.Config.Temporal.TaskQueue,
+			WorkflowExecutionErrorWhenAlreadyStarted: true,
+			WorkflowIDReusePolicy:                    enums.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE_FAILED_ONLY,
+			WorkflowTaskTimeout:                      time.Duration(relayerRequest.RelayTimeout) * time.Second,
+			RetryPolicy: &temporal.RetryPolicy{
+				MaximumAttempts: 3,
+			},
 		}
 		mockWorkflowRun := &FakeWorkflowRun{}
 		mockWorkflowRun.On("GetID").Return(wfId)
@@ -253,6 +278,9 @@ func (s *RequesterWorkflowUnitTestSuite) Test_RequesterWorkflow_No_Errors_FewNod
 					return false
 				}
 				if p.BlocksPerSession != relayerRequest.BlocksPerSession {
+					return false
+				}
+				if p.RelayTimeout != relayerRequest.RelayTimeout {
 					return false
 				}
 				if p.PromptId == "" {
@@ -302,32 +330,18 @@ func (s *RequesterWorkflowUnitTestSuite) Test_RequesterWorkflow_No_Errors_FewNod
 				return false
 			}
 			// check node is part of the read session
-			for _, node := range dispatchOutput.Session.Nodes {
-				if param.Node == node.Address {
-					return true
-				}
+			if len(param.Nodes) != len(dispatchOutput.Session.Nodes) {
+				return false
 			}
-			return false
+			return true
 		}),
 	).
 		Return(func(_ context.Context, p activities.GetTasksParams) (*activities.GetTaskRequestResults, error) {
-			for i := range firstThreeNodes {
-				if firstThreeNodes[i].Address == p.Node {
-					// if not found, returns empty, so the activity is ok, but the workflow should not get executed
-					return &activities.GetTaskRequestResults{
-						TaskRequests: []activities.TaskRequest{{
-							TaskId:     p.Node,
-							InstanceId: p.Node,
-							PromptId:   p.Node,
-						}},
-					}, nil
-				}
-			}
 			return &activities.GetTaskRequestResults{
-				TaskRequests: make([]activities.TaskRequest, 0),
+				TaskRequests: taskRequests,
 			}, nil
 		}).
-		Times(nodesInSession)
+		Times(1)
 
 	s.workflowEnv.ExecuteWorkflow(workflows.Workflows.Requester, params)
 
@@ -479,7 +493,6 @@ func (s *RequesterWorkflowUnitTestSuite) Test_RequesterWorkflow_Fail_LookupTaskR
 	dispatchOutput := samples.GetSessionMock(s.app.Logger)
 	appMock := samples.GetAppMock(s.app.Logger)
 	allParams := samples.GetAllParamsMock(s.app.Logger)
-	nodesInSession := len(dispatchOutput.Session.Nodes)
 
 	s.workflowEnv.OnActivity(activities.Activities.GetApp, mock.Anything, getAppParams).
 		Return(func(_ context.Context, _ activities.GetAppParams) (*poktGoSdk.App, error) {
@@ -510,7 +523,7 @@ func (s *RequesterWorkflowUnitTestSuite) Test_RequesterWorkflow_Fail_LookupTaskR
 		Return(func(_ context.Context, _ activities.GetTasksParams) (*activities.GetTaskRequestResults, error) {
 			return nil, temporal.NewApplicationErrorWithCause("unable to find tasks on database", "Database", nil)
 		}).
-		Times(nodesInSession)
+		Times(1)
 
 	s.workflowEnv.ExecuteWorkflow(workflows.Workflows.Requester, params)
 
@@ -536,7 +549,6 @@ func (s *RequesterWorkflowUnitTestSuite) Test_RequesterWorkflow_Zero_Nodes_In_Se
 	dispatchOutput := samples.GetSessionMock(s.app.Logger)
 	appMock := samples.GetAppMock(s.app.Logger)
 	allParams := samples.GetAllParamsMock(s.app.Logger)
-	nodesInSession := len(dispatchOutput.Session.Nodes)
 
 	s.workflowEnv.OnActivity(activities.Activities.GetApp, mock.Anything, getAppParams).
 		Return(func(_ context.Context, _ activities.GetAppParams) (*poktGoSdk.App, error) {
@@ -568,12 +580,10 @@ func (s *RequesterWorkflowUnitTestSuite) Test_RequesterWorkflow_Zero_Nodes_In_Se
 				return false
 			}
 			// check node is part of the read session
-			for _, node := range dispatchOutput.Session.Nodes {
-				if param.Node == node.Address {
-					return true
-				}
+			if len(param.Nodes) != len(dispatchOutput.Session.Nodes) {
+				return false
 			}
-			return false
+			return true
 		}),
 	).
 		Return(func(_ context.Context, _ activities.GetTasksParams) (*activities.GetTaskRequestResults, error) {
@@ -581,7 +591,7 @@ func (s *RequesterWorkflowUnitTestSuite) Test_RequesterWorkflow_Zero_Nodes_In_Se
 				TaskRequests: make([]activities.TaskRequest, 0),
 			}, nil
 		}).
-		Times(nodesInSession)
+		Times(1)
 
 	s.workflowEnv.ExecuteWorkflow(workflows.Workflows.Requester, params)
 

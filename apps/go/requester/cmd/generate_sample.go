@@ -58,7 +58,7 @@ func GetPrompt(task *types.Task, instance *types.Instance) *types.Prompt {
 		Id: primitive.NewObjectID(),
 		// ethereum mainnet mock
 		Data:    "{}",
-		Timeout: 10000,
+		Timeout: 120,
 		Done:    false,
 	}
 	if task != nil {
@@ -99,9 +99,9 @@ func main() {
 
 	// this node is the one on the localnet repository
 	nodes := []string{
-		//"7c08e2e1265246a66d7d022b163970114dda124e",
+		"7c08e2e1265246a66d7d022b163970114dda124e",
 		//"9ab105b900c4633657f60974ad0e243c8f50ae1e",
-		"cb85946c8171e3bbe78f5dbc01469053419b7be1", // d2b31be6e4c2740a5daec2abe95d3f44c419085ea9c938042aa886ac67ebb592b02f4a2d8c887a24a7172fa9ce982d0c0825d35fab37816101ff5ab8a6272dc0
+		//"cb85946c8171e3bbe78f5dbc01469053419b7be1",
 		//"5e6949faf0a176fd0f3a0e2ef948d7a70ee2867b",
 		//"4202057f345d63b0af02f76dcb42aa46bf9b6d43",
 		//"a31eba7042bd2c87c5dc0462d92dd1c961c81249",
@@ -125,15 +125,15 @@ func main() {
 		//"111675de8e13fde1ce4da5fc236ab98ed478cc20",
 	}
 
-	allTasks := make([]*types.Task, len(nodes))
-	for i, address := range nodes {
-		tasks := GetTasks(1, address)
-		allTasks[i] = tasks[0]
-		for _, task := range tasks {
-			instances := GetInstances(1, task)
+	allTasks := make([]*types.Task, 0)
+	for _, address := range nodes {
+		tasks := GetTasks(3, address)
+		for j, task := range tasks {
+			allTasks = append(allTasks, tasks[j])
+			instances := GetInstances(12, task)
 			allInstances = append(allInstances, instances...)
 			for _, instance := range instances {
-				prompts := GetPrompts(1, task, instance)
+				prompts := GetPrompts(100, task, instance)
 				allPrompts = append(allPrompts, prompts...)
 			}
 		}
