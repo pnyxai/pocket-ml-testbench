@@ -32,4 +32,8 @@ func (wCtx *Ctx) Register(w worker.Worker) {
 	w.RegisterWorkflowWithOptions(wCtx.Requester, workflow.RegisterOptions{
 		Name: RequesterName,
 	})
+
+	w.RegisterWorkflowWithOptions(wCtx.Relayer, workflow.RegisterOptions{
+		Name: RelayerName,
+	})
 }

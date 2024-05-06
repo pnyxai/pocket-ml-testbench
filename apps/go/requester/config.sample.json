@@ -7,16 +7,28 @@
     "urls": [
       "http://localhost:8081"
     ],
-    "retries": 3,
+    "retries": 1,
     "min_backoff": 10,
     "max_backoff": 60,
-    "req_per_sec": 10
+    "req_per_sec": 10,
+    "session_tolerance": 1
   },
   "log_level": "debug",
   "temporal": {
     "host": "localhost",
     "port": 7233,
     "namespace": "pocket-ml-testbench",
-    "task_queue": "requester-local"
+    "task_queue": "requester",
+    "worker": {
+      "identity": "requester",
+      "enable_logging_in_replay": false,
+      "max_concurrent_activity_task_pollers": 40,
+      "max_concurrent_workflow_task_pollers": 10,
+      "deadlock_detection_timeout": 120
+    },
+    "evaluator": {
+      "workflow_name": "evaluator",
+      "task_queue": "evaluator"
+    }
   }
 }

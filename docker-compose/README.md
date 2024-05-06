@@ -57,3 +57,20 @@ cd apps && docker compose down -v
 ```
 
 The deployment configuration can be found at `./apps/config`.
+
+## Create Requester Scheduled Workflow for each application/service you want to control.
+
+This will create a scheduled workflow that will run every 3 minutes with a timeout close to 3m
+```
+temporal_docker schedule create \
+    --schedule-id 'f3abbe313689a603a1a6d6a43330d0440a552288-0001' \
+    --workflow-id 'f3abbe313689a603a1a6d6a43330d0440a552288-0001' \
+    --namespace pocket-ml-testbench \
+    --workflow-type 'requester' \
+    --task-queue 'requester' \
+    --cron '@every 3m' \
+    --execution-timeout 175 \
+    --overlap-policy 'BufferOne' \
+    --input '{"app":"f3abbe313689a603a1a6d6a43330d0440a552288","service":"0001"}'
+```
+Later you can pause/trigger/cancel this from Temporal CLI or [Temporal UI](http://localhost:8080/namespaces/pocket-ml-testbench/schedules)

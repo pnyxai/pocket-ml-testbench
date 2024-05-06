@@ -1,9 +1,16 @@
 package workflows
 
 import (
+	"context"
+	"fmt"
 	poktGoSdk "github.com/pokt-foundation/pocket-go/provider"
+	"go.temporal.io/api/enums/v1"
+	"go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
+	"packages/logger"
 	"requester/activities"
+	"requester/common"
 	"time"
 )
 
@@ -12,224 +19,206 @@ type RequesterParams struct {
 	Service string `json:"service"`
 }
 
-type RequesterNodeResults struct {
-	Address string  `json:"address"`
-	Relays  uint    `json:"relays"`
-	Success uint    `json:"success"`
-	Failed  uint    `json:"failed"`
-	AvgMs   float32 `json:"avg_ms"`
-}
-
 type RequesterResults struct {
-	App           string `json:"app"`
-	Chain         string `json:"chain"`
-	SessionHeight int64  `json:"session_height"`
-	Nodes         []RequesterNodeResults
+	App                string   `json:"app"`
+	Service            string   `json:"service"`
+	Nodes              []string `json:"nodes"`
+	Height             int64    `json:"height"`
+	SessionHeight      int64    `json:"session_height"`
+	TriggeredWorkflows []string `json:"workflows"`
+	// somehow, maybe we could identify when workflow trigger fail because it is already waiting
+	SkippedWorkflows []string `json:"skipped_workflows"`
 }
 
 type LookupChanResponse struct {
-	Request  *activities.LookupTaskRequestParams
-	Response *activities.LookupTaskRequestResults
-}
-
-type RelayerChanResponse struct {
-	Request  *activities.RelayerParams
-	Response *activities.RelayerResults
+	Node     *poktGoSdk.Node
+	Request  *activities.GetTasksParams
+	Response *activities.GetTaskRequestResults
 }
 
 var RequesterName = "requester"
 
 // Requester check sessions
-func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (*RequesterResults, error) {
+func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *RequesterResults, e error) {
+	l := logger.GetWorkflowLogger(RequesterName, ctx, params)
+	defer func() {
+		if e != nil {
+			l.Error("Workflow ends with error", "error", e, params.App, "Service", params.Service)
+		} else {
+			l.Debug("Requester workflow ends successfully", params.App, "Service", params.Service)
+		}
+	}()
+
 	ao := workflow.ActivityOptions{
+		TaskQueue:           wCtx.App.Config.Temporal.TaskQueue,
 		StartToCloseTimeout: 10 * time.Second,
+		WaitForCancellation: false,
+		RetryPolicy: &temporal.RetryPolicy{
+			BackoffCoefficient: 1,
+			MaximumAttempts:    3,
+		},
 	}
-	ctx = workflow.WithActivityOptions(ctx, ao)
+	l.Info("Starting workflow", "Application", params.App, "Service", params.Service)
+	if _, ok := wCtx.App.AppAccounts.Load(params.App); !ok {
+		e = temporal.NewNonRetryableApplicationError("application not found", "ApplicationNotFound", nil)
+		return
+	}
 
 	// GetApp will try to retrieve the application state from the RPC
 	// with this we ensure it exists and has the chain staked
-	getAppResults := poktGoSdk.App{}
-	err := workflow.ExecuteActivity(ctx, activities.Activities.GetApp, activities.GetAppParams{
+	getAppActivityCtx := workflow.WithActivityOptions(ctx, ao)
+	getAppResults := &poktGoSdk.App{}
+	l.Debug("Calling GetApp activity")
+	getAppErr := workflow.ExecuteActivity(getAppActivityCtx, activities.Activities.GetApp, activities.GetAppParams{
 		Address: params.App,
 		Service: params.Service,
-	}).Get(ctx, &getAppResults)
-
-	if err != nil {
-		return nil, err
+	}).Get(getAppActivityCtx, getAppResults)
+	if getAppErr != nil {
+		e = temporal.NewApplicationErrorWithCause("unable to get app", "GetApp", getAppErr)
+		l.Error("GetApp activity ends with error", "error", e)
+		return
 	}
+	l.Debug("GetApp activity ends successfully")
 
-	blockResult := activities.GetBlockResults{}
+	// get session
+	getSessionActivityCtx := workflow.WithActivityOptions(ctx, ao)
 	sessionResult := poktGoSdk.DispatchOutput{}
-
-	selector := workflow.NewSelector(ctx)
-	// Read block+params using GetBlock activity
-	selector.AddFuture(
-		workflow.ExecuteActivity(
-			ctx,
-			activities.Activities.GetBlock,
-			activities.GetBlockParams{
-				Height: 0,
-			},
-		),
-		func(f workflow.Future) {
-			err1 := f.Get(ctx, &blockResult)
-			if err1 != nil {
-				err = err1
-				return
-			}
-		},
-	)
-	// Read current Session for the give App+Service using GetSession activity
-	selector.AddFuture(
-		workflow.ExecuteActivity(
-			ctx,
-			activities.Activities.GetSession,
-			activities.GetSessionParams{
-				App:     params.App,
-				Service: params.Service,
-			},
-		),
-		func(f workflow.Future) {
-			err1 := f.Get(ctx, &sessionResult)
-			if err1 != nil {
-				err = err1
-				return
-			}
-		},
-	)
-
-	// 1 GetBlock
-	// 2 GetSession
-	// (order does not matter)
-	for i := 0; i < 2; i++ {
-		// Each call to Select matches a single ready Future.
-		// Each Future is matched only once independently on the number of Select calls.
-		selector.Select(ctx)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	nodes := sessionResult.Session.Nodes
-	// Define a channel to store LookupTaskRequestResults objects
-	lookupTaskResultsChan := make(chan LookupChanResponse, len(nodes))
-
-	for _, node := range nodes {
-		request := activities.LookupTaskRequestParams{
-			Node:    node.Address,
+	l.Debug("Calling GetSession activity")
+	getSessionErr := workflow.ExecuteActivity(
+		getSessionActivityCtx,
+		activities.Activities.GetSession,
+		activities.GetSessionParams{
 			App:     params.App,
 			Service: params.Service,
+		},
+	).Get(getSessionActivityCtx, &sessionResult)
+	if getSessionErr != nil {
+		e = temporal.NewApplicationErrorWithCause("unable to get session", "GetSession", getSessionErr)
+		l.Error("GetSession activity ends with error", "error", e)
+		return
+	}
+	l.Debug("GetSession activity ends successfully")
+
+	// get_block_params
+	getAllParamsActivityCtx := workflow.WithActivityOptions(ctx, ao)
+	allParams := poktGoSdk.AllParams{}
+	l.Debug("Calling GetBlockParams activity")
+	getBlockErr := workflow.ExecuteActivity(
+		getAllParamsActivityCtx,
+		activities.Activities.GetBlockParams,
+		// latest height always
+		int64(0),
+	).Get(getAllParamsActivityCtx, &allParams)
+	if getBlockErr != nil {
+		l.Error("GetBlockParams activity ends with error", "error", e)
+		e = temporal.NewApplicationErrorWithCause("unable to get block params", "GetBlockParams", getBlockErr)
+		return
+	}
+	l.Debug("Calling GetBlockParams activity")
+
+	blocksPerSession, blocksPerSessionErr := common.GetBlocksPerSession(&allParams)
+	if blocksPerSessionErr != nil {
+		return nil, temporal.NewApplicationErrorWithCause(blocksPerSessionErr.Error(), "GetBlocksPerSession", blocksPerSessionErr)
+	}
+
+	sessionHeight := int64(sessionResult.Session.Header.SessionHeight)
+	nodes := sessionResult.Session.Nodes
+	triggeredNodeAddresses := make([]string, 0)
+
+	l.Debug("Calling GetTasks activity")
+	request := activities.GetTasksParams{
+		Nodes:   make([]string, len(nodes)),
+		Service: params.Service,
+	}
+	nodesMap := make(map[string]*poktGoSdk.Node, len(nodes))
+	for i, node := range nodes {
+		request.Nodes[i] = node.Address
+		nodesMap[node.Address] = &node
+	}
+	getTasksActivityCtx := workflow.WithActivityOptions(ctx, ao)
+	ltr := activities.GetTaskRequestResults{}
+	getTasksErr := workflow.ExecuteActivity(
+		getTasksActivityCtx,
+		activities.Activities.GetTasks,
+		request,
+	).Get(getAllParamsActivityCtx, &ltr)
+	if getTasksErr != nil {
+		l.Error("GetTasks activity ends with error", "error", e)
+		e = temporal.NewApplicationErrorWithCause("unable to get tasks", "GetTasks", getTasksErr)
+		return
+	}
+
+	skippedWorkflows := make([]string, 0)
+	triggeredWorkflows := make([]string, 0)
+
+	for _, tr := range ltr.TaskRequests {
+		node := nodesMap[tr.Node]
+		if node == nil {
+			l.Error("missing node on Map from TaskRequest response", "node", tr.Node, "nodes", request.Nodes)
+			continue
 		}
-		ltr := activities.LookupTaskRequestResults{}
-		selector.AddFuture(
-			workflow.ExecuteActivity(
-				ctx,
-				activities.Activities.LookupTaskRequest,
-				request,
+		// add only those nodes that get pending tasks
+		triggeredNodeAddresses = append(triggeredNodeAddresses, tr.Node)
+		// You can access desired attributes here.
+		relayerRequest := activities.RelayerParams{
+			App:              getAppResults,
+			Node:             node,
+			Session:          sessionResult.Session,
+			Service:          request.Service,
+			SessionHeight:    sessionHeight,
+			BlocksPerSession: blocksPerSession,
+			PromptId:         tr.PromptId,
+			RelayTimeout:     tr.RelayTimeout,
+		}
+
+		workflowOptions := client.StartWorkflowOptions{
+			// with this format: "app-node-service-taskId-instanceId-promptId-sessionHeight"
+			// we are sure that when its workflow runs again inside the same session and the task is still not done,
+			// we will not get the same relayer workflow executed twice
+			ID: fmt.Sprintf(
+				"%s-%s-%s-%s-%s-%s-%d",
+				params.App, tr.Node, request.Service,
+				tr.TaskId, tr.InstanceId, tr.PromptId, sessionHeight,
 			),
-			func(f workflow.Future) {
-				err1 := f.Get(ctx, &ltr)
-				if err1 != nil {
-					err = err1
-					return
-				}
-				// Add the LookupTaskRequestResults object to the channel
-				lookupTaskResultsChan <- LookupChanResponse{
-					Request:  &request,
-					Response: &ltr,
-				}
+			TaskQueue:                                wCtx.App.Config.Temporal.TaskQueue,
+			WorkflowExecutionErrorWhenAlreadyStarted: true,
+			WorkflowIDReusePolicy:                    enums.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE_FAILED_ONLY,
+			WorkflowTaskTimeout:                      time.Duration(tr.RelayTimeout) * time.Second,
+			RetryPolicy: &temporal.RetryPolicy{
+				MaximumAttempts: 3,
 			},
+		}
+
+		// Do not wait for a result by not Calling .Get() on the returned future
+		wf, err := wCtx.App.TemporalClient.ExecuteWorkflow(
+			context.Background(),
+			workflowOptions,
+			wCtx.Relayer,
+			relayerRequest,
 		)
-	}
 
-	for i := 0; i < len(nodes); i++ {
-		// Each call to Select matches a single ready Future.
-		// Each Future is matched only once independently on the number of Select calls.
-		selector.Select(ctx)
 		if err != nil {
-			return nil, err
-		}
-	}
-
-	// close lookup task results channel
-	close(lookupTaskResultsChan)
-
-	relayerResultsChan := make(chan RelayerChanResponse, len(nodes))
-
-	relayerActivities := 0
-
-	for ltr := range lookupTaskResultsChan {
-		request := ltr.Request
-		for _, tr := range ltr.Response.TaskRequests {
-			// You can access desired attributes here.
-			relayerRequest := activities.RelayerParams{
-				// todo: check if need to add anything else
-				App:     params.App,
-				Node:    request.Node,
-				Service: request.Service,
-
-				TaskId:     tr.TaskId,
-				InstanceId: tr.TaskId,
-				PromptId:   tr.PromptId,
+			// check if error is because workflow is already in queue/failed
+			// OTHERWISE fail the workflow
+			if wf != nil {
+				skippedWorkflows = append(skippedWorkflows, fmt.Sprintf("ID:%s/RUN_ID:%s", wf.GetID(), wf.GetRunID()))
 			}
-			rr := activities.RelayerResults{}
-			selector.AddFuture(
-				workflow.ExecuteActivity(
-					ctx,
-					activities.Activities.Relayer,
-					relayerRequest,
-				),
-				func(f workflow.Future) {
-					err1 := f.Get(ctx, &rr)
-					if err1 != nil {
-						err = err1
-						return
-					}
-					// Add the LookupTaskRequestResults object to the channel
-					relayerResultsChan <- RelayerChanResponse{
-						Request:  &relayerRequest,
-						Response: &rr,
-					}
-				},
-			)
-			relayerActivities++
+			continue
 		}
+
+		triggeredWorkflows = append(triggeredWorkflows, fmt.Sprintf("ID:%s/RUN_ID:%s", wf.GetID(), wf.GetRunID()))
 	}
 
-	for i := 0; i < relayerActivities; i++ {
-		// Each call to Select matches a single ready Future.
-		// Each Future is matched only once independently on the number of Select calls.
-		selector.Select(ctx)
-		if err != nil {
-			return nil, err
-		}
+	result := RequesterResults{
+		App:     params.App,
+		Service: params.Service,
+		Nodes:   triggeredNodeAddresses,
+		// check if this is the height of the block when the session is get or what
+		Height:             int64(sessionResult.BlockHeight),
+		SessionHeight:      sessionHeight,
+		TriggeredWorkflows: triggeredWorkflows,
+		SkippedWorkflows:   skippedWorkflows,
 	}
-
-	close(relayerResultsChan)
-
-	//for rr := range relayerResultsChan {
-	//	// todo: iterate over this to create workflow result grouping by node.
-	//}
-	// for each app in config.apps
-	// activity: get_app
-	// if not ok: exit
-	// if ok:
-	// activities in parallel:
-	// 1. activity: get_session
-	// 2. activity: get_block
-	// for each app + service (chain) -> activities (parallel):
-	// 2. lookup tasks requests that match session.nodes.address + service and return (task, instance, prompts - ids) from mongodb
-	// when 0 task requests: exit
-	// when 1+ task requests:
-
-	// Activities (parallel with future https://github.com/temporalio/samples-go/tree/main/splitmerge-selector)
-	// for each compact task request call relayer activity
-	// This will do the relay and save results on test request record.
-
-	// Merge the results and prepare the result
-	// merge results and return SessionCheckerResults
-	// Make the results of the workflow available
-	result := RequesterResults{}
 
 	return &result, nil
 }

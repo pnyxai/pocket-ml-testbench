@@ -7,18 +7,22 @@ import (
 	poktGoSdk "github.com/pokt-foundation/pocket-go/provider"
 	"github.com/rs/zerolog"
 	"os"
+	"packages/pocket_rpc/types"
 	"path"
-	"pocket_rpc/types"
 )
 
 var (
-	Height    = "query_height.json"
-	Block     = "query_block.json"
-	App       = "query_app.json"
-	Dispatch  = "query_dispatch.json"
-	AllParams = "query_allparams.json"
-	Nodes     = "query_nodes.json"
-	BasePath  = "."
+	Height                   = "query_height.json"
+	Block                    = "query_block.json"
+	App                      = "query_app.json"
+	Dispatch                 = "query_dispatch.json"
+	AllParams                = "query_allparams.json"
+	Nodes                    = "query_nodes.json"
+	RelaySuccess             = "client_relay.json"
+	RelayError               = "client_relay_error.json"
+	RelayEvidenceSealedError = "client_relay_evidence_sealed_error.json"
+	RelayNonJson             = "client_relay_non_json.json"
+	BasePath                 = "."
 )
 
 func SetBasePath(bPath string) {
@@ -89,6 +93,33 @@ func GetAllParamsMock(logger *zerolog.Logger) *poktGoSdk.AllParams {
 func GetNodesMock(logger *zerolog.Logger) *poktGoSdk.GetNodesOutput {
 	if v, err := GetSampleFromFile[poktGoSdk.GetNodesOutput](Nodes); err != nil {
 		logger.Fatal().Err(err).Msg("Failed to get nodes mock")
+		return nil
+	} else {
+		return v
+	}
+}
+
+func GetSuccessRelayOutput(logger *zerolog.Logger) *poktGoSdk.RelayOutput {
+	if v, err := GetSampleFromFile[poktGoSdk.RelayOutput](RelaySuccess); err != nil {
+		logger.Fatal().Err(err).Msg("Failed to get relay mock")
+		return nil
+	} else {
+		return v
+	}
+}
+
+func GetErroredRelayOutput(logger *zerolog.Logger) *poktGoSdk.RelayErrorOutput {
+	if v, err := GetSampleFromFile[poktGoSdk.RelayErrorOutput](RelayError); err != nil {
+		logger.Fatal().Err(err).Msg("Failed to get relay error mock")
+		return nil
+	} else {
+		return v
+	}
+}
+
+func GetEvidenceSealedRelayOutput(logger *zerolog.Logger) *poktGoSdk.RelayErrorOutput {
+	if v, err := GetSampleFromFile[poktGoSdk.RelayErrorOutput](RelayEvidenceSealedError); err != nil {
+		logger.Fatal().Err(err).Msg("Failed to get relay error mock")
 		return nil
 	} else {
 		return v

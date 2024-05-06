@@ -37,19 +37,23 @@ func (aCtx *Ctx) Register(w worker.Worker) {
 		Name: GetHeightName,
 	})
 
-	w.RegisterActivityWithOptions(aCtx.GetBlock, activity.RegisterOptions{
-		Name: GetBlockName,
+	w.RegisterActivityWithOptions(aCtx.GetBlockParams, activity.RegisterOptions{
+		Name: GetBlockParamsName,
 	})
 
 	w.RegisterActivityWithOptions(aCtx.GetSession, activity.RegisterOptions{
 		Name: GetSessionName,
 	})
 
-	w.RegisterActivityWithOptions(aCtx.LookupTaskRequest, activity.RegisterOptions{
-		Name: LookupTaskRequestName,
+	w.RegisterActivityWithOptions(aCtx.GetTasks, activity.RegisterOptions{
+		Name: GetTasksName,
 	})
 
 	w.RegisterActivityWithOptions(aCtx.Relayer, activity.RegisterOptions{
 		Name: RelayerName,
+	})
+
+	w.RegisterActivityWithOptions(aCtx.UpdateTaskTree, activity.RegisterOptions{
+		Name: UpdateTaskTreeName,
 	})
 }
