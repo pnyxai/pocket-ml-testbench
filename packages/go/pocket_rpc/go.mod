@@ -17,6 +17,8 @@ replace packages/utils => ./../utils
 // made this replacement here because when apps/go imports a nested package like common or types will fail
 replace packages/pocket_rpc => ./
 
+replace packages/pocket_rpc => ./
+
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect

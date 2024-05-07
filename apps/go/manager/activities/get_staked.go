@@ -2,29 +2,17 @@ package activities
 
 import (
 	"context"
+	"manager/types"
 )
-
-type GetStakedParams struct {
-	Service string
-}
-
-type NodeData struct {
-	Address string
-	Service string
-}
-
-type GetStakedResults struct {
-	Nodes []NodeData
-}
 
 var GetStakedName = "get_staked"
 
-func (aCtx *Ctx) GetStaked(ctx context.Context, params GetStakedParams) (*GetStakedResults, error) {
+func (aCtx *Ctx) GetStaked(ctx context.Context, params types.GetStakedParams) (*types.GetStakedResults, error) {
 
 	l := aCtx.App.Logger
 	l.Debug().Msg("Collecting staked nodes from network.")
 
-	result := GetStakedResults{}
+	result := types.GetStakedResults{}
 
 	// Get all nodes in given chain
 	l.Debug().Str("service", params.Service).Msg("Querying service...")
@@ -38,7 +26,7 @@ func (aCtx *Ctx) GetStaked(ctx context.Context, params GetStakedParams) (*GetSta
 	}
 	for _, node := range nodes {
 		if !node.Jailed {
-			this_node := NodeData{
+			this_node := types.NodeData{
 				Address: node.Address,
 				Service: params.Service,
 			}

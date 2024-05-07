@@ -3,20 +3,21 @@ package pocket_rpc
 import (
 	"encoding/json"
 	"fmt"
-	poktGoSdk "github.com/pokt-foundation/pocket-go/provider"
-	"github.com/rs/zerolog"
-	"github.com/stretchr/testify/suite"
 	"io"
 	"math"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"packages/pocket_rpc/samples"
+	"packages/pocket_rpc/types"
 	"path"
-	"pocket_rpc/samples"
-	"pocket_rpc/types"
 	"reflect"
 	"testing"
 	"time"
+
+	poktGoSdk "github.com/pokt-foundation/pocket-go/provider"
+	"github.com/rs/zerolog"
+	"github.com/stretchr/testify/suite"
 )
 
 // define a test suite struct

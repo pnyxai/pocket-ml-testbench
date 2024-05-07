@@ -3,18 +3,19 @@ package pocket_rpc
 import (
 	"context"
 	"encoding/json"
-	"github.com/rs/zerolog"
-	"github.com/stretchr/testify/suite"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"packages/pocket_rpc/samples"
+	"packages/pocket_rpc/types"
 	"packages/utils"
 	"path"
-	"pocket_rpc/samples"
-	"pocket_rpc/types"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/rs/zerolog"
+	"github.com/stretchr/testify/suite"
 )
 
 // define a test suite struct

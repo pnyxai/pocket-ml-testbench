@@ -6,6 +6,7 @@ require (
 	github.com/rs/zerolog v1.32.0
 	go.mongodb.org/mongo-driver v1.15.0
 	go.temporal.io/sdk v1.26.0
+	gonum.org/v1/gonum v0.15.0
 	packages/logger v0.0.0-00010101000000-000000000000
 	packages/mongodb v0.0.0-00010101000000-000000000000
 	packages/pocket_rpc v0.0.0-00010101000000-000000000000
@@ -20,6 +21,7 @@ replace packages/mongodb => ./../../../packages/go/mongodb
 replace packages/pocket_rpc => ./../../../packages/go/pocket_rpc
 
 require (
+	github.com/alitto/pond v1.8.3 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/facebookgo/clock v0.0.0-20150410010913-600d898af40a // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
@@ -38,6 +40,8 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/pokt-foundation/pocket-go v0.17.0 // indirect
 	github.com/pokt-foundation/utils-go v0.7.0 // indirect
+	github.com/puzpuzpuz/xsync v1.5.2 // indirect
+	github.com/puzpuzpuz/xsync/v3 v3.1.0 // indirect
 	github.com/robfig/cron v1.2.0 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/stretchr/testify v1.9.0 // indirect
