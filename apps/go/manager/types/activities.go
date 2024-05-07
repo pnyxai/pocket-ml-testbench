@@ -27,5 +27,6 @@ type AnalyzeNodeParams struct {
 }
 
 type AnalyzeNodeResults struct {
-	Success bool
+	Success bool     `json:"success"`
+	Node    NodeData `json:"node"`
 }

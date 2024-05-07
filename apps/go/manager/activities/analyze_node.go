@@ -61,7 +61,7 @@ func (aCtx *Ctx) AnalyzeNode(ctx context.Context, params types.AnalyzeNodeParams
 	// If this is a LM, then we must also check for tokenizer state ???
 
 	// placeholder
-	result := types.AnalyzeNodeResults{Success: true}
+	result := types.AnalyzeNodeResults{Success: true, Node: params.Node}
 	return &result, nil
 }
 
@@ -72,7 +72,18 @@ func updateTasksNode(nodeData *NodeRecord, tests []types.TestsData, mongo mongod
 	// Get results collection
 	resultsCollection := mongo.GetCollection(types.ResultsCollection)
 
+	//--------------------------------------------------------------------------
+	// Drop old tasks that have not been updated in a long time
+	//--------------------------------------------------------------------------
+
+	err = nodeData.PruneTasks(l)
+	if err != nil {
+		return err
+	}
+
+	//--------------------------------------------------------------------------
 	// Check for each task sample date
+	//--------------------------------------------------------------------------
 	for _, test := range tests {
 
 		for _, task := range test.Tasks {
@@ -140,15 +151,6 @@ func updateTasksNode(nodeData *NodeRecord, tests []types.TestsData, mongo mongod
 
 		}
 
-	}
-
-	//--------------------------------------------------------------------------
-	// Drop old tasks that have not been updated in a long time
-	//--------------------------------------------------------------------------
-
-	err = nodeData.PruneTasks(l)
-	if err != nil {
-		return err
 	}
 
 	return err

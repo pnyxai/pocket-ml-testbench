@@ -101,7 +101,7 @@ func (wCtx *Ctx) NodeManager(ctx workflow.Context, params types.NodeManagerParam
 		)
 	}
 
-	for _, node := range nodes {
+	for i := 0; i < len(nodes); i++ {
 		// Each call to Select matches a single ready Future.
 		// Each Future is matched only once independently on the number of Select calls.
 		// Ensure there is a call to process
@@ -117,7 +117,7 @@ func (wCtx *Ctx) NodeManager(ctx workflow.Context, params types.NodeManagerParam
 		} else {
 			result.Failed += 1
 		}
-		l.Debug().Str("address", node.Address).Str("service", node.Service).Bool("success", response.Response.Success).Msg("Task Done.")
+		l.Debug().Str("address", response.Response.Node.Address).Str("service", response.Response.Node.Service).Bool("success", response.Response.Success).Msg("Task Done.")
 	}
 
 	return &result, nil
