@@ -1,7 +1,7 @@
 FROM python:3.11.8-slim-bookworm
 
 RUN apt-get update -y && \
-    apt-get install -y libpq-dev gcc git && \
+    apt-get install -y libpq-dev gcc git curl && \
     groupadd -r app && \
     useradd -r -g app -d /home/app -s /sbin/nologin -c "Docker image user" app && \
     mkdir /home/app && \

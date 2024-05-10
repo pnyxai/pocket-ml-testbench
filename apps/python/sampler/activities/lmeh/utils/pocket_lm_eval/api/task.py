@@ -282,7 +282,7 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
         id_list_str += ', '.join(str(id) for id in range(min_range, max_range))
         return id_list_str
     
-    def generate_random_numbers(self, table_name:str, _split:str, qty:int, min:int, max:int, blacklist: List[int] = []) -> List[int]:
+    def generate_random_doc_ids(self, table_name:str, _split:str, qty:int, min:int, max:int, blacklist: List[int] = []) -> List[int]:
         """
         This function generates a list of random numbers within a range, excluding some blacklisted numbers
         """
@@ -295,7 +295,7 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
                 )
         # Generate a list of random numbers within the range [min, max] excluding the blacklist
         ints = set(range(min, max+1))
-        if blacklist is not None:
+        if len(blacklist) > 0:
             original_len = len(ints)
             # Remove the blacklisted numbers
             ints = ints - set(blacklist)
@@ -372,6 +372,7 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
 
         blacklist = self._config.metadata['pocket_args'].blacklist
         qty = self._config.metadata['pocket_args'].qty
+        doc_ids = self.config.metadata['pocket_args'].doc_ids
         postgres_uri = self._config.metadata['pocket_args'].postgres_uri
         table_name = self.DATASET_PATH + "--" + self.DATASET_NAME if self.DATASET_NAME else self.DATASET_PATH
         eval_logger.debug(f"table_name:",table_name=table_name)
@@ -393,9 +394,22 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
                 f"Neither {self.config.test_split} nor {self.config.validation_split} in splits were found in '_split_ranges'. Available splits are {_split_ranges.keys()}",
                 non_retryable=True
                 )
-
+        
         _range = _split_ranges[_split]
-        indexes = self.generate_random_numbers(table_name, _split, qty, _range['min'], _range['max'], blacklist)
+        
+        if doc_ids:
+            if _split != get_split_from_ids(_split_ranges, doc_ids):
+                eval_logger.error(f"Doc_ids not in split range used for evaluation:", 
+                                  doc_ids=doc_ids, _split=_split, range_min=_range['min'], range_max=_range['max']
+                                  )
+                raise ApplicationError(
+                    f"Doc_ids not in split range used for test used for evaluation: doc_ids: \
+                        {doc_ids}, split: {_split}, range_min: {_range['min']}, range_max: {_range['max']}",
+                    non_retryable=True
+                    )
+            indexes = sorted(doc_ids)
+        else:
+            indexes = self.generate_random_doc_ids(table_name, _split, qty, _range['min'], _range['max'], blacklist)
 
         where_clause = self.get_SQL_where_clause(indexes, _split, _split_ranges)
         # Construct the full SQL query

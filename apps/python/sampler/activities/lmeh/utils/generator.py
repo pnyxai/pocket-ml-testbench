@@ -20,15 +20,17 @@ from lm_eval.evaluator_utils import (
     run_task_tests,
 )
 from lm_eval.tasks import TaskManager, get_task_dict
-from activities.lmeh.utils.pocket_lm_eval.tasks import PocketNetworkTaskManager
 from lm_eval.utils import positional_deprecated, simple_parse_args_string
-
 
 if TYPE_CHECKING:
     from lm_eval.api.model import LM
     from lm_eval.tasks import Task
 
 from temporalio.exceptions import ApplicationError
+from activities.lmeh.utils import mongodb as lmeh_mongodb
+from activities.lmeh.utils.pocket_lm_eval.tasks import PocketNetworkTaskManager
+from protocol.protocol import PocketNetworkTaskRequest, PocketNetworkMongoDBTask, PromptMongoDB
+from pymongo import MongoClient
 
 # adapted from evaluator.py # def simple_evaluate(..) from lm-eval-harness to generate config task 
 @positional_deprecated
@@ -128,8 +130,11 @@ def get_configurable_task(
 
     return task_dict
 
-def get_instances(
+def genererate_requests(
+    lm: "LM",
     task_dict,
+    mongo_client: MongoClient,
+    args:PocketNetworkTaskRequest,
     limit: Optional[int] = None,
     cache_requests: bool = False,
     rewrite_requests_cache: bool = False,
@@ -137,8 +142,10 @@ def get_instances(
     log_samples: bool = True,
     eval_logger: Optional[logging.Logger] = None,
 ):
-    """Instantiate and evaluate a model on a list of tasks.
+    """Generate and save in mongoDB: Task->Instances->Prompts
 
+    :param lm: LM
+        Language model to create requests
     :param task_dict: dict[str, Task]
         Dictionary of tasks. Tasks will be taken to have name type(task).config.task .
     :param limit: int, optional
@@ -167,8 +174,8 @@ def get_instances(
         limit = get_sample_size(task, limit)
         task.build_all_requests(
             limit=limit,
-            rank=0,
-            world_size=1,
+            rank=lm.rank,
+            world_size=lm.world_size,
             cache_requests=cache_requests,
             rewrite_requests_cache=rewrite_requests_cache,
         )
@@ -195,5 +202,65 @@ def get_instances(
                     raise ApplicationError(f"Request id {doc_id} not found in task.config.metadata", non_retryable=True)
         ############################################################
         # END: POCKET NETWORK CODE
-        ############################################################                
-        return requests
+        ############################################################
+
+    eval_logger.info("Instances generated successfully:")
+    ### Run LM on inputs, get all outputs ###
+    # execute each type of request
+    for reqtype, reqs in requests.items():
+        eval_logger.info(f"Running {reqtype} requests")
+        # create `K` copies of each request `req` based off `K = req.repeats`
+        cloned_reqs = []
+        for req in reqs:
+            cloned_reqs.extend([req] * req.repeats)
+
+        # run requests through model
+        resps = getattr(lm, reqtype)(cloned_reqs)
+        eval_logger.debug(f"Response:", resps=resps)
+
+        # put responses from model into a list of length K for each request.
+        for x, req in zip(resps, cloned_reqs):
+            req.resps.append(x)
+
+    ############################################################
+    # START: POCKET NETWORK CODE
+    ############################################################
+    insert_mongo_prompt = []
+    insert_mongo_tasks = []
+    insert_mongo_instances = []
+    for task_output in eval_tasks:
+        # Task
+        task = task_output.task
+        instances = task.instances
+
+        task_mongodb = PocketNetworkMongoDBTask(**{
+            **args.model_dump(),
+            **{"total_instances": len(instances),
+            "request_type": task.OUTPUT_TYPE}})
+        insert_mongo_tasks.append(task_mongodb.model_dump())        
+        # Instances
+        for instance in instances:
+            instance_mongo = lmeh_mongodb.instance_to_dict(instance=instance, task_id = task_mongodb._id)
+            insert_mongo_instances.append(instance_mongo)
+            eval_logger.debug(f"Instance:", instance=instance)
+            # Prompts
+            for pocket_req in instance.resps:
+                instance_id = instance_mongo['_id']
+                data = pocket_req.model_dump_json(exclude_defaults=True)
+                prompt_mongo = PromptMongoDB(data=data, task_id=task_mongodb._id, instance_id=instance_id)
+                insert_mongo_prompt.append(prompt_mongo.model_dump())  
+                eval_logger.debug(f"Data:", PromptMongoDB=prompt_mongo)
+    try:
+        with mongo_client.start_session() as session:
+            with session.start_transaction():
+                mongo_client['pocket-ml-testbench']['tasks'].insert_many(insert_mongo_tasks, ordered=False, session=session)
+                mongo_client['pocket-ml-testbench']['instances'].insert_many(insert_mongo_instances, ordered=False, session=session)
+                mongo_client['pocket-ml-testbench']['prompts'].insert_many(insert_mongo_prompt, ordered=False, session=session)
+                eval_logger.info("Instances saved to MongoDB successfully.")
+    except Exception as e:
+        eval_logger.error("Failed to save Instances to MongoDB.")
+        raise ApplicationError("Failed to save instances to MongoDB.", error=e, non_retryable=True)
+    ############################################################
+    # END: POCKET NETWORK CODE
+    ############################################################
+    return True

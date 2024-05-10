@@ -22,20 +22,22 @@ Selected Tasks were updated to follow the `lm-eval-harness` commit `7d9922c80114
 ### pocket_lm_eval
 Files that follow the structure of `lm-eval-harness`. The intention, for instance, is to avoid a fork.
 
-**task.py**
+**task**
 * `PocketNetworkTaskManager`: A class based on `TaskManager`,  that is used to inject `pocket_args` into the `task.config.metadata`. 
 
-**api.py**
+**api**
 * `PocketNetworkConfigurableTask`: A class based on `ConfigurableTask`, that retrieve samples from the sql database, based on `blacklist` id's & `uri` previously defined in `pocket_args`. In `PocketNetworkConfigurableTask.download` validations reagrding `training_split`, `validation_split`, `test_split` and `fewshot_split` are followed as pointed in the `lm-eval-harness- documentation. 
 
     * `def build_all_requests` was modified in order to inyecet the postgres document id into the `Instance.doc_id`.
+
+**models**
+* `PocketNetworkLM`:  A class that mimic partially `OpenaiChatCompletionsLM` from `lm-eval-harness`. Instead on generate request and take respobnses, both `loglikelihood` and `generate_until` methods instantiate `CompletionRequest`. The last is a class used as a proxy to generate the `data` field of a RPC request that is saved in Mongo.
 
 **generator.py**
 * `get_configurable_task`: A function to return only `ConfigurableTask` based on the `task_manager`. 
     * If `task_manager` is `TaskManager`, then all samples from all splits are part of the dataset. 
     * If `task_manager` is `PocketNetworkTaskManager`, random samples are generated based on the configuration split and the blacklist provided in `pocket_args`.
-* `get_instances`: A functions to generate `requests` that is a `dict` ( with keys `ALL_OUTPUT_TYPES = ["loglikelihood", "multiple_choice", "loglikelihood_rolling", "generate_until"]`) that contains `List[Instance]`.
-
+* `genererate_requests`: A functions that hierarchically save in MongoDB the strucutre of `Task`->`Instances`->`Prompts`.
 
 
 ### Accessing the DB with PG Admin
@@ -122,7 +124,7 @@ temporal_docker workflow start \
 temporal_docker workflow start \
  --task-queue sampler-local \
  --type Sampler \
- --input '{"evaluation": "lmeh","tasks": "mmlu_high_school_macroeconomics", "requester_args": {"address": "random", "service": "random", "method": "random", "path": "random"}, "blacklist": [11, 12], "qty": 15}' \
+ --input '{"evaluation": "lmeh","tasks": "mmlu_high_school_macroeconomics", "requester_args": {"address": "random", "service": "random", "method": "random", "path": "random"}, "blacklist": [11, 12], "qty": 15, "model": "pocket_network", "llm_args": {"model": "pocket_network", "base_url": "http://llm:9087/v1"} }' \
  --namespace pocket-ml-testbench
 ```
 

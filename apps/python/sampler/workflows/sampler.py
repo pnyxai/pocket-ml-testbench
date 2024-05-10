@@ -15,13 +15,13 @@ class Sampler:
     @workflow.run
     async def run(self, params: PocketNetworkTaskRequest) -> bool:
         if params.evaluation == "lmeh":
-            x = await workflow.execute_activity(
+            await workflow.execute_activity(
                 lmeh_register_task,
                 params,
                 schedule_to_close_timeout=timedelta(seconds=30),
             )
 
-            x = await workflow.execute_activity(
+            await workflow.execute_activity(
                 lmeh_sample,
                 params,
                 schedule_to_close_timeout=timedelta(seconds=30),
@@ -30,4 +30,4 @@ class Sampler:
             # TODO: Add helm evaluation
             pass
 
-        return x
+        return True

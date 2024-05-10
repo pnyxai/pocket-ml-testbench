@@ -7,12 +7,14 @@ services:
     container_name: sampler
     environment:
       CONFIG_PATH: /home/app/configs/config.json
+      OPENAI_API_KEY: EMPTY
     volumes:
       - $SAMPLER_CONFIG_FILE:/home/app/configs/config.json
     networks:
      - postgresql
      - temporal
      - mongodb
+     - llm
 
 networks:
   temporal:
@@ -23,4 +25,7 @@ networks:
     external: true
   mongodb:
     name: mongodb
+    external: true
+  llm:
+    name: llm
     external: true

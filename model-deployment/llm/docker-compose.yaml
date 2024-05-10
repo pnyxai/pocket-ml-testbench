@@ -1,12 +1,13 @@
-version: '3'
 services:
   vllm-openai-main:
     container_name: vllm-openai-main
-    image: vllm/vllm-openai:v0.3.2
+    image: vllm/vllm-openai:v0.4.2
     volumes:
       - ${MODELS_PATH}:/root/.cache/huggingface/hub/
-      - ${CHAT_TEMPLATE_FILE}:/workspace/chat_template.jinja2
-      - ${TOOLS_TEMPLATE_FILE}:/workspace/tools_template.jinja
+    networks:
+    - llm
+    ports:
+      - 9087:9087
     environment:
       - MODEL_NAME=${MODEL_NAME}
       - NUM_GPUS=${NUM_GPUS}
@@ -29,16 +30,14 @@ services:
       "${GPU_MEMORY_UTILIZATION}",
       "--max-model-len",
       "${MAX_MODEL_LEN}",
-      "--chat-template",
-      "chat_template.jinja2",
       "--served-model-name",
       "${SERVED_MODEL_NAME}",
       "--trust-remote-code",
       "--max-num-seqs",
       "${MAX_NUM_SEQS}",
+      "--port",
+      "9087"
       ]
-    ports:
-     - "8000:8000"
     shm_size: '4gb' # This is only used for GPU parallelism
     deploy:
       resources:
@@ -47,3 +46,8 @@ services:
             - driver: nvidia
               device_ids: ['0'] # Add more if you have more, remember to update the .env for GPU parallelism
               capabilities: [gpu]
+
+networks:
+  llm:
+    name: llm
+    driver: bridge
