@@ -36,8 +36,6 @@ class PocketNetworkLM(TemplateLM):
     ) -> None:
         """
 
-        :param engine: str
-            OpenAI API engine (e.g. gpt-3.5-turbo-instruct)
         :param truncate: bool
             Truncate input if too long (if False and input is too long, throw error)
         """
@@ -52,23 +50,18 @@ class PocketNetworkLM(TemplateLM):
 
         # Load tokenizer
         try:
-            tokenizer_objects = get_tokenizer_objects(node_adress=requester_args.address, client=mongo_client)
+            tokenizer_objects = get_tokenizer_objects(
+                node_adress=requester_args.address, 
+                node_service=requester_args.service, 
+                client=mongo_client,
+                )
             self.tokenizer = load_tokenizer(tokenizer_objects)
             self.vocab_size = self.tokenizer.vocab
             self.end_of_text_token_id = self.tokenizer.eos_token
             eval_logger.info(f"Tokenizer loaded successfully.")
         except Exception as e:
             raise e
-
-        # Read from environment variable OPENAI_API_KEY
-        # Set to EMPTY for local
-        openai.api_key = os.environ["OPENAI_API_KEY"]
-        if self.base_url:
-            self.client = openai.OpenAI(base_url=self.base_url)
-        else:
-            self.client = openai.OpenAI()
-        # log success
-        eval_logger.info(f"OpenAI API client created successfully with base_url: {self.base_url}")
+        
     @property
     def eot_token_id(self):
         return self.end_of_text_token_id
