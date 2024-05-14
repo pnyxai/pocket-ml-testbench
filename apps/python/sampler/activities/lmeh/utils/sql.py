@@ -3,8 +3,11 @@ import psycopg2
 from psycopg2 import sql
 import datetime
 import decimal
-
 import datasets
+
+from app.app import get_app_logger
+from temporalio.exceptions import ApplicationError
+eval_logger = get_app_logger("sample")
 
 # Define the columns for the table
 _ID_NAME = "__id"
@@ -140,7 +143,8 @@ def create_dataset_table(table_name:str, data:datasets.DatasetDict, connection:p
                 try:
                     cursor.execute(insert_query, [current_row.get(key) if not isinstance(current_row.get(key), dict) else json.dumps(current_row.get(key)) for key in columns.keys()])
                 except Exception as e:
-                    print(f"Error: {e}, \nrow: {current_row}")
+                    eval_logger.error(f"Error inserting:", row = current_row)
+                    ApplicationError(f"Error: {e}, \nrow: {current_row}")
                     raise e
                 pocket_id += 1
     connection.commit()

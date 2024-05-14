@@ -4,6 +4,6 @@ DEFAULT_IMAGE_NAME="pocket_sampler"
 cd ../../..
 
 # Build sampler
-docker build . -f apps/python/sampler/Dockerfile --progress=plain --tag $DEFAULT_IMAGE_NAME:latest
+docker build . -f apps/python/sampler/Dockerfile --progress=plain --tag $DEFAULT_IMAGE_NAME:dev
 # Broadcast image name and tag
 echo "$DEFAULT_IMAGE_NAME"
