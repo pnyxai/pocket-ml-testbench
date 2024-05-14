@@ -4,15 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
-	"go.temporal.io/api/workflowservice/v1"
-	"go.temporal.io/sdk/client"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/durationpb"
 	"io"
 	"os"
 	"packages/logger"
@@ -23,7 +14,20 @@ import (
 	"requester/types"
 	"requester/workflows"
 	"time"
+
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+	"go.temporal.io/api/workflowservice/v1"
+	"go.temporal.io/sdk/client"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/durationpb"
 )
+
+// Set application name
+var RequesterAppName = "requester"
 
 func ensureTemporalNamespaceExists(opts *client.Options, l *zerolog.Logger) {
 	grpcClient, err := grpc.Dial(opts.HostPort, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock()) //Replace with your Temporal Server host and port
@@ -139,7 +143,7 @@ func InitLogger(config *types.Config) *zerolog.Logger {
 		ctx = ctx.Caller()
 	}
 
-	l := ctx.Str("App", "requester").Logger()
+	l := ctx.Str("App", RequesterAppName).Logger()
 
 	zerolog.TimestampFieldName = "t"
 	zerolog.MessageFieldName = "msg"
@@ -148,11 +152,11 @@ func InitLogger(config *types.Config) *zerolog.Logger {
 	return &l
 }
 
-// LoadConfigFile - read file from default path $HOME/tester/config.json
+// LoadConfigFile - read file from default path $HOME/requester/config.json
 func LoadConfigFile() *types.Config {
 	c := types.Config{}
 	configPathEnv := os.Getenv("CONFIG_PATH")
-	configPathDefault := filepath.Join(os.ExpandEnv("$HOME"), "tester", "config.json")
+	configPathDefault := filepath.Join(os.ExpandEnv("$HOME"), RequesterAppName, "config.json")
 	if configPathEnv == "" {
 		log.Warn().Str("Default", configPathDefault).Msg("Missing CONFIG_PATH. Using default")
 		configPathEnv = configPathDefault
