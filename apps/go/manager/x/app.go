@@ -74,6 +74,7 @@ func Initialize() *types.App {
 	// initialize mongodb
 	m := mongodb.NewClient(cfg.MongodbUri, []string{
 		types.TaskCollection,
+		types.InstanceCollection,
 		types.NodesCollection,
 		types.ResultsCollection,
 	}, l)

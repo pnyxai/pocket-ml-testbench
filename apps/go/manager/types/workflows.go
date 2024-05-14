@@ -21,3 +21,11 @@ type NodeAnalysisChanResponse struct {
 	Request  *NodeData
 	Response *AnalyzeNodeResults
 }
+
+type SamplerWorkflowParams struct {
+	Evaluation    string        `json:"evaluation"`
+	Task          string        `json:"tasks"`
+	RequesterArgs RequesterArgs `json:"requester_args"`
+	Blacklist     []int         `json:"blacklist"`
+	Qty           int           `json:"qty"`
+}

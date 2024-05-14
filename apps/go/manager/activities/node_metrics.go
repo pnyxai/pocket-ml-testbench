@@ -21,12 +21,15 @@ const sampleTTLDays uint32 = 5
 // The maximum age of a task entry.
 const taskTTLDays uint32 = 32
 
+// Minimum number of samples to have in a task to consider that it does not require more samples
+// According to "tinyBenchmarks: evaluating LLMs with fewer examples" 100 is enough, but also 50 seems adequate.
+const MinSamplesPerTask uint32 = 50
+
 // Maximum size of result buffer and also maximum number of samples to ask per task
-const MaxSamplesPerTask uint32 = 10
+const MaxConcurrentSamplesPerTask uint32 = 10
 
 // This is the length of the buffer and will set the maximum accuracy of the metric.
-// According to "tinyBenchmarks: evaluating LLMs with fewer examples" 100 is enough, but also 50 seems adequate.
-const circularBufferLength uint32 = 50
+const circularBufferLength uint32 = MinSamplesPerTask
 
 // Keep track of circular buffer start and end indexes
 type CircularIndexes struct {
@@ -68,6 +71,7 @@ type TaskRecord struct {
 	NumSamples    uint32                          `bson:"num_samples"`
 	ScoresSamples [circularBufferLength]float32   `bson:"scores"`
 	Times         [circularBufferLength]time.Time `bson:"times"`
+	Ids           [circularBufferLength]int       `bson:"ids"`
 	Indexes       CircularIndexes                 `bson:"indexes"`
 }
 
@@ -172,12 +176,13 @@ func (record *TaskRecord) CycleIndexes(l *zerolog.Logger) error {
 	return nil
 }
 
-func (record *TaskRecord) IsertSample(sample float32, timeSample time.Time) (err error) {
+func (record *TaskRecord) IsertSample(sample float32, timeSample time.Time, id int) (err error) {
 	// Increment the end
 	err = record.stepIndex(1, "end")
 	// Save sample
 	record.ScoresSamples[record.Indexes.End] = sample
 	record.Times[record.Indexes.End] = timeSample
+	record.Ids[record.Indexes.End] = id
 
 	return nil
 }
@@ -194,6 +199,7 @@ type NodeRecord struct {
 	LastSeenHeight uint32       `bson:"last_seen_height"`
 	LastSeenTime   time.Time    `bson:"last_seen_time"`
 	Tasks          []TaskRecord `bson:"tasks"`
+	Tokenizer      string       `bson:"tokenizer"` // TODO: Remove this in the future, in favor of a signature task
 }
 
 // Go through all task and remove the ones that have no new samples since the limit
@@ -279,6 +285,9 @@ func (record *NodeRecord) AppendTask(framework string, task string, date time.Ti
 func (record *NodeRecord) Init(params types.AnalyzeNodeParams, l *zerolog.Logger) error {
 	// Initialize empty record
 
+	// TODO: Remove this placeholder
+	record.Tokenizer = "default"
+
 	// Set node data
 	record.Address = params.Node.Address
 	record.Service = params.Node.Service
@@ -336,14 +345,15 @@ func (record *NodeRecord) UpdateNode(collection mongodb.CollectionAPI, l *zerolo
 // Record written by the evaluator.
 // The NumSamples field indicates how many samples were actually calculated
 type ResultRecord struct {
-	Address    string                     `bson:"address"`
-	Service    string                     `bson:"service"`
-	Height     uint32                     `bson:"height"`
-	Framework  string                     `bson:"framework"`
-	Task       string                     `bson:"task"`
-	Status     uint32                     `bson:"status"`
-	NumSamples uint32                     `bson:"num_samples"`
-	Scores     [MaxSamplesPerTask]float32 `bson:"scores"`
+	Address    string                               `bson:"address"`
+	Service    string                               `bson:"service"`
+	Height     uint32                               `bson:"height"`
+	Framework  string                               `bson:"framework"`
+	Task       string                               `bson:"task"`
+	Status     uint32                               `bson:"status"`
+	NumSamples uint32                               `bson:"num_samples"`
+	Scores     [MaxConcurrentSamplesPerTask]float32 `bson:"scores"`
+	SampleIds  [MaxConcurrentSamplesPerTask]int     `bson:"sample_ids"`
 }
 
 func (record *ResultRecord) FindAndLoadResults(address string,
