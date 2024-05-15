@@ -51,7 +51,7 @@ async def main():
     client = await Client.connect(
         temporal_host,
         namespace=namespace,
-        data_converter=pydantic_data_converter
+        #data_converter=pydantic_data_converter
     )
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as activity_executor:

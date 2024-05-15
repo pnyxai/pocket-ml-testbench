@@ -63,34 +63,17 @@ apps/python/sampler/build.sh
 
 2. Generate infrastructure following instructions in the [docker-compose README](../../../docker-compose/README.md)
 
-3. Both for Register and Sampler workers generate their corresponding `config.json` like:
+3. Both for Register and Sampler workers generate a unique `config.json` like:
 
 * Register
 
 ```json
 {
-    "postgres_uri": "postgresql://admin:admin@postgresql:5432/postgres",
-  "mongodb_uri": "mongodb://mongodb:27017/?replicaSet=devRs",
+  "postgres_uri": "postgresql://admin:admin@postgresql:5432/pocket-ml-testbench",
+  "mongodb_uri": "mongodb://mongodb:27017/pocket-ml-testbench",
   "log_level": "DEBUG",
   "temporal": {
-      "host": "temporal",
-    "port": 7233,
-    "namespace": "pocket-ml-testbench",
-    "task_queue": "sampler-local",
-    "max_workers": 10
-  }
-}
-```
-
-* Sampler
-
-```json
-{
-    "postgres_uri": "postgresql://admin:admin@postgresql:5432/postgres",
-  "mongodb_uri": "mongodb://mongodb:27017/?replicaSet=devRs",
-  "log_level": "DEBUG",
-  "temporal": {
-      "host": "temporal",
+    "host": "temporal",
     "port": 7233,
     "namespace": "pocket-ml-testbench",
     "task_queue": "sampler-local",
@@ -114,7 +97,7 @@ docker compose up
 temporal_docker workflow start \
  --task-queue sampler-local \
  --type Register \
- --input '{"evaluation": "lmeh", "tasks": "arc_challenge,hellaswag,truthfulqa_mc2,mmlu_abstract_algebra,mmlu_anatomy,mmlu_astronomy,mmlu_business_ethics,mmlu_clinical_knowledge,mmlu_college_biology,mmlu_college_chemistry,mmlu_college_computer_science,mmlu_college_mathematics,mmlu_college_medicine,mmlu_college_physics,mmlu_computer_security,mmlu_conceptual_physics,mmlu_econometrics,mmlu_electrical_engineering,mmlu_elementary_mathematics,mmlu_formal_logic,mmlu_global_facts,mmlu_high_school_biology,mmlu_high_school_chemistry,mmlu_high_school_computer_science,mmlu_high_school_european_history,mmlu_high_school_geography,mmlu_high_school_government_and_politics,mmlu_high_school_macroeconomics,mmlu_high_school_mathematics,mmlu_high_school_microeconomics,mmlu_high_school_physics,mmlu_high_school_psychology,mmlu_high_school_statistics,mmlu_high_school_us_history,mmlu_high_school_world_history,mmlu_human_aging,mmlu_human_sexuality,mmlu_international_law,mmlu_jurisprudence,mmlu_logical_fallacies,mmlu_machine_learning,mmlu_management,mmlu_marketing,mmlu_medical_genetics,mmlu_miscellaneous,mmlu_moral_disputes,mmlu_moral_scenarios,mmlu_nutrition,mmlu_philosophy,mmlu_prehistory,mmlu_professional_accounting,mmlu_professional_law,mmlu_professional_medicine,mmlu_professional_psychology,mmlu_public_relations,mmlu_security_studies,mmlu_sociology,mmlu_us_foreign_policy,mmlu_virology,mmlu_world_religions,winogrande,gsm8k"}' \
+ --input '{"framework": "lmeh", "tasks": "arc_challenge,hellaswag,truthfulqa_mc2,mmlu_abstract_algebra,mmlu_anatomy,mmlu_astronomy,mmlu_business_ethics,mmlu_clinical_knowledge,mmlu_college_biology,mmlu_college_chemistry,mmlu_college_computer_science,mmlu_college_mathematics,mmlu_college_medicine,mmlu_college_physics,mmlu_computer_security,mmlu_conceptual_physics,mmlu_econometrics,mmlu_electrical_engineering,mmlu_elementary_mathematics,mmlu_formal_logic,mmlu_global_facts,mmlu_high_school_biology,mmlu_high_school_chemistry,mmlu_high_school_computer_science,mmlu_high_school_european_history,mmlu_high_school_geography,mmlu_high_school_government_and_politics,mmlu_high_school_macroeconomics,mmlu_high_school_mathematics,mmlu_high_school_microeconomics,mmlu_high_school_physics,mmlu_high_school_psychology,mmlu_high_school_statistics,mmlu_high_school_us_history,mmlu_high_school_world_history,mmlu_human_aging,mmlu_human_sexuality,mmlu_international_law,mmlu_jurisprudence,mmlu_logical_fallacies,mmlu_machine_learning,mmlu_management,mmlu_marketing,mmlu_medical_genetics,mmlu_miscellaneous,mmlu_moral_disputes,mmlu_moral_scenarios,mmlu_nutrition,mmlu_philosophy,mmlu_prehistory,mmlu_professional_accounting,mmlu_professional_law,mmlu_professional_medicine,mmlu_professional_psychology,mmlu_public_relations,mmlu_security_studies,mmlu_sociology,mmlu_us_foreign_policy,mmlu_virology,mmlu_world_religions,winogrande,gsm8k"}' \
  --namespace pocket-ml-testbench
 ```
 
@@ -124,7 +107,7 @@ temporal_docker workflow start \
 temporal_docker workflow start \
  --task-queue sampler-local \
  --type Sampler \
- --input '{"evaluation": "lmeh","tasks": "mmlu_high_school_macroeconomics", "requester_args": {"address": "random", "service": "random", "method": "random", "path": "random"}, "blacklist": [11, 12], "qty": 15, "model": "pocket_network", "llm_args": {"model": "pocket_network", "base_url": "http://llm:9087/v1"} }' \
+ --input '{"framework": "lmeh","tasks": "mmlu_high_school_macroeconomics", "requester_args": {"address": "random", "service": "random"}, "blacklist": [11, 12], "qty": 15}' \
  --namespace pocket-ml-testbench
 ```
 

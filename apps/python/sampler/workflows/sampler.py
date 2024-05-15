@@ -14,7 +14,7 @@ with workflow.unsafe.imports_passed_through():
 class Sampler:
     @workflow.run
     async def run(self, params: PocketNetworkTaskRequest) -> bool:
-        if params.evaluation == "lmeh":
+        if params.framework == "lmeh":
             await workflow.execute_activity(
                 lmeh_register_task,
                 params,
@@ -26,7 +26,7 @@ class Sampler:
                 params,
                 schedule_to_close_timeout=timedelta(seconds=30),
             )
-        elif params.evaluation == "helm":
+        elif params.framework == "helm":
             # TODO: Add helm evaluation
             pass
 
