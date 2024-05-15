@@ -107,7 +107,7 @@ temporal_docker workflow start \
 temporal_docker workflow start \
  --task-queue sampler-local \
  --type Sampler \
- --input '{"framework": "lmeh","tasks": "mmlu_high_school_macroeconomics", "requester_args": {"address": "random", "service": "random"}, "blacklist": [11, 12], "qty": 15, "model": "pocket_network", "llm_args": {"model": "pocket_network", "base_url": "http://llm:9087/v1"} }' \
+ --input '{"framework": "lmeh","tasks": "mmlu_high_school_macroeconomics", "requester_args": {"address": "random", "service": "random"}, "blacklist": [11, 12], "qty": 15}' \
  --namespace pocket-ml-testbench
 ```
 

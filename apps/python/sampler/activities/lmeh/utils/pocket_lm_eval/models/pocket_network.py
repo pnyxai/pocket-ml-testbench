@@ -24,9 +24,9 @@ class PocketNetworkLM(TemplateLM):
 
     def __init__(
         self,
-        model: str,
         requester_args: RequesterArgs,
         mongo_client: MongoClient,
+        model: str="pocket_network",
         base_url: str = None,
         truncate: bool = False,
         max_gen_toks: int = 256,

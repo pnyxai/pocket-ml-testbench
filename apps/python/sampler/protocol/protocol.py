@@ -22,7 +22,7 @@ class PocketNetworkTaskRequest(PocketNetworkRegisterTaskRequest):
     blacklist: Optional[List[int]] = []
     qty: Optional[int] = None
     doc_ids: Optional[List[int]] = None
-    llm_args: dict 
+    llm_args: Optional[Dict] = None
     model: Literal["pocket_network"] 
 
     @field_validator("qty")

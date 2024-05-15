@@ -55,6 +55,8 @@ async def sample(args: PocketNetworkTaskRequest) -> bool:
     except Exception as e:
         eval_logger.error(f"Mongo DB connection failed.")
         raise ApplicationError("Mongo DB connection failed.", non_retryable=True)
+    if args.llm_args is None:
+        args.llm_args = {}
     ############################################################
     # END: POCKET NETWORK CODE
     ############################################################
