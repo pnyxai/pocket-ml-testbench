@@ -23,7 +23,7 @@ class PocketNetworkTaskRequest(PocketNetworkRegisterTaskRequest):
     qty: Optional[int] = None
     doc_ids: Optional[List[int]] = None
     llm_args: Optional[Dict] = None
-    model: Literal["pocket_network"] 
+    model: Optional[str] = "pocket_network"
 
     @field_validator("qty")
     def check_qty(cls, v):
