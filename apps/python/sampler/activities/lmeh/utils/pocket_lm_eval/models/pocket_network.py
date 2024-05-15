@@ -51,8 +51,8 @@ class PocketNetworkLM(TemplateLM):
         # Load tokenizer
         try:
             tokenizer_objects = get_tokenizer_objects(
-                node_adress=requester_args.address, 
-                node_service=requester_args.service, 
+                adress=requester_args.address, 
+                service=requester_args.service, 
                 client=mongo_client,
                 )
             self.tokenizer = load_tokenizer(tokenizer_objects)

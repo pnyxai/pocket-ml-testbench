@@ -4,7 +4,7 @@ from bson.objectid import ObjectId
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator 
 
 class PocketNetworkRegisterTaskRequest(BaseModel):
-    evaluation: Literal["lmeh", "helm"]
+    framework: Literal["lmeh", "helm"]
     tasks: str
     verbosity: Optional[Literal["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"]] = "INFO"
     include_path: Optional[str] = None
@@ -14,8 +14,8 @@ class PocketNetworkRegisterTaskRequest(BaseModel):
 class RequesterArgs(BaseModel):
     address: str
     service: str
-    method: str
-    path: str
+    method: str = "POST"
+    path: str = "/v1/completions"
 
 class PocketNetworkTaskRequest(PocketNetworkRegisterTaskRequest):
     requester_args: RequesterArgs
@@ -37,14 +37,17 @@ class PocketNetworkTaskRequest(PocketNetworkRegisterTaskRequest):
             raise ValueError("Expected qty or doc_ids but not both.")
         return self
 
-    @model_validator(mode="after")
-    def verify_blaclist_with_doc_ids(self):
-        if self.doc_ids and self.blacklist:
-            if any([x in self.doc_ids for x in self.blacklist]):
-                raise ValueError("Elements in blacklist must not be in doc_ids")
+    # TODO: Fix this, problem between pydantic and temporalio
+    # @model_validator(mode="after")
+    # def verify_blacklist_with_doc_ids(self):
+    #     if (self.doc_ids and self.blacklist):
+    #         if any([x in self.doc_ids for x in self.blacklist]):
+    #             raise ValueError("Elements in blacklist must not be in doc_ids")
+
+    # TODO: validate that tasks field is unique in task sense,
   
 class PocketNetworkMongoDBTask(BaseModel):
-    evaluation: Literal["lmeh", "helm"]
+    framework: Literal["lmeh", "helm"]
     requester_args: RequesterArgs
     blacklist: Optional[List[int]] = []
     qty: int

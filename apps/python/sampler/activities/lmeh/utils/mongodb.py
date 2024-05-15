@@ -53,28 +53,28 @@ def instance_to_dict(instance: Instance, task_id: ObjectId)-> dict:
     return instance_mongo
 
 def get_tokenizer_objects(
-        node_adress: str, node_service:str, client: pymongo.MongoClient, db_name:str='pocket-ml-testbench', 
+        adress: str, service: str, client: pymongo.MongoClient, db_name:str='pocket-ml-testbench', 
         nodes_collection_name:str='nodes', tokenizers_collection_name:str='tokenizers'
         )-> dict:
     
-    node = list(client[db_name][nodes_collection_name].find({'node': node_adress, 'service': node_service}))
+    node = list(client[db_name][nodes_collection_name].find({'address': adress, 'service': service}))
     eval_logger.debug(f"Node found.", node=node)
     if len(node) == 0:
-        eval_logger.error(f"Node adress not found.", adress=node_adress)
-        raise ApplicationError(f"Node adress {node_adress} does not exist in the database.")    
+        eval_logger.error(f"Node adress not found.", adress=adress)
+        raise ApplicationError(f"Node adress {adress} does not exist in the database.")    
     elif len(node) > 1:
-        eval_logger.error(f"Multiple nodes found for adress.", adress=node_adress)
-        raise ApplicationError(f"Multiple nodes found for adress {node_adress}.")
+        eval_logger.error(f"Multiple nodes found for adress.", adress=adress)
+        raise ApplicationError(f"Multiple nodes found for adress {adress}.")
     else:
         node = node[0]
 
     tokenizer_objects = list(client[db_name][tokenizers_collection_name].find({'hash': node['tokenizer']}))
     # Validate that the tokenizer is not empty
     if len(tokenizer_objects) == 0:
-        eval_logger.error(f"Tokenizer hash not found.", adress=node_adress, hash=node['tokenizer'])
+        eval_logger.error(f"Tokenizer hash not found.", adress=adress, hash=node['tokenizer'])
         raise ApplicationError(f"Tokenizer with hash {node['tokenizer']} does not exist in the database.")
     elif len(tokenizer_objects) > 1:
-        eval_logger.error(f"Multiple tokenizers found for hash.", adress=node_adress, hash=node['tokenizer'])
+        eval_logger.error(f"Multiple tokenizers found for hash.", adress=adress, hash=node['tokenizer'])
         raise ApplicationError(f"Multiple tokenizers found for hash {node['tokenizer']}.")
     else:
         tokenizer_objects = tokenizer_objects[0]['tokenizer']

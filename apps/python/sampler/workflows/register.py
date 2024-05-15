@@ -15,13 +15,13 @@ with workflow.unsafe.imports_passed_through():
 class Register:
     @workflow.run
     async def run(self, args: PocketNetworkRegisterTaskRequest) -> bool:
-        if args.evaluation == "lmeh":
+        if args.framework == "lmeh":
             x = await workflow.execute_activity(
                 lmeh_register_task,
                 args,
                 schedule_to_close_timeout=timedelta(seconds=30),
             )
-        elif args.evaluation == "helm":
+        elif args.framework == "helm":
             # TODO: Add helm evaluation
             pass
         return x
