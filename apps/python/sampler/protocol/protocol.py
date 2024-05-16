@@ -16,6 +16,7 @@ class RequesterArgs(BaseModel):
     service: str
     method: str = "POST"
     path: str = "/v1/completions"
+    headers: Optional[Dict] = {"Content-Type": "application/json"}
 
 class PocketNetworkTaskRequest(PocketNetworkRegisterTaskRequest):
     requester_args: RequesterArgs
