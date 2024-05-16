@@ -21,6 +21,7 @@ func GetTask(node string) *types.Task {
 			Address: node,
 			Service: "0001",
 			Path:    "/v1/query/height",
+			Headers: map[string]string{"Content-Type": "application/json"},
 		},
 		Done: false,
 	}

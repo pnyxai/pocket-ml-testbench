@@ -2,6 +2,7 @@ package types
 
 import (
 	"context"
+	"github.com/pokt-foundation/pocket-go/provider"
 	"packages/mongodb"
 	"time"
 
@@ -18,10 +19,11 @@ var (
 )
 
 type RequesterArgs struct {
-	Address string `json:"address"`
-	Service string `json:"service"`
-	Method  string `json:"method"`
-	Path    string `json:"path"`
+	Address string                `json:"address"`
+	Service string                `json:"service"`
+	Method  string                `json:"method"`
+	Path    string                `json:"path"`
+	Headers provider.RelayHeaders `json:"headers"`
 }
 
 type Task struct {

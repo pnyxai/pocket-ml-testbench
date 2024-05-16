@@ -218,10 +218,10 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 	relayInput := poktGoRelayer.Input{
 		Blockchain: params.Service,
 		Data:       prompt.Data,
-		Headers:    nil,
 		Method:     prompt.Task.RequesterArgs.Method,
 		Node:       params.Node,
 		Path:       prompt.Task.RequesterArgs.Path,
+		Headers:    prompt.Task.RequesterArgs.Headers,
 		PocketAAT:  appAccount.SignedAAT,
 		Session:    params.Session,
 	}
