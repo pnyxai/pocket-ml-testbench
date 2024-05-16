@@ -114,6 +114,11 @@ func (wCtx *Ctx) NodeManager(ctx workflow.Context, params types.NodeManagerParam
 		response := <-nodeAnalysisResultsChan
 		// Append to triggers
 		allTriggers = append(allTriggers, response.Response.Triggers...)
+		// Keep count
+		// Update workflow result
+		if response.Response.IsNew {
+			result.NewNodes += 1
+		}
 	}
 
 	// -------------------------------------------------------------------------

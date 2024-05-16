@@ -28,6 +28,7 @@ type AnalyzeNodeParams struct {
 
 type AnalyzeNodeResults struct {
 	Success  bool          `json:"success"`
+	IsNew    bool          `json:"is_new"`
 	Triggers []TaskTrigger `json:"task_trigger"`
 }
 

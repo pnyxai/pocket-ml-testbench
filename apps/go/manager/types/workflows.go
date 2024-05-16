@@ -23,7 +23,7 @@ type NodeAnalysisChanResponse struct {
 }
 
 type SamplerWorkflowParams struct {
-	Evaluation    string        `json:"evaluation"`
+	Framework     string        `json:"framework"`
 	Task          string        `json:"tasks"`
 	RequesterArgs RequesterArgs `json:"requester_args"`
 	Blacklist     []int         `json:"blacklist"`

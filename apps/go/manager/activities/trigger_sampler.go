@@ -20,8 +20,8 @@ func (aCtx *Ctx) TriggerSampler(ctx context.Context, params types.TriggerSampler
 	result.Success = false
 
 	samplerParams := types.SamplerWorkflowParams{
-		Evaluation: params.Trigger.Framework,
-		Task:       params.Trigger.Task,
+		Framework: params.Trigger.Framework,
+		Task:      params.Trigger.Task,
 		RequesterArgs: types.RequesterArgs{
 			Address: params.Trigger.Address,
 			Service: params.Trigger.Service,

@@ -18,6 +18,7 @@ func (aCtx *Ctx) AnalyzeNode(ctx context.Context, params types.AnalyzeNodeParams
 
 	var result types.AnalyzeNodeResults
 	result.Success = false
+	result.IsNew = false
 
 	// Get logger
 	l := aCtx.App.Logger
@@ -41,6 +42,7 @@ func (aCtx *Ctx) AnalyzeNode(ctx context.Context, params types.AnalyzeNodeParams
 		// Create entry in MongoDB
 		l.Debug().Bool("found", found).Msg("Creating empty node entry.")
 		thisNodeData.Init(params, l)
+		result.IsNew = true
 
 	} else {
 		// If the node entry exist we must cycle and check for pending results
@@ -103,7 +105,7 @@ func (aCtx *Ctx) AnalyzeNode(ctx context.Context, params types.AnalyzeNodeParams
 				}
 				defer cursor.Close(ctxM)
 				var inQueue uint32 = 0
-				var blackList []int
+				blackList := make([]int, 0)
 				for cursor.Next(ctxM) {
 					var taskReq types.TaskRequestRecord
 					if err := cursor.Decode(&taskReq); err != nil {

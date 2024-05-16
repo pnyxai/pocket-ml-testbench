@@ -9,10 +9,10 @@ import (
 // ------------------------------------------------------------------------------
 
 type RequesterArgs struct {
-	Address string `bson:"address"`
-	Service string `bson:"service"`
-	Method  string `bson:"method"`
-	Path    string `bson:"path"`
+	Address string `json:"address"`
+	Service string `json:"service"`
+	Method  string `json:"method"`
+	Path    string `json:"path"`
 }
 
 // A pending request already processed by the Sampler
