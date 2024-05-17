@@ -286,7 +286,7 @@ func (record *NodeRecord) Init(params types.AnalyzeNodeParams, l *zerolog.Logger
 	// Initialize empty record
 
 	// TODO: Remove this placeholder
-	record.Tokenizer = "default"
+	record.Tokenizer = "83332a7f32e4188bb276a18ff78620acfd3c6edbd68002b746bda990ed30d56c"
 
 	// Set node data
 	record.Address = params.Node.Address

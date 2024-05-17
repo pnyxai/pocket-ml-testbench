@@ -91,7 +91,7 @@ func (aCtx *Ctx) AnalyzeNode(ctx context.Context, params types.AnalyzeNodeParams
 				task_request_filter := bson.D{{Key: "requester_args.address", Value: thisNodeData.Address},
 					{Key: "requester_args.service", Value: thisNodeData.Service},
 					{Key: "framework", Value: test.Framework},
-					{Key: "task", Value: task}}
+					{Key: "tasks", Value: task}}
 
 				// Set mongo context
 				ctxM, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -114,6 +114,7 @@ func (aCtx *Ctx) AnalyzeNode(ctx context.Context, params types.AnalyzeNodeParams
 					}
 					// If not already done
 					if !taskReq.Done {
+						l.Debug().Str("address", thisNodeData.Address).Str("service", thisNodeData.Service).Str("framework", test.Framework).Str("task", task).Msg("Found pending task.")
 						// Count pending
 						inQueue += uint32(taskReq.Qty)
 
