@@ -1,9 +1,11 @@
 import asyncio
 import sys
 import concurrent.futures
+from concurrent.futures import ProcessPoolExecutor
+import multiprocessing
 
 from temporalio.client import Client
-from temporalio.worker import Worker
+from temporalio.worker import SharedStateManager, Worker
 from temporalio import workflow
 
 sys.path.append('.')
@@ -54,16 +56,27 @@ async def main():
         #data_converter=pydantic_data_converter
     )
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as activity_executor:
-        worker = Worker(
-            client,
-            task_queue=task_queue,
-            workflows=[Register, Sampler],
-            activities=[lmeh_register_task, lmeh_sample],
-            activity_executor=activity_executor,
+    worker = Worker(
+        client,
+        task_queue=task_queue,
+        workflows=[Register, Sampler],
+        activities=[lmeh_register_task, lmeh_sample],
+        # Synchronous activities are not allowed unless we provide some kind of
+        # executor. Here we are giving a process pool executor which means the
+        # activity will actually run in a separate process. This same executor
+        # could be passed to multiple workers if desired.
+        activity_executor=ProcessPoolExecutor(max_workers),
+        # Since we are using an executor that is not a thread pool executor,
+        # Temporal needs some kind of manager to share state such as
+        # cancellation info and heartbeat info between the host and the
+        # activity. Therefore, we must provide a shared_state_manager here. A
+        # helper is provided to create it from a multiprocessing manager.
+        shared_state_manager=SharedStateManager.create_from_multiprocessing(
+            multiprocessing.Manager()
         )
+    )
 
-        await worker.run()
+    await worker.run()
 
 
 if __name__ == "__main__":
@@ -71,4 +84,3 @@ if __name__ == "__main__":
         asyncio.run(main())
     except KeyboardInterrupt:
         print("interrupted by user. Exiting...")
-

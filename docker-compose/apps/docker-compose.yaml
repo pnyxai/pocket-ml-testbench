@@ -1,19 +1,53 @@
 services:
-  sampler-worker:
+  manager:
+    build:
+      context: ../../
+      dockerfile: apps/go/manager/Dockerfile
+    image: pocket_ml_testbench_manager:dev
+    container_name: manager
+    environment:
+      CONFIG_PATH: /home/app/configs/config.json
+    extra_hosts:
+      host.docker.internal: host-gateway
+    volumes:
+      - $MANAGER_CONFIG_FILE:/home/app/configs/config.json
+    networks:
+      - temporal
+      - mongodb
+
+  sampler:
     build:
       context: ../../
       dockerfile: apps/python/sampler/Dockerfile
-    image: pocket_sampler:dev
+    image: pocket_ml_testbench_sampler:dev
     container_name: sampler
     environment:
       CONFIG_PATH: /home/app/configs/config.json
       OPENAI_API_KEY: EMPTY
+    extra_hosts:
+      host.docker.internal: host-gateway
     volumes:
       - $SAMPLER_CONFIG_FILE:/home/app/configs/config.json
     networks:
      - postgresql
      - temporal
      - mongodb
+     
+  requester:
+    build:
+      context: ../../
+      dockerfile: apps/go/requester/Dockerfile
+    image: pocket_ml_testbench_requester:dev
+    container_name: requester
+    environment:
+      CONFIG_PATH: /home/app/configs/config.json
+    extra_hosts:
+      host.docker.internal: host-gateway
+    volumes:
+      - $REQUESTER_CONFIG_FILE:/home/app/configs/config.json
+    networks:
+      - temporal
+      - mongodb
 
 networks:
   temporal:

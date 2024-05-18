@@ -237,17 +237,17 @@ def genererate_requests(
             **args.model_dump(),
             **{"total_instances": len(instances),
             "request_type": task.OUTPUT_TYPE}})
-        insert_mongo_tasks.append(task_mongodb.model_dump())        
+        insert_mongo_tasks.append(task_mongodb.model_dump(by_alias=True))
         # Instances
         for instance in instances:
-            instance_mongo = lmeh_mongodb.instance_to_dict(instance=instance, task_id = task_mongodb._id)
+            instance_mongo = lmeh_mongodb.instance_to_dict(instance=instance, task_id = task_mongodb.id)
             insert_mongo_instances.append(instance_mongo)
             eval_logger.debug(f"Instance:", instance=instance)
             # Prompts
             for pocket_req in instance.resps:
                 instance_id = instance_mongo['_id']
                 data = pocket_req.model_dump_json(exclude_defaults=True)
-                prompt_mongo = PromptMongoDB(data=data, task_id=task_mongodb._id, instance_id=instance_id)
+                prompt_mongo = PromptMongoDB(data=data, task_id=task_mongodb.id, instance_id=instance_id)
                 insert_mongo_prompt.append(prompt_mongo.model_dump())  
                 eval_logger.debug(f"Data:", PromptMongoDB=prompt_mongo)
     try:

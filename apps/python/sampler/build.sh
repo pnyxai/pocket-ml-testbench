@@ -1,4 +1,4 @@
-DEFAULT_IMAGE_NAME="pocket_sampler"
+DEFAULT_IMAGE_NAME="pocket_ml_testbench_sampler"
 
 # go to root directory
 cd ../../..

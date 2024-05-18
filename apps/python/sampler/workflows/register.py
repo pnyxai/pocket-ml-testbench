@@ -19,7 +19,7 @@ class Register:
             x = await workflow.execute_activity(
                 lmeh_register_task,
                 args,
-                schedule_to_close_timeout=timedelta(seconds=30),
+                start_to_close_timeout=timedelta(seconds=120),
             )
         elif args.framework == "helm":
             # TODO: Add helm evaluation

@@ -1,7 +1,7 @@
 #import torch
 from typing import List, Literal, Optional, Union, Dict
-from bson.objectid import ObjectId
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator 
+from bson import ObjectId
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 class PocketNetworkRegisterTaskRequest(BaseModel):
     framework: Literal["lmeh", "helm"]
@@ -46,7 +46,18 @@ class PocketNetworkTaskRequest(PocketNetworkRegisterTaskRequest):
     #             raise ValueError("Elements in blacklist must not be in doc_ids")
 
     # TODO: validate that tasks field is unique in task sense,
-  
+
+class PyObjectId(ObjectId):
+    @classmethod
+    def __get_validators__(cls):
+        yield cls.validate
+
+    @classmethod
+    def validate(cls, v):
+        if not isinstance(v, ObjectId):
+            raise ValueError('Not a valid ObjectId')
+        return str(v)
+
 class PocketNetworkMongoDBTask(BaseModel):
     framework: Literal["lmeh", "helm"]
     requester_args: RequesterArgs
@@ -55,14 +66,16 @@ class PocketNetworkMongoDBTask(BaseModel):
     tasks: str
     total_instances: int
     request_type: str
-    _id: Optional[ObjectId] = None
+    id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
     done: bool = False
 
-    @model_validator(mode="after")
-    def create_id(cls, values):
-        if "_id" not in values:
-            values._id = ObjectId()
-        return values
+    class Config:
+        allow_population_by_field_name = True
+        schema_extra = {
+            "example": {
+                "_id": "60d3216d82e029466c6811d2"
+            }
+        }
 
 
 ### From vllm/entrypoints/openai/protocol.py

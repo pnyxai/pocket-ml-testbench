@@ -18,13 +18,13 @@ class Sampler:
             await workflow.execute_activity(
                 lmeh_register_task,
                 params,
-                schedule_to_close_timeout=timedelta(seconds=30),
+                start_to_close_timeout=timedelta(seconds=120),
             )
 
             await workflow.execute_activity(
                 lmeh_sample,
                 params,
-                schedule_to_close_timeout=timedelta(seconds=30),
+                start_to_close_timeout=timedelta(seconds=120),
             )
         elif params.framework == "helm":
             # TODO: Add helm evaluation
