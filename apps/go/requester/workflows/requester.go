@@ -3,15 +3,16 @@ package workflows
 import (
 	"context"
 	"fmt"
+	"packages/logger"
+	"requester/activities"
+	"requester/common"
+	"time"
+
 	poktGoSdk "github.com/pokt-foundation/pocket-go/provider"
 	"go.temporal.io/api/enums/v1"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
-	"packages/logger"
-	"requester/activities"
-	"requester/common"
-	"time"
 )
 
 type RequesterParams struct {
@@ -36,7 +37,7 @@ type LookupChanResponse struct {
 	Response *activities.GetTaskRequestResults
 }
 
-var RequesterName = "requester"
+var RequesterName = "Requester"
 
 // Requester check sessions
 func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *RequesterResults, e error) {

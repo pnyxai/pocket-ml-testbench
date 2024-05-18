@@ -1,7 +1,8 @@
 package types
 
 var (
-	TaskCollection    = "tasks"
-	NodesCollection   = "nodes"
-	ResultsCollection = "results"
+	TaskCollection     = "tasks"
+	InstanceCollection = "instances"
+	NodesCollection    = "nodes"
+	ResultsCollection  = "results"
 )

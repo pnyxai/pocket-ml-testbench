@@ -10,10 +10,10 @@ import (
 	"go.temporal.io/sdk/workflow"
 )
 
-var NodeManagerName = "node_manager"
+var NodeManagerName = "Node_Manager"
 
 // NodeManager - Is a method that orchestrates the tracking of staked ML nodes.
-// It performs the following tasks:
+// It performs the following activities:
 // - Staked nodes retrieval
 // - Analyze nodes data
 // - Triggering new evaluation tasks
@@ -101,6 +101,7 @@ func (wCtx *Ctx) NodeManager(ctx workflow.Context, params types.NodeManagerParam
 		)
 	}
 
+	var allTriggers []types.TaskTrigger
 	for i := 0; i < len(nodes); i++ {
 		// Each call to Select matches a single ready Future.
 		// Each Future is matched only once independently on the number of Select calls.
@@ -111,13 +112,62 @@ func (wCtx *Ctx) NodeManager(ctx workflow.Context, params types.NodeManagerParam
 		}
 		// Retrieve the response from the channel
 		response := <-nodeAnalysisResultsChan
+		// Append to triggers
+		allTriggers = append(allTriggers, response.Response.Triggers...)
+		// Keep count
 		// Update workflow result
-		if response.Response.Success {
+		if response.Response.IsNew {
+			result.NewNodes += 1
+		}
+	}
+
+	// -------------------------------------------------------------------------
+	// -------------------- Trigger Sampler ------------------------------------
+	// -------------------------------------------------------------------------
+
+	// Define a channel to store TriggerSamplerResults objects
+	taskTriggerResultsChan := make(chan *types.TriggerSamplerResults, len(allTriggers))
+	// defer close lookup task results channel
+	defer close(taskTriggerResultsChan)
+	// Iterate all nodes and execute the analysis in futures
+	for _, trigger := range allTriggers {
+		input := types.TriggerSamplerParams{
+			Trigger: trigger,
+		}
+		ltr := types.TriggerSamplerResults{}
+		selector.AddFuture(
+			workflow.ExecuteActivity(
+				ctxTimeout,
+				activities.TriggerSamplerName,
+				input,
+			),
+			// Declare the function to execute on activity end
+			func(f workflow.Future) {
+				err1 := f.Get(ctx, &ltr)
+				if err1 != nil {
+					err = err1
+					return
+				}
+				// Fill the output channel
+				taskTriggerResultsChan <- &ltr
+			},
+		)
+	}
+
+	for i := 0; i < len(allTriggers); i++ {
+		selector.Select(ctx)
+		if err != nil {
+			return nil, err
+		}
+		// Retrieve the response from the channel
+		response := <-taskTriggerResultsChan
+		// Keep count
+		// Update workflow result
+		if response.Success {
 			result.Success += 1
 		} else {
 			result.Failed += 1
 		}
-		l.Debug().Str("address", response.Response.Node.Address).Str("service", response.Response.Node.Service).Bool("success", response.Response.Success).Msg("Task Done.")
 	}
 
 	return &result, nil
