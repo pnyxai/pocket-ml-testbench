@@ -1,7 +1,7 @@
 import asyncio
 import sys
-import concurrent.futures
 from concurrent.futures import ProcessPoolExecutor
+#from concurrent.futures import ThreadPoolExecutor
 import multiprocessing
 
 from temporalio.client import Client
@@ -26,6 +26,7 @@ with workflow.unsafe.imports_passed_through():
     from pydantic import BaseModel
 
     from protocol.converter import pydantic_data_converter
+
 
 async def main():
     """
@@ -53,14 +54,26 @@ async def main():
     client = await Client.connect(
         temporal_host,
         namespace=namespace,
-        #data_converter=pydantic_data_converter
+        # data_converter=pydantic_data_converter
     )
-
     worker = Worker(
         client,
         task_queue=task_queue,
         workflows=[Register, Sampler],
         activities=[lmeh_register_task, lmeh_sample],
+        # check if we need something else here
+        max_cached_workflows=get_from_dict(config, 'temporal.max_cached_workflows'),
+        max_concurrent_workflow_tasks=get_from_dict(config, 'temporal.max_concurrent_workflow_tasks'),
+        max_concurrent_activities=get_from_dict(config, 'temporal.max_concurrent_activities'),
+        max_concurrent_workflow_task_polls=get_from_dict(config, 'temporal.max_concurrent_workflow_task_polls'),
+        nonsticky_to_sticky_poll_ratio=get_from_dict(config, 'temporal.nonsticky_to_sticky_poll_ratio'),
+        max_concurrent_activity_task_polls=get_from_dict(config, 'temporal.max_concurrent_activity_task_polls'),
+        max_activities_per_second=get_from_dict(config, 'temporal.max_activities_per_second'),
+        max_task_queue_activities_per_second=get_from_dict(config, 'temporal.max_task_queue_activities_per_second'),
+        # Synchronous activities are not allowed unless we provide some kind of
+        # executor. This same thread pool could be passed to multiple workers if
+        # desired.
+        #activity_executor=ThreadPoolExecutor(max_workers),
         # Synchronous activities are not allowed unless we provide some kind of
         # executor. Here we are giving a process pool executor which means the
         # activity will actually run in a separate process. This same executor
@@ -72,9 +85,10 @@ async def main():
         # activity. Therefore, we must provide a shared_state_manager here. A
         # helper is provided to create it from a multiprocessing manager.
         shared_state_manager=SharedStateManager.create_from_multiprocessing(
-            multiprocessing.Manager()
+           multiprocessing.Manager()
         )
     )
+
 
     await worker.run()
 

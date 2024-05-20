@@ -333,8 +333,6 @@ services:
         condition: service_healthy
       lean3:
         condition: service_healthy
-      llm-engine:
-        condition: service_healthy
 
   ### POCKET-ML-TESTBENCH APPLICATIONS
   manager:

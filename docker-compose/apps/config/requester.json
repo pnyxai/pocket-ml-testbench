@@ -22,8 +22,7 @@
     "worker": {
       "identity": "requester",
       "enable_logging_in_replay": false,
-      "max_concurrent_activity_task_pollers": 40,
-      "max_concurrent_workflow_task_pollers": 10,
+      "max_concurrent_activity_task_pollers": 50,
       "deadlock_detection_timeout": 120
     },
     "evaluator": {
