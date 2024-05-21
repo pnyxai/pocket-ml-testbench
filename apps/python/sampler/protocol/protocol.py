@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 class PocketNetworkRegisterTaskRequest(BaseModel):
     framework: Literal["lmeh", "helm"]
     tasks: str
-    verbosity: Optional[Literal["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"]] = "INFO"
+    verbosity: Optional[Literal["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"]] = "ERROR"
     include_path: Optional[str] = None
     postgres_uri: Optional[str] = None
     mongodb_uri: Optional[str] = None
@@ -70,8 +70,8 @@ class PocketNetworkMongoDBTask(BaseModel):
     done: bool = False
 
     class Config:
-        allow_population_by_field_name = True
-        schema_extra = {
+        populate_by_name = True
+        json_schema_extra = {
             "example": {
                 "_id": "60d3216d82e029466c6811d2"
             }

@@ -114,8 +114,6 @@ services:
   #### INITIALIZE MANAGER AND REQUESTER SCHEDULED WORKFLOWS @EVERY 1M
   wf-setup:
     <<: *base
-#    build:
-#      context: ./dependencies_configs/temporal
     image: temporalio/admin-tools:${TEMPORAL_VERSION}
     container_name: wf-setup
     restart: on-failure
@@ -365,6 +363,9 @@ services:
     environment:
       CONFIG_PATH: /home/app/configs/config.json
       OPENAI_API_KEY: EMPTY
+      TQDM_DISABLE: "True"
+      HF_DATASETS_DISABLE_PROGRESS_BAR: "True"
+      EVALUATE_VERBOSITY: "ERROR"
     volumes:
       - $SAMPLER_CONFIG_FILE:/home/app/configs/config.json
     depends_on:

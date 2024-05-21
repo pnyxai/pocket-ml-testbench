@@ -85,6 +85,22 @@ services:
       - temporal
     ports:
       - 8080:8080
+  
+  wf-setup:
+    image: temporalio/admin-tools:${TEMPORAL_VERSION}
+    container_name: wf-setup
+    restart: on-failure
+    entrypoint: [ "/home/temporal/initialize.sh" ]
+    networks:
+      - temporal
+    volumes:
+      - ./temporal/initialize.sh:/home/temporal/initialize.sh
+    depends_on:
+      temporal:
+        condition: service_started
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CLI_ADDRESS=temporal:7233
 
   mongodb:
     image: mongo:${MONGODB_VERSION}

@@ -18,7 +18,7 @@ class PocketNetworkTaskManager(TaskManager):
 
     """
 
-    def __init__(self, verbosity="INFO", 
+    def __init__(self, verbosity="ERROR",
                  include_path: Optional[str] = None, 
                  pocket_args: PocketNetworkTaskRequest = None, 
                  logger: Optional[logging.Logger] = None

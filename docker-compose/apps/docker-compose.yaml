@@ -24,6 +24,11 @@ services:
     environment:
       CONFIG_PATH: /home/app/configs/config.json
       OPENAI_API_KEY: EMPTY
+      HF_DATASETS_TRUST_REMOTE_CODE: "True"
+      HF_DATASETS_DISABLE_PROGRESS_BARS: "True"
+      TQDM_DISABLE: "True"
+      EVALUATE_VERBOSITY: "error"
+      DATASETS_VERBOSITY: "error"
     extra_hosts:
       host.docker.internal: host-gateway
     volumes:
