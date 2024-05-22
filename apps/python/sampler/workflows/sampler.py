@@ -19,8 +19,6 @@ class Sampler:
     @workflow.run
     async def run(self, params: PocketNetworkTaskRequest) -> bool:
         eval_logger = get_app_logger("Sampler")
-        eval_logger.debug("TU MALDITA MADRE PYTHON TE ODIO - Sampler.run")
-
         wf_id = workflow.info().workflow_id
         eval_logger.debug(f"##################### Starting Workflow {wf_id} Sampler")
         result = False

@@ -1,7 +1,7 @@
 services:
   manager:
     build:
-      context: ../../
+      context: ../../../
       dockerfile: apps/go/manager/Dockerfile
     image: pocket_ml_testbench_manager:dev
     container_name: manager
@@ -17,10 +17,11 @@ services:
 
   sampler:
     build:
-      context: ../../
+      context: ../../../
       dockerfile: apps/python/sampler/Dockerfile
     image: pocket_ml_testbench_sampler:dev
-    container_name: sampler
+    deploy:
+      replicas: 3
     environment:
       CONFIG_PATH: /home/app/configs/config.json
       OPENAI_API_KEY: EMPTY
@@ -40,7 +41,7 @@ services:
      
   requester:
     build:
-      context: ../../
+      context: ../../../
       dockerfile: apps/go/requester/Dockerfile
     image: pocket_ml_testbench_requester:dev
     container_name: requester

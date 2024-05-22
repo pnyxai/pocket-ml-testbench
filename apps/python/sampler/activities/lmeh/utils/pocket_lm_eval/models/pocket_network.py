@@ -26,6 +26,7 @@ class PocketNetworkLM(TemplateLM):
         self,
         requester_args: RequesterArgs,
         mongo_client: MongoClient,
+        wf_id: str,
         model: str="pocket_network",
         base_url: str = None,
         truncate: bool = False,
@@ -47,6 +48,7 @@ class PocketNetworkLM(TemplateLM):
         self._batch_size = batch_size
         self._max_gen_toks = max_gen_toks
         self._max_length = max_length
+        self.wf_id = wf_id
 
         # Load tokenizer
         try:
@@ -54,8 +56,11 @@ class PocketNetworkLM(TemplateLM):
                 adress=requester_args.address, 
                 service=requester_args.service, 
                 client=mongo_client,
+                
                 )
-            self.tokenizer = load_tokenizer(tokenizer_objects)
+            self.tokenizer = load_tokenizer(tokenizer_objects = tokenizer_objects,
+                                            wf_id = self.wf_id
+                                            )
             self.vocab_size = self.tokenizer.vocab
             self.end_of_text_token_id = self.tokenizer.eos_token
             eval_logger.info(f"Tokenizer loaded successfully.")

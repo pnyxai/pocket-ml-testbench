@@ -62,11 +62,11 @@ async def main():
             task_queue=task_queue,
             workflows=[
                 Register,
-                # Sampler,
+                Sampler,
             ],
             activities=[
                 lmeh_register_task,
-                # lmeh_sample,
+                lmeh_sample,
             ],
             activity_executor=activity_executor,
             max_concurrent_activities=max_workers,

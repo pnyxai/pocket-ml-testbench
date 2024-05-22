@@ -117,7 +117,7 @@ async def sample(args: PocketNetworkTaskRequest) -> bool:
 
         # Instance LM
         eval_logger.info("Generating LM")
-        lm = PocketNetworkLM(requester_args=args.requester_args, mongo_client=mongo_client, **args.llm_args)
+        lm = PocketNetworkLM(requester_args=args.requester_args, mongo_client=mongo_client, wf_id=wf_id, **args.llm_args)
         eval_logger.info("LM generated successfully.")
 
         requests = lmeh_generator.genererate_requests(lm=lm,
