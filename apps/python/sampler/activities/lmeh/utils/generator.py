@@ -29,7 +29,7 @@ def get_configurable_task(
         num_fewshot: Optional[int] = None,
         check_integrity: bool = False,
         gen_kwargs: Optional[str] = None,
-        task_manager: Optional[List[Union[TaskManager, PocketNetworkTaskManager]]] = None,
+        task_manager: Optional[Union[TaskManager, PocketNetworkTaskManager]] = None,
         verbosity: str = "ERROR",
         predict_only: bool = False,
         eval_logger: Optional[logging.Logger] = None,

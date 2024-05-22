@@ -26,24 +26,14 @@ class Sampler:
         result = False
         try:
             if params.framework == "lmeh":
-                eval_logger.debug(f"##################### Calling activity lmeh_register_task - {wf_id}")
-                r1 = await workflow.execute_activity(
-                    lmeh_register_task,
-                    params,
-                    start_to_close_timeout=timedelta(seconds=300),
-                    retry_policy=RetryPolicy(maximum_attempts=2),
-                )
-                eval_logger.debug(f"##################### activity lmeh_register_task done - {wf_id}")
-
                 eval_logger.debug(f"##################### Calling activity lmeh_sample - {wf_id}")
-                r2 = await workflow.execute_activity(
+                await workflow.execute_local_activity(
                     lmeh_sample,
                     params,
                     start_to_close_timeout=timedelta(seconds=120),
                     retry_policy=RetryPolicy(maximum_attempts=1),
                 )
                 eval_logger.debug(f"##################### activity lmeh_sample done - {wf_id}")
-                result = r1 & r2
             elif params.framework == "helm":
                 # TODO: Add helm evaluation
                 pass

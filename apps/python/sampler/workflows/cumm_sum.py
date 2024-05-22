@@ -1,10 +1,8 @@
 from datetime import timedelta
 from temporalio import workflow
 from temporalio.common import RetryPolicy
-from typing import List
-from protocol.protocol import CumSumRequest
 
-
+# this is need because of https://docs.temporal.io/encyclopedia/python-sdk-sandbox
 with workflow.unsafe.imports_passed_through():
     # add this to ensure app config is available on the thread
     from app.app import get_app_logger, get_app_config
@@ -16,19 +14,23 @@ with workflow.unsafe.imports_passed_through():
 @workflow.defn
 class RandomInt:
     @workflow.run
-    async def run(self,a:dict) -> int:
-
+    async def run(self, a: dict) -> int:
         eval_logger = get_app_logger("Cumm_Summ")
         wf_id = workflow.info().workflow_id
-        eval_logger.debug(f"Input:,",a=a)
-        input=a['a']
-        r1 = await workflow.execute_activity(
+        eval_logger.debug(f"Input:,", a=a)
+        n = a['a']
+        r1 = await workflow.execute_local_activity(
             random_int,
-            input,
+            n,
             start_to_close_timeout=timedelta(seconds=300),
             retry_policy=RetryPolicy(maximum_attempts=2),
         )
-        eval_logger.debug(f"## activity lmeh_register_task done - {wf_id}")
-
-        return r1
- 
+        eval_logger.debug(f"## r1 activity random_int done - {wf_id}")
+        r2 = await workflow.execute_local_activity(
+            random_int,
+            n,
+            start_to_close_timeout=timedelta(seconds=300),
+            retry_policy=RetryPolicy(maximum_attempts=2),
+        )
+        eval_logger.debug(f"## r2 activity random_int done - {wf_id}")
+        return r1+r2

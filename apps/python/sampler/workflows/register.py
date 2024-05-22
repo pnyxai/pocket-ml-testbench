@@ -1,15 +1,28 @@
 from datetime import timedelta
 from temporalio import workflow
 from temporalio.common import RetryPolicy
+from temporalio.exceptions import ApplicationError
 
+# this is needed because of https://docs.temporal.io/encyclopedia/python-sdk-sandbox
 with workflow.unsafe.imports_passed_through():
     # add this to ensure app config is available on the thread
-    from app.app import get_app_logger
-    # add any activity that need to be used on this workflow
-    from activities.lmeh.register_task import register_task as lmeh_register_task
+    from app.app import get_app_logger, get_app_config
     from protocol.protocol import PocketNetworkRegisterTaskRequest
+
+    # add any activity that needs to be used on this workflow
+    from activities.lmeh.register_task import register_task as lmeh_register_task
+
+    # lmeh utils
+    from activities.lmeh.utils import generator as lmeh_generator
+    from activities.lmeh.utils import sql as lmeh_sql
+
+    # lm_eval
+    from lm_eval import utils
+    from lm_eval.tasks import TaskManager
+
+    # pydantic things
     from pydantic import BaseModel
-    from protocol.converter import pydantic_data_converter    
+    from protocol.converter import pydantic_data_converter
 
 
 @workflow.defn
@@ -17,27 +30,25 @@ class Register:
     @workflow.run
     async def run(self, args: PocketNetworkRegisterTaskRequest) -> bool:
         eval_logger = get_app_logger("Register")
-        eval_logger.debug("TU MALDITA MADRE PYTHON TE ODIO - Register.run")
-        wf_id = workflow.info().workflow_id
-        eval_logger.debug(f"##################### Starting Workflow {wf_id} Register")
+        eval_logger.info("Starting Workflow Register")
         result = False
+        if args.framework == "lmeh":
+            eval_logger.info("Triggering activity lmeh_register_task")
+            result = await workflow.execute_activity(
+                lmeh_register_task,
+                args,
+                start_to_close_timeout=timedelta(seconds=3600),
+                retry_policy=RetryPolicy(maximum_attempts=2),
+            )
 
-        try:
-            if args.framework == "lmeh":
-                eval_logger.debug(f"##################### Calling activity lmeh_register_task - {wf_id}")
-                result = await workflow.execute_activity(
-                    lmeh_register_task,
-                    args,
-                    start_to_close_timeout=timedelta(seconds=300),
-                    retry_policy=RetryPolicy(maximum_attempts=2),
-                )
-                eval_logger.debug(f"##################### activity lmeh_register_task done - {wf_id}")
-            elif args.framework == "helm":
-                # TODO: Add helm evaluation
-                pass
-        except Exception as e:
-            eval_logger.debug(f"##################### Workflow {wf_id} Register run in error", e)
-            return result
+            if isinstance(result, ApplicationError):
+                eval_logger.error("Activity lmeh_register_task failed", error=result)
+                raise result
 
-        eval_logger.debug(f"##################### Workflow {wf_id} Register done")
+            eval_logger.info("Activity lmeh_register_task done")
+        elif args.framework == "helm":
+            # TODO: Add helm evaluation
+            pass
+
+        eval_logger.info("Workflow Register done")
         return result

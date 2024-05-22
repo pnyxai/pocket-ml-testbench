@@ -7,6 +7,7 @@ import datasets
 
 from app.app import get_app_logger
 from temporalio.exceptions import ApplicationError
+
 eval_logger = get_app_logger("sample")
 
 # Define the columns for the table
@@ -20,7 +21,8 @@ POCKET_COLUMNS = {
 
 PRIMARY_KEY_DEF = sql.SQL(f"PRIMARY KEY ({_ID_NAME}, {_SPLIT_NAME})")
 
-def create_task_table(connection:psycopg2.extensions.connection):
+
+def create_task_table(connection: psycopg2.extensions.connection):
     """
     Create a table appending task, dataset name pairs.
     """
@@ -33,9 +35,11 @@ def create_task_table(connection:psycopg2.extensions.connection):
             )
             """
         )
-    connection.commit()
 
-def checked_task(task_name:str, connection:psycopg2.extensions.connection):
+    # connection.commit()
+
+
+def checked_task(task_name: str, connection: psycopg2.extensions.connection):
     """
     Check if a task is already registered in the registry table.
 
@@ -55,9 +59,11 @@ def checked_task(task_name:str, connection:psycopg2.extensions.connection):
             (task_name,)
         )
         count = cursor.fetchone()[0]
+
     return count > 0
 
-def register_task(task_name:str, dataset_table_name:str, connection:psycopg2.extensions.connection):
+
+def register_task(task_name: str, dataset_table_name: str, connection: psycopg2.extensions.connection):
     """
     Register a task in the registry task.
 
@@ -76,11 +82,11 @@ def register_task(task_name:str, dataset_table_name:str, connection:psycopg2.ext
             """,
             (task_name, dataset_table_name)
         )
-    connection.commit()
+
+    # connection.commit()
 
 
-
-def create_dataset_table(table_name:str, data:datasets.DatasetDict, connection:psycopg2.extensions.connection):
+def create_dataset_table(table_name: str, data: datasets.DatasetDict, connection: psycopg2.extensions.connection):
     """
     Create a PostgreSQL table based on a list of Python dictionaries.
 
@@ -125,7 +131,7 @@ def create_dataset_table(table_name:str, data:datasets.DatasetDict, connection:p
     connection.commit()
 
     # Insert data into the table
-    insert_query = sql.SQL("INSERT INTO {} ({}) VALUES ({});").format(        
+    insert_query = sql.SQL("INSERT INTO {} ({}) VALUES ({});").format(
         sql.Identifier(table_name),
         sql.SQL(', ').join(map(sql.Identifier, columns.keys())),
         sql.SQL(', ').join([sql.Placeholder()] * len(columns))
@@ -141,13 +147,15 @@ def create_dataset_table(table_name:str, data:datasets.DatasetDict, connection:p
                 current_row[_ID_NAME] = pocket_id
                 current_row[_SPLIT_NAME] = split
                 try:
-                    cursor.execute(insert_query, [current_row.get(key) if not isinstance(current_row.get(key), dict) else json.dumps(current_row.get(key)) for key in columns.keys()])
+                    cursor.execute(insert_query, [
+                        current_row.get(key) if not isinstance(current_row.get(key), dict) else json.dumps(
+                            current_row.get(key)) for key in columns.keys()])
                 except Exception as e:
-                    eval_logger.error(f"Error inserting:", row = current_row)
-                    ApplicationError(f"Error: {e}, \nrow: {current_row}")
-                    raise e
+                    eval_logger.error(f"Error inserting:", row=current_row)
+                    raise ApplicationError(f"Error: {e}, \nrow: {current_row}")
                 pocket_id += 1
     connection.commit()
+
 
 # Function to infer PostgreSQL data type from python data type
 def infer_data_type(value):
@@ -168,5 +176,5 @@ def infer_data_type(value):
     # Handle lists
     if v_type == "[]":
         subvalue_type = mapping.get(type(value[0]), "TEXT")
-        v_type =  subvalue_type + v_type
+        v_type = subvalue_type + v_type
     return v_type
