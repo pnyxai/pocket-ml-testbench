@@ -13,7 +13,7 @@ The code available here was created under the [POKT AI Lab](https://forum.pokt.n
     - [Morse Local-Net](./morse-localnet-poc/README.md)
 
 - Live Metrics Testing - Pocket Test-Bench
-    - [Dev Deployment](./docker-compose/README.md)
+    - [Deployment Files](./docker-compose/README.md)
 
 # The Test-Bench
 
