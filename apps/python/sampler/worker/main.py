@@ -16,6 +16,8 @@ from activities.lmeh.register_task import register_task as lmeh_register_task
 from activities.lmeh.sample import sample as lmeh_sample
 from workflows.register import Register
 from workflows.sampler import Sampler
+from workflows.cumm_sum import RandomInt
+from activities.cumm_sum import random_int
 from concurrent.futures import ProcessPoolExecutor
 import multiprocessing
 
@@ -54,15 +56,15 @@ async def main():
     client = await Client.connect(
         temporal_host,
         namespace=namespace,
-        # data_converter=pydantic_data_converter
+        #data_converter=pydantic_data_converter
     )
 
     # with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as activity_executor:
     worker = Worker(
         client,
         task_queue=task_queue,
-        workflows=[Register, Sampler],
-        activities=[lmeh_register_task, lmeh_sample],
+        workflows=[Register, Sampler, RandomInt],
+        activities=[lmeh_register_task, lmeh_sample, random_int],
         # Synchronous activities are not allowed unless we provide some kind of
         # executor. Here we are giving a process pool executor which means the
         # activity will actually run in a separate process. This same executor

@@ -128,3 +128,9 @@ class PromptMongoDB(BaseModel):
         if "_id" not in values:
             values._id = ObjectId()
         return values
+    
+class CumSumRequest:
+    def __init__(self, numbers):
+        print(f"numbers: {numbers}")
+        self.numbers = numbers['numbers']
+        print(f"numbers: {self.numbers}")
