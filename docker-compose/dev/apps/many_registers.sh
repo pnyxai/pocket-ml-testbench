@@ -7,24 +7,24 @@ keys=$everything
 
 IFS=',' read -ra key_array <<< "$keys"  # Convert string to array
 
-for key in "${key_array[@]}"; do
-    echo "Running for key: $key"
-    docker exec temporal-admin-tools temporal workflow start \
-  --task-queue sampler \
-  --type Register \
-  --input "{\"framework\": \"lmeh\", \"tasks\": \"$key\"}" \
-  --execution-timeout 7200 \
-  --task-timeout 3600 \
-  --namespace pocket-ml-testbench
-done
-
 # for key in "${key_array[@]}"; do
 #     echo "Running for key: $key"
 #     docker exec temporal-admin-tools temporal workflow start \
 #   --task-queue sampler \
-#   --type Sampler \
-#   --input "{\"framework\": \"lmeh\",\"tasks\": \"$key\", \"requester_args\": {\"address\": \"random\", \"service\": \"random\"}, \"qty\": 2}" \
+#   --type Register \
+#   --input "{\"framework\": \"lmeh\", \"tasks\": \"$key\"}" \
 #   --execution-timeout 7200 \
 #   --task-timeout 3600 \
 #   --namespace pocket-ml-testbench
 # done
+
+for key in "${key_array[@]}"; do
+    echo "Running for key: $key"
+    docker exec temporal-admin-tools temporal workflow start \
+  --task-queue sampler \
+  --type Sampler \
+  --input "{\"framework\": \"lmeh\",\"tasks\": \"$key\", \"requester_args\": {\"address\": \"random\", \"service\": \"random\"}, \"qty\": \"all\"}" \
+  --execution-timeout 7200 \
+  --task-timeout 3600 \
+  --namespace pocket-ml-testbench
+done

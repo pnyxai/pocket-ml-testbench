@@ -55,8 +55,6 @@ async def register_task(args: PocketNetworkRegisterTaskRequest) -> bool:
 
     # retrieve database connection
     async with app_config["postgres"].acquire() as conn:
-        # Create the task table if it does not exist
-        await lmeh_sql.create_task_table(connection=conn)
 
         async with conn.transaction():
             for task_name in task_names:

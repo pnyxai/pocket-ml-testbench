@@ -18,32 +18,6 @@ POCKET_COLUMNS = {
 
 PRIMARY_KEY_DEF = f"PRIMARY KEY ({_ID_NAME}, {_SPLIT_NAME})"
 
-
-async def create_task_table(connection: asyncpg.Connection):
-    """
-    Create a table appending task, dataset name pairs.
-    """
-    table_name = 'task_registry'
-
-    exists = await connection.fetchval('''
-        SELECT EXISTS (
-            SELECT FROM information_schema.tables 
-            WHERE  table_name = 'task_registry'
-        );
-    ''')
-
-    if not exists:
-        # noinspection SqlNoDataSourceInspection
-        await connection.execute(
-            """
-            CREATE TABLE IF NOT EXISTS task_registry (
-                task_name TEXT PRIMARY KEY,
-                dataset_table_name TEXT
-            )
-            """
-        )
-
-
 async def checked_task(task_name: str, connection: asyncpg.Connection):
     """
     Check if a task is already registered in the registry table.

@@ -343,9 +343,10 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
         doc_ids = self.config.metadata['pocket_args'].doc_ids
         blacklist = self._config.metadata['pocket_args'].blacklist
         postgres_uri = self._config.metadata['pocket_args'].postgres_uri
-        postgres_conn = self._config.metadata['pocket_args'].postgres_conn
+        postgres_conn = self._config.metadata['postgres_conn']
         table_name = self.DATASET_PATH + "--" + self.DATASET_NAME if self.DATASET_NAME else self.DATASET_PATH
         eval_logger.debug(f"table_name:", table_name=table_name)
+        # TODO: ASYNC call to get_max_min_ids
         _split_ranges = get_max_min_ids(table_name=table_name, postgres_conn=postgres_conn)
         eval_logger.debug(f"Split ranges:", _split_ranges=_split_ranges)
 

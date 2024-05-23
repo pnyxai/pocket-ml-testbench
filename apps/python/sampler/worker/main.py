@@ -48,10 +48,6 @@ async def main():
     task_queue = get_from_dict(config, 'temporal.task_queue')
     max_workers = get_from_dict(config, "temporal.max_workers")
 
-    # async with app_config["postgres"].acquire() as conn:
-    #     # Create the task table if it does not exist
-    #     await lmeh_sql.create_task_table(connection=conn)
-
     client = await Client.connect(
         temporal_host,
         namespace=namespace,
