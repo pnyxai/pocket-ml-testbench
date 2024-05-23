@@ -21,14 +21,16 @@ class RequesterArgs(BaseModel):
 class PocketNetworkTaskRequest(PocketNetworkRegisterTaskRequest):
     requester_args: RequesterArgs
     blacklist: Optional[List[int]] = []
-    qty: Optional[int] = None
+    qty: Optional[Union[int, Literal["all"]]] = None
     doc_ids: Optional[List[int]] = None
     llm_args: Optional[Dict] = None
     model: Optional[str] = "pocket_network"
 
     @field_validator("qty")
     def check_qty(cls, v):
-        if v <= 0:
+        if isinstance(v, str) and v == "all":
+            return v
+        if isinstance(v, int) and v <= 0:
             raise ValueError("qty must be greater than 0")
         return v
 
@@ -38,6 +40,14 @@ class PocketNetworkTaskRequest(PocketNetworkRegisterTaskRequest):
             raise ValueError("Expected qty or doc_ids but not both.")
         return self
 
+    @model_validator(mode="after")
+    def remove_blacklist_when_all(self):
+        if self.qty == "all":
+            print("Removing blacklist")
+            self.blacklist = []
+            self.doc_ids = None
+        return self
+    
     # TODO: Fix this, problem between pydantic and temporalio
     # @model_validator(mode="after")
     # def verify_blacklist_with_doc_ids(self):

@@ -263,6 +263,17 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
         eval_logger.debug(f"Random numbers generated:", choices=choices)
         return choices
 
+
+    def get_all_doc_ids(self, _split:str, _split_ranges: dict) -> List[int]:    
+        """
+        This function returns all the ids for a given split
+        """
+        min_range = _split_ranges[_split]['min']
+        max_range = _split_ranges[_split]['max']+1
+        eval_logger.debug(f"Getting all ids from split range:", split=_split, min_range=min_range, max_range=max_range)
+        return list(range(min_range, max_range))
+
+    
     def get_SQL_where_clause(self, indexes, _split: str, _split_ranges: dict):
         """
         This function constructs a WHERE clause for a SQL query. Apply the logic detailed in 
@@ -314,8 +325,13 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
             eval_logger.error(f"Config without splits:", config=self.config)
             raise ApplicationError(
                 "Neither test_split nor validation_split in config, cannot proceed, please check get_SQL_where_clause",
-                non_retryable=True
-            )
+                non_retryable=True                
+                )
+
+        # ensure that id_list_str do not end with a comma
+        # in case where only one split is used or the last split is used
+        if id_list_str.endswith(', '):
+            id_list_str = id_list_str[:-2]
 
         where_clause = f"__id IN ({id_list_str})"
 
@@ -323,9 +339,9 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
 
     def download(self, dataset_kwargs: Optional[Dict[str, Any]] = None) -> None:
 
-        blacklist = self._config.metadata['pocket_args'].blacklist
         qty = self._config.metadata['pocket_args'].qty
         doc_ids = self.config.metadata['pocket_args'].doc_ids
+        blacklist = self._config.metadata['pocket_args'].blacklist
         postgres_uri = self._config.metadata['pocket_args'].postgres_uri
         postgres_conn = self._config.metadata['pocket_args'].postgres_conn
         table_name = self.DATASET_PATH + "--" + self.DATASET_NAME if self.DATASET_NAME else self.DATASET_PATH
@@ -350,20 +366,23 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
             )
 
         _range = _split_ranges[_split]
-
-        if doc_ids:
-            if _split != get_split_from_ids(_split_ranges, doc_ids):
-                eval_logger.error(f"Doc_ids not in split range used for evaluation:",
-                                  doc_ids=doc_ids, _split=_split, range_min=_range['min'], range_max=_range['max']
-                                  )
-                raise ApplicationError(
-                    f"Doc_ids not in split range used for test used for evaluation: doc_ids: \
-                        {doc_ids}, split: {_split}, range_min: {_range['min']}, range_max: {_range['max']}",
-                    non_retryable=True
-                )
-            indexes = sorted(doc_ids)
+        
+        if qty == "all":
+            indexes = self.get_all_doc_ids(_split, _split_ranges)
         else:
-            indexes = self.generate_random_doc_ids(table_name, _split, qty, _range['min'], _range['max'], blacklist)
+            if doc_ids:
+                if _split != get_split_from_ids(_split_ranges, doc_ids):
+                    eval_logger.error(f"Doc_ids not in split range used for evaluation:", 
+                                    doc_ids=doc_ids, _split=_split, range_min=_range['min'], range_max=_range['max']
+                                    )
+                    raise ApplicationError(
+                        f"Doc_ids not in split range used for test used for evaluation: doc_ids: \
+                            {doc_ids}, split: {_split}, range_min: {_range['min']}, range_max: {_range['max']}",
+                        non_retryable=True
+                        )
+                indexes = sorted(doc_ids)
+            else:
+                indexes = self.generate_random_doc_ids(table_name, _split, qty, _range['min'], _range['max'], blacklist)
 
         where_clause = self.get_SQL_where_clause(indexes, _split, _split_ranges)
         # Construct the full SQL query
@@ -376,3 +395,5 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
         self.dataset = dataset.remove_columns(["__id", "__split"])
         # save in config the indexes used to download the dataset
         self._config.metadata['pocket_args'].doc_ids = indexes
+        # Update qty to the number of documents downloaded
+        self._config.metadata['pocket_args'].qty = len(indexes)
