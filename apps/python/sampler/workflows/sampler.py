@@ -20,24 +20,19 @@ class Sampler:
     async def run(self, params: PocketNetworkTaskRequest) -> bool:
         eval_logger = get_app_logger("Sampler")
         wf_id = workflow.info().workflow_id
-        eval_logger.debug(f"##################### Starting Workflow {wf_id} Sampler")
         result = False
         try:
             if params.framework == "lmeh":
-                eval_logger.debug(f"##################### Calling activity lmeh_sample - {wf_id}")
-                await workflow.execute_local_activity(
+                await workflow.execute_activity(
                     lmeh_sample,
                     params,
                     start_to_close_timeout=timedelta(seconds=120),
                     retry_policy=RetryPolicy(maximum_attempts=1),
                 )
-                eval_logger.debug(f"##################### activity lmeh_sample done - {wf_id}")
             elif params.framework == "helm":
                 # TODO: Add helm evaluation
                 pass
         except Exception as e:
-            eval_logger.debug(f"##################### Workflow {wf_id} Sampler run in error", e)
             return result
 
-        eval_logger.debug(f"##################### Workflow {wf_id} Sampler done")
         return result

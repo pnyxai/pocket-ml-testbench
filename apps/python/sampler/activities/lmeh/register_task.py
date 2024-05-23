@@ -28,7 +28,6 @@ async def register_task(args: PocketNetworkRegisterTaskRequest) -> bool:
     if args.include_path is not None:
         eval_logger.debug(f"Including path: {args.include_path}", include_path=args.include_path)
 
-    activity.heartbeat("Instantiating TaskManager")
     task_manager = TaskManager(args.verbosity, include_path=args.include_path)
 
     if args.tasks is None:
@@ -62,7 +61,6 @@ async def register_task(args: PocketNetworkRegisterTaskRequest) -> bool:
                 # check if the task is already registered
                 if not await lmeh_sql.checked_task(task_name, connection=conn):
                     try:
-                        activity.heartbeat("Generating ConfigurableTask")
                         eval_logger.warn("Missing ConfigurableTask", task_name=task_name)
                         eval_logger.info("Generating ConfigurableTask", task_name=task_name)
                         task_dict = lmeh_generator.get_configurable_task(
@@ -93,17 +91,14 @@ async def register_task(args: PocketNetworkRegisterTaskRequest) -> bool:
                     # Register task
                     try:
                         # Create dataset table
-                        activity.heartbeat("Creating dataset table")
                         await lmeh_sql.create_dataset_table(table_name=table_name, data=data, connection=conn)
                         # Register task/dataset pair
-                        activity.heartbeat("Inserting dataset data")
                         await lmeh_sql.register_task(
                             task_name=task_name,
                             dataset_table_name=table_name,
                             connection=conn,
                         )
                     except Exception as error:
-                        activity.heartbeat("Database rollback after exception")
                         error_msg = "SQL Statements for ConfigurableTask runs in errors"
                         eval_logger.error(error_msg, task_name=task_name, error=error, )
                         raise ApplicationError(

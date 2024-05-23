@@ -197,11 +197,11 @@ def genererate_requests(
         # END: POCKET NETWORK CODE
         ############################################################
 
-    eval_logger.info("Instances generated successfully:")
+    eval_logger.debug("Instances generated successfully:")
     ### Run LM on inputs, get all outputs ###
     # execute each type of request
     for reqtype, reqs in requests.items():
-        eval_logger.info(f"Running {reqtype} requests")
+        eval_logger.debug(f"Running {reqtype} requests")
         # create `K` copies of each request `req` based off `K = req.repeats`
         cloned_reqs = []
         for req in reqs:
@@ -252,7 +252,7 @@ def genererate_requests(
                                                                              session=session)
                 mongo_client['pocket-ml-testbench']['prompts'].insert_many(insert_mongo_prompt, ordered=False,
                                                                            session=session)
-                eval_logger.info("Instances saved to MongoDB successfully.")
+                eval_logger.debug("Instances saved to MongoDB successfully.")
     except Exception as e:
         eval_logger.error("Failed to save Instances to MongoDB.")
         raise ApplicationError("Failed to save instances to MongoDB.", error=e, non_retryable=True)

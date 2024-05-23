@@ -43,7 +43,6 @@ class PocketNetworkTaskRequest(PocketNetworkRegisterTaskRequest):
     @model_validator(mode="after")
     def remove_blacklist_when_all(self):
         if self.qty == "all":
-            print("Removing blacklist")
             self.blacklist = []
             self.doc_ids = None
         return self

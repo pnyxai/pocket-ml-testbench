@@ -14,8 +14,9 @@ def auto_heartbeater(fn: F) -> F:
     async def wrapper(*args, **kwargs):
         event_logger = get_app_logger("auto_heartbeat")
         heartbeat_timeout = activity.info().heartbeat_timeout
+        is_local = activity.info().is_local
         heartbeat_task = None
-        if heartbeat_timeout:
+        if not is_local and heartbeat_timeout:
             event_logger.debug("heartbeat timeout is defined", heartbeat_timeout=heartbeat_timeout)
             # Heartbeat twice as often as the timeout
             heartbeat_task = asyncio.create_task(

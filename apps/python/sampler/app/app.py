@@ -5,6 +5,7 @@ from packages.python.common.utils import get_from_dict
 from packages.python.logger.logger import get_logger
 from datasets.utils import disable_progress_bars as datasets_disable_progress_bars
 from evaluate.utils import disable_progress_bar as evaluate_disable_progress_bars
+from transformers.utils.logging import set_verbosity as trasformer_set_verbosity
 
 app_config = {
     "config": {
@@ -26,7 +27,8 @@ async def setup_app(cfg) -> dict:
     app_config["config"] = cfg
     # use get_from_dict(dict, "path") or get_from_dict(dict, "nested.path") to:
     # connect mongodb
-    logging.getLogger('pymongo').setLevel(get_from_dict(app_config, "config.log_level"))
+    log_level = get_from_dict(app_config, "config.log_level")
+    logging.getLogger('pymongo').setLevel(log_level)
     app_config["config"]["mongo_client"] = MongoClient(app_config["config"]['mongodb_uri'])
     app_config["config"]["mongo_client"].admin.command('ping')
 
@@ -43,8 +45,9 @@ async def setup_app(cfg) -> dict:
         await conn.execute('SELECT 1')
 
     app_config["postgres"] = pg_pool
-
+    
     # disable download bars from lm_eval dependencies.
+    trasformer_set_verbosity(logging.getLevelName(log_level))
     datasets_disable_progress_bars()
     evaluate_disable_progress_bars()
 

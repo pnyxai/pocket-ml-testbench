@@ -47,7 +47,7 @@ class Register:
                 lmeh_register_task,
                 args,
                 start_to_close_timeout=timedelta(seconds=3600),
-                heartbeat_timeout=timedelta(seconds=60),
+                #heartbeat_timeout=timedelta(seconds=60),
                 retry_policy=RetryPolicy(maximum_attempts=2),
             )
             eval_logger.info("Activity lmeh_register_task done")

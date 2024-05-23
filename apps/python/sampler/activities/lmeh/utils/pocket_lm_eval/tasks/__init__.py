@@ -32,7 +32,6 @@ class PocketNetworkTaskManager(TaskManager):
         self.task_group_map = collections.defaultdict(list)
         self.injected_metadata = {
             'pocket_args': self.pocket_args,
-            'postgres_conn': self.postgres_conn
         }
 
     """PocketNetworkTaskManager indexes all tasks from the default `lm_eval/tasks/`
@@ -62,9 +61,7 @@ class PocketNetworkTaskManager(TaskManager):
                 task_object = config["class"]()
             else:
                 config = self._process_alias(config, group=group)
-                task_object = PocketNetworkConfigurableTask(config=config)
-                # do not call download where the data is not needed to avoid unnecessary async/await loops.
-                # await task_object.download()
+                task_object = PocketNetworkConfigurableTask(config=config, postgres_conn=self.postgres_conn)
             if group is not None:
                 task_object = (group, task_object)
             return {task: task_object}

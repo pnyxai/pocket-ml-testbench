@@ -63,7 +63,7 @@ class PocketNetworkLM(TemplateLM):
                                             )
             self.vocab_size = self.tokenizer.vocab
             self.end_of_text_token_id = self.tokenizer.eos_token
-            eval_logger.info(f"Tokenizer loaded successfully.")
+            eval_logger.debug(f"Tokenizer loaded successfully.")
         except Exception as e:
             raise e
         

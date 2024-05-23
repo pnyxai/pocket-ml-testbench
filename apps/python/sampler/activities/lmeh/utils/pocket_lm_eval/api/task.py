@@ -136,10 +136,11 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
         cache_dir=None,
         download_mode=None,
         config: Optional[dict] = None,
+        postgres_conn: Optional[asyncpg.Connection] = None,
     ) -> None:  # TODO no super() call here
         # Get pre-configured attributes
         self._config = self.CONFIG
-
+        self.postgres_conn = postgres_conn
         # Use new configurations if there was no preconfiguration
         if self.config is None:
             self._config = TaskConfig(**config)
@@ -257,11 +258,10 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
         doc_ids = self.config.metadata['pocket_args'].doc_ids
         blacklist = self._config.metadata['pocket_args'].blacklist
         postgres_uri = self._config.metadata['pocket_args'].postgres_uri
-        postgres_conn = self._config.metadata['postgres_conn']
         table_name = self.DATASET_PATH + "--" + self.DATASET_NAME if self.DATASET_NAME else self.DATASET_PATH
         eval_logger.debug(f"table_name:", table_name=table_name)
         # TODO: ASYNC call to get_max_min_ids
-        _split_ranges = await get_max_min_ids(table_name=table_name, postgres_conn=postgres_conn)
+        _split_ranges = await get_max_min_ids(table_name=table_name, postgres_conn=self.postgres_conn)
         eval_logger.debug(f"Split ranges:", _split_ranges=_split_ranges)
 
         # It's necessary to detect which is the split used to test to take the range, and then get random indexes
@@ -339,7 +339,7 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
             self._filters = [build_filter_ensemble("none", [["take_first", None]])]
 
         if self.config.use_prompt is not None:
-            eval_logger.info(f"loading prompt {self.config.use_prompt}")
+            eval_logger.debug(f"loading prompt {self.config.use_prompt}")
             self.prompt = get_prompt(
                 self.config.use_prompt, self.DATASET_PATH, self.DATASET_NAME
             )
@@ -436,7 +436,7 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
             self._instances = flattened_instances
             return
 
-        eval_logger.info(f"Building contexts for {self.config.task} on rank {rank}...")
+        eval_logger.debug(f"Building contexts for {self.config.task} on rank {rank}...")
 
         instances = []
 

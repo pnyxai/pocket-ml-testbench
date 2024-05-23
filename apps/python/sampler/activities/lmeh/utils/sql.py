@@ -94,7 +94,7 @@ async def create_dataset_table(table_name: str, data: datasets.DatasetDict, conn
 
     # Generate column definitions
     column_definitions = [
-        f"{column_name} {data_type}"
+        f"\"{column_name}\" {data_type}"
         for column_name, data_type in columns.items()
     ]
 
@@ -107,7 +107,7 @@ async def create_dataset_table(table_name: str, data: datasets.DatasetDict, conn
     create_table = f"CREATE TABLE IF NOT EXISTS \"{table_name}\" ({column_definitions_str})"
 
     # Insert data into the table statement
-    column_names = ", ".join(columns.keys())
+    column_names = ", ".join(f"\"{column_name}\"" for column_name in columns.keys())
     placeholders = ", ".join(f"${i + 1}" for i in range(len(columns)))
     insert_query = f"INSERT INTO \"{table_name}\" ({column_names}) VALUES ({placeholders});"
 
