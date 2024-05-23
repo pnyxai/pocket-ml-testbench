@@ -11,10 +11,11 @@ python = "^3.11"
 lm-eval = {version = "^0.4.2", extras = ["dev","openai"]}
 temporalio = "^1.5.1"
 structlog = "^24.1.0"
-psycopg2 = "^2.9.9"
+psycopg = "^3.1.19"
 sqlalchemy = "^2.0.29"
 pydantic = "^2.7.0"
 pymongo = "^4.6.3"
+asyncpg = "^0.29.0"
 
 
 

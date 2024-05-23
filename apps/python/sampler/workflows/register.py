@@ -1,7 +1,6 @@
 from datetime import timedelta
 from temporalio import workflow
 from temporalio.common import RetryPolicy
-from temporalio.exceptions import ApplicationError
 
 # this is needed because of https://docs.temporal.io/encyclopedia/python-sdk-sandbox
 with workflow.unsafe.imports_passed_through():
@@ -11,6 +10,7 @@ with workflow.unsafe.imports_passed_through():
 
     # add any activity that needs to be used on this workflow
     from activities.lmeh.register_task import register_task as lmeh_register_task
+    from activities.utils import auto_heartbeater
 
     # lmeh utils
     from activities.lmeh.utils import generator as lmeh_generator
@@ -23,6 +23,15 @@ with workflow.unsafe.imports_passed_through():
     # pydantic things
     from pydantic import BaseModel
     from protocol.converter import pydantic_data_converter
+
+    # sql
+    import asyncpg
+
+    # datasets
+    import datasets
+
+    # async works
+    import asyncio
 
 
 @workflow.defn
@@ -38,13 +47,9 @@ class Register:
                 lmeh_register_task,
                 args,
                 start_to_close_timeout=timedelta(seconds=3600),
+                heartbeat_timeout=timedelta(seconds=60),
                 retry_policy=RetryPolicy(maximum_attempts=2),
             )
-
-            if isinstance(result, ApplicationError):
-                eval_logger.error("Activity lmeh_register_task failed", error=result)
-                raise result
-
             eval_logger.info("Activity lmeh_register_task done")
         elif args.framework == "helm":
             # TODO: Add helm evaluation

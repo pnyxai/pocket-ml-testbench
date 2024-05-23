@@ -1,6 +1,5 @@
 import logging
-from urllib.parse import urlparse
-import psycopg2
+import asyncpg
 from pymongo import MongoClient
 from packages.python.common.utils import get_from_dict
 from packages.python.logger.logger import get_logger
@@ -18,7 +17,7 @@ app_config = {
 }
 
 
-def setup_app(cfg) -> dict:
+async def setup_app(cfg) -> dict:
     """
     Setups app configuration
     :return:
@@ -32,35 +31,18 @@ def setup_app(cfg) -> dict:
     app_config["config"]["mongo_client"].admin.command('ping')
 
     # create postgres connection
-    uri_parts = urlparse(get_from_dict(app_config, "config.postgres_uri"))
-    dbname = uri_parts.path[1:]
-    username = uri_parts.username
-    password = uri_parts.password
-    host = uri_parts.hostname
-    port = uri_parts.port
-    conn = psycopg2.connect(
-        dbname=dbname,
-        user=username,
-        password=password,
-        host=host,
-        port=port
+    max_workers = get_from_dict(app_config, "config.temporal.max_workers")
+
+    pg_pool = await asyncpg.create_pool(
+        dsn=get_from_dict(app_config, "config.postgres_uri"),
+        min_size=max_workers,
+        max_size=max_workers,
     )
 
-    cur = None
-    try:
-        # create a new cursor
-        cur = conn.cursor()
-        # execute a simple query
-        cur.execute('SELECT 1')
-    except Exception:
-        # if it fails, print an error message
-        raise Exception("The connection is no longer live")
-    finally:
-        # close the cursor
-        if cur:
-            cur.close()
+    async with pg_pool.acquire() as conn:
+        await conn.execute('SELECT 1')
 
-    app_config["postgres"] = conn
+    app_config["postgres"] = pg_pool
 
     # disable download bars from lm_eval dependencies.
     datasets_disable_progress_bars()

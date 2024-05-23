@@ -6,9 +6,11 @@ from app.app import get_app_logger, get_app_config
 from protocol.protocol import PocketNetworkRegisterTaskRequest
 from activities.lmeh.utils import generator as lmeh_generator
 from activities.lmeh.utils import sql as lmeh_sql
+from activities.utils import auto_heartbeater
 
 
 @activity.defn
+@auto_heartbeater
 async def register_task(args: PocketNetworkRegisterTaskRequest) -> bool:
     """
     LM Evaluation Harness dataset uploading.
@@ -24,14 +26,14 @@ async def register_task(args: PocketNetworkRegisterTaskRequest) -> bool:
     # START: LM-EVAL-HARNESS CODE
     ############################################################
     if args.include_path is not None:
-        eval_logger.debug("Including path: {args.include_path}", include_path=args.include_path)
+        eval_logger.debug(f"Including path: {args.include_path}", include_path=args.include_path)
 
     activity.heartbeat("Instantiating TaskManager")
     task_manager = TaskManager(args.verbosity, include_path=args.include_path)
 
     if args.tasks is None:
         eval_logger.error("Need to specify task to evaluate.")
-        raise ApplicationError("Need to specify task to evaluate.", non_retryable=True)
+        raise ApplicationError("Need to specify task to evaluate.", args, type="BadParams", non_retryable=True)
     else:
         task_list = args.tasks.split(",")
         task_names = task_manager.match_tasks(task_list)
@@ -43,69 +45,79 @@ async def register_task(args: PocketNetworkRegisterTaskRequest) -> bool:
         if task_missing:
             missing_tasks = ", ".join(task_missing)
             eval_logger.error("Tasks were not found", missing_tasks=missing_tasks)
-            raise ApplicationError(f"Tasks not found", missing_tasks, non_retryable=True)
+            raise ApplicationError("Tasks not found", missing_tasks, type="TaskNotFound", non_retryable=True)
 
     ############################################################
     # END: LM-EVAL-HARNESS CODE
     ############################################################
 
-    eval_logger.debug("task_names", task_names=task_names, type=type(task_names))
+    eval_logger.debug("task_names", task_names=task_names)
 
     # retrieve database connection
-    conn = app_config["postgres"]
+    async with app_config["postgres"].acquire() as conn:
+        # Create the task table if it does not exist
+        await lmeh_sql.create_task_table(connection=conn)
 
-    # Create the task table if it does not exist
-    lmeh_sql.create_task_table(connection=conn)
+        async with conn.transaction():
+            for task_name in task_names:
+                eval_logger.info("Checking ConfigurableTask exists", task_name=task_name)
+                # check if the task is already registered
+                if not await lmeh_sql.checked_task(task_name, connection=conn):
+                    try:
+                        activity.heartbeat("Generating ConfigurableTask")
+                        eval_logger.warn("Missing ConfigurableTask", task_name=task_name)
+                        eval_logger.info("Generating ConfigurableTask", task_name=task_name)
+                        task_dict = lmeh_generator.get_configurable_task(
+                            tasks=[task_name],
+                            num_fewshot=None,
+                            check_integrity=False,
+                            gen_kwargs=None,
+                            task_manager=task_manager,
+                            verbosity=str(args.verbosity),
+                            predict_only=False,
+                            eval_logger=eval_logger
+                        )
+                        eval_logger.info("ConfigurableTask generation successful", task_name=task_name)
+                    except Exception as error:
+                        eval_logger.error("Generating ConfigurableTask run in errors", task_name=task_name, error=error)
+                        raise ApplicationError(
+                            "Generating ConfigurableTask run in errors",
+                            str(error),
+                            type="LmehGenerator",
+                            non_retryable=True,
+                        )
 
-    for task_name in task_names:
-        eval_logger.info("Checking ConfigurableTask exists", task_name=task_name)
-        # check if the task is already registered
-        if not lmeh_sql.checked_task(task_name, connection=conn):
-            try:
-                activity.heartbeat("Generating ConfigurableTask")
-                eval_logger.warn("Missing ConfigurableTask", task_name=task_name)
-                eval_logger.info("Generating ConfigurableTask", task_name=task_name)
-                task_dict = lmeh_generator.get_configurable_task(
-                    tasks=[task_name],
-                    num_fewshot=None,
-                    check_integrity=False,
-                    gen_kwargs=None,
-                    task_manager=task_manager,
-                    verbosity=str(args.verbosity),
-                    predict_only=False,
-                    eval_logger=eval_logger
-                )
-                eval_logger.info("ConfigurableTask generation successful", task_name=task_name)
-            except Exception as error:
-                eval_logger.error("Generating ConfigurableTask run in errors", task_name=task_name, error=error)
-                raise ApplicationError("Generating ConfigurableTask run in errors", error, non_retryable=True)
+                    dataset_path = task_dict[task_name].config.dataset_path
+                    dataset_name = task_dict[task_name].config.dataset_name
+                    table_name = dataset_path + "--" + dataset_name if dataset_name else dataset_path
+                    data = task_dict[task_name].dataset
 
-            dataset_path = task_dict[task_name].config.dataset_path
-            dataset_name = task_dict[task_name].config.dataset_name
-            table_name = dataset_path + "--" + dataset_name if dataset_name else dataset_path
-            data = task_dict[task_name].dataset
+                    # Register task
+                    try:
+                        # Create dataset table
+                        activity.heartbeat("Creating dataset table")
+                        await lmeh_sql.create_dataset_table(table_name=table_name, data=data, connection=conn)
+                        # Register task/dataset pair
+                        activity.heartbeat("Inserting dataset data")
+                        await lmeh_sql.register_task(
+                            task_name=task_name,
+                            dataset_table_name=table_name,
+                            connection=conn,
+                        )
+                    except Exception as error:
+                        activity.heartbeat("Database rollback after exception")
+                        error_msg = "SQL Statements for ConfigurableTask runs in errors"
+                        eval_logger.error(error_msg, task_name=task_name, error=error, )
+                        raise ApplicationError(
+                            error_msg,
+                            str(error),
+                            type="SQLError",
+                            non_retryable=True
+                        )
 
-            # Register task
-            try:
-                # Create dataset table
-                activity.heartbeat("Creating dataset table")
-                lmeh_sql.create_dataset_table(table_name=table_name, data=data, connection=conn)
-                # Register task/dataset pair
-                activity.heartbeat("Inserting dataset data")
-                lmeh_sql.register_task(task_name=task_name, dataset_table_name=table_name, connection=conn)
-                # Commit data to the database
-                conn.commit()
-            except Exception as error:
-                # Rollback the try operations
-                conn.rollback()
-                activity.heartbeat("Database rollback after exception")
-                error_msg = "SQL Statements for ConfigurableTask runs in errors"
-                eval_logger.error(error_msg, task_name=task_name, error=error, )
-                raise ApplicationError(error_msg, error, non_retryable=True)
-
-            eval_logger.info("ConfigurableTask registered.", task_name=task_name)
-        else:
-            eval_logger.info("ConfigurableTask already registered.", task_name=task_name)
+                    eval_logger.info("ConfigurableTask registered.", task_name=task_name)
+                else:
+                    eval_logger.info("ConfigurableTask already registered.", task_name=task_name)
 
     eval_logger.info("Register Task Activity done")
     return True

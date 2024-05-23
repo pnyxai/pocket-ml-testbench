@@ -20,16 +20,17 @@ services:
       context: ../../../
       dockerfile: apps/python/sampler/Dockerfile
     image: pocket_ml_testbench_sampler:dev
-    deploy:
-      replicas: 3
     environment:
       CONFIG_PATH: /home/app/configs/config.json
       OPENAI_API_KEY: EMPTY
       HF_DATASETS_TRUST_REMOTE_CODE: "True"
+      DATASETS_TRUST_REMOTE_CODE: "True"
       HF_DATASETS_DISABLE_PROGRESS_BARS: "True"
       TQDM_DISABLE: "True"
       EVALUATE_VERBOSITY: "error"
       DATASETS_VERBOSITY: "error"
+    deploy:
+      replicas: 3
     extra_hosts:
       host.docker.internal: host-gateway
     volumes:

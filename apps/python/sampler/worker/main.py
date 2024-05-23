@@ -16,9 +16,6 @@ from activities.lmeh.register_task import register_task as lmeh_register_task
 from activities.lmeh.sample import sample as lmeh_sample
 from workflows.register import Register
 from workflows.sampler import Sampler
-import multiprocessing
-from concurrent.futures import ProcessPoolExecutor
-from concurrent.futures import ThreadPoolExecutor
 import concurrent.futures
 
 # We always want to pass through external modules to the sandbox that we know
@@ -26,6 +23,7 @@ import concurrent.futures
 with workflow.unsafe.imports_passed_through():
     from pydantic import BaseModel
     from protocol.converter import pydantic_data_converter
+    from activities.lmeh.utils import sql as lmeh_sql
 
 interrupt_event = asyncio.Event()
 
@@ -38,7 +36,7 @@ async def main():
     """
     cfg = read_config()
 
-    app_config = setup_app(cfg)
+    app_config = await setup_app(cfg)
 
     config = app_config["config"]
 
@@ -49,6 +47,10 @@ async def main():
     namespace = get_from_dict(config, 'temporal.namespace')
     task_queue = get_from_dict(config, 'temporal.task_queue')
     max_workers = get_from_dict(config, "temporal.max_workers")
+
+    # async with app_config["postgres"].acquire() as conn:
+    #     # Create the task table if it does not exist
+    #     await lmeh_sql.create_task_table(connection=conn)
 
     client = await Client.connect(
         temporal_host,

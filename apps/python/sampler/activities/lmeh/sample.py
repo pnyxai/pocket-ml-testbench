@@ -8,7 +8,6 @@ from app.app import get_app_logger, get_app_config
 import os
 import sys
 
-
 from lm_eval import utils
 from lm_eval.tasks import TaskManager
 
@@ -17,14 +16,16 @@ sys.path.append(os.path.dirname(os.path.realpath(__file__)))
 # Custom modules
 from activities.lmeh.utils import generator as lmeh_generator
 from activities.lmeh.utils.pocket_lm_eval.models.pocket_network import PocketNetworkLM
-from protocol.protocol import PocketNetworkTaskRequest, PocketNetworkMongoDBTask
+from protocol.protocol import PocketNetworkTaskRequest
 from activities.lmeh.utils.pocket_lm_eval.tasks import PocketNetworkTaskManager
+from activities.utils import auto_heartbeater
 
 
 @activity.defn
+@auto_heartbeater
 async def sample(args: PocketNetworkTaskRequest) -> bool:
+    app_config = get_app_config()
     eval_logger = get_app_logger("sample")
-    eval_logger.debug("TU MALDITA MADRE PYTHON TE ODIO - sample")
 
     wf_id = activity.info().workflow_id
 
@@ -97,40 +98,54 @@ async def sample(args: PocketNetworkTaskRequest) -> bool:
                     )
 
         eval_logger.info("Generating ConfigurableTask")
-        task_manager = PocketNetworkTaskManager(args.verbosity, pocket_args=args, logger=eval_logger)
-        try:
-            task_dict = lmeh_generator.get_configurable_task(
-                tasks=task_names,
-                num_fewshot=None,
-                check_integrity=False,
-                gen_kwargs=None,
-                task_manager=task_manager,
+        async with app_config["postgres"].acquire() as conn:
+            task_manager = PocketNetworkTaskManager(
+                postgres_conn=conn,
                 verbosity=args.verbosity,
-                predict_only=False,
+                pocket_args=args,
+                logger=eval_logger,
+            )
+
+            try:
+                task_dict = lmeh_generator.get_configurable_task(
+                    tasks=task_names,
+                    num_fewshot=None,
+                    check_integrity=False,
+                    gen_kwargs=None,
+                    task_manager=task_manager,
+                    verbosity=str(args.verbosity),
+                    predict_only=False,
+                    eval_logger=eval_logger,
+                )
+                eval_logger.info("ConfigurableTask generated successfully:", task_dict=task_dict)
+            except ApplicationError as e:
+                raise e
+            except Exception as error:
+                raise ApplicationError(
+                    "Unexpected error running lmeh_generator.get_configurable_task",
+                    error,
+                    type="Unexpected",
+                    non_retryable=True,
+                )
+
+            # Instance LM
+            eval_logger.info("Generating LM")
+            lm = PocketNetworkLM(requester_args=args.requester_args, mongo_client=mongo_client, wf_id=wf_id,
+                                 **args.llm_args)
+            eval_logger.info("LM generated successfully.")
+
+            _ = lmeh_generator.genererate_requests(
+                lm=lm,
+                task_dict=task_dict,
+                mongo_client=mongo_client,
+                args=args,
                 eval_logger=eval_logger,
             )
-            eval_logger.info("ConfigurableTask generated successfully:", task_dict=task_dict)
-        except ApplicationError as e:
-            raise e
-        except Exception as e:
-            raise e
 
-        # Instance LM
-        eval_logger.info("Generating LM")
-        lm = PocketNetworkLM(requester_args=args.requester_args, mongo_client=mongo_client, wf_id=wf_id, **args.llm_args)
-        eval_logger.info("LM generated successfully.")
+            eval_logger.info("Request generated successfully:", task_names=task_names)
 
-        requests = lmeh_generator.genererate_requests(lm=lm,
-                                                      task_dict=task_dict,
-                                                      mongo_client=mongo_client,
-                                                      args=args,
-                                                      eval_logger=eval_logger,
-                                                      )
-
-        eval_logger.info("Request generated successfully:", task_names=task_names)
-
-        eval_logger.debug(f"##################### WF: {wf_id} - Sample Task Activity done")
-        return True
+            eval_logger.debug(f"##################### WF: {wf_id} - Sample Task Activity done")
+            return True
     except Exception as e:
         eval_logger.debug(f"##################### WF: {wf_id} - Sample Task Activity failed", e)
         return False
