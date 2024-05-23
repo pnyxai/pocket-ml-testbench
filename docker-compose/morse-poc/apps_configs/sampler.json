@@ -6,8 +6,6 @@
     "host": "temporal",
     "port": 7233,
     "namespace": "pocket-ml-testbench",
-    "task_queue": "sampler",
-    "max_workers": 1,
-    "max_activities_per_second": 1
+    "task_queue": "sampler"
   }
 }

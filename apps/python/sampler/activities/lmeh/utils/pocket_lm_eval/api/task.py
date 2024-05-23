@@ -1,3 +1,4 @@
+from abc import ABC
 from typing import (
     Any,
     Dict,
@@ -7,11 +8,28 @@ from typing import (
 import asyncpg
 import numpy as np
 import datasets
+import random
 from tqdm import tqdm
-from lm_eval.api.task import ConfigurableTask
-from lm_eval.caching.cache import load_from_cache, save_to_cache
-from app.app import get_app_logger
 from temporalio.exceptions import ApplicationError
+from lm_eval.caching.cache import load_from_cache, save_to_cache
+from lm_eval.api.task import ConfigurableTask, TaskConfig, ALL_OUTPUT_TYPES
+from lm_eval import utils
+from lm_eval.api import samplers
+from lm_eval.api.instance import Instance, OutputType
+from lm_eval.api.metrics import bits_per_byte, mean, weighted_perplexity
+from lm_eval.api.registry import (
+    AGGREGATION_REGISTRY,
+    DEFAULT_METRIC_REGISTRY,
+    get_aggregation,
+    get_metric,
+    get_metric_aggregation,
+    is_higher_better,
+)
+from lm_eval.caching.cache import load_from_cache, save_to_cache
+from lm_eval.filters import build_filter_ensemble
+from lm_eval.prompts import get_prompt
+
+from app.app import get_app_logger
 
 eval_logger = get_app_logger("sample")
 
@@ -111,6 +129,282 @@ def get_split_from_ids(_split_ranges: dict, __ids: List[int]):
 
 
 class PocketNetworkConfigurableTask(ConfigurableTask):
+
+    def __init__(
+        self,
+        data_dir=None,
+        cache_dir=None,
+        download_mode=None,
+        config: Optional[dict] = None,
+    ) -> None:  # TODO no super() call here
+        # Get pre-configured attributes
+        self._config = self.CONFIG
+
+        # Use new configurations if there was no preconfiguration
+        if self.config is None:
+            self._config = TaskConfig(**config)
+        # Overwrite configs
+        else:
+            if config is not None:
+                self._config.__dict__.update(config)
+
+        if self.config is None:
+            raise ValueError(
+                "Must pass a config to ConfigurableTask, either in cls.CONFIG or `config` kwarg"
+            )
+
+        if isinstance(self.config.metadata, dict):
+            if "version" in self.config.metadata:
+                self.VERSION = self.config.metadata["version"]
+
+        if self.config.output_type is not None:
+            if self.config.output_type not in ALL_OUTPUT_TYPES:
+                raise ValueError(
+                    f"Got invalid output_type '{self.config.output_type}', must be in '{','.join(ALL_OUTPUT_TYPES)}'"
+                )
+            self.OUTPUT_TYPE = self.config.output_type
+
+        if self.config.dataset_path is not None:
+            self.DATASET_PATH = self.config.dataset_path
+
+        if self.config.dataset_name is not None:
+            self.DATASET_NAME = self.config.dataset_name
+
+        self._metric_fn_list = {}
+        self._metric_fn_kwargs = {}
+        self._aggregation_list = {}
+        self._higher_is_better = {}
+
+        if self.config.metric_list is None:
+            # TODO: handle this in TaskConfig.__post_init__ ?
+            _metric_list = DEFAULT_METRIC_REGISTRY[self.config.output_type]
+
+            for metric_name in _metric_list:
+                self._metric_fn_list[metric_name] = get_metric(metric_name)
+                self._metric_fn_kwargs[metric_name] = {}
+                self._aggregation_list[metric_name] = get_metric_aggregation(
+                    metric_name
+                )
+                self._higher_is_better[metric_name] = is_higher_better(metric_name)
+        else:
+            for metric_config in self.config.metric_list:
+                if "metric" not in metric_config:
+                    raise ValueError(
+                        "'metric' key not provided for an entry in 'metric_list', must be specified!"
+                    )
+                metric_name = metric_config["metric"]
+                kwargs = {
+                    key: metric_config[key]
+                    for key in metric_config
+                    if key
+                       not in ["metric", "aggregation", "higher_is_better", "hf_evaluate"]
+                }
+                hf_evaluate_metric = (
+                        "hf_evaluate" in metric_config
+                        and metric_config["hf_evaluate"] is True
+                )
+
+                if self.config.process_results is not None:
+                    self._metric_fn_list[metric_name] = None
+                    self._metric_fn_kwargs[metric_name] = {}
+                elif callable(metric_name):
+                    metric_fn = metric_name.__call__
+                    metric_name = metric_name.__name__
+                    self._metric_fn_list[metric_name] = metric_fn
+                    self._metric_fn_kwargs[metric_name] = kwargs
+                else:
+                    self._metric_fn_list[metric_name] = get_metric(
+                        metric_name, hf_evaluate_metric
+                    )
+                    self._metric_fn_kwargs[metric_name] = kwargs
+
+                if "aggregation" in metric_config:
+                    agg_name = metric_config["aggregation"]
+                    if isinstance(agg_name, str):
+                        self._aggregation_list[metric_name] = get_aggregation(agg_name)
+                    elif callable(agg_name):  # noqa: E721
+                        self._aggregation_list[metric_name] = metric_config[
+                            "aggregation"
+                        ]
+                else:
+                    INV_AGG_REGISTRY = {v: k for k, v in AGGREGATION_REGISTRY.items()}
+                    metric_agg = get_metric_aggregation(metric_name)
+                    eval_logger.warning(
+                        f"[Task: {self.config.task}] metric {metric_name} is defined, but aggregation is not. "
+                        f"using default "
+                        f"aggregation={INV_AGG_REGISTRY[metric_agg]}"
+                    )
+                    self._aggregation_list[metric_name] = metric_agg
+
+                if "higher_is_better" in metric_config:
+                    self._higher_is_better[metric_name] = metric_config[
+                        "higher_is_better"
+                    ]
+                else:
+                    eval_logger.warning(
+                        f"[Task: {self.config.task}] metric {metric_name} is defined, but higher_is_better is not. "
+                        f"using default "
+                        f"higher_is_better={is_higher_better(metric_name)}"
+                    )
+                    self._higher_is_better[metric_name] = is_higher_better(metric_name)
+
+        # call this one with await and this will call post_download that is the same done on
+        # the original ConfigurableTask from lm_eval.api.task
+        # self.download(self.config.dataset_kwargs)
+
+    async def download(self, dataset_kwargs: Optional[Dict[str, Any]] = None) -> None:
+        qty = self._config.metadata['pocket_args'].qty
+        doc_ids = self.config.metadata['pocket_args'].doc_ids
+        blacklist = self._config.metadata['pocket_args'].blacklist
+        postgres_uri = self._config.metadata['pocket_args'].postgres_uri
+        postgres_conn = self._config.metadata['postgres_conn']
+        table_name = self.DATASET_PATH + "--" + self.DATASET_NAME if self.DATASET_NAME else self.DATASET_PATH
+        eval_logger.debug(f"table_name:", table_name=table_name)
+        # TODO: ASYNC call to get_max_min_ids
+        _split_ranges = await get_max_min_ids(table_name=table_name, postgres_conn=postgres_conn)
+        eval_logger.debug(f"Split ranges:", _split_ranges=_split_ranges)
+
+        # It's necessary to detect which is the split used to test to take the range, and then get random indexes
+        if self.config.test_split:
+            _split = self.config.test_split
+            # validate that the split exists in the _split_ranges
+            self.check_split_exist(_split, _split_ranges)
+        elif self.config.validation_split:
+            _split = self.config.validation_split
+            # validate that the split exists in the _split_ranges
+            self.check_split_exist(_split, _split_ranges)
+        else:
+            eval_logger.error(f"Config without splits:", config=self.config)
+            raise ApplicationError(
+                f"Neither {self.config.test_split} nor {self.config.validation_split} in splits were found in '_split_ranges'. Available splits are {_split_ranges.keys()}",
+                non_retryable=True
+            )
+
+        _range = _split_ranges[_split]
+
+        if qty == "all":
+            indexes = self.get_all_doc_ids(_split, _split_ranges)
+        else:
+            if doc_ids:
+                if _split != get_split_from_ids(_split_ranges, doc_ids):
+                    eval_logger.error(f"Doc_ids not in split range used for evaluation:",
+                                      doc_ids=doc_ids, _split=_split, range_min=_range['min'], range_max=_range['max']
+                                      )
+                    raise ApplicationError(
+                        f"Doc_ids not in split range used for test used for evaluation: doc_ids: \
+                            {doc_ids}, split: {_split}, range_min: {_range['min']}, range_max: {_range['max']}",
+                        non_retryable=True
+                    )
+                indexes = sorted(doc_ids)
+            else:
+                indexes = self.generate_random_doc_ids(table_name, _split, qty, _range['min'], _range['max'], blacklist)
+
+        where_clause = self.get_SQL_where_clause(indexes, _split, _split_ranges)
+        # Construct the full SQL query
+        sql_query = f"SELECT * FROM \"{table_name}\" WHERE {where_clause};"
+        ds = datasets.Dataset.from_sql(sql_query, con=postgres_uri)
+        dataset = datasets.DatasetDict()
+        for split in ds.unique("__split"):
+            eval_logger.debug(f"Adding split to DatasetDict:", split=split)
+            dataset[split] = ds.filter(lambda x: x["__split"] == split)
+        self.dataset = dataset.remove_columns(["__id", "__split"])
+        # save in config the indexes used to download the dataset
+        self._config.metadata['pocket_args'].doc_ids = indexes
+        # Update qty to the number of documents downloaded
+        self._config.metadata['pocket_args'].qty = len(indexes)
+
+        ###########################################################
+        # call the code that was after the download on the __init__
+        ###########################################################
+        self.post_download()
+
+    def post_download(self):
+        self._training_docs = None
+        self._fewshot_docs = None
+
+        if self.config.filter_list is not None:
+            self._filters = []
+            for filter_config in self.config.filter_list:
+                filter_name = filter_config["name"]
+                filter_functions = filter_config["filter"]
+                components = []
+                for function in filter_functions:
+                    kwargs = {
+                        key: function[key] for key in function if key != "function"
+                    }
+                    components.append([function["function"], kwargs])
+                filter_pipeline = build_filter_ensemble(filter_name, components)
+                self._filters.append(filter_pipeline)
+        else:
+            self._filters = [build_filter_ensemble("none", [["take_first", None]])]
+
+        if self.config.use_prompt is not None:
+            eval_logger.info(f"loading prompt {self.config.use_prompt}")
+            self.prompt = get_prompt(
+                self.config.use_prompt, self.DATASET_PATH, self.DATASET_NAME
+            )
+        else:
+            self.prompt = None
+
+        if self.fewshot_docs() is not None:
+            self.sampler = samplers.get_sampler(
+                self.config.fewshot_config.get("sampler", "default")
+                if self.config.fewshot_config
+                else "default"
+            )(list(self.fewshot_docs()), self, rnd=random.Random(1234))
+
+        self.task_docs = self.eval_docs
+
+        # Test One Doc
+        self.features = list(self.task_docs.features.keys())
+        self.multiple_input = 0
+        self.multiple_target = 0
+        test_doc = self.task_docs[0]
+        test_text = self.doc_to_text(test_doc)
+        test_target = self.doc_to_target(test_doc)
+
+        if self.config.doc_to_choice is not None:
+            test_choice = self.doc_to_choice(test_doc)
+            if not isinstance(test_choice, list):
+                eval_logger.error("doc_to_choice must return list")
+            else:
+                num_choice = len(test_choice)
+
+            if isinstance(test_text, int):
+                self.multiple_input = num_choice
+        else:
+            test_choice = None
+
+        if isinstance(test_target, list):
+            self.multiple_target = len(test_target)
+        else:
+            if (isinstance(test_target, int)) and (test_choice is not None):
+                test_target = test_choice[test_target]
+            else:
+                test_target = str(test_target)
+
+        if test_choice is not None:
+            check_choices = test_choice
+        else:
+            check_choices = [test_target]
+        if self.config.doc_to_choice is not None:
+            for choice in check_choices:
+                choice_has_whitespace = True if choice[0].isspace() else False
+                delimiter_has_whitespace = (
+                    True
+                    if self.config.target_delimiter.rstrip()
+                       != self.config.target_delimiter
+                    else False
+                )
+
+                if delimiter_has_whitespace and choice_has_whitespace:
+                    eval_logger.debug(
+                        f'Both target_delimiter "{self.config.target_delimiter}" and target choice: "{choice}" have whitespace'
+                    )
+                elif (not delimiter_has_whitespace) and (not choice_has_whitespace):
+                    eval_logger.debug(
+                        f'Both target_delimiter "{self.config.target_delimiter}" and target choice: "{choice}" do not have whitespace, ignore if the language you are evaluating on does not require/use whitespace'
+                    )
 
     def build_all_requests(
             self,
@@ -337,64 +631,5 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
 
         return where_clause
 
-    def download(self, dataset_kwargs: Optional[Dict[str, Any]] = None) -> None:
 
-        qty = self._config.metadata['pocket_args'].qty
-        doc_ids = self.config.metadata['pocket_args'].doc_ids
-        blacklist = self._config.metadata['pocket_args'].blacklist
-        postgres_uri = self._config.metadata['pocket_args'].postgres_uri
-        postgres_conn = self._config.metadata['postgres_conn']
-        table_name = self.DATASET_PATH + "--" + self.DATASET_NAME if self.DATASET_NAME else self.DATASET_PATH
-        eval_logger.debug(f"table_name:", table_name=table_name)
-        # TODO: ASYNC call to get_max_min_ids
-        _split_ranges = get_max_min_ids(table_name=table_name, postgres_conn=postgres_conn)
-        eval_logger.debug(f"Split ranges:", _split_ranges=_split_ranges)
 
-        # It's necessary to detect which is the split used to test to take the range, and then get random indexes
-        if self.config.test_split:
-            _split = self.config.test_split
-            # validate that the split exists in the _split_ranges
-            self.check_split_exist(_split, _split_ranges)
-        elif self.config.validation_split:
-            _split = self.config.validation_split
-            # validate that the split exists in the _split_ranges
-            self.check_split_exist(_split, _split_ranges)
-        else:
-            eval_logger.error(f"Config without splits:", config=self.config)
-            raise ApplicationError(
-                f"Neither {self.config.test_split} nor {self.config.validation_split} in splits were found in '_split_ranges'. Available splits are {_split_ranges.keys()}",
-                non_retryable=True
-            )
-
-        _range = _split_ranges[_split]
-        
-        if qty == "all":
-            indexes = self.get_all_doc_ids(_split, _split_ranges)
-        else:
-            if doc_ids:
-                if _split != get_split_from_ids(_split_ranges, doc_ids):
-                    eval_logger.error(f"Doc_ids not in split range used for evaluation:", 
-                                    doc_ids=doc_ids, _split=_split, range_min=_range['min'], range_max=_range['max']
-                                    )
-                    raise ApplicationError(
-                        f"Doc_ids not in split range used for test used for evaluation: doc_ids: \
-                            {doc_ids}, split: {_split}, range_min: {_range['min']}, range_max: {_range['max']}",
-                        non_retryable=True
-                        )
-                indexes = sorted(doc_ids)
-            else:
-                indexes = self.generate_random_doc_ids(table_name, _split, qty, _range['min'], _range['max'], blacklist)
-
-        where_clause = self.get_SQL_where_clause(indexes, _split, _split_ranges)
-        # Construct the full SQL query
-        sql_query = f"SELECT * FROM \"{table_name}\" WHERE {where_clause};"
-        ds = datasets.Dataset.from_sql(sql_query, con=postgres_uri)
-        dataset = datasets.DatasetDict()
-        for split in ds.unique("__split"):
-            eval_logger.debug(f"Adding split to DatasetDict:", split=split)
-            dataset[split] = ds.filter(lambda x: x["__split"] == split)
-        self.dataset = dataset.remove_columns(["__id", "__split"])
-        # save in config the indexes used to download the dataset
-        self._config.metadata['pocket_args'].doc_ids = indexes
-        # Update qty to the number of documents downloaded
-        self._config.metadata['pocket_args'].qty = len(indexes)

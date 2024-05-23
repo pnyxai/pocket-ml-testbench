@@ -63,6 +63,8 @@ class PocketNetworkTaskManager(TaskManager):
             else:
                 config = self._process_alias(config, group=group)
                 task_object = PocketNetworkConfigurableTask(config=config)
+                # do not call download where the data is not needed to avoid unnecessary async/await loops.
+                # await task_object.download()
             if group is not None:
                 task_object = (group, task_object)
             return {task: task_object}
