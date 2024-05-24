@@ -106,7 +106,7 @@ async def sample(args: PocketNetworkTaskRequest) -> bool:
         try:
             task_dict = lmeh_generator.get_configurable_task(
                 tasks=task_names,
-                num_fewshot=None,
+                num_fewshot=args.num_fewshot,
                 check_integrity=False,
                 gen_kwargs=None,
                 task_manager=task_manager,

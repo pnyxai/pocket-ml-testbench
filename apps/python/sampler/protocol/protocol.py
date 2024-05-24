@@ -25,6 +25,7 @@ class PocketNetworkTaskRequest(PocketNetworkRegisterTaskRequest):
     doc_ids: Optional[List[int]] = None
     llm_args: Optional[Dict] = None
     model: Optional[str] = "pocket_network"
+    num_fewshot: Optional[int] = Field(None, ge=0)
 
     @field_validator("qty")
     def check_qty(cls, v):
