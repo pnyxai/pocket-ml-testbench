@@ -52,7 +52,7 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 
 	ao := workflow.ActivityOptions{
 		TaskQueue:           wCtx.App.Config.Temporal.TaskQueue,
-		StartToCloseTimeout: 10 * time.Second,
+		StartToCloseTimeout: 300 * time.Second,
 		WaitForCancellation: false,
 		RetryPolicy: &temporal.RetryPolicy{
 			BackoffCoefficient: 1,
@@ -151,6 +151,7 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 
 	skippedWorkflows := make([]string, 0)
 	triggeredWorkflows := make([]string, 0)
+	l.Debug("GetTasks activity ends", "tasks_found", len(ltr.TaskRequests))
 
 	for _, tr := range ltr.TaskRequests {
 		node := nodesMap[tr.Node]

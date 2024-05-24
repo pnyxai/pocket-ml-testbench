@@ -1,0 +1,1 @@
+CREATE TABLE "task_registry" ("task_name" TEXT PRIMARY KEY, "dataset_table_name" TEXT);

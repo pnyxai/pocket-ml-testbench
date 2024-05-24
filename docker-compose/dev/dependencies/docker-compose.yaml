@@ -2,6 +2,7 @@ services:
   postgresql:
     image: postgres:${POSTGRESQL_VERSION}
     container_name: postgresql
+    command: "postgres -c config_file=/etc/postgresql/postgresql.conf"
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready", "-U", "postgres" ]
       interval: 10s
@@ -18,6 +19,7 @@ services:
       - 5432:5432
     volumes:
       - postgresql:/var/lib/postgresql/data
+      - ./postgresql/postgresql.conf:/etc/postgresql/postgresql.conf
       - ./postgresql/init.sql:/docker-entrypoint-initdb.d/init.sql
   
   pgadmin:
@@ -42,6 +44,11 @@ services:
   temporal:
     image: temporalio/auto-setup:${TEMPORAL_VERSION}
     container_name: temporal
+    healthcheck:
+      test: [ "CMD", "tctl", "--address", "temporal:7233", "workflow", "list" ]
+      interval: 10s
+      timeout: 2s
+      retries: 5
     depends_on:
       postgresql:
         condition: service_healthy
@@ -62,10 +69,11 @@ services:
       kompose.volume.type: configMap
 
   temporal-admin-tools:
-    image: temporalio/admin-tools:${TEMPORAL_VERSION}
+    image: temporalio/admin-tools:${TEMPORAL_TOOLS_VERSION}
     container_name: temporal-admin-tools
     depends_on:
-      - temporal
+      temporal:
+        condition: service_healthy
     environment:
       - TEMPORAL_ADDRESS=temporal:7233
       - TEMPORAL_CLI_ADDRESS=temporal:7233
@@ -78,7 +86,8 @@ services:
     image: temporalio/ui:${TEMPORAL_UI_VERSION}
     container_name: temporal-ui
     depends_on:
-      - temporal
+      temporal:
+        condition: service_healthy
     environment:
       - TEMPORAL_ADDRESS=temporal:7233
       - TEMPORAL_CORS_ORIGINS=http://localhost:3000
@@ -98,7 +107,7 @@ services:
       - ./temporal/initialize.sh:/home/temporal/initialize.sh
     depends_on:
       temporal:
-        condition: service_started
+        condition: service_healthy
     environment:
       - TEMPORAL_ADDRESS=temporal:7233
       - TEMPORAL_CLI_ADDRESS=temporal:7233

@@ -12,11 +12,11 @@ x-base: &base
       mode: non-blocking
       max-size: "10m"
       max-file: "3"
-      
+
 x-base-pocket-core: &base-pocket-core
   <<: *base
-  image: poktscan/pocket-core:MESH-RC-0.5.0-RC-0.11.1
-  command: [ "pocket", "start", "--datadir=/home/app/.pocket/", "--keybase=false", "--forceSetValidators"]
+  image: poktscan/pocket-core:${POCKET_GEO_MESH_VERSION}
+  command: [ "pocket", "start", "--datadir=/home/app/.pocket/", "--keybase=false", "--forceSetValidators" ]
   healthcheck:
     interval: 30s
     timeout: 1s
@@ -33,6 +33,7 @@ services:
     <<: *base
     image: postgres:${POSTGRESQL_VERSION}
     container_name: postgresql
+    command: "postgres -c config_file=/etc/postgresql/postgresql.conf"
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready", "-U", "postgres" ]
       interval: 10s
@@ -46,6 +47,8 @@ services:
       - 5432:5432
     volumes:
       - postgresql:/var/lib/postgresql/data
+      - ./dependencies_configs/postgresql/postgresql.conf:/etc/postgresql/postgresql.conf
+      - ./dependencies_configs/postgresql/init.sql:/docker-entrypoint-initdb.d/init.sql
   
   pgadmin:
     <<: *base
@@ -69,6 +72,11 @@ services:
     <<: *base
     image: temporalio/auto-setup:${TEMPORAL_VERSION}
     container_name: temporal
+    healthcheck:
+      test: [ "CMD", "tctl", "--address", "temporal:7233", "workflow", "list" ]
+      interval: 10s
+      timeout: 2s
+      retries: 5
     depends_on:
       postgresql:
         condition: service_healthy
@@ -78,6 +86,7 @@ services:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PWD=${POSTGRES_PASSWORD}
       - POSTGRES_SEEDS=postgresql
+      - KEYSPACE=pocket-ml-testbench
       - DYNAMIC_CONFIG_FILE_PATH=config/dynamicconfig/development-sql.yaml
     ports:
       - 7233:7233
@@ -88,45 +97,48 @@ services:
   
   temporal-admin-tools:
     <<: *base
-    image: temporalio/admin-tools:${TEMPORAL_VERSION}
+    image: temporalio/admin-tools:${TEMPORAL_TOOLS_VERSION}
     container_name: temporal-admin-tools
     depends_on:
-      - temporal
+      temporal:
+        condition: service_healthy
     environment:
       - TEMPORAL_ADDRESS=temporal:7233
       - TEMPORAL_CLI_ADDRESS=temporal:7233
     stdin_open: true
     tty: true
-    
   
   temporal-ui:
     <<: *base
     image: temporalio/ui:${TEMPORAL_UI_VERSION}
     container_name: temporal-ui
     depends_on:
-      - temporal
+      temporal:
+        condition: service_healthy
     environment:
       - TEMPORAL_ADDRESS=temporal:7233
       - TEMPORAL_CORS_ORIGINS=http://localhost:3000
+      - TEMPORAL_PERMIT_WRITE_API=true
+      - TEMPORAL_DEFAULT_NAMESPACE=pocket-ml-testbench
     ports:
       - 8080:8080
   
-  #### INITIALIZE MANAGER AND REQUESTER SCHEDULED WORKFLOWS @EVERY 1M
+  #### INITIALIZE MANAGER AND REQUESTER SCHEDULED WORKFLOWS @EVERY 5M
+  #### You can lower it modifying dependencies_configs/temporal/initialize.sh
   wf-setup:
     <<: *base
-    image: temporalio/admin-tools:${TEMPORAL_VERSION}
+    image: temporalio/admin-tools:${TEMPORAL_TOOLS_VERSION}
     container_name: wf-setup
     restart: on-failure
-    entrypoint: ["/home/temporal/initialize.sh"]
+    entrypoint: [ "/home/temporal/initialize.sh" ]
     volumes:
       - ./dependencies_configs/temporal/initialize.sh:/home/temporal/initialize.sh
     depends_on:
       temporal:
-        condition: service_started
+        condition: service_healthy
     environment:
       - TEMPORAL_ADDRESS=temporal:7233
       - TEMPORAL_CLI_ADDRESS=temporal:7233
-      
 
   mongodb:
     <<: *base
@@ -154,15 +166,14 @@ services:
     depends_on:
       mongodb:
         condition: service_healthy
-        
-
+  
   ### LLM ENGINE
   llm-engine:
     <<: *base
     container_name: llm-engine
     image: vllm/vllm-openai:${VLLM_VERSION}
     healthcheck:
-      test: ["CMD-SHELL", "python3", "/root/healthcheck.py"]
+      test: [ "CMD-SHELL", "python3", "/root/healthcheck.py" ]
     volumes:
       - ${MODELS_PATH}:/root/.cache/huggingface/hub/
       - ./dependencies_configs/llm-engine/healthcheck.py:/root/healthcheck.py
@@ -206,7 +217,7 @@ services:
             - driver: nvidia
               device_ids: [ '0' ] # Add more if you have more, remember to update the .env for GPU parallelism
               capabilities: [ gpu ]
-
+  
   ### POCKET MORSE LOCALNET
   lean1:
     <<: *base-pocket-core
@@ -331,7 +342,7 @@ services:
         condition: service_healthy
       lean3:
         condition: service_healthy
-
+  
   ### POCKET-ML-TESTBENCH APPLICATIONS
   manager:
     <<: *base
@@ -339,7 +350,8 @@ services:
       context: ../../
       dockerfile: apps/go/manager/Dockerfile
     image: pocket_ml_testbench_manager:dev
-    container_name: manager
+    deploy:
+      replicas: 1
     environment:
       CONFIG_PATH: /home/app/configs/config.json
     volumes:
@@ -352,14 +364,15 @@ services:
       mesh:
         # manager use pocket rpc to retrieve the list of nodes
         condition: service_healthy
-
+  
   sampler:
     <<: *base
     build:
       context: ../../
       dockerfile: apps/python/sampler/Dockerfile
     image: pocket_ml_testbench_sampler:dev
-    container_name: sampler
+    deploy:
+      replicas: 5
     environment:
       CONFIG_PATH: /home/app/configs/config.json
       OPENAI_API_KEY: EMPTY
@@ -375,14 +388,15 @@ services:
         condition: service_healthy
       postgresql:
         condition: service_healthy
-
+  
   requester:
     <<: *base
     build:
       context: ../../
       dockerfile: apps/go/requester/Dockerfile
     image: pocket_ml_testbench_requester:dev
-    container_name: requester
+    deploy:
+      replicas: 1
     environment:
       CONFIG_PATH: /home/app/configs/config.json
     volumes:
@@ -395,13 +409,12 @@ services:
       mesh:
         # manager use pocket rpc to retrieve the list of nodes
         condition: service_healthy
-        
 
 networks:
   morse-poc:
     name: morse-poc
     driver: bridge
-    
+
 volumes:
   lean1:
   lean2:

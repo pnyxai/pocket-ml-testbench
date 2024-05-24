@@ -13,7 +13,7 @@
     "req_per_sec": 10,
     "session_tolerance": 1
   },
-  "log_level": "info",
+  "log_level": "debug",
   "temporal": {
     "host": "temporal",
     "port": 7233,
@@ -23,7 +23,8 @@
       "identity": "requester",
       "enable_logging_in_replay": false,
       "max_concurrent_activity_task_pollers": 50,
-      "deadlock_detection_timeout": 120
+      "deadlock_detection_timeout": 120,
+      "worker_activities_per_second": 100
     },
     "evaluator": {
       "workflow_name": "evaluator",
