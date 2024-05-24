@@ -3,6 +3,7 @@ package activities
 import (
 	"context"
 	"manager/types"
+	"time"
 
 	"go.temporal.io/api/enums/v1"
 	"go.temporal.io/sdk/client"
@@ -11,7 +12,7 @@ import (
 
 var TriggerSamplerName = "trigger_sampler"
 
-func (aCtx *Ctx) TriggerSampler(ctx context.Context, params types.TriggerSamplerParams) (*types.TriggerSamplerResults, error) {
+func (aCtx *Ctx) TriggerSampler(_ context.Context, params types.TriggerSamplerParams) (*types.TriggerSamplerResults, error) {
 
 	l := aCtx.App.Logger
 	l.Debug().Str("address", params.Trigger.Address).Str("service", params.Trigger.Service).Str("framework", params.Trigger.Framework).Str("task", params.Trigger.Task).Msg("Triggering task...")
@@ -25,15 +26,18 @@ func (aCtx *Ctx) TriggerSampler(ctx context.Context, params types.TriggerSampler
 		RequesterArgs: types.RequesterArgs{
 			Address: params.Trigger.Address,
 			Service: params.Trigger.Service,
-			Method:  "",
-			Path:    "",
 		},
 		Blacklist: params.Trigger.Blacklist,
 		Qty:       params.Trigger.Qty,
 	}
 	evaluatorWorkflowOptions := client.StartWorkflowOptions{
-		TaskQueue:             aCtx.App.Config.Temporal.Sampler.TaskQueue,
-		WorkflowIDReusePolicy: enums.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE_FAILED_ONLY,
+		TaskQueue:                                aCtx.App.Config.Temporal.Sampler.TaskQueue,
+		WorkflowExecutionErrorWhenAlreadyStarted: true,
+		WorkflowIDReusePolicy:                    enums.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE_FAILED_ONLY,
+		WorkflowTaskTimeout:                      30 * time.Second,
+		RetryPolicy: &temporal.RetryPolicy{
+			MaximumAttempts: 3,
+		},
 	}
 	// Do not wait for a result by not calling .Get() on the returned future
 	_, err := aCtx.App.TemporalClient.ExecuteWorkflow(

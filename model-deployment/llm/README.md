@@ -58,7 +58,7 @@ vllm-openai-main  | INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL
 The endpoints of vLLM try to follow OpenAI format (as any model staked in the Pocket Network should). 
 To test the `completitions` endpoint just do:
 ```bash
-curl http://localhost:8000/v1/completions \
+curl http://localhost:9087/v1/completions \
     -H "Content-Type: application/json" \
     -d '{
         "model": "pocket_network",
@@ -69,7 +69,7 @@ curl http://localhost:8000/v1/completions \
 ```
 And the `chat` endpoint using:
 ```bash
-curl http://localhost:8000/v1/chat/completions \
+curl http://localhost:9087/v1/chat/completions \
     -H "Content-Type: application/json" \
     -d '{
         "model": "pocket_network",

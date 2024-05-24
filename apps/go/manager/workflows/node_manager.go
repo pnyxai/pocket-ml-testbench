@@ -10,7 +10,7 @@ import (
 	"go.temporal.io/sdk/workflow"
 )
 
-var NodeManagerName = "Node_Manager"
+var NodeManagerName = "Manager"
 
 // NodeManager - Is a method that orchestrates the tracking of staked ML nodes.
 // It performs the following activities:

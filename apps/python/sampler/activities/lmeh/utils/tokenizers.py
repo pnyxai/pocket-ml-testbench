@@ -2,7 +2,7 @@ import json
 import os
 import shutil
 import pymongo
-
+home = os.environ['HOME']
 
 from bson.objectid import ObjectId
 from hashlib import sha256
@@ -53,17 +53,15 @@ def prepare_tokenizer(tokenizer: Union[PreTrainedTokenizer, PreTrainedTokenizerF
     tokenizer_mongo = {'tokenizer': tokenizer_jsons, 'hash': tokenizer_hash, '_id': ObjectId()}
     return tokenizer_mongo
 
-def load_tokenizer(tokenizer_objects: dict, tokenizer_ephimeral_path: str=None)-> Union[PreTrainedTokenizer, PreTrainedTokenizerFast]:
+def load_tokenizer(tokenizer_objects: dict, wf_id:str, tokenizer_ephimeral_path: str=None)-> Union[PreTrainedTokenizer, PreTrainedTokenizerFast]:
 
     if tokenizer_ephimeral_path is None:
-        tokenizer_ephimeral_path = Path("/home/app/tokenizer_ephimeral")
+        tokenizer_ephimeral_path = Path(os.path.join(home, 'tokenizer_ephimeral', wf_id))
     else:
         tokenizer_ephimeral_path = Path(tokenizer_ephimeral_path)
+    tokenizer_ephimeral_path.mkdir(parents=True, exist_ok=True)
 
     for key, value in tokenizer_objects.items():
-        # create folder if not exists
-        if not os.path.exists(tokenizer_ephimeral_path):
-            os.mkdir(tokenizer_ephimeral_path)
         with open(
             os.path.join(tokenizer_ephimeral_path, key + ".json"), "w"
         ) as f:

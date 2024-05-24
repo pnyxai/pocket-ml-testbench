@@ -1,45 +1,50 @@
 import collections
 import logging
-import os
 from functools import partial
-from typing import Dict, List, Mapping, Optional, Union
+from typing import Mapping, Optional, Union
 
+import asyncpg
 from lm_eval import utils
-from lm_eval.api.task import Task
 from lm_eval.tasks import TaskManager
 from activities.lmeh.utils.pocket_lm_eval.api.task import PocketNetworkConfigurableTask
 
 from protocol.protocol import PocketNetworkTaskRequest
 from temporalio.exceptions import ApplicationError
 
+
 class PocketNetworkTaskManager(TaskManager):
+    def __init__(
+            self,
+            postgres_conn: asyncpg.Connection,
+            verbosity="ERROR",
+            include_path: Optional[str] = None,
+            pocket_args: PocketNetworkTaskRequest = None,
+            logger: Optional[logging.Logger] = None
+    ) -> None:
+        self.verbosity = verbosity
+        self.include_path = include_path
+        self.pocket_args = pocket_args
+        self.postgres_conn = postgres_conn
+        self.logger = logger
+        self._task_index = self.initialize_tasks(include_path=include_path)
+        self._all_tasks = sorted(list(self._task_index.keys()))
+
+        self.task_group_map = collections.defaultdict(list)
+        self.injected_metadata = {
+            'pocket_args': self.pocket_args,
+        }
+
     """PocketNetworkTaskManager indexes all tasks from the default `lm_eval/tasks/`
     and an optional directory if provided.
 
     """
 
-    def __init__(self, verbosity="INFO", 
-                 include_path: Optional[str] = None, 
-                 pocket_args: PocketNetworkTaskRequest = None, 
-                 logger: Optional[logging.Logger] = None
-                 ) -> None:
-        self.verbosity = verbosity
-        self.include_path = include_path
-        self.pocket_args = pocket_args
-        self.logger = logger
-        # self.logger.setLevel(getattr(logging, f"{verbosity}"))
-
-        self._task_index = self.initialize_tasks(include_path=include_path)
-        self._all_tasks = sorted(list(self._task_index.keys()))
-
-        self.task_group_map = collections.defaultdict(list)
-
     def _load_individual_task_or_group(
-        self,
-        name_or_config: Optional[Union[str, dict]] = None,
-        parent_name: Optional[str] = None,
-        update_config: Optional[dict] = None,
-        yaml_path: Optional[str] = None,
+            self,
+            name_or_config: Optional[Union[str, dict]] = None,
+            parent_name: Optional[str] = None,
+            update_config: Optional[dict] = None,
+            yaml_path: Optional[str] = None,
     ) -> Mapping:
         def load_task(config, task, group=None, yaml_path=None):
             if "include" in config:
@@ -56,10 +61,11 @@ class PocketNetworkTaskManager(TaskManager):
                 task_object = config["class"]()
             else:
                 config = self._process_alias(config, group=group)
-                task_object = PocketNetworkConfigurableTask(config=config)
+                task_object = PocketNetworkConfigurableTask(config=config, postgres_conn=self.postgres_conn)
             if group is not None:
                 task_object = (group, task_object)
             return {task: task_object}
+
         if isinstance(name_or_config, str):
             if update_config is not None:
                 # Process name_or_config as a dict instead
@@ -70,9 +76,9 @@ class PocketNetworkTaskManager(TaskManager):
                 # START: POCKET NETWORK CODE
                 ############################################################
                 if 'metadata' in task_config.keys():
-                    task_config['metadata'].update({'pocket_args':self.pocket_args})
+                    task_config['metadata'].update(self.injected_metadata)
                 else:
-                    task_config['metadata'] = {'pocket_args':self.pocket_args}
+                    task_config['metadata'] = self.injected_metadata
                 ############################################################
                 # END: POCKET NETWORK CODE
                 ############################################################                    
@@ -147,9 +153,9 @@ class PocketNetworkTaskManager(TaskManager):
                         # START: POCKET NETWORK CODE
                         ############################################################
                         if 'metadata' in task_config.keys():
-                            task_config['metadata'].update({'pocket_args':self.pocket_args})
+                            task_config['metadata'].update(self.injected_metadata)
                         else:
-                            task_config['metadata'] = {'pocket_args':self.pocket_args}
+                            task_config['metadata'] = self.injected_metadata
                         ############################################################
                         # END: POCKET NETWORK CODE
                         ############################################################

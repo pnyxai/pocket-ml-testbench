@@ -14,8 +14,16 @@ default_config = {
         "host": "localhost",
         "port": 7233,
         "namespace": "pocket-ml-testbench",
-        "task_queue": "sampler-local",
-        "max_workers": 10
+        "task_queue": "sampler",
+        "max_workers": 20,
+        "max_cached_workflows": 2000,
+        "max_concurrent_workflow_tasks": 2000,
+        "max_concurrent_activities": 100000,
+        "max_concurrent_workflow_task_polls": 10,
+        "nonsticky_to_sticky_poll_ratio": 0.5,
+        "max_concurrent_activity_task_polls": 50,
+        "max_activities_per_second": 10,
+        "max_task_queue_activities_per_second": 10,
     }
 }
 

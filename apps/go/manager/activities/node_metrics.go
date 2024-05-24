@@ -381,7 +381,7 @@ func (record *ResultRecord) FindAndLoadResults(address string,
 	err := cursor.Decode(record)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-			l.Warn().Str("address", address).Str("service", service).Msg("Node results entry not found.")
+			l.Debug().Str("address", address).Str("service", service).Msg("Node results entry not found.")
 			found = false
 		} else {
 			l.Error().Msg("Could not retrieve results data from MongoDB.")

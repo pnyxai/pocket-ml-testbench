@@ -11,8 +11,8 @@ import (
 type RequesterArgs struct {
 	Address string `json:"address"`
 	Service string `json:"service"`
-	Method  string `json:"method"`
-	Path    string `json:"path"`
+	Method  string `json:"method,omitempty"`
+	Path    string `json:"path,omitempty"`
 }
 
 // A pending request already processed by the Sampler

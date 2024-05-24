@@ -52,7 +52,7 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 
 	ao := workflow.ActivityOptions{
 		TaskQueue:           wCtx.App.Config.Temporal.TaskQueue,
-		StartToCloseTimeout: 10 * time.Second,
+		StartToCloseTimeout: 300 * time.Second,
 		WaitForCancellation: false,
 		RetryPolicy: &temporal.RetryPolicy{
 			BackoffCoefficient: 1,
@@ -151,6 +151,7 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 
 	skippedWorkflows := make([]string, 0)
 	triggeredWorkflows := make([]string, 0)
+	l.Debug("GetTasks activity ends", "tasks_found", len(ltr.TaskRequests))
 
 	for _, tr := range ltr.TaskRequests {
 		node := nodesMap[tr.Node]
@@ -177,9 +178,9 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 			// we are sure that when its workflow runs again inside the same session and the task is still not done,
 			// we will not get the same relayer workflow executed twice
 			ID: fmt.Sprintf(
-				"%s-%s-%s-%s-%s-%s-%d",
+				"%s-%s-%s-%s-%d",
 				params.App, tr.Node, request.Service,
-				tr.TaskId, tr.InstanceId, tr.PromptId, sessionHeight,
+				tr.PromptId, sessionHeight,
 			),
 			TaskQueue:                                wCtx.App.Config.Temporal.TaskQueue,
 			WorkflowExecutionErrorWhenAlreadyStarted: true,

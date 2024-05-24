@@ -1,0 +1,9 @@
+assets
+.github
+docker-compose
+model-deployment
+morse-localnet-poc
+reports
+LICENSE
+README.md
+.venv

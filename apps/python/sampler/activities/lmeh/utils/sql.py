@@ -1,13 +1,11 @@
 import json
-import psycopg2
-from psycopg2 import sql
+import asyncpg
 import datetime
 import decimal
 import datasets
 
 from app.app import get_app_logger
 from temporalio.exceptions import ApplicationError
-eval_logger = get_app_logger("sample")
 
 # Define the columns for the table
 _ID_NAME = "__id"
@@ -18,69 +16,52 @@ POCKET_COLUMNS = {
     _SPLIT_NAME: "TEXT"
 }
 
-PRIMARY_KEY_DEF = sql.SQL(f"PRIMARY KEY ({_ID_NAME}, {_SPLIT_NAME})")
+PRIMARY_KEY_DEF = f"PRIMARY KEY ({_ID_NAME}, {_SPLIT_NAME})"
 
-def create_task_table(connection:psycopg2.extensions.connection):
-    """
-    Create a table appending task, dataset name pairs.
-    """
-    with connection.cursor() as cursor:
-        cursor.execute(
-            """
-            CREATE TABLE IF NOT EXISTS task_registry (
-                task_name TEXT PRIMARY KEY,
-                dataset_table_name TEXT
-            )
-            """
-        )
-    connection.commit()
-
-def checked_task(task_name:str, connection:psycopg2.extensions.connection):
+async def checked_task(task_name: str, connection: asyncpg.Connection):
     """
     Check if a task is already registered in the registry table.
 
     Args:
     - task_name: Name of the task to be checked.
-    - connection: psycopg2 connection object.
+    - connection: asyncpg connection object.
 
     Returns:
     - True if the task is already registered, False otherwise.
     """
+    # noinspection SqlNoDataSourceInspection
+    record = await connection.fetchrow(
+        """
+        SELECT COUNT(*) FROM task_registry WHERE task_name = $1;
+        """,
+        task_name
+    )
 
-    with connection.cursor() as cursor:
-        cursor.execute(
-            """
-            SELECT COUNT(*) FROM task_registry WHERE task_name = %s;
-            """,
-            (task_name,)
-        )
-        count = cursor.fetchone()[0]
-    return count > 0
+    return record["count"] > 0
 
-def register_task(task_name:str, dataset_table_name:str, connection:psycopg2.extensions.connection):
+
+async def register_task(task_name: str, dataset_table_name: str, connection: asyncpg.Connection):
     """
     Register a task in the registry task.
 
     Args:
     - task_name: Name of the task to be registered.
-    - connection: psycopg2 connection object.
+    - connection: asyncpg connection object.
 
     Returns:
     - None
     """
-
-    with connection.cursor() as cursor:
-        cursor.execute(
-            """
-            INSERT INTO task_registry (task_name, dataset_table_name) VALUES (%s, %s) ON CONFLICT DO NOTHING;
-            """,
-            (task_name, dataset_table_name)
-        )
-    connection.commit()
-
+    # noinspection SqlNoDataSourceInspection
+    await connection.execute(
+        """
+        INSERT INTO task_registry (task_name, dataset_table_name) VALUES ($1, $2) ON CONFLICT DO NOTHING;
+        """,
+        task_name,
+        dataset_table_name
+    )
 
 
-def create_dataset_table(table_name:str, data:datasets.DatasetDict, connection:psycopg2.extensions.connection):
+async def create_dataset_table(table_name: str, data: datasets.DatasetDict, connection: asyncpg.Connection):
     """
     Create a PostgreSQL table based on a list of Python dictionaries.
 
@@ -88,19 +69,24 @@ def create_dataset_table(table_name:str, data:datasets.DatasetDict, connection:p
     - table_name: Name of the table to be created.
     - data: List of Python dictionaries where each dictionary represents a row in the table.
     - sample: A sample dictionary that represents a row in the table. This is used to infer the data types of the columns.
-    - connection: psycopg2 connection object.
+    - connection: asyncpg connection object.
 
     Returns:
     - None
     """
+    eval_logger = get_app_logger("SQL")
+
     splits = list(data.keys())
-    # Asummption: all splits have the same columns
+
+    # Assumption: all splits have the same columns
     sample = data[splits[0]][0]
 
     # Extract column names and data types from the dictionaries
     columns = {}
+
     # Add manually k,v pairs "pocket_ID":INT, and "SPLIT":TEXT 
     columns.update(POCKET_COLUMNS)
+
     for key, value in sample.items():
         if key not in columns:
             # If the column doesn't exist yet, infer its data type from the value
@@ -108,46 +94,52 @@ def create_dataset_table(table_name:str, data:datasets.DatasetDict, connection:p
 
     # Generate column definitions
     column_definitions = [
-        sql.SQL("{} {}").format(
-            sql.Identifier(column_name),
-            sql.SQL(data_type)
-        )
+        f"\"{column_name}\" {data_type}"
         for column_name, data_type in columns.items()
     ]
-    ## Generate primary key definition
+
+    # Generate primary key definition
     column_definitions.append(PRIMARY_KEY_DEF)
-    # Create the table
-    with connection.cursor() as cursor:
-        cursor.execute(sql.SQL("CREATE TABLE IF NOT EXISTS {} ({})").format(
-            sql.Identifier(table_name),
-            sql.SQL(', ').join(column_definitions)
-        ))
-    connection.commit()
 
-    # Insert data into the table
-    insert_query = sql.SQL("INSERT INTO {} ({}) VALUES ({});").format(        
-        sql.Identifier(table_name),
-        sql.SQL(', ').join(map(sql.Identifier, columns.keys())),
-        sql.SQL(', ').join([sql.Placeholder()] * len(columns))
-    )
+    # Create a table statement
+    # noinspection SqlNoDataSourceInspection
+    column_definitions_str = ', '.join(column_definitions)
+    create_table = f"CREATE TABLE IF NOT EXISTS \"{table_name}\" ({column_definitions_str})"
 
-    with connection.cursor() as cursor:
-        pocket_id = 0
-        # Each k,v -> split, dataset 
+    # Insert data into the table statement
+    column_names = ", ".join(f"\"{column_name}\"" for column_name in columns.keys())
+    placeholders = ", ".join(f"${i + 1}" for i in range(len(columns)))
+    insert_query = f"INSERT INTO \"{table_name}\" ({column_names}) VALUES ({placeholders});"
+
+    await connection.execute(create_table)
+
+    pocket_id = 0
+    try:
+        # Each k,v -> split, dataset
+        data_rows = []
         for split, dataset in data.items():
             # Each row in the dataset
             for row in dataset:
                 current_row = row.copy()
                 current_row[_ID_NAME] = pocket_id
                 current_row[_SPLIT_NAME] = split
-                try:
-                    cursor.execute(insert_query, [current_row.get(key) if not isinstance(current_row.get(key), dict) else json.dumps(current_row.get(key)) for key in columns.keys()])
-                except Exception as e:
-                    eval_logger.error(f"Error inserting:", row = current_row)
-                    ApplicationError(f"Error: {e}, \nrow: {current_row}")
-                    raise e
+
+                row_to_insert = list()
+                for key in columns.keys():
+                    val = current_row.get(key)
+                    if isinstance(val, dict):
+                        val = json.dumps(val)
+                    row_to_insert.append(val)
+
+                data_rows.append(tuple(row_to_insert))
                 pocket_id += 1
-    connection.commit()
+
+        await connection.executemany(insert_query, data_rows)
+    except Exception as error:
+        error_msg = "Failed to inserting rows"
+        eval_logger.error(error_msg, error=error, query=insert_query)
+        raise ApplicationError(error_msg, error, type="SQLError", non_retryable=True)
+
 
 # Function to infer PostgreSQL data type from python data type
 def infer_data_type(value):
@@ -168,5 +160,5 @@ def infer_data_type(value):
     # Handle lists
     if v_type == "[]":
         subvalue_type = mapping.get(type(value[0]), "TEXT")
-        v_type =  subvalue_type + v_type
+        v_type = subvalue_type + v_type
     return v_type
