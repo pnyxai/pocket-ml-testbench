@@ -2,8 +2,11 @@ package activities
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"requester/types"
 	"time"
 )
@@ -16,8 +19,8 @@ type GetTasksParams struct {
 }
 
 type TaskRequest struct {
-	TaskId       string  `json:"task_id" bson:"task_id"`
-	InstanceId   string  `json:"instance_id" bson:"instance_id"`
+	//TaskId       string  `json:"task_id" bson:"task_id"`
+	//InstanceId   string  `json:"instance_id" bson:"instance_id"`
 	PromptId     string  `json:"prompt_id" bson:"prompt_id"`
 	Node         string  `json:"node" bson:"node"`
 	RelayTimeout float64 `json:"relay_timeout" bson:"relay_timeout"`
@@ -88,29 +91,60 @@ func getTaskRequestPipeline(nodes []string, service string) mongo.Pipeline {
 		}}},
 		bson.D{{"$project", bson.D{
 			{"_id", 0},
-			{"task_id", "$_id"},
-			{"instance_id", "$instance._id"},
+			//{"task_id", "$_id"},
+			//{"instance_id", "$instance._id"},
 			{"prompt_id", "$prompt._id"},
 			{"node", "$requester_args.address"},
 			{"relay_timeout", "$prompt.timeout"},
 		}}},
+		// 15k of pending task request is a crazy amount, larger than this will throw an error on Temporal due to the
+		// size of the JSON payload.
+		bson.D{{"$limit", 15000}},
 	}
+}
+
+func PrintPipeline(queryName string, pipeline mongo.Pipeline) error {
+	var prettyDocs []bson.M
+
+	for _, doc := range pipeline {
+		bsonDoc, err := bson.Marshal(doc)
+		if err != nil {
+			return err
+		}
+		var prettyDoc bson.M
+		err = bson.Unmarshal(bsonDoc, &prettyDoc)
+		if err != nil {
+			return err
+		}
+		prettyDocs = append(prettyDocs, prettyDoc)
+	}
+
+	prettyJSON, err := json.Marshal(prettyDocs)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Query=%s Pipeline=%s", queryName, string(prettyJSON))
+
+	return nil
 }
 
 func (aCtx *Ctx) GetTasks(ctx context.Context, params GetTasksParams) (result *GetTaskRequestResults, e error) {
 	result = &GetTaskRequestResults{TaskRequests: make([]TaskRequest, 0)}
-	tasksCtx, taskCancelFn := context.WithTimeout(ctx, 10*time.Second)
+	tasksCtx, taskCancelFn := context.WithTimeout(ctx, 5*time.Minute)
 	defer taskCancelFn()
 	// get tasks for the retrieved node and service that are not done yet
 	taskCollection := aCtx.App.Mongodb.GetCollection(types.TaskCollection)
 	pipeline := getTaskRequestPipeline(params.Nodes, params.Service)
-	cursor, AggErr := taskCollection.Aggregate(tasksCtx, pipeline)
-	if AggErr != nil {
-		return nil, AggErr
+	// PrintPipeline("tasksInstancePrompts", pipeline)
+	opts := options.Aggregate().SetAllowDiskUse(true)
+	cursor, aggErr := taskCollection.Aggregate(tasksCtx, pipeline, opts)
+	if aggErr != nil {
+		return nil, aggErr
 	}
 	decodeErr := cursor.All(tasksCtx, &result.TaskRequests)
 	if decodeErr != nil {
-		return nil, AggErr
+		return nil, aggErr
 	}
 	return
 }

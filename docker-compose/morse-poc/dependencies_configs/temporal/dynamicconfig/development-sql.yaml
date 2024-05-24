@@ -6,17 +6,17 @@ system.forceSearchAttributesCacheRefreshOnRead:
     constraints: {}
 # Total per-Namespace RPC rate limit applied across the Cluster.
 frontend.rps:
-  - value: 1000
+  - value: 10000
 # Total per-Namespace RPC rate limit applied across the Cluster.
 frontend.namespaceRPS:
-  - value: 1000
+  - value: 10000
 # Total per-Namespace RPC rate limit applied across the Cluster.
 frontend.globalNamespaceRPS:
-  - value: 1000
+  - value: 10000
 matching.rps:
-  - value: 1000
+  - value: 10000
 matching.numTaskqueueReadPartitions:
-  - value: 8
+  - value: 16
 matching.numTaskqueueWritePartitions:
-  - value: 8
+  - value: 16
   

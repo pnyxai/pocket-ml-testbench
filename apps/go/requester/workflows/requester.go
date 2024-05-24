@@ -178,9 +178,9 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 			// we are sure that when its workflow runs again inside the same session and the task is still not done,
 			// we will not get the same relayer workflow executed twice
 			ID: fmt.Sprintf(
-				"%s-%s-%s-%s-%s-%s-%d",
+				"%s-%s-%s-%s-%d",
 				params.App, tr.Node, request.Service,
-				tr.TaskId, tr.InstanceId, tr.PromptId, sessionHeight,
+				tr.PromptId, sessionHeight,
 			),
 			TaskQueue:                                wCtx.App.Config.Temporal.TaskQueue,
 			WorkflowExecutionErrorWhenAlreadyStarted: true,
