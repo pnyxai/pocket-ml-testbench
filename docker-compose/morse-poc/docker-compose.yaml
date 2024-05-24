@@ -378,7 +378,7 @@ services:
       OPENAI_API_KEY: EMPTY
       TQDM_DISABLE: "True"
       HF_DATASETS_DISABLE_PROGRESS_BAR: "True"
-      EVALUATE_VERBOSITY: "ERROR"
+      EVALUATE_VERBOSITY: "error"
     volumes:
       - $SAMPLER_CONFIG_FILE:/home/app/configs/config.json
     depends_on:
