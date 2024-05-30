@@ -1,0 +1,23 @@
+\section{Future Work}\label{sec:z}
+
+During the month of May we focused on merging the parts developed until now individually developed. 
+This included the \texttt{Manager}, \texttt{Sampler} and \texttt{Requester}, plus a single \texttt{docker-compose} that includes a localnet composed of three \texttt{Lean-nodes} with eight validators each and a \texttt{Geo-Mesh} for testing that everything works. 
+
+During the month of June we hope to complete the \gls{MLTB} code, including:
+\begin{enumerate}
+    \item \texttt{Manager}:
+    \begin{enumerate}
+        \item Create logic for tokenizer signature task~\footnote{\url{https://github.com/pokt-scan/pocket-ml-testbench/issues/42}}. 
+        \item Clean completed tasks~\footnote{\url{https://github.com/pokt-scan/pocket-ml-testbench/issues/41}}. 
+        \item Add signatures to node~\footnote{\url{https://github.com/pokt-scan/pocket-ml-testbench/issues/39}}. 
+    \end{enumerate}
+
+    \item \texttt{Sampler}:
+    \begin{enumerate}
+        \item Create logic for tokenizer signature task~\footnote{\url{https://github.com/pokt-scan/pocket-ml-testbench/issues/43}}. 
+        \item Add asynchronous read operations to the MongoDB collections. 
+    \end{enumerate}
+    
+    \item \texttt{Evaluator}: Create initial code for LMEH processing~\footnote{\url{https://github.com/pokt-scan/pocket-ml-testbench/issues/44}}. 
+
+\end{enumerate}    
