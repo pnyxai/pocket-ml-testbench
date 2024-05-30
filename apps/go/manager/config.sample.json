@@ -1,20 +1,25 @@
 {
-  "mongodb_uri": "mongodb://mongodb:27017/pocket-ml-testbench?replicaSet=devRs",
+  "mongodb_uri": "mongodb://127.0.0.1:27017/pocket-ml-testbench?replicaSet=devRs",
+  "postgres_uri": "postgres://USER:PASS@localhost:5432",
+  "apps": ["APP_PK"],
   "rpc": {
     "urls": [
-      "http://host.docker.internal:9081"
+      "http://localhost:8081",
+      "http://localhost:8071",
+      "http://localhost:8091",
+      "http://localhost:9081"
     ],
     "retries": 3,
     "min_backoff": 10,
     "max_backoff": 60,
     "req_per_sec": 10
   },
-  "log_level": "info",
+  "log_level": "debug",
   "temporal": {
-    "host": "temporal",
+    "host": "localhost",
     "port": 7233,
     "namespace": "pocket-ml-testbench",
-    "task_queue": "manager",
+    "task_queue": "manager-local",
     "worker": {
       "identity": "manager",
       "enable_logging_in_replay": false,
@@ -24,7 +29,7 @@
     },
     "sampler": {
       "workflow_name": "Sampler",
-      "task_queue": "sampler"
+      "task_queue": "sampler-local"
     }
   },
   "frameworks": {
@@ -32,4 +37,5 @@
     "helm" : {"task_types": {"any" : "numerical"}},
     "signatures" : {"task_types": {"any" : "signature"}}
   }
+
 }
