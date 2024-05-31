@@ -31,8 +31,8 @@ In terms of \texttt{lm-eval-harness}~\cite{biderman_lessons_2024} these two sequ
 
 \begin{figure}[h]
     \centering
-    \includegraphics[width=0.8\textwidth]{img/loglikelihood_example.png}
-    \caption{Example of \texttt{context} and \texttt{continuation} token sequences. The green segment represents correct segment (ground truth) and the \emph{Output} column represents the segment of higher probability (assigned by the \gls{LM}).}
+    \includegraphics[width=\textwidth]{img/loglikelihood_example.png}
+    \caption{Example of \texttt{context}, \texttt{continuation} token sequences and evaluation result. The green segment in \texttt{continuation} represents correct segment (ground truth), the \emph{Loglikelihood} column represents the segment of higher probability (assigned by the \gls{LM}), and finally the \emph{LM Anwer} correspond to the result of the evaluation example. In this case, $C_2$ should be the higger probability, nevertheless the \gls{LM} returns $C_1$ with higher probability.}
     \label{fig:loglikelihood_example}
 \end{figure}
 
