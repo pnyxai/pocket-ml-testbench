@@ -1,0 +1,20 @@
+\section{Progress Overview}\label{sec:a}
+
+During the month of May, the socket achieved the following milestones:
+
+\begin{itemize}\setlength\itemsep{2mm}
+    \item Merged issues on the Test-Bench code:
+    \begin{itemize}
+        \item Manager:
+            \begin{itemize}
+                \item Add buffers logic~\footnote{\url{https://github.com/pokt-scan/pocket-ml-testbench/issues/36}}.
+                \item Implemented circular buffers logic for metrics \footnote{\url{https://github.com/pokt-scan/pocket-ml-testbench/pull/38}}.
+                \item Task Triggering~\footnote{\url{https://github.com/pokt-scan/pocket-ml-testbench/issues/40}}.
+            \end{itemize}
+        \item Sampler: Generate prompts and save to mongo + Tokenizer~\footnote{\url{https://github.com/pokt-scan/pocket-ml-testbench/pull/47}}.
+        \item Requester: Complete requester MVP~\footnote{\url{https://github.com/pokt-scan/pocket-ml-testbench/pull/37}}.
+        \item General: Fixes and enhancements to create the first version of Morse POC~\footnote{\url{https://github.com/pokt-scan/pocket-ml-testbench/pull/51}}.
+    \end{itemize}
+\end{itemize}
+
+The expected milestone, finishing an MVP presentation, was not achieved due to some issues during the integration of the first workflows. Specifically we were stuck with some known, but difficult to track, bugs around TemporalIO, Python and asynchronic processes embedded into \gls{LMEH} library~\footnote{\url{https://docs.temporal.io/encyclopedia/python-sdk-sync-vs-async}}. Also we spent some non-negligible time around the tokenizer problem that is discussed in this document, which we believe to be of interest to the POKT Network \gls{LM} inference effort.
