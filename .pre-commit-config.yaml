@@ -3,6 +3,7 @@
 # See https://pre-commit.com/hooks.html for more hooks
 files: |
     (?x)(
+        ^apps/python/ |
         ^docker/ |
         ^config/ |
         ^api/

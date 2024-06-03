@@ -1,0 +1,4 @@
+{
+  "log_level": "DEBUG",
+  "tokenizer_path": "/tokenizer"
+}

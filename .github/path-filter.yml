@@ -9,3 +9,5 @@ manager:
   - 'apps/python/manager/**'
 sampler:
   - 'apps/python/sampler/**'
+sidecar:
+  - 'apps/python/sidecar/**'
