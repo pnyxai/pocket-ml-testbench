@@ -32,7 +32,7 @@ app = FastAPI()
 # -----------------------------------------------
 # Get Full Tokenizer
 # -----------------------------------------------
-@app.get("/pokt-v1/tokenizer")
+@app.get("/pokt/tokenizer")
 def get_tokenizer():
     l.debug("returning tokenizer data")
     return TOKENIZER_JSON
@@ -41,7 +41,7 @@ def get_tokenizer():
 # -----------------------------------------------
 # Get Tokenizer Hash
 # -----------------------------------------------
-@app.get("/pokt-v1/tokenizer-hash")
+@app.get("/pokt/tokenizer-hash")
 def get_tokenizer():
     l.debug("returning tokenizer hash")
     return TOKENIZER_HASH
