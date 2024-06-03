@@ -167,7 +167,33 @@ services:
       mongodb:
         condition: service_healthy
   
-  ### LLM ENGINE
+  ### LLM ENGINE + SIDECAR + NGINX
+  sidecar:
+    <<: *base
+    build:
+      context: ../../
+      dockerfile: apps/python/sidecar/Dockerfile
+    image: pocket_ml_sidecar:dev
+    deploy:
+      replicas: 1
+    environment:
+      CONFIG_PATH: /home/app/configs/config.json
+    volumes:
+      - $SIDECAR_CONFIG_FILE:/home/app/configs/config.json
+      - $SIDECAR_TOKENIZER_FILE:/tokenizer/
+
+  nginx-sidecar:
+    <<: *base
+    image: nginx:latest
+    container_name: nginx-sidecar
+    ports:
+      - "9087:9087"
+    volumes:
+      - $SIDECAR_NGINX_CONFIG_FILE:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - sidecar
+      - llm-engine
+
   llm-engine:
     <<: *base
     container_name: llm-engine
@@ -177,8 +203,11 @@ services:
     volumes:
       - ${MODELS_PATH}:/root/.cache/huggingface/hub/
       - ./dependencies_configs/llm-engine/healthcheck.py:/root/healthcheck.py
-    ports:
-      - 9087:9087
+    depends_on:
+      sidecar:
+        condition: service_started
+  #   ports:
+  #     - 9187:9187
     environment:
       - MODEL_NAME=${MODEL_NAME}
       - NUM_GPUS=${NUM_GPUS}
@@ -207,7 +236,7 @@ services:
                   "--max-num-seqs",
                   "${MAX_NUM_SEQS}",
                   "--port",
-                  "9087"
+                  "9187"
     ]
     shm_size: '4gb' # This is only used for GPU parallelism
     deploy:
