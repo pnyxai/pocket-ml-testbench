@@ -45,12 +45,3 @@ def get_tokenizer():
 def get_tokenizer():
     l.debug("returning tokenizer hash")
     return TOKENIZER_HASH
-
-
-# -----------------------------------------------
-# Get Tokenizer Hash
-# -----------------------------------------------
-@app.get("/v1/generate")
-def asdasd():
-    l.debug("returning asdasdasdasdasdasd")
-    return TOKENIZER_HASH
