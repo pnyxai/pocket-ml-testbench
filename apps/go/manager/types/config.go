@@ -227,10 +227,15 @@ type RPCConfig struct {
 }
 
 type Config struct {
-	MongodbUri string          `json:"mongodb_uri"`
-	Tasks      []string        `json:"tasks"`
-	Services   []string        `json:"services"`
-	Rpc        *RPCConfig      `json:"rpc"`
-	LogLevel   string          `json:"log_level"`
-	Temporal   *TemporalConfig `json:"temporal"`
+	MongodbUri string                     `json:"mongodb_uri"`
+	Frameworks map[string]FrameworkConfig `json:"frameworks"`
+	Rpc        *RPCConfig                 `json:"rpc"`
+	LogLevel   string                     `json:"log_level"`
+	Temporal   *TemporalConfig            `json:"temporal"`
+}
+
+// This config structure holds, for a given framework, the specifics of its task
+// Initially this will only determine the type of task: Numerical, Signature, etc
+type FrameworkConfig struct {
+	TasksTypes map[string]string `json:"task_types"`
 }

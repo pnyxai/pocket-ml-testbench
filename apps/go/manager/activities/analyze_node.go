@@ -6,6 +6,7 @@ import (
 	"packages/mongodb"
 	"time"
 
+	"manager/records"
 	"manager/types"
 
 	"github.com/rs/zerolog"
@@ -28,7 +29,7 @@ func (aCtx *Ctx) AnalyzeNode(ctx context.Context, params types.AnalyzeNodeParams
 	nodesCollection := aCtx.App.Mongodb.GetCollection(types.NodesCollection)
 
 	// Retrieve this node entry
-	var thisNodeData NodeRecord
+	var thisNodeData records.NodeRecord
 	found, err := thisNodeData.FindAndLoadNode(params.Node, nodesCollection, l)
 	if err != nil {
 		return nil, err
@@ -41,12 +42,12 @@ func (aCtx *Ctx) AnalyzeNode(ctx context.Context, params types.AnalyzeNodeParams
 	if !found {
 		// Create entry in MongoDB
 		l.Debug().Bool("found", found).Msg("Creating empty node entry.")
-		thisNodeData.Init(params, l)
+		thisNodeData.Init(params, aCtx.App.Config.Frameworks, l)
 		result.IsNew = true
 
 	} else {
 		// If the node entry exist we must cycle and check for pending results
-		err = updateTasksNode(&thisNodeData, params.Tests, aCtx.App.Mongodb, l)
+		err = updateTasksNode(&thisNodeData, params.Tests, aCtx.App.Config.Frameworks, aCtx.App.Mongodb, l)
 		if err != nil {
 			return nil, err
 		}
@@ -78,13 +79,14 @@ func (aCtx *Ctx) AnalyzeNode(ctx context.Context, params types.AnalyzeNodeParams
 			}
 
 			// If the number of samples is less than the minimum, proceed to request more
-			if thisTaskRecord.NumSamples <= MinSamplesPerTask {
+			numberOfSamples := thisTaskRecord.GetNumSamples()
+			if numberOfSamples <= thisTaskRecord.GetMinSamplesPerTask() {
 
 				// Calculate the total number of request needed
-				reqNeeded := MinSamplesPerTask - thisTaskRecord.NumSamples
+				reqNeeded := thisTaskRecord.GetMinSamplesPerTask() - numberOfSamples
 				// Check if this exceed the max concurrent task and limit
-				if reqNeeded > MaxConcurrentSamplesPerTask {
-					reqNeeded = MaxConcurrentSamplesPerTask
+				if reqNeeded > thisTaskRecord.GetMaxConcurrentSamplesPerTask() {
+					reqNeeded = thisTaskRecord.GetMaxConcurrentSamplesPerTask()
 				}
 
 				// Set filtering for this node-service pair data
@@ -167,19 +169,23 @@ func (aCtx *Ctx) AnalyzeNode(ctx context.Context, params types.AnalyzeNodeParams
 }
 
 // Get specific task data from a node record
-func getTaskData(nodeData *NodeRecord, framework string, task string, l *zerolog.Logger) (*TaskRecord, bool) {
+func getTaskData(nodeData *records.NodeRecord, framework string, task string, l *zerolog.Logger) (records.TaskInterface, bool) {
 
-	for i, taskEntry := range nodeData.Tasks {
+	// Get all tasks as a single array
+	combinedTasks := nodeData.CombineTasks()
+	// Look for entry
+	for _, taskEntry := range combinedTasks {
 		// Check if the Name field matches the search string
-		if taskEntry.Framework == framework && taskEntry.Task == task {
+		if taskEntry.GetFramework() == framework && taskEntry.GetTask() == task {
 			l.Debug().Str("address", nodeData.Address).Str("service", nodeData.Service).Str("framework", framework).Str("task", task).Msg("Found!")
-			return &nodeData.Tasks[i], true
+			return taskEntry, true
 		}
 	}
+
 	return nil, false
 }
 
-func updateTasksNode(nodeData *NodeRecord, tests []types.TestsData, mongo mongodb.MongoDb, l *zerolog.Logger) (err error) {
+func updateTasksNode(nodeData *records.NodeRecord, tests []types.TestsData, frameworkConfigMap map[string]types.FrameworkConfig, mongo mongodb.MongoDb, l *zerolog.Logger) (err error) {
 
 	nodeData.LastSeenHeight += 1
 
@@ -201,6 +207,7 @@ func updateTasksNode(nodeData *NodeRecord, tests []types.TestsData, mongo mongod
 	for _, test := range tests {
 
 		for _, task := range test.Tasks {
+
 			l.Debug().Str("address", nodeData.Address).Str("service", nodeData.Service).Str("framework", test.Framework).Str("task", task).Msg("Updating circular buffer.")
 
 			//------------------------------------------------------------------
@@ -211,7 +218,7 @@ func updateTasksNode(nodeData *NodeRecord, tests []types.TestsData, mongo mongod
 			if !found {
 				l.Debug().Str("address", nodeData.Address).Str("service", nodeData.Service).Str("framework", test.Framework).Str("task", task).Msg("Not found, creating.")
 				defaultDate := time.Now()
-				thisTaskRecord = nodeData.AppendTask(test.Framework, task, defaultDate)
+				thisTaskRecord = nodeData.AppendTask(test.Framework, task, defaultDate, frameworkConfigMap, l)
 			}
 
 			//------------------------------------------------------------------
@@ -226,13 +233,12 @@ func updateTasksNode(nodeData *NodeRecord, tests []types.TestsData, mongo mongod
 			//------------------------------------------------------------------
 			// Read new results from MongoDB Results and add to buffer
 			//------------------------------------------------------------------
-
-			var thisTaskResults ResultRecord
+			thisTaskResults := thisTaskRecord.GetResultStruct()
 			found = false
 			found, err = thisTaskResults.FindAndLoadResults(nodeData.Address,
 				nodeData.Service,
-				thisTaskRecord.Framework,
-				thisTaskRecord.Task,
+				test.Framework,
+				task,
 				resultsCollection,
 				l)
 			if err != nil {
@@ -240,10 +246,10 @@ func updateTasksNode(nodeData *NodeRecord, tests []types.TestsData, mongo mongod
 			}
 			if found == true {
 				// If nothing is wrong with the result calculation
-				if thisTaskResults.Status == 0 {
+				if thisTaskResults.GetStatus() == 0 {
 					// Add results to current task record
-					for i := 0; i < int(thisTaskResults.NumSamples); i++ {
-						thisTaskRecord.IsertSample(thisTaskResults.Scores[i], time.Now(), thisTaskResults.SampleIds[i])
+					for i := 0; i < int(thisTaskResults.GetNumSamples()); i++ {
+						thisTaskRecord.InsertSample(time.Now(), thisTaskResults.GetSample(i))
 					}
 				}
 				// TODO: handle status!=0
@@ -252,7 +258,7 @@ func updateTasksNode(nodeData *NodeRecord, tests []types.TestsData, mongo mongod
 			//------------------------------------------------------------------
 			// Calculate new averages
 			//------------------------------------------------------------------
-			thisTaskRecord.CalculateStats(l)
+			thisTaskRecord.ProcessData(l)
 
 		}
 
