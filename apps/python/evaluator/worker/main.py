@@ -12,11 +12,8 @@ from packages.python.common.utils import get_from_dict
 from app.app import setup_app, get_app_logger
 from app.config import read_config
 
-from packages.python.lmeh.activities.register_task import register_task as lmeh_register_task
-from packages.python.lmeh.activities.sample import sample as lmeh_sample
 from packages.python.lmeh.activities.evaluate import evaluation as lmeh_evaluate
-from workflows.register import Register
-from workflows.sampler import Sampler
+from workflows.evaluator import Evaluator
 import concurrent.futures
 
 # We always want to pass through external modules to the sandbox that we know
@@ -60,13 +57,9 @@ async def main():
             client,
             task_queue=task_queue,
             workflows=[
-                Register,
-                Sampler,
+                Evaluator,
             ],
             activities=[
-                lmeh_register_task,
-                lmeh_sample,
-                sign_sample,
                 lmeh_evaluate
             ],
             activity_executor=activity_executor,

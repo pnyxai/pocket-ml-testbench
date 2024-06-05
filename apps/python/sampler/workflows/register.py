@@ -6,15 +6,15 @@ from temporalio.common import RetryPolicy
 with workflow.unsafe.imports_passed_through():
     # add this to ensure app config is available on the thread
     from app.app import get_app_logger, get_app_config
-    from protocol.protocol import PocketNetworkRegisterTaskRequest
+    from packages.python.protocol.protocol import  PocketNetworkRegisterTaskRequest
 
     # add any activity that needs to be used on this workflow
-    from activities.lmeh.register_task import register_task as lmeh_register_task
-    from activities.utils import auto_heartbeater
+    from packages.python.lmeh.activities.register_task import register_task as lmeh_register_task
+    from packages.python.common.auto_heartbeater import auto_heartbeater
 
     # lmeh utils
-    from activities.lmeh.utils import generator as lmeh_generator
-    from activities.lmeh.utils import sql as lmeh_sql
+    from packages.python.lmeh.utils import generator as lmeh_generator
+    from packages.python.lmeh.utils import sql as lmeh_sql
 
     # lm_eval
     from lm_eval import utils
@@ -22,7 +22,7 @@ with workflow.unsafe.imports_passed_through():
 
     # pydantic things
     from pydantic import BaseModel
-    from protocol.converter import pydantic_data_converter
+    from packages.python.protocol.converter import pydantic_data_converter
 
     # sql
     import asyncpg

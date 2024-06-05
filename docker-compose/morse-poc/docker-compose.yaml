@@ -439,6 +439,30 @@ services:
         # manager use pocket rpc to retrieve the list of nodes
         condition: service_healthy
 
+  evaluator:
+    <<: *base
+    build:
+      context: ../../
+      dockerfile: apps/python/sampler/Dockerfile
+    image: pocket_ml_testbench_sampler:dev
+    deploy:
+      replicas: 2
+    environment:
+      CONFIG_PATH: /home/app/configs/config.json
+      OPENAI_API_KEY: EMPTY
+      TQDM_DISABLE: "True"
+      HF_DATASETS_DISABLE_PROGRESS_BAR: "True"
+      EVALUATE_VERBOSITY: "error"
+    volumes:
+      - $EVALUATOR_CONFIG_FILE:/home/app/configs/config.json
+    depends_on:
+      temporal:
+        condition: service_started
+      mongodb:
+        condition: service_healthy
+      postgresql:
+        condition: service_healthy
+
 networks:
   morse-poc:
     name: morse-poc

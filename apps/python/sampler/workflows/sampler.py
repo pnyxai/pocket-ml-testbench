@@ -1,7 +1,7 @@
 from datetime import timedelta
 from temporalio import workflow
 from temporalio.common import RetryPolicy
-from protocol.protocol import PocketNetworkTaskRequest
+from packages.python.protocol.protocol import  PocketNetworkTaskRequest
 from temporalio.exceptions import ApplicationError
 
 
@@ -12,7 +12,7 @@ with workflow.unsafe.imports_passed_through():
     from activities.lmeh.sample import lmeh_sample as lmeh_sample
     from activities.signatures.signatures import sign_sample as sign_sample
     from pydantic import BaseModel
-    from protocol.converter import pydantic_data_converter
+    from packages.python.protocol.converter import pydantic_data_converter
 
 
 @workflow.defn
