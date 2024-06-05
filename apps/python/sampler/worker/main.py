@@ -13,7 +13,8 @@ from app.app import setup_app, get_app_logger
 from app.config import read_config
 
 from activities.lmeh.register_task import register_task as lmeh_register_task
-from activities.lmeh.sample import sample as lmeh_sample
+from activities.lmeh.sample import lmeh_sample as lmeh_sample
+from activities.signatures.signatures import sign_sample as sign_sample
 from workflows.register import Register
 from workflows.sampler import Sampler
 import concurrent.futures
@@ -65,6 +66,7 @@ async def main():
             activities=[
                 lmeh_register_task,
                 lmeh_sample,
+                sign_sample,
             ],
             activity_executor=activity_executor,
             max_concurrent_activities=max_workers,

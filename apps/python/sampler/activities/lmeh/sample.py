@@ -23,7 +23,7 @@ from activities.utils import auto_heartbeater
 
 @activity.defn
 @auto_heartbeater
-async def sample(args: PocketNetworkTaskRequest) -> bool:
+async def lmeh_sample(args: PocketNetworkTaskRequest) -> bool:
     app_config = get_app_config()
     eval_logger = get_app_logger("sample")
 

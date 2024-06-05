@@ -41,6 +41,18 @@ for key in "${key_array[@]}"; do
 done
 
 temporal schedule create \
+      --schedule-id "lmeh-tokenizer-00A1" \
+      --workflow-id "lmeh-tokenizer-00A1" \
+      --namespace 'pocket-ml-testbench' \
+      --workflow-type 'Manager' \
+      --task-queue 'manager' \
+      --cron '@every 2m' \
+      --execution-timeout 350 \
+      --task-timeout 175 \
+      --overlap-policy 'BufferOne' \
+      --input "{\"service\":\"00A1\", \"tests\": [{\"framework\": \"signatures\", \"tasks\": [\"tokenizer\"]}]}"
+
+temporal schedule create \
     --schedule-id 'f3abbe313689a603a1a6d6a43330d0440a552288-00A1' \
     --workflow-id 'f3abbe313689a603a1a6d6a43330d0440a552288-00A1' \
     --namespace 'pocket-ml-testbench' \
