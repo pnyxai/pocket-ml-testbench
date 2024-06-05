@@ -26,5 +26,7 @@ class Sampler:
                 start_to_close_timeout=timedelta(seconds=300),
                 retry_policy=RetryPolicy(maximum_attempts=2),
             )
+        if params.framework == "signatures":
+            pass
 
         raise ApplicationError(f"{params.framework} framework not implemented yet")

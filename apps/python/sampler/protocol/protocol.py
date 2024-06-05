@@ -23,9 +23,9 @@ class PocketNetworkTaskRequest(PocketNetworkRegisterTaskRequest):
     blacklist: Optional[List[int]] = []
     qty: Optional[Union[int, Literal["all"]]] = None
     doc_ids: Optional[List[int]] = None
-    llm_args: Optional[Dict] = None
-    model: Optional[str] = "pocket_network"
-    num_fewshot: Optional[int] = Field(None, ge=0)
+    model: Optional[str] = "pocket_network"       
+    llm_args: Optional[Dict] = None                # TODO : Remove: This is LLM specific, move to agnostic format.
+    num_fewshot: Optional[int] = Field(None, ge=0) # TODO : Remove: This is LLM specific, move to agnostic format.
 
     @field_validator("qty")
     def check_qty(cls, v):
@@ -67,15 +67,43 @@ class PyObjectId(ObjectId):
         if not isinstance(v, ObjectId):
             raise ValueError('Not a valid ObjectId')
         return str(v)
+    
+# This class serves a subgroup of prompts, as a task can have many instances
+# and each instance have many prompts. If not all the prompts are finished an
+# instance cannot be finished.
+# The actual record contains many more optional (and variable) fields, but these
+# are mandatory.
+class PocketNetworkMongoDBInstance(BaseModel):
+    _id: Optional[ObjectId] = None
+    done: bool = False
+	# -- Relations Below --
+    task_id: ObjectId 
+
+
+class PocketNetworkMongoDBPrompt(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    _id: Optional[ObjectId] = None
+    data: str
+    task_id: ObjectId
+    instance_id: ObjectId
+    timeout: int = 20
+    done: bool = False
+
+    @model_validator(mode="after")
+    def create_id(cls, values):
+        if "_id" not in values:
+            values._id = ObjectId()
+        return values
+    
 
 class PocketNetworkMongoDBTask(BaseModel):
-    framework: Literal["lmeh", "helm"]
+    framework: Literal["lmeh", "helm", "signatures"]
     requester_args: RequesterArgs
     blacklist: Optional[List[int]] = []
     qty: int
     tasks: str
     total_instances: int
-    request_type: str
+    request_type: str   # TODO : Remove, specific of LMEH
     id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
     done: bool = False
 
@@ -124,17 +152,3 @@ class CompletionRequest(OpenAIBaseModel):
                     del data[field]
         return data
 
-class PromptMongoDB(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-    _id: Optional[ObjectId] = None
-    data: str
-    task_id: ObjectId
-    instance_id: ObjectId
-    timeout: int = 20
-    done: bool = False
-
-    @model_validator(mode="after")
-    def create_id(cls, values):
-        if "_id" not in values:
-            values._id = ObjectId()
-        return values
