@@ -27,7 +27,6 @@ type NodeRecord struct {
 	LastSeenTime   time.Time             `bson:"last_seen_time"`
 	NumericalTasks []NumericalTaskRecord `bson:"numerical_tasks"`
 	SignatureTasks []SignatureTaskRecord `bson:"signature_tasks"`
-	Tokenizer      string                `bson:"tokenizer"` // TODO: Remove this in the future, in favor of a signature task
 }
 
 // Creates and array of interfaces that contains all tasks
@@ -205,9 +204,6 @@ func (record *NodeRecord) AppendTask(framework string, task string, date time.Ti
 
 func (record *NodeRecord) Init(params types.AnalyzeNodeParams, frameworkConfigMap map[string]types.FrameworkConfig, l *zerolog.Logger) error {
 	// Initialize empty record
-
-	// TODO: Remove this placeholder
-	record.Tokenizer = "83332a7f32e4188bb276a18ff78620acfd3c6edbd68002b746bda990ed30d56c"
 
 	// Set node data
 	record.Address = params.Node.Address

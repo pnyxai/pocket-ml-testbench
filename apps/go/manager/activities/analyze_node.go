@@ -71,8 +71,18 @@ func (aCtx *Ctx) AnalyzeNode(ctx context.Context, params types.AnalyzeNodeParams
 		for _, task := range test.Tasks {
 			l.Debug().Str("address", thisNodeData.Address).Str("service", thisNodeData.Service).Str("framework", test.Framework).Str("task", task).Msg("Checking task requests.")
 
+			// Check task dependencies
+			depStatus, err := records.CheckTaskDependency(&thisNodeData, test.Framework, task, aCtx.App.Config.Frameworks, l)
+			if err != nil {
+				l.Error().Msg("Could not check task dependencies.")
+				return nil, err
+			}
+			if !depStatus {
+				l.Info().Str("address", thisNodeData.Address).Str("service", thisNodeData.Service).Str("framework", test.Framework).Str("task", task).Msg("Does not meet task dependencies, ignoring for now.")
+			}
+
 			// Get task record
-			thisTaskRecord, found := getTaskData(&thisNodeData, test.Framework, task, l)
+			thisTaskRecord, found := records.GetTaskData(&thisNodeData, test.Framework, task, l)
 			if found != true {
 				l.Error().Str("address", thisNodeData.Address).Str("service", thisNodeData.Service).Str("framework", test.Framework).Str("task", task).Msg("not found task entry after check creation (task should be present at this point)")
 				return nil, fmt.Errorf("not found task entry after check creation (task should be present at this point)")
@@ -168,23 +178,7 @@ func (aCtx *Ctx) AnalyzeNode(ctx context.Context, params types.AnalyzeNodeParams
 	return &result, nil
 }
 
-// Get specific task data from a node record
-func getTaskData(nodeData *records.NodeRecord, framework string, task string, l *zerolog.Logger) (records.TaskInterface, bool) {
-
-	// Get all tasks as a single array
-	combinedTasks := nodeData.CombineTasks()
-	// Look for entry
-	for _, taskEntry := range combinedTasks {
-		// Check if the Name field matches the search string
-		if taskEntry.GetFramework() == framework && taskEntry.GetTask() == task {
-			l.Debug().Str("address", nodeData.Address).Str("service", nodeData.Service).Str("framework", framework).Str("task", task).Msg("Found!")
-			return taskEntry, true
-		}
-	}
-
-	return nil, false
-}
-
+// Checks status of all node's tasks, drops old ones, checks for new results and re-computes.
 func updateTasksNode(nodeData *records.NodeRecord, tests []types.TestsData, frameworkConfigMap map[string]types.FrameworkConfig, mongo mongodb.MongoDb, l *zerolog.Logger) (err error) {
 
 	nodeData.LastSeenHeight += 1
@@ -213,7 +207,7 @@ func updateTasksNode(nodeData *records.NodeRecord, tests []types.TestsData, fram
 			//------------------------------------------------------------------
 			// Get stored data for this task
 			//------------------------------------------------------------------
-			thisTaskRecord, found := getTaskData(nodeData, test.Framework, task, l)
+			thisTaskRecord, found := records.GetTaskData(nodeData, test.Framework, task, l)
 
 			if !found {
 				l.Debug().Str("address", nodeData.Address).Str("service", nodeData.Service).Str("framework", test.Framework).Str("task", task).Msg("Not found, creating.")
@@ -256,7 +250,7 @@ func updateTasksNode(nodeData *records.NodeRecord, tests []types.TestsData, fram
 			}
 
 			//------------------------------------------------------------------
-			// Calculate new averages
+			// Calculate new metrics for this task
 			//------------------------------------------------------------------
 			thisTaskRecord.ProcessData(l)
 
