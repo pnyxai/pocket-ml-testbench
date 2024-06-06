@@ -1,6 +1,6 @@
 [
   {
     "id": "00A1",
-    "url": "http://llm-engine:9087"
+    "url": "http://nginx-sidecar:9087"
   }
 ]

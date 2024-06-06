@@ -23,7 +23,7 @@ from activities.utils import auto_heartbeater
 
 @activity.defn
 @auto_heartbeater
-async def sample(args: PocketNetworkTaskRequest) -> bool:
+async def lmeh_sample(args: PocketNetworkTaskRequest) -> bool:
     app_config = get_app_config()
     eval_logger = get_app_logger("sample")
 
@@ -32,7 +32,7 @@ async def sample(args: PocketNetworkTaskRequest) -> bool:
     # START: POCKET NETWORK CODE
     ############################################################
     config = get_app_config()['config']
-    eval_logger.debug(f"Starting activity sample:", task_name=args.tasks, address=args.requester_args.address,
+    eval_logger.debug(f"Starting activity lmeh_sample:", wf_id=wf_id, task_name=args.tasks, address=args.requester_args.address,
                         blacklist=args.blacklist, qty=args.qty)
     args.postgres_uri = config["postgres_uri"]
     args.mongodb_uri = config["mongodb_uri"]

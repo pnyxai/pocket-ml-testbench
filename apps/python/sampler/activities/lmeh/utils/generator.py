@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 from temporalio.exceptions import ApplicationError
 from activities.lmeh.utils import mongodb as lmeh_mongodb
 from activities.lmeh.utils.pocket_lm_eval.tasks import PocketNetworkTaskManager
-from protocol.protocol import PocketNetworkTaskRequest, PocketNetworkMongoDBTask, PromptMongoDB
+from protocol.protocol import PocketNetworkTaskRequest, PocketNetworkMongoDBTask, PocketNetworkMongoDBPrompt
 from pymongo import MongoClient
 
 
@@ -225,7 +225,6 @@ def genererate_requests(
         # Task
         task = task_output.task
         instances = task.instances
-
         task_mongodb = PocketNetworkMongoDBTask(**{
             **args.model_dump(),
             **{"total_instances": len(instances),
@@ -240,9 +239,9 @@ def genererate_requests(
             for pocket_req in instance.resps:
                 instance_id = instance_mongo['_id']
                 data = pocket_req.model_dump_json(exclude_defaults=True)
-                prompt_mongo = PromptMongoDB(data=data, task_id=task_mongodb.id, instance_id=instance_id)
-                insert_mongo_prompt.append(prompt_mongo.model_dump())
-                eval_logger.debug(f"Data:", PromptMongoDB=prompt_mongo)
+                prompt_mongo = PocketNetworkMongoDBPrompt(data=data, task_id=task_mongodb.id, instance_id=instance_id)
+                insert_mongo_prompt.append(prompt_mongo.model_dump(by_alias=True))
+                eval_logger.debug(f"Prompt:", PocketNetworkMongoDBPrompt=prompt_mongo)
     try:
         with mongo_client.start_session() as session:
             with session.start_transaction():

@@ -42,7 +42,7 @@ def reconstruct_instance(_id: str, collection: pymongo.collection.Collection):
     
     return instance
 
-
+# TODO : This should reffer to PocketNetworkMongoDBInstance and not depend on LMEH blindly
 def instance_to_dict(instance: Instance, task_id: ObjectId)-> dict:
     instance_mongo = asdict(instance)
     instance_mongo.pop('resps', None)
