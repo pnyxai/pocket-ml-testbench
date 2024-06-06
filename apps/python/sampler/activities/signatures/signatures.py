@@ -22,13 +22,14 @@ async def sign_sample(args: PocketNetworkTaskRequest) -> bool:
     # Config App
     ############################################################
     app_config = get_app_config()
-    eval_logger = get_app_logger("sampling signatures")
+    logger = get_app_logger("signatures")
 
     wf_id = activity.info().workflow_id
 
     config = get_app_config()["config"]
-    eval_logger.debug(
-        f"Starting activity sample signatures:",
+    logger.debug(
+        f"Starting activity sign_sample:",
+        wf_id=wf_id,
         task_name=args.tasks,
         address=args.requester_args.address,
         blacklist=args.blacklist,
@@ -40,38 +41,37 @@ async def sign_sample(args: PocketNetworkTaskRequest) -> bool:
         # The ping command is cheap and does not require auth.
         mongo_client.admin.command("ping")
     except Exception as e:
-        eval_logger.error(f"Mongo DB connection failed.")
+        logger.error(f"Mongo DB connection failed.")
         raise ApplicationError("Mongo DB connection failed.", non_retryable=True)
-    if args.llm_args is None:
-        args.llm_args = {}
 
     ############################################################
     # Gather all tasks
     ############################################################
     if args.tasks == "tokenizer":
-        eval_logger.debug(f"starting tokenizer task sample")
-        eval_task, eval_instances, eval_prompts = get_tokenizer_task(args.requester_args)
+        logger.debug(f"starting tokenizer task sample")
+        task, instances, prompts = get_tokenizer_task(args.requester_args)
 
     else:
-        eval_logger.error(f"requested task {args.tasks} is not supported")
+        logger.error(f"requested task {args.tasks} is not supported")
         return False
 
     ############################################################
     # Insert into Mongo
     ############################################################
 
-    insert_mongo_prompt = []
     insert_mongo_tasks = []
+    insert_mongo_prompt = []
     insert_mongo_instances = []
-    insert_mongo_tasks.append(eval_task.model_dump(by_alias=True))
+    insert_mongo_tasks.append(task.model_dump(by_alias=True))
+    logger.debug(f"Task:", task=task)
     # Instances
-    for instance_mongo in eval_instances:
+    for instance_mongo in instances:
         insert_mongo_instances.append(instance_mongo.model_dump(by_alias=True))
-        eval_logger.debug(f"Instance:", instance=instance_mongo)
+        logger.debug(f"Instance:", instance=instance_mongo)
         # Prompts
-        for prompt_mongo in eval_prompts:
+        for prompt_mongo in prompts:
             insert_mongo_prompt.append(prompt_mongo.model_dump(by_alias=True))
-            eval_logger.debug(f"Data:", PocketNetworkMongoDBPrompt=prompt_mongo)
+            logger.debug(f"Prompt:", PocketNetworkMongoDBPrompt=prompt_mongo)
     try:
         with mongo_client.start_session() as session:
             with session.start_transaction():
@@ -84,9 +84,9 @@ async def sign_sample(args: PocketNetworkTaskRequest) -> bool:
                 mongo_client["pocket-ml-testbench"]["prompts"].insert_many(
                     insert_mongo_prompt, ordered=False, session=session
                 )
-                eval_logger.debug("Instances saved to MongoDB successfully.")
+                logger.debug("Instances saved to MongoDB successfully.")
     except Exception as e:
-        eval_logger.error("Failed to save Instances to MongoDB.")
+        logger.error("Failed to save Instances to MongoDB.")
         raise ApplicationError("Failed to save instances to MongoDB.", non_retryable=True)
 
     return True

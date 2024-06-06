@@ -5,11 +5,7 @@ from hashlib import sha256
 from pathlib import Path
 from typing import Union
 
-from app.app import get_app_logger
 from transformers import AutoTokenizer, PreTrainedTokenizer, PreTrainedTokenizerFast
-
-eval_logger = get_app_logger("sample")
-
 
 def _get_tokenizer_jsons(tokenizer: Union[PreTrainedTokenizer, PreTrainedTokenizerFast]) -> dict:
     """Get tokenizer jsons been used"""

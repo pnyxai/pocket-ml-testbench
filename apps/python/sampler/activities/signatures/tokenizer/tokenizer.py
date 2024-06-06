@@ -1,14 +1,11 @@
-from typing import TYPE_CHECKING, List, Optional, Union
+from typing import List
 
 from protocol.protocol import (
     PocketNetworkMongoDBInstance,
     PocketNetworkMongoDBPrompt,
     PocketNetworkMongoDBTask,
-    PocketNetworkTaskRequest,
     RequesterArgs,
 )
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
-
 
 def get_tokenizer_task(
     args: RequesterArgs,

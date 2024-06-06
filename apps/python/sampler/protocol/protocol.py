@@ -92,19 +92,11 @@ class PocketNetworkMongoDBInstance(BaseModel):
 class PocketNetworkMongoDBPrompt(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
     id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
-    # _id: Optional[ObjectId] = None
     data: str
     task_id: ObjectId
     instance_id: ObjectId
     timeout: int = 20
     done: bool = False
-
-    # @model_validator(mode="after")
-    # def create_id(cls, values):
-    #     if "_id" not in values:
-    #         values._id = ObjectId()
-    #     return values
-
 
 class PocketNetworkMongoDBTask(BaseModel):
     framework: str
