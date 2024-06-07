@@ -2,15 +2,15 @@ import json
 import os
 import shutil
 import pymongo
-from typing import List
+
 from dataclasses import asdict
-from bson import ObjectId
+from bson.objectid import ObjectId
 from lm_eval.api.instance import Instance
 from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
-from typing import Union
+from typing import Union, List
 from pathlib import Path
 from temporalio.exceptions import ApplicationError
-from packages.python.protocol.protocol import  PocketNetworkMongoDBTask, CompletionRequest, PromptMongoDB, CompletionResponse
+from packages.python.protocol.protocol import  PocketNetworkMongoDBTask, CompletionRequest, PocketNetworkMongoDBPrompt, CompletionResponse
 from packages.python.lmeh.utils.mongo_aggrs import agrr_doc_ids, agrr_response_tree
 
 from app.app import get_app_logger
@@ -44,7 +44,7 @@ def reconstruct_instance(_id: ObjectId, collection: pymongo.collection.Collectio
     
     return instance
 
-
+# TODO : This should reffer to PocketNetworkMongoDBInstance and not depend on LMEH blindly
 def instance_to_dict(instance: Instance, task_id: ObjectId)-> dict:
     instance_mongo = asdict(instance)
     instance_mongo.pop('resps', None)
@@ -150,7 +150,7 @@ def reconstruct_instances(task_id: ObjectId, client: pymongo.MongoClient, db_nam
         instance_dict = {key: value for key, value in i.items() if key in valid_fields}
         instance = Instance(**instance_dict)
         instance.repeats = 1 # to avoid double evaluation for each instance
-        instance.prompt = PromptMongoDB(**p)
+        instance.prompt = PocketNetworkMongoDBPrompt(**p)
         instance.prompt.data = CompletionRequest(**json.loads(instance.prompt.data))
         instance.resp = CompletionResponse(**r)
         instances.append(instance)

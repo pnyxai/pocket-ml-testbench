@@ -8,10 +8,10 @@ from temporalio.exceptions import ApplicationError
 # add file path to sys.path
 sys.path.append(os.path.dirname(os.path.realpath(__file__)))
 from activities.signatures.tokenizer.tokenizer import get_tokenizer_task
-from activities.utils import auto_heartbeater
+from packages.python.common.auto_heartbeater import auto_heartbeater
 
 # Custom modules
-from protocol.protocol import PocketNetworkTaskRequest
+from packages.python.protocol.protocol import PocketNetworkTaskRequest
 
 
 @activity.defn

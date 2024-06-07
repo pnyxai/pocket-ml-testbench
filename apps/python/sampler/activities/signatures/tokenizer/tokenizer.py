@@ -1,6 +1,6 @@
 from typing import List
 
-from protocol.protocol import (
+from packages.python.protocol.protocol import (
     PocketNetworkMongoDBInstance,
     PocketNetworkMongoDBPrompt,
     PocketNetworkMongoDBTask,

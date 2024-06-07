@@ -284,7 +284,7 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
 
         _range = _split_ranges[_split]
 
-        if qty == "all":
+        if qty < 0:
             indexes = self.get_all_doc_ids(_split, _split_ranges)
         else:
             if doc_ids:

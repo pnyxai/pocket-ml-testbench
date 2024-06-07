@@ -24,8 +24,7 @@ from packages.python.common.auto_heartbeater import auto_heartbeater
 
 @activity.defn
 @auto_heartbeater
-async def sample(args: PocketNetworkTaskRequest) -> bool:
-
+async def lmeh_sample(args: PocketNetworkTaskRequest) -> bool:
     ############################################################
     # START: POCKET NETWORK CODE
     ############################################################
@@ -34,7 +33,7 @@ async def sample(args: PocketNetworkTaskRequest) -> bool:
 
     wf_id = activity.info().workflow_id
     config = get_app_config()['config']
-    eval_logger.debug(f"Starting activity sample:", task_name=args.tasks, address=args.requester_args.address,
+    eval_logger.debug(f"Starting activity lmeh_sample:", wf_id=wf_id, task_name=args.tasks, address=args.requester_args.address,
                         blacklist=args.blacklist, qty=args.qty)
     args.postgres_uri = config["postgres_uri"]
     args.mongodb_uri = config["mongodb_uri"]
@@ -105,10 +104,10 @@ async def sample(args: PocketNetworkTaskRequest) -> bool:
             logger=eval_logger,
             stage='sample',
         )
-        eval_logger.debug("Task Manager:", task_manager=task_manager)
+
         try:
             task_config = open_llm_config.get_task_config(task_names[0])
-            #args.num_fewshot = task_config["num_fewshot"]
+            args.num_fewshot = task_config["num_fewshot"]
             task_dict = lmeh_generator.get_configurable_task(
                 tasks=task_names,
                 num_fewshot=args.num_fewshot,

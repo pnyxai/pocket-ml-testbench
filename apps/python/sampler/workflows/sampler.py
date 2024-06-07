@@ -9,7 +9,7 @@ with workflow.unsafe.imports_passed_through():
     # add this to ensure app config is available on the thread
     from app.app import get_app_logger, get_app_config
     # add any activity that needs to be used on this workflow
-    from activities.lmeh.sample import lmeh_sample as lmeh_sample
+    from packages.python.lmeh.activities.sample import lmeh_sample as lmeh_sample
     from activities.signatures.signatures import sign_sample as sign_sample
     from pydantic import BaseModel
     from packages.python.protocol.converter import pydantic_data_converter

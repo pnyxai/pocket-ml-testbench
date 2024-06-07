@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 # REGISTER / REQUESTER
 ######################
 class PocketNetworkRegisterTaskRequest(BaseModel):
-    framework: Literal["lmeh", "helm"]
+    framework: str
     tasks: str
     verbosity: Optional[Literal["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"]] = "ERROR"
     include_path: Optional[str] = None
@@ -22,24 +22,17 @@ class RequesterArgs(BaseModel):
     path: str = "/v1/completions"
     headers: Optional[Dict] = {"Content-Type": "application/json"}
 
+
 class PocketNetworkTaskRequest(PocketNetworkRegisterTaskRequest):
     requester_args: RequesterArgs
     blacklist: Optional[List[int]] = []
-    qty: Optional[Union[int, Literal["all"]]] = None
+    qty: Optional[int] = None
     doc_ids: Optional[List[int]] = None
-    llm_args: Optional[Dict] = None
+    model: Optional[str] = "pocket_network"
+    llm_args: Optional[Dict] = None  # TODO : Remove: This is LLM specific, move to agnostic format.
+    num_fewshot: Optional[int] = Field(None, ge=0)  # TODO : Remove: This is LLM specific, move to agnostic format.
     gen_kwargs:Optional[str] = None
     bootstrap_iters: Optional[int] = 100000
-    model: Optional[str] = "pocket_network"
-    num_fewshot: Optional[int] = Field(None, ge=0)
-
-    @field_validator("qty")
-    def check_qty(cls, v):
-        if isinstance(v, str) and v == "all":
-            return v
-        if isinstance(v, int) and v <= 0:
-            raise ValueError("qty must be greater than 0")
-        return v
 
     @model_validator(mode="after")
     def verify_qty_or_doc_ids(self):
@@ -49,7 +42,7 @@ class PocketNetworkTaskRequest(PocketNetworkRegisterTaskRequest):
 
     @model_validator(mode="after")
     def remove_blacklist_when_all(self):
-        if self.qty == "all":
+        if self.qty < 0:
             self.blacklist = []
             self.doc_ids = None
         return self
@@ -74,24 +67,49 @@ class PyObjectId(ObjectId):
             raise ValueError('Not a valid ObjectId')
         return str(v)
 
+# This class serves a subgroup of prompts, as a task can have many instances
+# and each instance have many prompts. If not all the prompts are finished an
+# instance cannot be finished.
+# The actual record contains many more optional (and variable) fields, but these
+# are mandatory.
+class PocketNetworkMongoDBInstance(BaseModel):
+    id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
+    done: bool = False
+    # -- Relations Below --
+    task_id: ObjectId
+
+    class Config:
+        arbitrary_types_allowed = True
+
+
+class PocketNetworkMongoDBPrompt(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
+    data: str
+    task_id: ObjectId
+    instance_id: ObjectId
+    timeout: int = 20
+    done: bool = False
+    # Fields to avoid futures tokenizer's call
+    ctxlen: Optional[int] = None
+    context_enc: Optional[List[int]] = None
+    continuation_enc: Optional[List[int]] = None
+
+
 class PocketNetworkMongoDBTask(BaseModel):
-    framework: Literal["lmeh", "helm"]
+    framework: str
     requester_args: RequesterArgs
     blacklist: Optional[List[int]] = []
     qty: int
     tasks: str
     total_instances: int
-    request_type: str
+    request_type: str  # TODO : Remove, specific of LMEH
     id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
     done: bool = False
 
     class Config:
         populate_by_name = True
-        json_schema_extra = {
-            "example": {
-                "_id": "60d3216d82e029466c6811d2"
-            }
-        }
+        json_schema_extra = {"example": {"_id": "60d3216d82e029466c6811d2"}}
 
 
 ### From vllm/entrypoints/openai/protocol.py
@@ -134,24 +152,6 @@ class CompletionRequest(BaseModel):
                     del data[field]
         return data
 
-class PromptMongoDB(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-    _id: Optional[ObjectId] = None
-    data: Union[str,CompletionRequest]
-    task_id: ObjectId
-    instance_id: ObjectId
-    timeout: int = 20
-    done: bool = False
-    # Fields to avoid futures tokenizer's call
-    ctxlen: Optional[int] = None
-    context_enc: Optional[List[int]] = None
-    continuation_enc: Optional[List[int]] = None
-
-    @model_validator(mode="after")
-    def create_id(cls, values):
-        if "_id" not in values:
-            values._id = ObjectId()
-        return values
 
 ###########
 # EVALUATOR

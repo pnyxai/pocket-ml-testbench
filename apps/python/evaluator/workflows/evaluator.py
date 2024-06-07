@@ -7,7 +7,6 @@ with workflow.unsafe.imports_passed_through():
     # add this to ensure app config is available on the thread
     from app.app import get_app_logger, get_app_config
     # add any activity that needs to be used on this workflow
-    from packages.python.lmeh.activities.register_task import register_task as lmeh_register_task
     from packages.python.lmeh.activities.evaluate import evaluation as lmeh_evaluation
     from pydantic import BaseModel
     from packages.python.protocol.converter import pydantic_data_converter
