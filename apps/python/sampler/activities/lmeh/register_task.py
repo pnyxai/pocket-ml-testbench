@@ -4,6 +4,7 @@ from temporalio.exceptions import ApplicationError
 from packages.python.lmeh.utils.common import get_task_manager
 from app.app import get_app_logger, get_app_config
 from packages.python.protocol.protocol import PocketNetworkRegisterTaskRequest
+from packages.python.lmeh.pocket_lm_eval.tasks import TASK_MANAGER_REGISTER_STAGE
 from packages.python.lmeh.utils import generator as lmeh_generator
 from packages.python.lmeh.utils import sql as lmeh_sql
 from activities.utils import auto_heartbeater
@@ -35,7 +36,7 @@ async def register_task(args: PocketNetworkRegisterTaskRequest) -> bool:
                 verbosity=str(args.verbosity),
                 logger=eval_logger,
                 postgres_conn=conn,
-                stage='regist',
+                stage=TASK_MANAGER_REGISTER_STAGE,
             )
             eval_logger.debug("Read task names", task_names=task_names)
             # sending many task names to the same activity is slower than send a single task to many register workflows

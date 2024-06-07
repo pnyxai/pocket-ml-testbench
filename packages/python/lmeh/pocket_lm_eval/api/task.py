@@ -26,7 +26,7 @@ from lm_eval.prompts import get_prompt
 from app.app import get_app_logger
 from packages.python.common.mongodb import MongoClient
 from bson import ObjectId
-from packages.python.lmeh.utils.mongodb import reconstruct_instances 
+from packages.python.lmeh.utils.mongodb import MongoOperator
 
 
 class SqlDatasetLoader:
@@ -840,13 +840,15 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
 
 
 class EvaluatePocketNetworkConfigurableTask(PocketNetworkConfigurableTask):
-    
-    def build_all_requests(
+    # todo: override __init__ and receive also mongo_client to set on self.mongo_client avoiding pass it on build_all_requests
+    # like we are already doing on PocketNetworkConfigurableTask
+    # after do that remember call super().__init__(*args, **kwargs)
+    # noinspection PyMethodOverriding
+    async def build_all_requests(
             self,
             *,
             task_id: ObjectId,
             mongo_client: MongoClient,
-            db_name: str = 'pocket-ml-testbench',
             collection: str = 'tasks',
             limit=None,
             rank=None,
@@ -855,9 +857,12 @@ class EvaluatePocketNetworkConfigurableTask(PocketNetworkConfigurableTask):
             rewrite_requests_cache=False,
     ) -> None:
         """Build a set of Instances for a task, and store them in task.instances"""
-        self._instances = reconstruct_instances(task_id=task_id,
-                                                client=mongo_client,
-                                                db_name=db_name,
-                                                collection=collection)
+        self._instances = await MongoOperator(client=mongo_client).reconstruct_instances(task_id=task_id)
+
         if len(self._instances) == 0:
-            raise ApplicationError("task.build_requests() did not find any docs!", task_id=task_id)
+            raise ApplicationError(
+                "task.build_all_requests() did not find any docs!",
+                task_id,
+                type="DocumentsNotFound",
+                non_retryable=False,
+            )

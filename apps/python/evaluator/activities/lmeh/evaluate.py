@@ -1,42 +1,63 @@
+from bson import ObjectId
 from temporalio import activity
 from temporalio.exceptions import ApplicationError
+
 from app.app import get_app_logger, get_app_config
-
-import os
-import sys
-
-from lm_eval import utils
-from lm_eval.tasks import TaskManager
 from packages.python.lmeh.pocket_lm_eval.models.pocket_network import EvaluatorLM
-# add file path to sys.path
-sys.path.append(os.path.dirname(os.path.realpath(__file__)))
-# Custom modules
+from packages.python.lmeh.utils.common import get_task_manager
 from packages.python.lmeh.utils import generator as lmeh_generator
-from packages.python.protocol.protocol import  PocketNetworkEvaluationTaskRequest
-from packages.python.lmeh.utils.mongodb import get_doc_ids_by_task, get_task
-from packages.python.lmeh.pocket_lm_eval.tasks import PocketNetworkTaskManager
+from packages.python.protocol.protocol import PocketNetworkEvaluationTaskRequest
+from packages.python.lmeh.utils.mongodb import MongoOperator
 from packages.python.common.auto_heartbeater import auto_heartbeater
-from bson import ObjectId
+from packages.python.lmeh.pocket_lm_eval.tasks import TASK_MANAGER_EVALUATE_STAGE
+from packages.python.lmeh.utils import sql as lmeh_sql
 
 
 @activity.defn
 @auto_heartbeater
-async def evaluation(args: PocketNetworkEvaluationTaskRequest) -> bool:
+async def evaluation(args: PocketNetworkEvaluationTaskRequest) -> dict:
+    """
+    Returns a dict where each key is a task name with the evaluation result.
+    :param args:
+    :return:
+    """
     ############################################################
     # START: POCKET NETWORK CODE
     ############################################################
     app_config = get_app_config()
     eval_logger = get_app_logger("evaluation")
     config = get_app_config()['config']
-    wf_id = activity.info().workflow_id
-    args.task_id = ObjectId(args.task_id)
-    mongo_client = config["mongo_client"]
+
+    if args.tasks is None:
+        eval_logger.error("Need to specify task to evaluate.")
+        raise ApplicationError(
+            "Need to specify task to evaluate.",
+            args.tasks,
+            type="BadParams",
+            non_retryable=True
+        )
+
+    try:
+        args.task_id = ObjectId(args.task_id)
+    except Exception as e:
+        raise ApplicationError(
+            "Bad Task ID format",
+            str(e), args.task_id,
+            type="BadParams",
+            non_retryable=True,
+        )
+
     if args.llm_args is None:
         args.llm_args = {}
-    doc_ids = await get_doc_ids_by_task(args.task_id, mongo_client)
+
+    mongo_client = config["mongo_client"]
+    mongo_operator = MongoOperator(client=mongo_client)
+
+    doc_ids = await mongo_operator.get_doc_ids_by_task(args.task_id)
     args.doc_ids = doc_ids
+
     # Recreate Task request.
-    task_mongo = await get_task(args.task_id, mongo_client)
+    task_mongo = await mongo_operator.get_task(args.task_id)
     args.tasks = task_mongo.tasks
     args.blacklist = task_mongo.blacklist
     args.qty = task_mongo.qty
@@ -44,121 +65,132 @@ async def evaluation(args: PocketNetworkEvaluationTaskRequest) -> bool:
     args.gen_kwargs = task_mongo.gen_kwargs
     if args.llm_args is None:
         args.llm_args = {}
+
     args.requester_args = task_mongo.requester_args
     if not task_mongo.done:
-        eval_logger.error(f"Task is not done.")
-        raise ApplicationError("Task is not done.", task_id= args.task_id, non_retryable=True)
+        eval_logger.error("Task is not done.")
+        raise ApplicationError(
+            "Task is not done.",
+            args.task_id,
+            type="TaskNotDone",
+            non_retryable=False,
+        )
     ############################################################
     # END: POCKET NETWORK CODE
     ############################################################
 
-    eval_logger.debug(f"Starting activity evaluation:", task_id=args.task_id, address=args.requester_args.address,
-                        blacklist=args.blacklist, qty=args.qty)
-    if args.include_path is not None:
-        eval_logger.debug(f"Including path: {args.include_path}")
-    task_manager = TaskManager(args.verbosity, include_path=args.include_path)
+    eval_logger.debug(
+        "Starting activity evaluation:",
+        task_id=args.task_id,
+        address=args.requester_args.address,
+        blacklist=args.blacklist,
+        qty=args.qty,
+    )
 
-    if args.tasks is None:
-        eval_logger.error("Need to specify task to evaluate.")
-        raise ApplicationError("Need to specify task to evaluate.", non_retryable=True)
-    elif args.tasks == "list":
-        eval_logger.debug(
-            "Available Tasks:\n - {}".format("\n - ".join(task_manager.all_tasks))
-        )
-        raise ApplicationError("Available Tasks:\n - {}".format("\n - ".join(task_manager.all_tasks)),
-                                non_retryable=True)
-    else:
-        if os.path.isdir(args.tasks):
-            import glob
+    r = {}
 
-            task_names = []
-            yaml_path = os.path.join(args.tasks, "*.yaml")
-            for yaml_file in glob.glob(yaml_path):
-                config = utils.load_yaml_config(yaml_file)
-                task_names.append(config)
-        else:
-            task_list = args.tasks.split(",")
-            task_names = task_manager.match_tasks(task_list)
-            for task in [task for task in task_list if task not in task_names]:
-                if os.path.isfile(task):
-                    config = utils.load_yaml_config(task)
-                    task_names.append(config)
-            task_missing = [
-                task for task in task_list if task not in task_names and "*" not in task
-            ]  # we don't want errors if a wildcard ("*") task name was used
-
-            if task_missing:
-                missing = ", ".join(task_missing)
-                eval_logger.error(
-                    f"Tasks were not found: {missing}\n"
-                    f"{utils.SPACING}Try `lm-eval --tasks list` for list of available tasks",
-                )
-                raise ApplicationError(
-                    f"Tasks not found: {missing}. Try `lm-eval --tasks list` for list of available tasks, or '--verbosity DEBUG' to troubleshoot task registration issues.",
-                    non_retryable=True
-                )
-
-    eval_logger.info("Generating ConfigurableTask")
+    # retrieve database connection
+    eval_logger.debug("Acquiring Postgres Connection from pool")
     async with app_config["postgres"].acquire() as conn:
-        task_manager = PocketNetworkTaskManager(
-            postgres_conn=conn,
-            verbosity=args.verbosity,
-            pocket_args=args,
-            logger=eval_logger,
-            stage='evaluate'
-        )
-        try:
-            task_dict = lmeh_generator.get_configurable_task(
-                tasks=task_names,
-                num_fewshot=args.num_fewshot,
-                check_integrity=False,
-                gen_kwargs=args.gen_kwargs,
-                task_manager=task_manager,
+        async with conn.transaction():
+            task_manager, task_names = get_task_manager(
+                tasks=args.tasks,
+                include_path=args.include_path,
                 verbosity=str(args.verbosity),
-                predict_only=False,
-                eval_logger=eval_logger,
+                logger=eval_logger,
+                postgres_conn=conn,
+                stage=TASK_MANAGER_EVALUATE_STAGE,
             )
-            for task_name in task_dict.keys():
-                eval_logger.debug(f"Downloading {task_name}")
-                eval_logger.debug(f"Task: {task_dict[task_name]}")
-                await task_dict[task_name].download()
+            eval_logger.debug("Read task names", task_names=task_names)
 
-            eval_logger.info("ConfigurableTask generated successfully:", task_dict=task_dict)
-        except ApplicationError as e:
-            raise e
-        except Exception as error:
-            raise ApplicationError(
-                "Unexpected error running lmeh_generator.get_configurable_task",
-                error,
-                type="Unexpected",
-                non_retryable=True,
-            )
+            for task_name in task_names:
+                # lookup the task on task_registry before try to load it
+                if not await lmeh_sql.checked_task(task_name, connection=conn):
+                    raise ApplicationError(
+                        "Task not found on task_registry table",
+                        task_name,
+                        type="NotFound",
+                        non_retryable=False,
+                    )
 
-        # Instance LM
-        eval_logger.debug("Generating LM")
-        lm = EvaluatorLM(**args.llm_args)
-        eval_logger.debug("LM generated successfully.")
+                # generate configurable tasks
+                try:
+                    task_dict = lmeh_generator.get_configurable_task(
+                        tasks=[task_name],
+                        num_fewshot=args.num_fewshot,
+                        check_integrity=False,
+                        gen_kwargs=args.gen_kwargs,
+                        task_manager=task_manager,
+                        verbosity=str(args.verbosity),
+                        predict_only=False,
+                        eval_logger=eval_logger,
+                    )
+                except ApplicationError as e:
+                    raise e
+                except Exception as error:
+                    eval_logger.error("Generate Task raise an error", task_name=task_name, error=error)
+                    raise ApplicationError(
+                        "Generate TaskDict raise an error",
+                        str(error),
+                        type="LmehGenerator",
+                        non_retryable=True,
+                    )
 
-        results = lmeh_generator.evaluate(
-            lm=lm,
-            task_dict=task_dict,
-            task_id=args.task_id,
-            mongo_client=mongo_client,
-            eval_logger=eval_logger,
-            bootstrap_iters=args.bootstrap_iters,
-        )
-        eval_logger.info("Evaluation completed successfully.")
+                # add another check just in case - does not hurt anybody
+                if not task_dict[task_name]:
+                    raise ApplicationError(
+                        "Missing Task name on TaskDict",
+                        task_name,
+                        type="LmehGenerator",
+                        non_retryable=False
+                    )
 
-    if lm.rank == 0:
-        # add info about the model and few shot config
-        results["config"] = {
-            "model": args.requester_args.address,
-            "model_args": args.llm_args,
-            "bootstrap_iters": args.bootstrap_iters,
-            "gen_kwargs": args.gen_kwargs,
-        }
-        results["git_hash"] = get_git_commit_hash()
-        results["date"] = start_date
-        add_env_info(results)  # additional environment info to results
+                # load dataset from database
+                try:
+                    # it is loading data from sql to a dataset
+                    await task_dict[task_name].load_from_sql()
+                    eval_logger.info("Task loaded successfully:", task_dict=task_dict)
+                except ApplicationError as e:
+                    raise e
+                except Exception as error:
+                    error_msg = "Load Dataset from SQL runs in errors"
+                    eval_logger.error(error_msg, task_name=task_name, error=error, )
+                    raise ApplicationError(
+                        error_msg,
+                        str(error),
+                        type="SQLError",
+                        non_retryable=True
+                    )
 
-        return results
+                # Instance LM
+                eval_logger.debug("Generating LM")
+                lm = EvaluatorLM(**args.llm_args)
+                eval_logger.debug("LM generated successfully.")
+                results = await lmeh_generator.evaluate(
+                    lm=lm,
+                    task_dict=task_dict,
+                    task_id=args.task_id,
+                    mongo_client=mongo_client,
+                    eval_logger=eval_logger,
+                    bootstrap_iters=args.bootstrap_iters,
+                )
+                eval_logger.info("Evaluation completed successfully.")
+
+                if lm.rank == 0:
+                    # add info about the model and few shot config
+                    results["config"] = {
+                        "model": args.requester_args.address,
+                        "model_args": args.llm_args,
+                        "bootstrap_iters": args.bootstrap_iters,
+                        "gen_kwargs": args.gen_kwargs,
+                    }
+
+                    # todo: resolve code below
+                    # results["git_hash"] = get_git_commit_hash()
+                    # results["date"] = start_date
+                    # add_env_info(results)  # additional environment info to results
+
+                # assign evaluation's result to a general result under task name, because we iterate over all the tasks
+                r[task_name] = results
+
+    return r

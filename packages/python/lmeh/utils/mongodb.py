@@ -1,164 +1,198 @@
 import json
-from typing import List
+from typing import List, Optional
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCollection
 from dataclasses import asdict
 from bson.objectid import ObjectId
 from lm_eval.api.instance import Instance
 from temporalio.exceptions import ApplicationError
-from packages.python.protocol.protocol import  PocketNetworkMongoDBTask, CompletionRequest, PocketNetworkMongoDBPrompt, CompletionResponse
-from packages.python.lmeh.utils.mongo_aggrs import agrr_doc_ids, agrr_response_tree
+from packages.python.protocol.protocol import PocketNetworkMongoDBTask, CompletionRequest, PocketNetworkMongoDBPrompt, \
+    CompletionResponse
+from packages.python.lmeh.utils.mongo_aggrs import aggregate_doc_ids, aggregate_response_tree
 
 from app.app import get_app_logger
 from packages.python.common.mongodb import MongoClient
+
 eval_logger = get_app_logger("sample")
 evaluation_logger = get_app_logger("evaluation")
 
 
-async def reconstruct_instance(_id: str, collection: AsyncIOMotorCollection):
-    """
-    Reconstructs an Instance object from a MongoDB document.
+class MongoOperator:
+    def __init__(self, client: MongoClient, collections_map=None):
+        if collections_map is None:
+            collections_map = {}
 
-    Args:
-        _id (str): The ID of the document to reconstruct.
-        collection (pymongo.collection.Collection): The MongoDB collection to query.
+        self.client = client
+        # try to read the rewrite collection name or use the default one
+        # avoiding pass it on every call if not need
+        self.tokenizers_collection = collections_map["tokenizers"] if "tokenizers" in collections_map else "tokenizers"
+        self.nodes_collection = collections_map["nodes"] if "nodes" in collections_map else "nodes"
+        self.tasks_collection = collections_map["tasks"] if "tasks" in collections_map else "tasks"
+        self.instances_collection = collections_map["instances"] if "instances" in collections_map else "instances"
+        self.prompts_collection = collections_map["prompts"] if "prompts" in collections_map else "prompts"
+        self.responses_collection = collections_map["responses"] if "responses" in collections_map else "responses"
 
-    Returns:
-        Instance: The reconstructed Instance object.
-    """
+    # TODO : This should reffer to PocketNetworkMongoDBInstance and not depend on LMEH blindly
+    @staticmethod
+    def instance_to_dict(instance: Instance, task_id: ObjectId) -> dict:
+        instance_mongo = asdict(instance)
+        instance_mongo.pop('resps', None)
+        instance_mongo.pop('filtered_resps', None)
+        instance_mongo['task_id'] = task_id
+        instance_mongo['_id'] = ObjectId()
+        instance_mongo['done'] = False
+        return instance_mongo
 
-    instance = await collection.find_one({"_id": ObjectId(_id)})
-    if instance is None:
-        raise ApplicationError(f"Instance {_id} does not exist in the database.")
+    async def get_tokenizer_objects(self, address: str, service: str) -> dict:
+        node = await self.client.db[self.nodes_collection].find_one({'address': address, 'service': service})
 
-    valid_fields = {field.name for field in Instance.__dataclass_fields__.values()}
-    instance_dict = {key: value for key, value in instance.items() if key in valid_fields}
-    instance = Instance(**instance_dict)
+        if node is None:
+            eval_logger.error("Node address not found.", adress=address)
+            raise ApplicationError(f"Node address {address} does not exist in the database.")
 
-    # TODO 
-    # 1) GET PROMPT RESPONSE
+        eval_logger.debug("Node found.", node=node)
 
-    # 2) PUT RESPONSE IN `Instance.resp` like in:
-    #       for x, req in zip(resps, cloned_reqs):
-    #           req.resps.append(x)
+        # Check if tokenizer signature exists
+        if node.get('signature_tasks', None) is None:
+            eval_logger.error("Node address has no signature_tasks, cannot load tokenizer hash.", adress=address)
+            raise ApplicationError(f"Node address {address}, has no signature_tasks cannot load tokenizer hash.")
 
-    return instance
+        tokenizer_hash = ''
+        for task in node['signature_tasks']:
+            if (task['task_data']['framework'] == 'signatures') and (task['task_data']['task'] == 'tokenizer'):
+                tokenizer_hash = task['last_signature']
 
-# TODO : This should reffer to PocketNetworkMongoDBInstance and not depend on LMEH blindly
-def instance_to_dict(instance: Instance, task_id: ObjectId)-> dict:
-    instance_mongo = asdict(instance)
-    instance_mongo.pop('resps', None)
-    instance_mongo.pop('filtered_resps', None)
-    instance_mongo['task_id'] = task_id
-    instance_mongo['_id'] = ObjectId()
-    instance_mongo['done'] = False
-    return instance_mongo
+        if tokenizer_hash == '':
+            eval_logger.error("Node address does not have a valid tokenizer_hash.", adress=address)
+            raise ApplicationError(f"Node address {address} does not have a valid tokenizer_hash.")
 
-async def get_tokenizer_objects(
-        address: str, service: str,
-        client: MongoClient,
-        nodes_collection_name: str = 'nodes',
-        tokenizers_collection_name: str = 'tokenizers'
-) -> dict:
-    node = await client.db[nodes_collection_name].find_one({'address': address, 'service': service})
+        tokenizer_object = await self.client.db[self.tokenizers_collection].find_one({'hash': tokenizer_hash})
 
-    if node is None:
-        eval_logger.error("Node address not found.", adress=address)
-        raise ApplicationError(f"Node address {address} does not exist in the database.")
+        # Validate that the tokenizer is not empty
+        if tokenizer_object is None:
+            eval_logger.error(f"Tokenizer hash not found.", address=address, hash=tokenizer_hash)
+            raise ApplicationError(f"Tokenizer with hash {tokenizer_hash} does not exist in the database.")
 
-    eval_logger.debug("Node found.", node=node)
+        tokenizer = tokenizer_object['tokenizer']
+        eval_logger.debug("Tokenizer found.", tokenizer_keys=list(tokenizer.keys()))
 
-    # Check if tokenizer signature exists
-    if node.get('signature_tasks', None) == None:
-        eval_logger.error("Node address has no signature_tasks, cannot load tokenizer hash.", adress=address)
-        raise ApplicationError(f"Node address {address}, has no signature_tasks cannot load tokenizer hash.")
+        if 'model_max_length' in tokenizer['tokenizer_config']:
+            tokenizer['tokenizer_config']['model_max_length'] = int(
+                tokenizer['tokenizer_config']['model_max_length'])
 
-    tokenizer_hash = ''
-    for task in node['signature_tasks']:
-        if (task['task_data']['framework'] == 'signatures') and (task['task_data']['task'] == 'tokenizer'):
-            tokenizer_hash = task['last_signature']
-    if tokenizer_hash == '':
-        eval_logger.error("Node address does not have a valid tokenizer_hash.", adress=address)
-        raise ApplicationError(f"Node address {address} does not have a valid tokenizer_hash.")
+        return tokenizer
 
-    tokenizer_object = await client.db[tokenizers_collection_name].find_one({'hash': tokenizer_hash})
+    async def get_prompt_request(self, request_id: ObjectId) -> CompletionRequest:
+        prompt_doc = await self.client.db[self.prompts_collection].find_one({'_id': request_id})
 
-    # Validate that the tokenizer is not empty
-    if tokenizer_object is None:
-        eval_logger.error(f"Tokenizer hash not found.", address=address, hash=tokenizer_hash)
-        raise ApplicationError(f"Tokenizer with hash {tokenizer_hash} does not exist in the database.")
+        if prompt_doc is None:
+            eval_logger.error("Prompt request not found.", request_id=request_id)
+            raise ApplicationError(f"Prompt request with ID {request_id} does not exist in the database.")
 
-    tokenizer = tokenizer_object['tokenizer']
-    eval_logger.debug("Tokenizer found.", tokenizer_keys=list(tokenizer.keys()))
+        data = prompt_doc['data']
+        try:
+            # handle the exception to bring a light on production debugging if needed.
+            data = json.loads(data)
+        except Exception as e:
+            raise ApplicationError(
+                "Bad JSON data format",
+                data, str(e),
+                type="BadJSONFormat",
+                non_retryable=True,
+            )
 
-    if 'model_max_length' in tokenizer['tokenizer_config']:
-        tokenizer['tokenizer_config']['model_max_length'] = int(
-            tokenizer['tokenizer_config']['model_max_length'])
+        request = CompletionRequest(**data)
+        eval_logger.debug("Prompt request found.", request_id=request_id)
 
-    return tokenizer
+        return request
 
-async def get_prompt_request(
-        request_id: ObjectId,
-        client: AsyncIOMotorClient,
-        collection='prompts',
-) -> CompletionRequest:
-    prompt_doc = await client.db[collection].find_one({'_id': request_id})
+    ###############################################
+    # Evaluator
+    ################################################
+    async def get_doc_ids_by_task(self, task_id: ObjectId) -> List[int]:
+        # Create the aggregation pipeline with the given task_id
+        aggr = aggregate_doc_ids(task_id)
+        # Execute the aggregation
+        cursor = self.client.db[self.instances_collection].aggregate(aggr)
+        # get all of them
+        result = await cursor.to_list(lenght=None)
 
-    if prompt_doc is None:
-        eval_logger.error("Prompt request not found.", request_id=request_id)
-        raise ApplicationError(f"Prompt request with ID {request_id} does not exist in the database.")
+        if len(result) == 0:
+            evaluation_logger.error("Task ID not found.", task_id=task_id)
+            raise ApplicationError(
+                f"Task ID {task_id} does not exist in the database.",
+                task_id,
+                type="TaskNotFound",
+                non_retryable=False,
+            )
 
-    data = prompt_doc['data']
-    data = json.loads(data)
-    request = CompletionRequest(**data)
-    eval_logger.debug(f"Prompt request found.", request_id=request_id)
+        # Convert the result to a list and return it
+        doc_ids = result[0]['doc_ids']
+        return doc_ids
 
-    return request
+    async def get_task(self, task_id: ObjectId):
+        task = await self.client.db[self.tasks_collection].find_one({'_id': task_id})
 
-###############################################
-# Evaluator
-################################################
+        if task is None:
+            evaluation_logger.error("Task ID not found.", task_id=task_id)
+            raise ApplicationError(
+                f"Task ID {task_id} does not exist in the database.",
+                task_id,
+                type="TaskNotFound",
+                non_retryable=False,
+            )
 
-async def get_doc_ids_by_task(task_id: ObjectId, client: MongoClient,
-                collection='instances')->List[int]:
-    # Create the aggregation pipeline with the given task_id
-    aggr = agrr_doc_ids(task_id)
-    # Execute the aggregation
-    result = await client.db[collection].aggregate(aggr)
-    if len(result) == 0:
-        evaluation_logger.error(f"Task ID not found.", task_id=task_id)
-        raise ApplicationError(f"Task ID {task_id} does not exist in the database.")
-    # Convert the result to a list and return it
-    doc_ids = result[0]['doc_ids']
-    return doc_ids
+        task.pop('_id', None)
+        evaluation_logger.debug("Task:", task=task)
+        task = PocketNetworkMongoDBTask(**task)
+        task.id = task_id
 
-async def get_task(task_id: ObjectId, client: MongoClient,
-                collection='tasks'):
-    task = await client.db[collection].find_one({'_id':  task_id})
-    if task is None:
-        evaluation_logger.error(f"Task ID not found.", task_id=task_id)
-        raise ApplicationError(f"Task ID {task_id} does not exist in the database.")
-    task.pop('_id', None)
-    evaluation_logger.debug(f"task:", task=task)
-    task = PocketNetworkMongoDBTask(**task)
-    task.id = task_id
-    return task
+        return task
 
-def reconstruct_instances(task_id: ObjectId, client: MongoClient, db_name:str='pocket-ml-testbench',
-                collection='tasks')->List[Instance]:
-    result = list(client[db_name][collection].aggregate(agrr_response_tree(task_id)))
-    if len(result) == 0:
-        evaluation_logger.error(f"Task ID not found.", task_id=task_id)
-        raise ApplicationError(f"Task ID {task_id} does not exist in the database.")
-    valid_fields = {field.name for field in Instance.__dataclass_fields__.values()}
-    instances = []
-    for doc in result:
-        i, p, r = doc['instance'], doc['prompt'], json.loads(doc['response']['response'])
-        instance_dict = {key: value for key, value in i.items() if key in valid_fields}
-        instance = Instance(**instance_dict)
-        instance.repeats = 1 # to avoid double evaluation for each instance
-        instance.prompt = PocketNetworkMongoDBPrompt(**p)
-        instance.prompt.data = CompletionRequest(**json.loads(instance.prompt.data))
-        instance.resp = CompletionResponse(**r)
-        instances.append(instance)
-    instances = sorted(instances, key=lambda x: (x.doc_id, x.idx))
-    return instances
+    async def reconstruct_instances(self, task_id: ObjectId, ) -> List[Instance]:
+        cursor = self.client.db[self.tasks_collection].aggregate(aggregate_response_tree(task_id))
+        result = await cursor.to_list(length=None)
+
+        if len(result) == 0:
+            evaluation_logger.error("Task ID not found.", task_id=task_id)
+            raise ApplicationError(
+                f"Task ID {task_id} does not exist in the database.",
+                task_id,
+                type="TaskNotFound",
+                non_retryable=False,
+            )
+
+        valid_fields = {field.name for field in Instance.__dataclass_fields__.values()}
+        instances = []
+        for doc in result:
+            i, p, = doc['instance'], doc['prompt'],
+
+            try:
+                # handle the exception to bring a light on production debugging if needed.
+                r = json.loads(doc['response']['response'])
+            except Exception as e:
+                raise ApplicationError(
+                    "Bad JSON data format",
+                    doc['response']['response'], str(e),
+                    type="BadJSONFormat",
+                    non_retryable=True,
+                )
+            instance_dict = {key: value for key, value in i.items() if key in valid_fields}
+            instance = Instance(**instance_dict)
+            instance.repeats = 1  # to avoid double evaluation for each instance
+            instance.prompt = PocketNetworkMongoDBPrompt(**p)
+            try:
+                # handle the exception to bring a light on production debugging if needed.
+                request_data = json.loads(instance.prompt.data)
+            except Exception as e:
+                raise ApplicationError(
+                    "Bad JSON data format",
+                    instance.prompt.data, str(e),
+                    type="BadJSONFormat",
+                    non_retryable=True,
+                )
+            instance.prompt.data = CompletionRequest(**request_data)
+            instance.resp = CompletionResponse(**r)
+            instances.append(instance)
+
+        instances = sorted(instances, key=lambda x: (x.doc_id, x.idx))
+        return instances

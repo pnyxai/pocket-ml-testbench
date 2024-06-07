@@ -4,6 +4,7 @@ from typing import List, Literal, Optional, Union, Dict
 from bson import ObjectId
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+
 ######################
 # REGISTER / REQUESTER
 ######################
@@ -12,6 +13,7 @@ class PocketNetworkRegisterTaskRequest(BaseModel):
     tasks: str
     verbosity: Optional[Literal["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"]] = "ERROR"
     include_path: Optional[str] = None
+
 
 class RequesterArgs(BaseModel):
     address: str
@@ -54,6 +56,7 @@ class PocketNetworkTaskRequest(PocketNetworkRegisterTaskRequest):
 
     # TODO: validate that tasks field is unique in task sense,
 
+
 class PyObjectId(ObjectId):
     @classmethod
     def __get_validators__(cls):
@@ -65,9 +68,10 @@ class PyObjectId(ObjectId):
             raise ValueError('Not a valid ObjectId')
         return str(v)
 
-# This class serves a subgroup of prompts, as a task can have many instances
-# and each instance have many prompts. If not all the prompts are finished an
-# instance cannot be finished.
+
+# This class serves a subgroup of prompts, as a task can have many instances,
+# and each instance has many prompts.
+# If not all the prompts are finished, an instance cannot be finished.
 # The actual record contains many more optional (and variable) fields, but these
 # are mandatory.
 class PocketNetworkMongoDBInstance(BaseModel):
@@ -83,7 +87,7 @@ class PocketNetworkMongoDBInstance(BaseModel):
 class PocketNetworkMongoDBPrompt(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
     id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
-    data: str
+    data: Union[str, CompletionRequest]
     task_id: ObjectId
     instance_id: ObjectId
     timeout: int = 20
@@ -110,10 +114,11 @@ class PocketNetworkMongoDBTask(BaseModel):
         json_schema_extra = {"example": {"_id": "60d3216d82e029466c6811d2"}}
 
 
-### From vllm/entrypoints/openai/protocol.py
+# From vllm/entrypoints/openai/protocol.py
 class OpenAIBaseModel(BaseModel):
     # OpenAI API does not allow extra fields
     model_config = ConfigDict(extra="forbid")
+
 
 class CompletionRequest(BaseModel):
     # Ordered by official OpenAI API documentation
@@ -170,11 +175,13 @@ class PocketNetworkEvaluationTaskRequest(PocketNetworkTaskRequest):
     def remove_blacklist_when_all(self):
         return self
 
-### From vllm/entrypoints/openai/protocol.py
+
+# From vllm/entrypoints/openai/protocol.py
 class UsageInfo(OpenAIBaseModel):
     prompt_tokens: int = 0
     total_tokens: int = 0
     completion_tokens: Optional[int] = 0
+
 
 class CompletionLogProbs(OpenAIBaseModel):
     text_offset: List[int] = Field(default_factory=list)
@@ -195,6 +202,7 @@ class CompletionResponseChoice(OpenAIBaseModel):
             "to stop, None if the completion finished for some other reason "
             "including encountering the EOS token"),
     )
+
 
 class CompletionResponse(OpenAIBaseModel):
     id: str = Field(default_factory=lambda: f"cmpl-{str(uuid.uuid4().hex)}")

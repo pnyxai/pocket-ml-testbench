@@ -7,7 +7,7 @@ import lm_eval.models.utils
 from lm_eval import utils
 from lm_eval.api.model import TemplateLM
 from lm_eval.models.openai_completions import get_result
-from packages.python.lmeh.utils.mongodb import get_tokenizer_objects
+from packages.python.lmeh.utils.mongodb import MongoOperator
 from packages.python.lmeh.utils.tokenizers import load_tokenizer
 from app.app import get_app_logger
 from packages.python.protocol.protocol import  RequesterArgs, CompletionRequest
@@ -50,6 +50,7 @@ class PocketNetworkLM(TemplateLM):
         self.wf_id = wf_id
         self.requester_args = requester_args
         self.mongo_client = mongo_client
+        self.mongo_operator = MongoOperator(client=mongo_client)
         
     @property
     def eot_token_id(self):
@@ -77,11 +78,9 @@ class PocketNetworkLM(TemplateLM):
 
     async def load_tokenizer(self):
         # Load tokenizer
-        tokenizer_objects = await get_tokenizer_objects(
+        tokenizer_objects = await self.mongo_operator.get_tokenizer_objects(
             address=self.requester_args.address,
             service=self.requester_args.service,
-            client=self.mongo_client,
-
         )
         self.tokenizer = load_tokenizer(
             tokenizer_objects=tokenizer_objects,

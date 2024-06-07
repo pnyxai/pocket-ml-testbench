@@ -1,9 +1,8 @@
 import logging
-
 import asyncpg
-from typing import Optional, Literal
+from typing import Optional, Union
 from temporalio.exceptions import ApplicationError
-from packages.python.lmeh.pocket_lm_eval.tasks import PocketNetworkTaskManager
+from packages.python.lmeh.pocket_lm_eval.tasks import PocketNetworkTaskManager, STAGE_TYPING
 from packages.python.protocol.protocol import PocketNetworkTaskRequest
 
 
@@ -14,9 +13,10 @@ def get_task_manager(
         postgres_conn: asyncpg.Connection,
         logger: Optional[logging.Logger] = None,
         pocket_args: Optional[PocketNetworkTaskRequest] = None,
-        stage: Optional[Literal['sample', 'evaluate']] = None,
+        stage: Optional[STAGE_TYPING] = None,
 ):
     """
+    :param stage:
     :param pocket_args:
     :param postgres_conn:
     :param tasks: A string representing the tasks to be evaluated. Each task should be separated by a comma.

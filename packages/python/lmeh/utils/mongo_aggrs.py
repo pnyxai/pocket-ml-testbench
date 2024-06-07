@@ -1,7 +1,8 @@
 from bson import ObjectId
 
+
 # Define the aggregation pipeline template
-def agrr_doc_ids(task_id:ObjectId):
+def aggregate_doc_ids(task_id: ObjectId):
     return [
         {
             '$match': {
@@ -49,7 +50,7 @@ def agrr_doc_ids(task_id:ObjectId):
     ]
 
 
-def agrr_response_tree(task_id: ObjectId):
+def aggregate_response_tree(task_id: ObjectId):
     return [
         {
             '$match': {
@@ -57,9 +58,9 @@ def agrr_response_tree(task_id: ObjectId):
             }
         }, {
             '$lookup': {
-                'from': 'instances', 
-                'localField': '_id', 
-                'foreignField': 'task_id', 
+                'from': 'instances',
+                'localField': '_id',
+                'foreignField': 'task_id',
                 'as': 'instance'
             }
         }, {
@@ -68,9 +69,9 @@ def agrr_response_tree(task_id: ObjectId):
             }
         }, {
             '$lookup': {
-                'from': 'prompts', 
-                'localField': 'instance._id', 
-                'foreignField': 'instance_id', 
+                'from': 'prompts',
+                'localField': 'instance._id',
+                'foreignField': 'instance_id',
                 'as': 'prompt'
             }
         }, {
@@ -79,9 +80,9 @@ def agrr_response_tree(task_id: ObjectId):
             }
         }, {
             '$lookup': {
-                'from': 'responses', 
-                'localField': 'prompt._id', 
-                'foreignField': 'prompt_id', 
+                'from': 'responses',
+                'localField': 'prompt._id',
+                'foreignField': 'prompt_id',
                 'as': 'response'
             }
         }, {
@@ -90,4 +91,3 @@ def agrr_response_tree(task_id: ObjectId):
             }
         }
     ]
-

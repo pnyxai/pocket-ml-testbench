@@ -2,20 +2,28 @@ import collections
 import logging
 import asyncpg
 from functools import partial
-from typing import Literal, Mapping, Optional, Union
+from typing import Mapping, Optional, Union
 from temporalio.exceptions import ApplicationError
 from lm_eval import utils
 from lm_eval.tasks import TaskManager
 
-from packages.python.lmeh.pocket_lm_eval.api.task import PocketNetworkConfigurableTask, EvaluatePocketNetworkConfigurableTask
+from packages.python.lmeh.pocket_lm_eval.api.task import PocketNetworkConfigurableTask, \
+    EvaluatePocketNetworkConfigurableTask
 
-from packages.python.protocol.protocol import  PocketNetworkTaskRequest
+from packages.python.protocol.protocol import PocketNetworkTaskRequest
+
+TASK_MANAGER_REGISTER_STAGE = "register"
+TASK_MANAGER_SAMPLE_STAGE = "register"
+TASK_MANAGER_EVALUATE_STAGE = "register"
+
+STAGE_TYPING = Union[TASK_MANAGER_REGISTER_STAGE, TASK_MANAGER_SAMPLE_STAGE, TASK_MANAGER_EVALUATE_STAGE]
+
 
 class PocketNetworkTaskManager(TaskManager):
     def __init__(
             self,
             postgres_conn: asyncpg.Connection,
-            stage: Literal['regist','sample', 'evaluate'],
+            stage: STAGE_TYPING,
             verbosity="ERROR",
             include_path: Optional[str] = None,
             pocket_args: PocketNetworkTaskRequest = None,
@@ -62,9 +70,9 @@ class PocketNetworkTaskManager(TaskManager):
                 task_object = config["class"]()
             else:
                 config = self._process_alias(config, group=group)
-                if self.stage == 'sample' or self.stage == 'regist':
+                if self.stage == TASK_MANAGER_REGISTER_STAGE or self.stage == TASK_MANAGER_SAMPLE_STAGE:
                     task_object = PocketNetworkConfigurableTask(config=config, postgres_conn=self.postgres_conn)
-                elif self.stage == 'evaluate':
+                elif self.stage == TASK_MANAGER_EVALUATE_STAGE:
                     task_object = EvaluatePocketNetworkConfigurableTask(config=config, postgres_conn=self.postgres_conn)
                 else:
                     ApplicationError(f"Stage {self.stage} not supported", non_retryable=True)

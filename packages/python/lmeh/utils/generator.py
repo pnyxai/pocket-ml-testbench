@@ -6,7 +6,7 @@ from lm_eval.evaluator_utils import (
     consolidate_results,
     get_sample_size,
     get_task_list,
-    prepare_print_tasks,    
+    prepare_print_tasks,
     run_task_tests,
 )
 from lm_eval.api.metrics import aggregate_subtask_metrics, pooled_sample_stderr
@@ -19,12 +19,14 @@ if TYPE_CHECKING:
 
 import asyncio
 from temporalio.exceptions import ApplicationError
-from packages.python.lmeh.utils import mongodb as lmeh_mongodb
+from packages.python.lmeh.utils.mongodb import MongoOperator
 from packages.python.lmeh.pocket_lm_eval.tasks import PocketNetworkTaskManager
-from packages.python.protocol.protocol import  PocketNetworkTaskRequest, PocketNetworkMongoDBTask, PocketNetworkMongoDBPrompt
+from packages.python.protocol.protocol import PocketNetworkTaskRequest, PocketNetworkMongoDBTask, \
+    PocketNetworkMongoDBPrompt
 from motor.motor_asyncio import AsyncIOMotorClient
 from packages.python.common.mongodb import MongoClient
 from bson import ObjectId
+
 
 # adapted from evaluator.py # def simple_evaluate(..) from lm-eval-harness to generate config task
 @positional_deprecated
@@ -213,7 +215,7 @@ async def generate_requests(
         ############################################################
 
     eval_logger.debug("Instances generated successfully:")
-    ### Run LM on inputs, get all outputs ###
+    # Run LM on inputs, get all outputs ###
     # execute each type of request
     for reqtype, reqs in requests.items():
         eval_logger.debug(f"Running {reqtype} requests")
@@ -222,11 +224,10 @@ async def generate_requests(
         for req in reqs:
             cloned_reqs.extend([req] * req.repeats)
 
-        # run requests through model
+        # run requests through a model
         resps = getattr(lm, reqtype)(cloned_reqs)
-        eval_logger.debug(f"Response:", resps=resps)
 
-        # put responses from model into a list of length K for each request.
+        # put responses from a model into a list of length K for each request.
         for x, req in zip(resps, cloned_reqs):
             req.resps.append(x)
 
@@ -253,23 +254,24 @@ async def generate_requests(
         insert_mongo_tasks.append(task_mongodb.model_dump(by_alias=True))
         # Instances
         for instance in instances:
-            instance_mongo = lmeh_mongodb.instance_to_dict(instance=instance, task_id=task_mongodb.id)
+            instance_mongo = MongoOperator.instance_to_dict(instance=instance, task_id=task_mongodb.id)
             insert_mongo_instances.append(instance_mongo)
-            eval_logger.debug(f"Instance:", instance=instance)
             # noinspection PyArgumentList
             # Prompts
             for pocket_req in instance.resps:
                 instance_id = instance_mongo['_id']
-                data = pocket_req.model_dump_json(exclude_defaults=True, exclude={"ctxlen", "context_enc", "continuation_enc"})
+                data = pocket_req.model_dump_json(
+                    exclude_defaults=True,
+                    exclude={"ctxlen", "context_enc", "continuation_enc"}
+                )
                 prompt_mongo = PocketNetworkMongoDBPrompt(
                     data=data,
                     task_id=task_mongodb.id,
                     instance_id=instance_id,
                     ctxlen=pocket_req.ctxlen,
-                    context_enc= pocket_req.context_enc,
+                    context_enc=pocket_req.context_enc,
                     continuation_enc=pocket_req.continuation_enc)
-                insert_mongo_prompts.append(prompt_mongo.model_dump(by_alias=True))                
-                eval_logger.debug(f"Prompt:", PromptMongoDB=prompt_mongo)
+                insert_mongo_prompts.append(prompt_mongo.model_dump(by_alias=True))
     try:
         async with mongo_client.start_transaction() as session:
             tasks = [
@@ -306,13 +308,12 @@ async def generate_requests(
     return True
 
 
-def evaluate(
+async def evaluate(
         lm: "LM",
         task_dict,
         task_id: ObjectId,
         mongo_client: MongoClient,
-        db_name: str = 'pocket-ml-testbench',
-        collection: str = 'tasks',        
+        collection: str = 'tasks',
         limit: Optional[int] = None,
         bootstrap_iters: int = 100000,
         cache_requests: bool = False,
@@ -346,14 +347,14 @@ def evaluate(
                 for task_output in eval_tasks
         ):
             raise ValueError("log_samples must be True for 'bypass' metric-only tasks")
+
     for task_output in eval_tasks:
         task: Task = task_output.task
         limit = get_sample_size(task, limit)
         task.build_all_requests(
-            task_id = task_id,
-            mongo_client = mongo_client,
-            db_name = db_name,
-            collection = collection,
+            task_id=task_id,
+            mongo_client=mongo_client,
+            collection=collection,
             limit=limit,
             rank=lm.rank,
             world_size=lm.world_size,
@@ -394,7 +395,7 @@ def evaluate(
     for task_output in eval_tasks:
         task = task_output.task
         task.apply_filters()
-        eval_logger.debug(f"Filtered Instance:", task=task.instances[0]) 
+        eval_logger.debug(f"Filtered Instance:", task=task.instances[0])
         ### Collect values of metrics on all datapoints ###
         # # unpack results and sort back in order and return control to Task
         # TODO: make it possible to use a different metric per filter

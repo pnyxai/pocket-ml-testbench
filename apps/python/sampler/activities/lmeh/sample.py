@@ -8,6 +8,7 @@ from packages.python.lmeh.utils import generator as lmeh_generator
 from packages.python.lmeh.pocket_lm_eval.models.pocket_network import PocketNetworkLM
 from activities.utils import auto_heartbeater
 from packages.python.lmeh.utils import sql as lmeh_sql
+from packages.python.lmeh.pocket_lm_eval.tasks import TASK_MANAGER_SAMPLE_STAGE
 
 
 @activity.defn
@@ -40,7 +41,7 @@ async def lmeh_sample(args: PocketNetworkTaskRequest) -> bool:
                 logger=eval_logger,
                 postgres_conn=conn,
                 pocket_args=args,
-                stage="sample",
+                stage=TASK_MANAGER_SAMPLE_STAGE,
             )
             eval_logger.debug("Read task names", task_names=task_names)
 
