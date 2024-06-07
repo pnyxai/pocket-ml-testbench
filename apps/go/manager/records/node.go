@@ -181,7 +181,7 @@ func (record *NodeRecord) AppendTask(framework string, task string, date time.Ti
 
 		newTask := SignatureTaskRecord{
 			TaskData:      baseTaskData,
-			LastSignature: "",
+			LastSignature: "83332a7f32e4188bb276a18ff78620acfd3c6edbd68002b746bda990ed30d56c",
 			Signatures:    make([]SignatureSample, bufferLen),
 			CircBuffer: types.CircularBuffer{
 				CircBufferLen: bufferLen,

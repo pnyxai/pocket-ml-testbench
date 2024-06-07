@@ -16,8 +16,8 @@ WORKDIR /home/app/code
 RUN pip3 install poetry && chown app:app /usr/local/bin/poetry
 
 # copy poetry dependencies files
-COPY apps/python/sampler/pyproject.toml /home/app/code/pyproject.toml
-COPY apps/python/sampler/poetry.lock /home/app/code/poetry.lock
+COPY apps/python/evaluator/pyproject.toml /home/app/code/pyproject.toml
+COPY apps/python/evaluator/poetry.lock /home/app/code/poetry.lock
 
 # set app user as the user that will runs the commands below
 USER app
@@ -26,7 +26,7 @@ USER app
 RUN poetry  install --only main --no-root --no-directory
 
 # copy source code
-COPY apps/python/sampler /home/app/code
+COPY apps/python/evaluator /home/app/code
 COPY packages /home/app/code/packages
 
 # install local packages (todo: implement our local packages to use this)

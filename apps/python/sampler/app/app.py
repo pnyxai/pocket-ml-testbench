@@ -1,11 +1,13 @@
 import logging
 import asyncpg
-from pymongo import MongoClient
-from packages.python.common.utils import get_from_dict
-from packages.python.logger.logger import get_logger
+
 from datasets.utils import disable_progress_bars as datasets_disable_progress_bars
 from evaluate.utils import disable_progress_bar as evaluate_disable_progress_bars
 from transformers.utils.logging import set_verbosity as trasformer_set_verbosity
+
+from packages.python.common.utils import get_from_dict
+from packages.python.logger.logger import get_logger
+from packages.python.common.mongodb import MongoClient
 
 app_config = {
     "config": {
@@ -28,13 +30,13 @@ async def setup_app(cfg) -> dict:
     # use get_from_dict(dict, "path") or get_from_dict(dict, "nested.path") to:
     # connect mongodb
     log_level = get_from_dict(app_config, "config.log_level")
-    logging.getLogger('pymongo').setLevel(log_level)
-    app_config["config"]["mongo_client"] = MongoClient(app_config["config"]['mongodb_uri'])
-    app_config["config"]["mongo_client"].admin.command('ping')
-
+    logging.getLogger('motor').setLevel(log_level)
+    mongo_client = MongoClient(app_config["config"]['mongodb_uri'])
+    await mongo_client.ping()
+    app_config["config"]["mongo_client"] = mongo_client
     # create postgres connection
-    max_workers = get_from_dict(app_config, "config.temporal.max_workers")
-
+    max_workers = get_from_dict(app_config, "config.temporal.max_workers", 50)
+    get_app_logger("worker").debug("pool workers", max_workers=max_workers, app_config=app_config)
     pg_pool = await asyncpg.create_pool(
         dsn=get_from_dict(app_config, "config.postgres_uri"),
         min_size=max_workers,

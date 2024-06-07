@@ -1,27 +1,25 @@
 import collections
 import logging
+import asyncpg
 from functools import partial
 from typing import Literal, Mapping, Optional, Union
-
-import asyncpg
+from temporalio.exceptions import ApplicationError
 from lm_eval import utils
 from lm_eval.tasks import TaskManager
-from lm_eval.api.task import ConfigurableTask
-from packages.python.lmeh.utils.pocket_lm_eval.api.task import PocketNetworkConfigurableTask, EvaluatePocketNetworkConfigurableTask
+
+from packages.python.lmeh.pocket_lm_eval.api.task import PocketNetworkConfigurableTask, EvaluatePocketNetworkConfigurableTask
 
 from packages.python.protocol.protocol import  PocketNetworkTaskRequest
-from temporalio.exceptions import ApplicationError
-
 
 class PocketNetworkTaskManager(TaskManager):
     def __init__(
             self,
             postgres_conn: asyncpg.Connection,
+            stage: Literal['regist','sample', 'evaluate'],
             verbosity="ERROR",
             include_path: Optional[str] = None,
             pocket_args: PocketNetworkTaskRequest = None,
             logger: Optional[logging.Logger] = None,
-            stage: Optional[Literal['sample', 'evaluate']] = None,
     ) -> None:
         self.verbosity = verbosity
         self.include_path = include_path
@@ -64,12 +62,12 @@ class PocketNetworkTaskManager(TaskManager):
                 task_object = config["class"]()
             else:
                 config = self._process_alias(config, group=group)
-                if self.stage == 'sample':
+                if self.stage == 'sample' or self.stage == 'regist':
                     task_object = PocketNetworkConfigurableTask(config=config, postgres_conn=self.postgres_conn)
                 elif self.stage == 'evaluate':
                     task_object = EvaluatePocketNetworkConfigurableTask(config=config, postgres_conn=self.postgres_conn)
                 else:
-                    task_object = ConfigurableTask(config=config)
+                    ApplicationError(f"Stage {self.stage} not supported", non_retryable=True)
             if group is not None:
                 task_object = (group, task_object)
             return {task: task_object}

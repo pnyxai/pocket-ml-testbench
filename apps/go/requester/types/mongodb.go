@@ -2,9 +2,10 @@ package types
 
 import (
 	"context"
-	"github.com/pokt-foundation/pocket-go/provider"
 	"packages/mongodb"
 	"time"
+
+	"github.com/pokt-foundation/pocket-go/provider"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"

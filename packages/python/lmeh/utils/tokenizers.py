@@ -1,7 +1,6 @@
 import json
 import os
 import shutil
-import pymongo
 home = os.environ['HOME']
 
 from bson.objectid import ObjectId

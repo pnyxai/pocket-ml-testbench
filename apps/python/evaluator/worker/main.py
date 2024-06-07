@@ -2,8 +2,8 @@ import asyncio
 import sys
 
 from temporalio.client import Client
-from temporalio.worker import Worker, SharedStateManager
-from temporalio import workflow
+from temporalio.worker import Worker
+from temporalio.worker.workflow_sandbox import SandboxedWorkflowRunner, SandboxRestrictions
 
 sys.path.append('.')
 sys.path.append('../../../')
@@ -12,18 +12,29 @@ from packages.python.common.utils import get_from_dict
 from app.app import setup_app, get_app_logger
 from app.config import read_config
 
-from packages.python.lmeh.activities.evaluate import evaluation as lmeh_evaluate
+from activities.lmeh.evaluate import evaluation as lmeh_evaluate
 from workflows.evaluator import Evaluator
 import concurrent.futures
 
 # We always want to pass through external modules to the sandbox that we know
 # are safe for workflow use
-with workflow.unsafe.imports_passed_through():
-    from pydantic import BaseModel
-    from packages.python.protocol.converter import pydantic_data_converter
-    from packages.python.lmeh.utils import sql as lmeh_sql
-
-interrupt_event = asyncio.Event()
+# this is needed because of https://docs.temporal.io/encyclopedia/python-sdk-sandbox
+modules = [
+    # internal lib
+    "app",
+    "activities",
+    "protocol",
+    "packages.common",
+    "packages.logger",
+    "packages.lmeh",
+    # external lib
+    "motor",
+    "asyncpg",
+    "asyncio",
+    "lm_eval",
+    "pydantic",
+    "datasets"
+]
 
 
 async def main():
@@ -45,6 +56,10 @@ async def main():
     namespace = get_from_dict(config, 'temporal.namespace')
     task_queue = get_from_dict(config, 'temporal.task_queue')
     max_workers = get_from_dict(config, "temporal.max_workers")
+    max_concurrent_activities = get_from_dict(config, "temporal.max_concurrent_activities")
+    max_concurrent_workflow_tasks = get_from_dict(config, "temporal.max_concurrent_workflow_tasks")
+    max_concurrent_workflow_task_polls = get_from_dict(config, "temporal.max_concurrent_workflow_task_polls")
+    max_concurrent_activity_task_polls = get_from_dict(config, "temporal.max_concurrent_activity_task_polls")
 
     client = await Client.connect(
         temporal_host,
@@ -53,21 +68,31 @@ async def main():
     )
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as activity_executor:
-        worker = Worker(
-            client,
-            task_queue=task_queue,
-            workflows=[
+        worker_kwargs = {
+            "client": client,
+            "task_queue": task_queue,
+            "workflow_runner": SandboxedWorkflowRunner(
+                restrictions=SandboxRestrictions.default.with_passthrough_modules(*modules)
+            ),
+            "workflows": [
                 Evaluator,
             ],
-            activities=[
-                lmeh_evaluate
+            "activities": [
+                lmeh_evaluate,
             ],
-            activity_executor=activity_executor,
-            max_concurrent_activities=max_workers,
-            max_concurrent_workflow_tasks=max_workers,
-            max_concurrent_workflow_task_polls=max_workers,
-            max_concurrent_activity_task_polls=max_workers
-        )
+            "activity_executor": activity_executor,
+        }
+
+        if max_concurrent_activities is not None:
+            worker_kwargs["max_concurrent_activities"] = max_concurrent_activities
+        if max_concurrent_workflow_tasks is not None:
+            worker_kwargs["max_concurrent_workflow_tasks"] = max_concurrent_workflow_tasks
+        if max_concurrent_workflow_task_polls is not None:
+            worker_kwargs["max_concurrent_workflow_task_polls"] = max_concurrent_workflow_task_polls
+        if max_concurrent_activity_task_polls is not None:
+            worker_kwargs["max_concurrent_activity_task_polls"] = max_concurrent_activity_task_polls
+
+        worker = Worker(**worker_kwargs)
 
         await worker.run()
 

@@ -12,8 +12,6 @@ class PocketNetworkRegisterTaskRequest(BaseModel):
     tasks: str
     verbosity: Optional[Literal["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"]] = "ERROR"
     include_path: Optional[str] = None
-    postgres_uri: Optional[str] = None
-    mongodb_uri: Optional[str] = None
 
 class RequesterArgs(BaseModel):
     address: str
@@ -157,6 +155,7 @@ class CompletionRequest(BaseModel):
 # EVALUATOR
 ###########
 class PocketNetworkEvaluationTaskRequest(PocketNetworkTaskRequest):
+    framework: Optional[str] = None
     task_id: Union[str, PyObjectId]
     tasks: Optional[str] = None
     requester_args: Optional[RequesterArgs] = None

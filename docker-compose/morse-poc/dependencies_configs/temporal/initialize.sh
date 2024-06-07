@@ -11,6 +11,9 @@ one="mmlu_astronomy"
 # change this if you want a different set of datasets, by default it create everything
 keys=$everything
 
+json_array=$(printf ',"%s"' "${key_array[@]}")
+json_array="[${json_array:1}]"
+
 # Convert string to array
 IFS=',' read -ra key_array <<< "$keys"
 
@@ -24,7 +27,9 @@ for key in "${key_array[@]}"; do
     --namespace 'pocket-ml-testbench'
 done
 
-sleep 60
+# this time will be more or less depending on internet speed, amount of replicas of sampler and resources assigned to it
+# this is an estimate after test with 30MB/s, 3 replicas with 2 Cores each
+sleep 120
 
 for key in "${key_array[@]}"; do
   temporal schedule create \

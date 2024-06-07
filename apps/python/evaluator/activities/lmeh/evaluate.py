@@ -2,55 +2,58 @@ from temporalio import activity
 from temporalio.exceptions import ApplicationError
 from app.app import get_app_logger, get_app_config
 
-################################
-# lm-eval-harness (evaulator.py)
-################################
 import os
 import sys
 
 from lm_eval import utils
 from lm_eval.tasks import TaskManager
-
+from packages.python.lmeh.pocket_lm_eval.models.pocket_network import EvaluatorLM
 # add file path to sys.path
 sys.path.append(os.path.dirname(os.path.realpath(__file__)))
 # Custom modules
 from packages.python.lmeh.utils import generator as lmeh_generator
-from packages.python.lmeh.utils import task_config as open_llm_config
-from packages.python.lmeh.utils.pocket_lm_eval.models.pocket_network import PocketNetworkLM
-from packages.python.protocol.protocol import  PocketNetworkTaskRequest
-from packages.python.lmeh.utils.pocket_lm_eval.tasks import PocketNetworkTaskManager
+from packages.python.protocol.protocol import  PocketNetworkEvaluationTaskRequest
+from packages.python.lmeh.utils.mongodb import get_doc_ids_by_task, get_task
+from packages.python.lmeh.pocket_lm_eval.tasks import PocketNetworkTaskManager
 from packages.python.common.auto_heartbeater import auto_heartbeater
+from bson import ObjectId
 
 
 @activity.defn
 @auto_heartbeater
-async def lmeh_sample(args: PocketNetworkTaskRequest) -> bool:
+async def evaluation(args: PocketNetworkEvaluationTaskRequest) -> bool:
     ############################################################
     # START: POCKET NETWORK CODE
     ############################################################
     app_config = get_app_config()
-    eval_logger = get_app_logger("sample")
-
-    wf_id = activity.info().workflow_id
+    eval_logger = get_app_logger("evaluation")
     config = get_app_config()['config']
-    eval_logger.debug(f"Starting activity lmeh_sample:", wf_id=wf_id, task_name=args.tasks, address=args.requester_args.address,
-                        blacklist=args.blacklist, qty=args.qty)
-    args.postgres_uri = config["postgres_uri"]
-    args.mongodb_uri = config["mongodb_uri"]
+    wf_id = activity.info().workflow_id
+    args.task_id = ObjectId(args.task_id)
     mongo_client = config["mongo_client"]
-    try:
-        # The ping command is cheap and does not require auth.
-        mongo_client.admin.command('ping')
-    except Exception as e:
-        eval_logger.error(f"Mongo DB connection failed.")
-        raise ApplicationError("Mongo DB connection failed.", non_retryable=True)
     if args.llm_args is None:
         args.llm_args = {}
+    doc_ids = await get_doc_ids_by_task(args.task_id, mongo_client)
+    args.doc_ids = doc_ids
+    # Recreate Task request.
+    task_mongo = await get_task(args.task_id, mongo_client)
+    args.tasks = task_mongo.tasks
+    args.blacklist = task_mongo.blacklist
+    args.qty = task_mongo.qty
+    args.requester_args = task_mongo.requester_args
+    args.gen_kwargs = task_mongo.gen_kwargs
+    if args.llm_args is None:
+        args.llm_args = {}
+    args.requester_args = task_mongo.requester_args
+    if not task_mongo.done:
+        eval_logger.error(f"Task is not done.")
+        raise ApplicationError("Task is not done.", task_id= args.task_id, non_retryable=True)
     ############################################################
     # END: POCKET NETWORK CODE
     ############################################################
 
-    eval_logger.debug(f"Verbosity set to {args.verbosity}")
+    eval_logger.debug(f"Starting activity evaluation:", task_id=args.task_id, address=args.requester_args.address,
+                        blacklist=args.blacklist, qty=args.qty)
     if args.include_path is not None:
         eval_logger.debug(f"Including path: {args.include_path}")
     task_manager = TaskManager(args.verbosity, include_path=args.include_path)
@@ -102,12 +105,9 @@ async def lmeh_sample(args: PocketNetworkTaskRequest) -> bool:
             verbosity=args.verbosity,
             pocket_args=args,
             logger=eval_logger,
-            stage='sample',
+            stage='evaluate'
         )
-
         try:
-            task_config = open_llm_config.get_task_config(task_names[0])
-            args.num_fewshot = task_config["num_fewshot"]
             task_dict = lmeh_generator.get_configurable_task(
                 tasks=task_names,
                 num_fewshot=args.num_fewshot,
@@ -119,7 +119,10 @@ async def lmeh_sample(args: PocketNetworkTaskRequest) -> bool:
                 eval_logger=eval_logger,
             )
             for task_name in task_dict.keys():
+                eval_logger.debug(f"Downloading {task_name}")
+                eval_logger.debug(f"Task: {task_dict[task_name]}")
                 await task_dict[task_name].download()
+
             eval_logger.info("ConfigurableTask generated successfully:", task_dict=task_dict)
         except ApplicationError as e:
             raise e
@@ -133,18 +136,29 @@ async def lmeh_sample(args: PocketNetworkTaskRequest) -> bool:
 
         # Instance LM
         eval_logger.debug("Generating LM")
-        lm = PocketNetworkLM(requester_args=args.requester_args, mongo_client=mongo_client, wf_id=wf_id,
-                                **args.llm_args)
+        lm = EvaluatorLM(**args.llm_args)
         eval_logger.debug("LM generated successfully.")
 
-        _ = lmeh_generator.genererate_requests(
+        results = lmeh_generator.evaluate(
             lm=lm,
             task_dict=task_dict,
+            task_id=args.task_id,
             mongo_client=mongo_client,
-            args=args,
             eval_logger=eval_logger,
+            bootstrap_iters=args.bootstrap_iters,
         )
+        eval_logger.info("Evaluation completed successfully.")
 
-        eval_logger.info("Request generated successfully:", task_names=task_names)
+    if lm.rank == 0:
+        # add info about the model and few shot config
+        results["config"] = {
+            "model": args.requester_args.address,
+            "model_args": args.llm_args,
+            "bootstrap_iters": args.bootstrap_iters,
+            "gen_kwargs": args.gen_kwargs,
+        }
+        results["git_hash"] = get_git_commit_hash()
+        results["date"] = start_date
+        add_env_info(results)  # additional environment info to results
 
-        return True
+        return results

@@ -6,7 +6,11 @@
     "host": "NETWORK",
     "port": 7233,
     "namespace": "pocket-ml-testbench",
-    "task_queue": "sampler-local",
-    "max_workers": 10
+    "task_queue": "sampler",
+    "max_workers": 8,
+    "max_concurrent_activities": 8,
+    "max_concurrent_workflow_tasks": 8,
+    "max_concurrent_workflow_task_polls": 8,
+    "max_concurrent_activity_task_polls": 8
   }
 }

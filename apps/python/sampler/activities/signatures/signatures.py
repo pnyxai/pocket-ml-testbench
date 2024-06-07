@@ -35,15 +35,7 @@ async def sign_sample(args: PocketNetworkTaskRequest) -> bool:
         blacklist=args.blacklist,
         qty=args.qty,
     )
-    args.mongodb_uri = config["mongodb_uri"]
     mongo_client = config["mongo_client"]
-    try:
-        # The ping command is cheap and does not require auth.
-        mongo_client.admin.command("ping")
-    except Exception as e:
-        logger.error(f"Mongo DB connection failed.")
-        raise ApplicationError("Mongo DB connection failed.", non_retryable=True)
-
     ############################################################
     # Gather all tasks
     ############################################################
