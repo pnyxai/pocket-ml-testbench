@@ -142,6 +142,19 @@ services:
     networks:
       - mongodb
 
+  mongodb-init-db:
+    image: mongo:${MONGODB_VERSION}
+    container_name: mongodb-init-db
+    restart: "no"
+    command: [ "mongosh", "--host", "mongodb", "/docker-entrypoint-initdb.d/init-db.js" ]
+    volumes:
+      - ./mongodb/init-db.js:/docker-entrypoint-initdb.d/init-db.js:ro
+    depends_on:
+      mongodb-init-replica:
+        condition: service_completed_successfully
+    networks:
+      - mongodb
+
 volumes:
   mongodb:
     name: mongodb

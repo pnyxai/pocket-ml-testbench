@@ -1,6 +1,6 @@
-import sys
 import asyncio
-import concurrent.futures
+import sys
+
 from temporalio.client import Client
 from temporalio.worker import Worker
 from temporalio.worker.workflow_sandbox import SandboxedWorkflowRunner, SandboxRestrictions
@@ -11,11 +11,10 @@ sys.path.append('../../../')
 from packages.python.common.utils import get_from_dict
 from app.app import setup_app, get_app_logger
 from app.config import read_config
-from activities.lmeh.register_task import register_task as lmeh_register_task
-from activities.lmeh.sample import lmeh_sample as lmeh_sample
-from workflows.register import Register
-from workflows.sampler import Sampler
-from activities.signatures.signatures import sign_sample
+
+from activities.lmeh.evaluate import evaluation as lmeh_evaluate
+from workflows.evaluator import Evaluator
+import concurrent.futures
 
 # We always want to pass through external modules to the sandbox that we know
 # are safe for workflow use
@@ -76,13 +75,10 @@ async def main():
                 restrictions=SandboxRestrictions.default.with_passthrough_modules(*modules)
             ),
             "workflows": [
-                Register,
-                Sampler,
+                Evaluator,
             ],
             "activities": [
-                lmeh_register_task,
-                lmeh_sample,
-                sign_sample,
+                lmeh_evaluate,
             ],
             "activity_executor": activity_executor,
         }
@@ -106,4 +102,4 @@ if __name__ == "__main__":
         asyncio.run(main())
     except KeyboardInterrupt:
         eval_logger = get_app_logger("Main")
-        eval_logger.info("Interrupted by user. Exiting...")
+        eval_logger.info("interrupted by user. Exiting...")

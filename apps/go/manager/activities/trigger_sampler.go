@@ -34,7 +34,7 @@ func (aCtx *Ctx) TriggerSampler(_ context.Context, params types.TriggerSamplerPa
 		TaskQueue:                                aCtx.App.Config.Temporal.Sampler.TaskQueue,
 		WorkflowExecutionErrorWhenAlreadyStarted: true,
 		WorkflowIDReusePolicy:                    enums.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE_FAILED_ONLY,
-		WorkflowTaskTimeout:                      30 * time.Second,
+		WorkflowTaskTimeout:                      120 * time.Second,
 		RetryPolicy: &temporal.RetryPolicy{
 			MaximumAttempts: 3,
 		},

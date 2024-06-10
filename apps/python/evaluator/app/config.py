@@ -14,7 +14,7 @@ default_config = {
         "host": "localhost",
         "port": 7233,
         "namespace": "pocket-ml-testbench",
-        "task_queue": "sampler",
+        "task_queue": "evaluator",
     }
 }
 

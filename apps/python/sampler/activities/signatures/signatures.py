@@ -8,10 +8,10 @@ from temporalio.exceptions import ApplicationError
 # add file path to sys.path
 sys.path.append(os.path.dirname(os.path.realpath(__file__)))
 from activities.signatures.tokenizer.tokenizer import get_tokenizer_task
-from activities.utils import auto_heartbeater
+from packages.python.common.auto_heartbeater import auto_heartbeater
 
 # Custom modules
-from protocol.protocol import PocketNetworkTaskRequest
+from packages.python.protocol.protocol import PocketNetworkTaskRequest
 
 
 @activity.defn
@@ -35,15 +35,7 @@ async def sign_sample(args: PocketNetworkTaskRequest) -> bool:
         blacklist=args.blacklist,
         qty=args.qty,
     )
-    args.mongodb_uri = config["mongodb_uri"]
     mongo_client = config["mongo_client"]
-    try:
-        # The ping command is cheap and does not require auth.
-        mongo_client.admin.command("ping")
-    except Exception as e:
-        logger.error(f"Mongo DB connection failed.")
-        raise ApplicationError("Mongo DB connection failed.", non_retryable=True)
-
     ############################################################
     # Gather all tasks
     ############################################################

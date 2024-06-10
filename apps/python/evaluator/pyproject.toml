@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "sampler"
+name = "evaluator"
 version = "0.1.0"
 description = ""
 authors = ["Nicolas Aguirre <nicolas@potkscan.com>", "Jorge Cuesta <jorge@potkscan.com>, Ramiro Rodriguez Colmeiro <ramiro@poktscan.com>"]
@@ -14,6 +14,7 @@ structlog = "^24.1.0"
 pydantic = "^2.7.0"
 asyncpg = "^0.29.0"
 motor = "^3.4.0"
+
 
 
 [tool.poetry.group.dev.dependencies]

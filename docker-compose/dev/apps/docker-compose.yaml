@@ -30,7 +30,7 @@ services:
       EVALUATE_VERBOSITY: "error"
       DATASETS_VERBOSITY: "error"
     deploy:
-      replicas: 3
+      replicas: 5
     extra_hosts:
       host.docker.internal: host-gateway
     volumes:
@@ -53,6 +53,31 @@ services:
     volumes:
       - $REQUESTER_CONFIG_FILE:/home/app/configs/config.json
     networks:
+      - temporal
+      - mongodb
+  
+  evaluator:
+    build:
+      context: ../../../
+      dockerfile: apps/python/evaluator/Dockerfile
+    image: pocket_ml_testbench_evaluator:dev
+    environment:
+      CONFIG_PATH: /home/app/configs/config.json
+      OPENAI_API_KEY: EMPTY
+      HF_DATASETS_TRUST_REMOTE_CODE: "True"
+      DATASETS_TRUST_REMOTE_CODE: "True"
+      HF_DATASETS_DISABLE_PROGRESS_BARS: "True"
+      TQDM_DISABLE: "True"
+      EVALUATE_VERBOSITY: "error"
+      DATASETS_VERBOSITY: "error"
+    deploy:
+      replicas: 1
+    extra_hosts:
+      host.docker.internal: host-gateway
+    volumes:
+      - $EVALUATOR_CONFIG_FILE:/home/app/configs/config.json
+    networks:
+      - postgresql
       - temporal
       - mongodb
 

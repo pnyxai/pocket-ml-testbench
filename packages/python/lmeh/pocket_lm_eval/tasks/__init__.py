@@ -1,25 +1,33 @@
 import collections
 import logging
+import asyncpg
 from functools import partial
 from typing import Mapping, Optional, Union
-
-import asyncpg
+from temporalio.exceptions import ApplicationError
 from lm_eval import utils
 from lm_eval.tasks import TaskManager
-from activities.lmeh.utils.pocket_lm_eval.api.task import PocketNetworkConfigurableTask
 
-from protocol.protocol import PocketNetworkTaskRequest
-from temporalio.exceptions import ApplicationError
+from packages.python.lmeh.pocket_lm_eval.api.task import PocketNetworkConfigurableTask, \
+    EvaluatePocketNetworkConfigurableTask
+
+from packages.python.protocol.protocol import PocketNetworkTaskRequest
+
+TASK_MANAGER_REGISTER_STAGE = "register"
+TASK_MANAGER_SAMPLE_STAGE = "sample"
+TASK_MANAGER_EVALUATE_STAGE = "evaluate"
+
+STAGE_TYPING = Union[TASK_MANAGER_REGISTER_STAGE, TASK_MANAGER_SAMPLE_STAGE, TASK_MANAGER_EVALUATE_STAGE]
 
 
 class PocketNetworkTaskManager(TaskManager):
     def __init__(
             self,
             postgres_conn: asyncpg.Connection,
+            stage: STAGE_TYPING,
             verbosity="ERROR",
             include_path: Optional[str] = None,
             pocket_args: PocketNetworkTaskRequest = None,
-            logger: Optional[logging.Logger] = None
+            logger: Optional[logging.Logger] = None,
     ) -> None:
         self.verbosity = verbosity
         self.include_path = include_path
@@ -28,6 +36,7 @@ class PocketNetworkTaskManager(TaskManager):
         self.logger = logger
         self._task_index = self.initialize_tasks(include_path=include_path)
         self._all_tasks = sorted(list(self._task_index.keys()))
+        self.stage = stage
 
         self.task_group_map = collections.defaultdict(list)
         self.injected_metadata = {
@@ -61,7 +70,12 @@ class PocketNetworkTaskManager(TaskManager):
                 task_object = config["class"]()
             else:
                 config = self._process_alias(config, group=group)
-                task_object = PocketNetworkConfigurableTask(config=config, postgres_conn=self.postgres_conn)
+                if self.stage == TASK_MANAGER_REGISTER_STAGE or self.stage == TASK_MANAGER_SAMPLE_STAGE:
+                    task_object = PocketNetworkConfigurableTask(config=config, postgres_conn=self.postgres_conn)
+                elif self.stage == TASK_MANAGER_EVALUATE_STAGE:
+                    task_object = EvaluatePocketNetworkConfigurableTask(config=config, postgres_conn=self.postgres_conn)
+                else:
+                    ApplicationError(f"Stage {self.stage} not supported", non_retryable=True)
             if group is not None:
                 task_object = (group, task_object)
             return {task: task_object}
