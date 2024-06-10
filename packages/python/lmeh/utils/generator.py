@@ -274,25 +274,23 @@ async def generate_requests(
                 insert_mongo_prompts.append(prompt_mongo.model_dump(by_alias=True))
     try:
         async with mongo_client.start_transaction() as session:
-            tasks = [
-                mongo_client.db['tasks'].insert_many(
+
+            await mongo_client.db['tasks'].insert_many(
                     insert_mongo_tasks,
                     ordered=False,
                     session=session,
-                ),
-                mongo_client.db['instances'].insert_many(
+                )
+            await mongo_client.db['instances'].insert_many(
                     insert_mongo_instances,
                     ordered=False,
                     session=session,
-                ),
-                mongo_client.db['prompts'].insert_many(
+                )
+            await mongo_client.db['prompts'].insert_many(
                     insert_mongo_prompts,
                     ordered=False,
                     session=session,
                 )
-            ]
-            # run coroutine objects in parallel
-            await asyncio.gather(*tasks)
+            
     except Exception as e:
         # noinspection PyArgumentList
         eval_logger.error("Failed to save documents to MongoDB.", error=e)
@@ -351,7 +349,7 @@ async def evaluate(
     for task_output in eval_tasks:
         task: Task = task_output.task
         limit = get_sample_size(task, limit)
-        task.build_all_requests(
+        await task.build_all_requests(
             task_id=task_id,
             mongo_client=mongo_client,
             collection=collection,
@@ -535,5 +533,4 @@ async def evaluate(
         }
         if log_samples:
             results_dict["samples"] = dict(samples)
-        eval_logger.debug("Results:", results_dict=results_dict)
         return results_dict

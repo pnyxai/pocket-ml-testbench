@@ -68,52 +68,6 @@ class PyObjectId(ObjectId):
             raise ValueError('Not a valid ObjectId')
         return str(v)
 
-
-# This class serves a subgroup of prompts, as a task can have many instances,
-# and each instance has many prompts.
-# If not all the prompts are finished, an instance cannot be finished.
-# The actual record contains many more optional (and variable) fields, but these
-# are mandatory.
-class PocketNetworkMongoDBInstance(BaseModel):
-    id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
-    done: bool = False
-    # -- Relations Below --
-    task_id: ObjectId
-
-    class Config:
-        arbitrary_types_allowed = True
-
-
-class PocketNetworkMongoDBPrompt(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-    id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
-    data: Union[str, CompletionRequest]
-    task_id: ObjectId
-    instance_id: ObjectId
-    timeout: int = 20
-    done: bool = False
-    # Fields to avoid futures tokenizer's call
-    ctxlen: Optional[int] = None
-    context_enc: Optional[List[int]] = None
-    continuation_enc: Optional[List[int]] = None
-
-
-class PocketNetworkMongoDBTask(BaseModel):
-    framework: str
-    requester_args: RequesterArgs
-    blacklist: Optional[List[int]] = []
-    qty: int
-    tasks: str
-    total_instances: int
-    request_type: str  # TODO : Remove, specific of LMEH
-    id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
-    done: bool = False
-
-    class Config:
-        populate_by_name = True
-        json_schema_extra = {"example": {"_id": "60d3216d82e029466c6811d2"}}
-
-
 # From vllm/entrypoints/openai/protocol.py
 class OpenAIBaseModel(BaseModel):
     # OpenAI API does not allow extra fields
@@ -154,6 +108,54 @@ class CompletionRequest(BaseModel):
                 if field in data:
                     del data[field]
         return data
+
+# This class serves a subgroup of prompts, as a task can have many instances,
+# and each instance has many prompts.
+# If not all the prompts are finished, an instance cannot be finished.
+# The actual record contains many more optional (and variable) fields, but these
+# are mandatory.
+class PocketNetworkMongoDBInstance(BaseModel):
+    id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
+    done: bool = False
+    # -- Relations Below --
+    task_id: ObjectId
+
+    class Config:
+        arbitrary_types_allowed = True
+
+
+class PocketNetworkMongoDBPrompt(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
+    data: Union[str, CompletionRequest]
+    task_id: ObjectId
+    instance_id: ObjectId
+    timeout: int = 0
+    done: bool = False
+    # Fields to avoid futures tokenizer's call
+    ctxlen: Optional[int] = None
+    context_enc: Optional[List[int]] = None
+    continuation_enc: Optional[List[int]] = None
+
+
+class PocketNetworkMongoDBTask(BaseModel):
+    framework: str
+    requester_args: RequesterArgs
+    blacklist: Optional[List[int]] = []
+    llm_args: Optional[Dict] = None  # TODO : Remove: This is LLM specific, move to agnostic format.
+    num_fewshot: Optional[int] = Field(None, ge=0)  # TODO : Remove: This is LLM specific, move to agnostic format.
+    gen_kwargs:Optional[str] = None
+    bootstrap_iters: Optional[int] = 100000
+    qty: int
+    tasks: str
+    total_instances: int
+    request_type: str  # TODO : Remove, specific of LMEH
+    id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
+    done: bool = False
+
+    class Config:
+        populate_by_name = True
+        json_schema_extra = {"example": {"_id": "60d3216d82e029466c6811d2"}}
 
 
 ###########

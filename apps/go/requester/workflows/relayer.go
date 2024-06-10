@@ -2,13 +2,14 @@ package workflows
 
 import (
 	"context"
+	"requester/activities"
+	"requester/types"
+	"time"
+
 	"go.temporal.io/api/enums/v1"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
-	"requester/activities"
-	"requester/types"
-	"time"
 )
 
 type RelayerResults struct {
@@ -25,17 +26,17 @@ func (wCtx *Ctx) Relayer(ctx workflow.Context, params activities.RelayerParams) 
 	results = &RelayerResults{}
 
 	if params.RelayTimeout == 0 {
-		params.RelayTimeout = (time.Duration(60) * time.Second).Seconds()
+		params.RelayTimeout = (time.Duration(120) * time.Second).Seconds()
 	}
 
 	relayerCtx := workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
 		TaskQueue: wCtx.App.Config.Temporal.TaskQueue,
 		// we need to give it more time than the relay one because it does other things.
-		StartToCloseTimeout: time.Duration(params.RelayTimeout) * 2 * time.Second,
+		StartToCloseTimeout: time.Duration(params.RelayTimeout*(float64(activities.RelayRetries+1))) * time.Second,
 		WaitForCancellation: false,
 		RetryPolicy: &temporal.RetryPolicy{
 			BackoffCoefficient: 1,
-			MaximumAttempts:    3,
+			MaximumAttempts:    int32(activities.RelayRetries),
 		},
 	})
 

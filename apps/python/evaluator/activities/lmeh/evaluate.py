@@ -15,7 +15,7 @@ from packages.python.lmeh.utils import sql as lmeh_sql
 
 @activity.defn
 @auto_heartbeater
-async def evaluation(args: PocketNetworkEvaluationTaskRequest) -> dict:
+async def evaluation(args: PocketNetworkEvaluationTaskRequest) -> bool:
     """
     Returns a dict where each key is a task name with the evaluation result.
     :param args:
@@ -28,14 +28,6 @@ async def evaluation(args: PocketNetworkEvaluationTaskRequest) -> dict:
     eval_logger = get_app_logger("evaluation")
     config = get_app_config()['config']
 
-    if args.tasks is None:
-        eval_logger.error("Need to specify task to evaluate.")
-        raise ApplicationError(
-            "Need to specify task to evaluate.",
-            args.tasks,
-            type="BadParams",
-            non_retryable=True
-        )
 
     try:
         args.task_id = ObjectId(args.task_id)
@@ -62,11 +54,20 @@ async def evaluation(args: PocketNetworkEvaluationTaskRequest) -> dict:
     args.blacklist = task_mongo.blacklist
     args.qty = task_mongo.qty
     args.requester_args = task_mongo.requester_args
-    args.gen_kwargs = task_mongo.gen_kwargs
+    if task_mongo.gen_kwargs is not None:
+        args.gen_kwargs = task_mongo.gen_kwargs
     if args.llm_args is None:
         args.llm_args = {}
 
     args.requester_args = task_mongo.requester_args
+    if args.tasks is None:
+        eval_logger.error("Need to specify task to evaluate.")
+        raise ApplicationError(
+            "Need to specify task to evaluate.",
+            args.tasks,
+            type="BadParams",
+            non_retryable=True
+        )
     if not task_mongo.done:
         eval_logger.error("Task is not done.")
         raise ApplicationError(
@@ -99,6 +100,7 @@ async def evaluation(args: PocketNetworkEvaluationTaskRequest) -> dict:
                 verbosity=str(args.verbosity),
                 logger=eval_logger,
                 postgres_conn=conn,
+                pocket_args=args,
                 stage=TASK_MANAGER_EVALUATE_STAGE,
             )
             eval_logger.debug("Read task names", task_names=task_names)
@@ -193,4 +195,4 @@ async def evaluation(args: PocketNetworkEvaluationTaskRequest) -> dict:
                 # assign evaluation's result to a general result under task name, because we iterate over all the tasks
                 r[task_name] = results
 
-    return r
+    return True

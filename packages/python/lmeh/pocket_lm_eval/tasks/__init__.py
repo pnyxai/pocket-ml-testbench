@@ -13,8 +13,8 @@ from packages.python.lmeh.pocket_lm_eval.api.task import PocketNetworkConfigurab
 from packages.python.protocol.protocol import PocketNetworkTaskRequest
 
 TASK_MANAGER_REGISTER_STAGE = "register"
-TASK_MANAGER_SAMPLE_STAGE = "register"
-TASK_MANAGER_EVALUATE_STAGE = "register"
+TASK_MANAGER_SAMPLE_STAGE = "sample"
+TASK_MANAGER_EVALUATE_STAGE = "evaluate"
 
 STAGE_TYPING = Union[TASK_MANAGER_REGISTER_STAGE, TASK_MANAGER_SAMPLE_STAGE, TASK_MANAGER_EVALUATE_STAGE]
 

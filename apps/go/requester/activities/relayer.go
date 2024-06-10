@@ -3,16 +3,17 @@ package activities
 import (
 	"context"
 	"errors"
+	"packages/logger"
+	"packages/mongodb"
+	"requester/types"
+	"time"
+
 	poktGoProvider "github.com/pokt-foundation/pocket-go/provider"
 	poktGoRelayer "github.com/pokt-foundation/pocket-go/relayer"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.temporal.io/sdk/temporal"
-	"packages/logger"
-	"packages/mongodb"
-	"requester/types"
-	"time"
 )
 
 type RelayerParams struct {
@@ -64,7 +65,7 @@ var RelayResponseCodes = RelayResponseCodesEnum{
 }
 
 var RelayerName = "relayer"
-
+var RelayRetries = 3
 var (
 	ErrPromptNotFound = errors.New("prompt not found")
 )
@@ -212,6 +213,10 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 
 	servicerUrl := params.Node.ServiceURL
 	provider := poktGoProvider.NewProvider(servicerUrl, []string{servicerUrl})
+	provider.UpdateRequestConfig(poktGoProvider.RequestConfigOpts{
+		Timeout: prompt.GetTimeoutDuration(),
+		Retries: RelayRetries,
+	})
 
 	relayer := poktGoRelayer.NewRelayer(appAccount.Signer, provider)
 
@@ -230,7 +235,7 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 	}
 	startTime := time.Now()
 
-	relayerCtx, cancelRelayerFn := context.WithTimeout(ctx, prompt.GetTimeoutDuration())
+	relayerCtx, cancelRelayerFn := context.WithTimeout(ctx, prompt.GetTimeoutDuration()*time.Duration(RelayRetries+1))
 	defer cancelRelayerFn()
 	relay, relayErr := relayer.RelayWithCtx(relayerCtx, &relayInput, relayOpts)
 	response.Ms = time.Since(startTime).Milliseconds()

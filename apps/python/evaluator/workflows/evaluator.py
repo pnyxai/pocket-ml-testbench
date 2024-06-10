@@ -17,10 +17,11 @@ class Evaluator:
     @workflow.run
     async def run(self, args: PocketNetworkEvaluationTaskRequest) -> bool:
 #        if args.framework == "lmeh":
-        return await workflow.execute_activity(
+        _ = await workflow.execute_activity(
             lmeh_evaluation,
             args,
             start_to_close_timeout=timedelta(seconds=300),
             retry_policy=RetryPolicy(maximum_attempts=2),
         )
+        return True
         # raise ApplicationError(f"{args.framework} framework not implemented yet")

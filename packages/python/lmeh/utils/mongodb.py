@@ -1,4 +1,5 @@
 import json
+from copy import deepcopy
 from typing import List, Optional
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCollection
 from dataclasses import asdict
@@ -114,7 +115,7 @@ class MongoOperator:
         # Execute the aggregation
         cursor = self.client.db[self.instances_collection].aggregate(aggr)
         # get all of them
-        result = await cursor.to_list(lenght=None)
+        result = await cursor.to_list(length=None)
 
         if len(result) == 0:
             evaluation_logger.error("Task ID not found.", task_id=task_id)
@@ -164,8 +165,7 @@ class MongoOperator:
         valid_fields = {field.name for field in Instance.__dataclass_fields__.values()}
         instances = []
         for doc in result:
-            i, p, = doc['instance'], doc['prompt'],
-
+            i, p = doc['instance'], doc['prompt']
             try:
                 # handle the exception to bring a light on production debugging if needed.
                 r = json.loads(doc['response']['response'])
@@ -179,6 +179,8 @@ class MongoOperator:
             instance_dict = {key: value for key, value in i.items() if key in valid_fields}
             instance = Instance(**instance_dict)
             instance.repeats = 1  # to avoid double evaluation for each instance
+            p['id'] = deepcopy(p['_id'])
+            p.pop('_id')            
             instance.prompt = PocketNetworkMongoDBPrompt(**p)
             try:
                 # handle the exception to bring a light on production debugging if needed.
