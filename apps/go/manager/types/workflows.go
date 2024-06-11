@@ -12,9 +12,10 @@ type NodeManagerParams struct {
 }
 
 type NodeManagerResults struct {
-	Success  uint `json:"success"`
-	Failed   uint `json:"failed"`
-	NewNodes uint `json:"new_nodes"`
+	SuccessNodes   uint `json:"success"`
+	FailedNodes    uint `json:"failed"`
+	NewNodes       uint `json:"new_nodes"`
+	TriggeredTasks uint `json:"triggered_tasks"`
 }
 
 type NodeAnalysisChanResponse struct {

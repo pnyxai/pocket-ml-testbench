@@ -135,6 +135,15 @@ func CheckTaskDependency(nodeData *NodeRecord, framework string, task string, co
 
 	// Check dependency
 	frameworkTaskandStatus := strings.Split(taskDep, ":")
+	if len(frameworkTaskandStatus) != 3 {
+		l.Error().Str("framework", framework).Str("task", task).Msg("malformed dependency configuration, expected three elements separated by \":\" ")
+		return false, nil
+	}
+	if frameworkTaskandStatus[0] == "none" {
+		// No dependencies
+		l.Debug().Str("address", nodeData.Address).Str("service", nodeData.Service).Str("framework", framework).Str("task", task).Msg("No dependency: Dependecy OK")
+		return true, nil
+	}
 	thisTaskRecord, found := GetTaskData(nodeData, frameworkTaskandStatus[0], frameworkTaskandStatus[1], l)
 	if !found {
 		// The task is not even created, we must fail
@@ -143,10 +152,12 @@ func CheckTaskDependency(nodeData *NodeRecord, framework string, task string, co
 		// Check the condition
 		if frameworkTaskandStatus[2] == "present" {
 			// Task is present, so OK
+			l.Debug().Str("address", nodeData.Address).Str("service", nodeData.Service).Str("framework", framework).Str("task", task).Msg("Present: Dependecy OK")
 			return true, nil
 		} else if frameworkTaskandStatus[2] == "ok" {
 			// Check for it having a correct value
 			if thisTaskRecord.IsOK() {
+				l.Debug().Str("address", nodeData.Address).Str("service", nodeData.Service).Str("framework", framework).Str("task", task).Msg("OK: Dependecy OK")
 				return true, nil
 			}
 		} else {
@@ -236,7 +247,7 @@ func (record *NumericalTaskRecord) GetNumSamples() uint32 {
 
 // Returns True if the task is ok, meaning that their values are updated and correct
 func (record *NumericalTaskRecord) IsOK() bool {
-	if record.MeanScore+record.MedianScore+record.StdScore != 0 {
+	if record.MeanScore+record.MedianScore+record.StdScore != 0.0 {
 		// we have some values, so this task is ok
 		return true
 	} else {
