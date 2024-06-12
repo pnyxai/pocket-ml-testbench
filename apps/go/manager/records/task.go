@@ -203,7 +203,7 @@ type NumericalTaskRecord struct {
 }
 
 type ScoresSample struct {
-	Score float32 `bson:"scores"`
+	Score float32 `bson:"score"`
 	ID    int     `bson:"id"`
 }
 

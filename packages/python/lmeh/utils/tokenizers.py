@@ -61,9 +61,12 @@ def load_tokenizer(tokenizer_objects: dict, wf_id:str, tokenizer_ephimeral_path:
     tokenizer_ephimeral_path.mkdir(parents=True, exist_ok=True)
 
     for key, value in tokenizer_objects.items():
-        with open(
-            os.path.join(tokenizer_ephimeral_path, key + ".json"), "w"
-        ) as f:
+        filename = os.path.join(tokenizer_ephimeral_path, key + ".json")
+        with open(filename, "w") as f:
+            print(filename)
+            eval_logger.debug(
+                f"Writing '{filename}'"
+            )
             json.dump(value, f)
             f.close()
     

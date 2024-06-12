@@ -5,6 +5,8 @@ from app.app import get_app_logger, setup_app
 from app.config import read_config
 from fastapi import FastAPI
 from tokenizers_utils.load import prepare_tokenizer_data
+from fastapi.responses import JSONResponse, Response, StreamingResponse
+
 
 ###################################################
 # SET UP SIDECAR
@@ -35,7 +37,7 @@ app = FastAPI()
 @app.get("/pokt/tokenizer")
 def get_tokenizer():
     l.debug("returning tokenizer data")
-    return TOKENIZER_JSON
+    return JSONResponse(content=TOKENIZER_JSON)
 
 
 # -----------------------------------------------
@@ -45,3 +47,4 @@ def get_tokenizer():
 def get_tokenizer():
     l.debug("returning tokenizer hash")
     return TOKENIZER_HASH
+

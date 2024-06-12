@@ -42,8 +42,9 @@ class MongoOperator:
         instance_mongo['_id'] = ObjectId()
         instance_mongo['done'] = False
         return instance_mongo
+    
+    async def get_tokenizer_hash(self, address: str, service: str) -> str:
 
-    async def get_tokenizer_objects(self, address: str, service: str) -> dict:
         node = await self.client.db[self.nodes_collection].find_one({'address': address, 'service': service})
 
         if node is None:
@@ -62,11 +63,21 @@ class MongoOperator:
             if (task['task_data']['framework'] == 'signatures') and (task['task_data']['task'] == 'tokenizer'):
                 tokenizer_hash = task['last_signature']
 
+        return tokenizer_hash
+    
+    async def get_tokenizer_entry(self, tokenizer_hash: str):
+        return await self.client.db[self.tokenizers_collection].find_one({'hash': tokenizer_hash})
+
+
+    async def get_tokenizer_objects(self, address: str, service: str) -> dict:
+        
+        tokenizer_hash = await self.get_tokenizer_hash(address, service)
+
         if tokenizer_hash == '':
             eval_logger.error("Node address does not have a valid tokenizer_hash.", adress=address)
             raise ApplicationError(f"Node address {address} does not have a valid tokenizer_hash.")
 
-        tokenizer_object = await self.client.db[self.tokenizers_collection].find_one({'hash': tokenizer_hash})
+        tokenizer_object = await self.get_tokenizer_entry(tokenizer_hash)
 
         # Validate that the tokenizer is not empty
         if tokenizer_object is None:
@@ -148,8 +159,8 @@ class MongoOperator:
         task.id = task_id
 
         return task
-
-    async def reconstruct_instances(self, task_id: ObjectId, ) -> List[Instance]:
+    
+    async def retrieve_responses(self, task_id: ObjectId, ) -> List[str]:
         cursor = self.client.db[self.tasks_collection].aggregate(aggregate_response_tree(task_id))
         result = await cursor.to_list(length=None)
 
@@ -161,6 +172,13 @@ class MongoOperator:
                 type="TaskNotFound",
                 non_retryable=False,
             )
+        
+        return result
+
+
+    async def reconstruct_instances(self, task_id: ObjectId, ) -> List[Instance]:
+        
+        result = await self.retrieve_responses(task_id)
 
         valid_fields = {field.name for field in Instance.__dataclass_fields__.values()}
         instances = []
