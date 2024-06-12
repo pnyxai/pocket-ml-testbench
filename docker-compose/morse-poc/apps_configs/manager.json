@@ -28,8 +28,17 @@
     }
   },
   "frameworks": {
-    "lmeh" : {"task_types": {"any" : "numerical"}},
-    "helm" : {"task_types": {"any" : "numerical"}},
-    "signatures" : {"task_types": {"any" : "signature"}}
+    "lmeh" : {
+      "task_types": {"any" : "numerical"},
+      "task_dependency": {"any" : "signatures:tokenizer:ok"}
+    },
+    "helm" : {
+      "task_types": {"any" : "numerical"},
+      "task_dependency": {"any" : "signatures:tokenizer:ok"}
+    },
+    "signatures" : {
+      "task_types": {"any" : "signature"},
+      "task_dependency": {"any" : "none:none:none"}
+    }
   }
 }

@@ -23,7 +23,7 @@ func (wCtx *Ctx) NodeManager(ctx workflow.Context, params types.NodeManagerParam
 	l.Debug().Msg("Starting Node Manager Workflow.")
 
 	// Create result
-	result := types.NodeManagerResults{Success: 0}
+	result := types.NodeManagerResults{SuccessNodes: 0}
 
 	// Check parameters
 	if len(params.Tests) == 0 {
@@ -119,11 +119,14 @@ func (wCtx *Ctx) NodeManager(ctx workflow.Context, params types.NodeManagerParam
 		if response.Response.IsNew {
 			result.NewNodes += 1
 		}
+		result.TriggeredTasks += uint(len(response.Response.Triggers))
 	}
 
 	// -------------------------------------------------------------------------
 	// -------------------- Trigger Sampler ------------------------------------
 	// -------------------------------------------------------------------------
+
+	l.Debug().Str("service", params.Service).Int("TriggersNums", len(allTriggers))
 
 	// Define a channel to store TriggerSamplerResults objects
 	taskTriggerResultsChan := make(chan *types.TriggerSamplerResults, len(allTriggers))
@@ -164,9 +167,9 @@ func (wCtx *Ctx) NodeManager(ctx workflow.Context, params types.NodeManagerParam
 		// Keep count
 		// Update workflow result
 		if response.Success {
-			result.Success += 1
+			result.SuccessNodes += 1
 		} else {
-			result.Failed += 1
+			result.FailedNodes += 1
 		}
 	}
 

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"manager/types"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -60,6 +61,24 @@ type TaskInterface interface {
 	GetSampleTTLDays() uint32
 	GetResultStruct() ResultInterface
 	GetLastSeen() time.Time
+	IsOK() bool
+}
+
+// Get specific task data from a node record
+func GetTaskData(nodeData *NodeRecord, framework string, task string, l *zerolog.Logger) (TaskInterface, bool) {
+
+	// Get all tasks as a single array
+	combinedTasks := nodeData.CombineTasks()
+	// Look for entry
+	for _, taskEntry := range combinedTasks {
+		// Check if the Name field matches the search string
+		if taskEntry.GetFramework() == framework && taskEntry.GetTask() == task {
+			l.Debug().Str("address", nodeData.Address).Str("service", nodeData.Service).Str("framework", framework).Str("task", task).Msg("Found!")
+			return taskEntry, true
+		}
+	}
+
+	return nil, false
 }
 
 // Depending on the framework-task pair, the type of data that is saved will vary.
@@ -87,6 +106,67 @@ func GetTaskType(framework string, task string, configMap map[string]types.Frame
 	}
 
 	return taskType, nil
+}
+
+// Analyzes the configuration and returns if it is possible to proceed with this task triggering/analysis
+// A task can depend on others (such as having a tokenizer signature), here we check for that
+func CheckTaskDependency(nodeData *NodeRecord, framework string, task string, configMap map[string]types.FrameworkConfig, l *zerolog.Logger) (status bool, err error) {
+	status = false
+
+	// Get Framework config
+	frameworkCfg, ok := configMap[framework]
+	if !ok {
+		l.Error().Str("framework", framework).Msg("framework config not found")
+		err = fmt.Errorf("framework config not found")
+		return false, err
+	}
+
+	// Get task type
+	taskDep, ok := frameworkCfg.TasksDependency[task]
+	if !ok {
+		// Search for the "any" field
+		taskDep, ok = frameworkCfg.TasksDependency["any"]
+		if !ok {
+			l.Error().Str("framework", framework).Str("task", task).Msg("cannot find default (or specific) value for task type")
+			err = fmt.Errorf("cannot find default (or specific) value for task type")
+			return false, err
+		}
+	}
+
+	// Check dependency
+	frameworkTaskandStatus := strings.Split(taskDep, ":")
+	if len(frameworkTaskandStatus) != 3 {
+		l.Error().Str("framework", framework).Str("task", task).Msg("malformed dependency configuration, expected three elements separated by \":\" ")
+		return false, nil
+	}
+	if frameworkTaskandStatus[0] == "none" {
+		// No dependencies
+		l.Debug().Str("address", nodeData.Address).Str("service", nodeData.Service).Str("framework", framework).Str("task", task).Msg("No dependency: Dependecy OK")
+		return true, nil
+	}
+	thisTaskRecord, found := GetTaskData(nodeData, frameworkTaskandStatus[0], frameworkTaskandStatus[1], l)
+	if !found {
+		// The task is not even created, we must fail
+		return false, nil
+	} else {
+		// Check the condition
+		if frameworkTaskandStatus[2] == "present" {
+			// Task is present, so OK
+			l.Debug().Str("address", nodeData.Address).Str("service", nodeData.Service).Str("framework", framework).Str("task", task).Msg("Present: Dependecy OK")
+			return true, nil
+		} else if frameworkTaskandStatus[2] == "ok" {
+			// Check for it having a correct value
+			if thisTaskRecord.IsOK() {
+				l.Debug().Str("address", nodeData.Address).Str("service", nodeData.Service).Str("framework", framework).Str("task", task).Msg("OK: Dependecy OK")
+				return true, nil
+			}
+		} else {
+			l.Error().Str("framework", framework).Str("task", task).Msg("dependency configuration cannot be processed (status type unknown)")
+			return false, nil
+		}
+	}
+
+	return false, nil
 }
 
 // ------------------------------------------------------------------------------
@@ -163,6 +243,16 @@ func (record *NumericalTaskRecord) UpdateLastSeen(timeSample time.Time) (err err
 // Returns the number of valid samples in the circular buffer
 func (record *NumericalTaskRecord) GetNumSamples() uint32 {
 	return record.CircBuffer.NumSamples
+}
+
+// Returns True if the task is ok, meaning that their values are updated and correct
+func (record *NumericalTaskRecord) IsOK() bool {
+	if record.MeanScore+record.MedianScore+record.StdScore != 0.0 {
+		// we have some values, so this task is ok
+		return true
+	} else {
+		return false
+	}
 }
 
 // Calculate task statistics
@@ -336,6 +426,16 @@ func (record *SignatureTaskRecord) InsertSample(timeSample time.Time, data inter
 	record.CircBuffer.Times[record.CircBuffer.Indexes.End] = timeSample
 
 	return nil
+}
+
+// Returns True if the task is ok, meaning that their values are updated and correct
+func (record *SignatureTaskRecord) IsOK() bool {
+	if record.LastSignature != "" {
+		// there is a signature available, so it is OK
+		return true
+	} else {
+		return false
+	}
 }
 
 // Process the buffer data to produce the signature metrics

@@ -65,20 +65,27 @@ async def sign_sample(args: PocketNetworkTaskRequest) -> bool:
             insert_mongo_prompt.append(prompt_mongo.model_dump(by_alias=True))
             logger.debug(f"Prompt:", PocketNetworkMongoDBPrompt=prompt_mongo)
     try:
-        with mongo_client.start_session() as session:
-            with session.start_transaction():
-                mongo_client["pocket-ml-testbench"]["tasks"].insert_many(
-                    insert_mongo_tasks, ordered=False, session=session
+        async with mongo_client.start_transaction() as session:
+            await mongo_client.db['tasks'].insert_many(
+                insert_mongo_tasks,
+                ordered=False,
+                session=session,
+            )
+            await mongo_client.db['instances'].insert_many(
+                    insert_mongo_instances,
+                    ordered=False,
+                    session=session,
                 )
-                mongo_client["pocket-ml-testbench"]["instances"].insert_many(
-                    insert_mongo_instances, ordered=False, session=session
+            await mongo_client.db['prompts'].insert_many(
+                    insert_mongo_prompt,
+                    ordered=False,
+                    session=session,
                 )
-                mongo_client["pocket-ml-testbench"]["prompts"].insert_many(
-                    insert_mongo_prompt, ordered=False, session=session
-                )
-                logger.debug("Instances saved to MongoDB successfully.")
+            
+            logger.debug("Instances saved to MongoDB successfully.")
     except Exception as e:
         logger.error("Failed to save Instances to MongoDB.")
+        logger.error(f"Exeption:", Exeption=str(e))
         raise ApplicationError("Failed to save instances to MongoDB.", non_retryable=True)
 
     return True
