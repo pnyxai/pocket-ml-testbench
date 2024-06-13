@@ -35,7 +35,7 @@ You can also host the model on other machines if you want (we wont guide you thr
 ```json
 [
   {
-    "id": "00A1",
+    "id": "A100",
     "url": "http://SERVICE_IP:SERVICE_PORT"
   }
 ]

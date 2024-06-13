@@ -654,21 +654,24 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
                 "Quantity of numbers to generate is greater than the range",
                 non_retryable=True
             )
-        # Generate a list of random numbers within the range [min, max] excluding the blacklist
+        
+        # Generate a list of random numbers within the range [min, max] 
         ints = set(range(min, max + 1))
-        if len(blacklist) > 0:
-            original_len = len(ints)
-            # Remove the blacklisted numbers
-            ints = ints - set(blacklist)
-            # Check that the blacklist numbers were removed
-            if len(ints) == original_len:
-                self.eval_logger.error("Blacklist out of range:", table_name=table_name, _split=_split, range_min=min,
-                                       range_max=max, blacklist=blacklist)
-                raise ApplicationError(
-                    "Blacklist corresponding to '{}' table & '{}' split were not founded in the range: [{}-{}]".format(
-                        table_name, _split, min, max),
-                    non_retryable=True
-                )
+        if blacklist is not None:
+            # exclude the blacklist members
+            if len(blacklist) > 0:
+                original_len = len(ints)
+                # Remove the blacklisted numbers
+                ints = ints - set(blacklist)
+                # Check that the blacklist numbers were removed
+                if len(ints) == original_len:
+                    self.eval_logger.error(f"Blacklist out of range:", table_name=table_name, _split=_split, range_min=min,
+                                        range_max=max, blacklist=blacklist)
+                    raise ApplicationError(
+                        "Blacklist corresponding to '{}' table & '{}' split were not founded in the range: [{}-{}]".format(
+                            table_name, _split, min, max),
+                        non_retryable=True
+                    )
         # sorted random numbers
         choices = sorted(np.random.choice(list(ints), qty, replace=False).tolist())
         self.eval_logger.debug("Random numbers generated:", choices=choices)

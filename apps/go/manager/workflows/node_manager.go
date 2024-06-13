@@ -48,9 +48,9 @@ func (wCtx *Ctx) NodeManager(ctx workflow.Context, params types.NodeManagerParam
 		Service: params.Service,
 	}
 	// Results will be kept logged by temporal
-	var stakedNodes types.GetStakedResults
+	var pocketNetworkData types.GetStakedResults
 	// Execute activity
-	err := workflow.ExecuteActivity(ctxTimeout, activities.GetStakedName, getStakedInput).Get(ctx, &stakedNodes)
+	err := workflow.ExecuteActivity(ctxTimeout, activities.GetStakedName, getStakedInput).Get(ctx, &pocketNetworkData)
 	if err != nil {
 		return &result, err
 	}
@@ -67,7 +67,7 @@ func (wCtx *Ctx) NodeManager(ctx workflow.Context, params types.NodeManagerParam
 	selector := workflow.NewSelector(ctx)
 
 	// The channel requests are the nodes data
-	nodes := stakedNodes.Nodes
+	nodes := pocketNetworkData.Nodes
 	// Define a channel to store NodeAnalysisChanResponse objects
 	nodeAnalysisResultsChan := make(chan types.NodeAnalysisChanResponse, len(nodes))
 	// defer close lookup task results channel
@@ -76,6 +76,7 @@ func (wCtx *Ctx) NodeManager(ctx workflow.Context, params types.NodeManagerParam
 	for _, node := range nodes {
 		input := types.AnalyzeNodeParams{
 			Node:  node,
+			Block: pocketNetworkData.Block,
 			Tests: params.Tests,
 		}
 		ltr := types.AnalyzeNodeResults{}

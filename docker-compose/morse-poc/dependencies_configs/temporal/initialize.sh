@@ -9,7 +9,7 @@ mmlu="mmlu_abstract_algebra,mmlu_anatomy,mmlu_astronomy,mmlu_business_ethics,mml
 heavy="arc_challenge,hellaswag,truthfulqa_mc2,winogrande,gsm8k"
 one="mmlu_astronomy"
 # change this if you want a different set of datasets, by default it create everything
-keys=$everything
+keys=$one
 
 json_array=$(printf ',"%s"' "${key_array[@]}")
 json_array="[${json_array:1}]"
@@ -33,8 +33,8 @@ sleep 60
 
 for key in "${key_array[@]}"; do
   temporal schedule create \
-      --schedule-id "lmeh-$key-00A1" \
-      --workflow-id "lmeh-$key-00A1" \
+      --schedule-id "lmeh-$key-A100" \
+      --workflow-id "lmeh-$key-A100" \
       --namespace 'pocket-ml-testbench' \
       --workflow-type 'Manager' \
       --task-queue 'manager' \
@@ -42,12 +42,12 @@ for key in "${key_array[@]}"; do
       --execution-timeout 350 \
       --task-timeout 175 \
       --overlap-policy 'BufferOne' \
-      --input "{\"service\":\"00A1\", \"tests\": [{\"framework\": \"lmeh\", \"tasks\": [\"$key\"]}]}"
+      --input "{\"service\":\"A100\", \"tests\": [{\"framework\": \"lmeh\", \"tasks\": [\"$key\"]}]}"
 done
 
 temporal schedule create \
-      --schedule-id "lmeh-tokenizer-00A1" \
-      --workflow-id "lmeh-tokenizer-00A1" \
+      --schedule-id "lmeh-tokenizer-A100" \
+      --workflow-id "lmeh-tokenizer-A100" \
       --namespace 'pocket-ml-testbench' \
       --workflow-type 'Manager' \
       --task-queue 'manager' \
@@ -55,15 +55,15 @@ temporal schedule create \
       --execution-timeout 350 \
       --task-timeout 175 \
       --overlap-policy 'BufferOne' \
-      --input "{\"service\":\"00A1\", \"tests\": [{\"framework\": \"signatures\", \"tasks\": [\"tokenizer\"]}]}"
+      --input "{\"service\":\"A100\", \"tests\": [{\"framework\": \"signatures\", \"tasks\": [\"tokenizer\"]}]}"
 
 temporal schedule create \
-    --schedule-id 'f3abbe313689a603a1a6d6a43330d0440a552288-00A1' \
-    --workflow-id 'f3abbe313689a603a1a6d6a43330d0440a552288-00A1' \
+    --schedule-id 'f3abbe313689a603a1a6d6a43330d0440a552288-A100' \
+    --workflow-id 'f3abbe313689a603a1a6d6a43330d0440a552288-A100' \
     --namespace 'pocket-ml-testbench' \
     --workflow-type 'Requester' \
     --task-queue 'requester' \
     --cron '@every 1m' \
     --execution-timeout 350 \
     --task-timeout 175 \
-    --input '{"app":"f3abbe313689a603a1a6d6a43330d0440a552288","service":"00A1"}'
+    --input '{"app":"f3abbe313689a603a1a6d6a43330d0440a552288","service":"A100"}'

@@ -77,6 +77,10 @@ func Initialize() *types.App {
 		types.InstanceCollection,
 		types.NodesCollection,
 		types.ResultsCollection,
+		types.PromptsCollection,
+		types.ResponsesCollection,
+		types.NumericalTaskCollection,
+		types.SignaturesTaskCollection,
 	}, l)
 
 	// Initialize connection to RPC

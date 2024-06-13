@@ -24,3 +24,9 @@ db.createCollection('nodes');
 db.nodes.createIndex({address: 1, service: 1}, {unique: true});
 
 db.createCollection('results');
+
+db.createCollection('buffers_numerical');
+db.buffers_numerical.createIndex({"task_data.node_id": 1, "task_data.framework": 1, "task_data.task": 1}, {unique: true});
+
+db.createCollection('buffers_signatures');
+db.buffers_numerical.createIndex({"task_data.node_id": 1, "task_data.framework": 1, "task_data.task": 1}, {unique: true});

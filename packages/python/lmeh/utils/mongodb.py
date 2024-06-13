@@ -32,6 +32,9 @@ class MongoOperator:
         self.instances_collection = collections_map["instances"] if "instances" in collections_map else "instances"
         self.prompts_collection = collections_map["prompts"] if "prompts" in collections_map else "prompts"
         self.responses_collection = collections_map["responses"] if "responses" in collections_map else "responses"
+        self.buffers_numerical_collection = collections_map["buffers_numerical"] if "buffers_numerical" in collections_map else "buffers_numerical"
+        self.buffers_signatures_collection = collections_map["buffers_signatures"] if "buffers_signatures" in collections_map else "buffers_signatures"
+        
 
     # TODO : This should reffer to PocketNetworkMongoDBInstance and not depend on LMEH blindly
     @staticmethod
@@ -54,15 +57,28 @@ class MongoOperator:
 
         eval_logger.debug("Node found.", node=node)
 
-        # Check if tokenizer signature exists
-        if node.get('signature_tasks', None) is None:
-            eval_logger.error("Node address has no signature_tasks, cannot load tokenizer hash.", adress=address)
-            raise ApplicationError(f"Node address {address}, has no signature_tasks cannot load tokenizer hash.")
+        # Get the node ID
+        if node.get('_id', None) is None:
+            eval_logger.error("Node address has no _id, cannot load tokenizer hash.", adress=address)
+            raise ApplicationError(f"Node address {address}, has no _id, cannot load tokenizer hash.")
+        
+        # Get the corresponding signature buffer
+        buffer = await self.client.db[self.buffers_signatures_collection].find_one({'task_data.node_id': node['_id'], 
+                                                                                    'task_data.framework': "signatures", 
+                                                                                    'task_data.task': "tokenizer"
+                                                                                    })
 
-        tokenizer_hash = ''
-        for task in node['signature_tasks']:
-            if (task['task_data']['framework'] == 'signatures') and (task['task_data']['task'] == 'tokenizer'):
-                tokenizer_hash = task['last_signature']
+        if buffer is None:
+            eval_logger.error("Buffer for tokenizer signature not found.", adress=address)
+            raise ApplicationError(f"Node address {address} does not have a tokenizer signature buffer associated.")
+
+        eval_logger.debug("Tokennizer signature buffer found.", buffer=buffer)
+
+
+        tokenizer_hash =  buffer.get('last_signature', None)
+        if tokenizer_hash is None:
+            eval_logger.error("Buffer has no last signature field, entry is malformed cannot procede.", adress=address)
+            raise ApplicationError(f"Node address {address} buffer has no last signature field, entry is malformed cannot procede.")
 
         return tokenizer_hash
     
