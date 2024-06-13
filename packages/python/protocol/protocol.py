@@ -259,3 +259,4 @@ class PocketNetworkMongoDBTokenizer(BaseModel):
 
     class Config:
         arbitrary_types_allowed = True
+    scores: List[NumericSample]
