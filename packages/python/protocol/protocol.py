@@ -246,3 +246,16 @@ class NumericSample(BaseModel):
 
 class PocketNetworkMongoDBResultNumerical(PocketNetworkMongoDBResultBase):
 	scores: List[NumericSample]
+
+
+###########
+# Tokenizer
+###########
+
+class PocketNetworkMongoDBTokenizer(BaseModel):
+    id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
+    tokenizer : dict
+    hash : str
+
+    class Config:
+        arbitrary_types_allowed = True
