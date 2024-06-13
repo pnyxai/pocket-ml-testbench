@@ -6,6 +6,7 @@ from app.app import get_app_logger, get_app_config
 from packages.python.lmeh.pocket_lm_eval.models.pocket_network import EvaluatorLM
 from packages.python.lmeh.utils.common import get_task_manager
 from packages.python.lmeh.utils import generator as lmeh_generator
+from packages.python.lmeh.utils import task_config as open_llm_config
 from packages.python.protocol.protocol import PocketNetworkEvaluationTaskRequest
 from packages.python.lmeh.utils.mongodb import MongoOperator
 from packages.python.common.auto_heartbeater import auto_heartbeater
@@ -117,6 +118,8 @@ async def lmeh_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
 
                 # generate configurable tasks
                 try:
+                    open_llm_cfg = open_llm_config.get_task_config(task_names[0])
+                    open_llm_metrics = open_llm_cfg["metric"]           
                     task_dict = lmeh_generator.get_configurable_task(
                         tasks=[task_name],
                         num_fewshot=args.num_fewshot,
@@ -168,31 +171,14 @@ async def lmeh_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
                 eval_logger.debug("Generating LM")
                 lm = EvaluatorLM(**args.llm_args)
                 eval_logger.debug("LM generated successfully.")
-                results = await lmeh_generator.evaluate(
+                task_output = await lmeh_generator.evaluate(
                     lm=lm,
                     task_dict=task_dict,
                     task_id=args.task_id,
                     mongo_client=mongo_client,
+                    selected_metrics=open_llm_metrics,
                     eval_logger=eval_logger,
-                    bootstrap_iters=args.bootstrap_iters,
                 )
                 eval_logger.info("Evaluation completed successfully.")
-
-                if lm.rank == 0:
-                    # add info about the model and few shot config
-                    results["config"] = {
-                        "model": args.requester_args.address,
-                        "model_args": args.llm_args,
-                        "bootstrap_iters": args.bootstrap_iters,
-                        "gen_kwargs": args.gen_kwargs,
-                    }
-
-                    # todo: resolve code below
-                    # results["git_hash"] = get_git_commit_hash()
-                    # results["date"] = start_date
-                    # add_env_info(results)  # additional environment info to results
-
-                # assign evaluation's result to a general result under task name, because we iterate over all the tasks
-                r[task_name] = results
 
     return True
