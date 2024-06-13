@@ -15,7 +15,7 @@ from packages.python.lmeh.utils import sql as lmeh_sql
 
 @activity.defn
 @auto_heartbeater
-async def evaluation(args: PocketNetworkEvaluationTaskRequest) -> bool:
+async def lmeh_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
     """
     Returns a dict where each key is a task name with the evaluation result.
     :param args:

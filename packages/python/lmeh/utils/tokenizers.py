@@ -3,21 +3,28 @@ import os
 import shutil
 home = os.environ['HOME']
 
-from bson.objectid import ObjectId
 from hashlib import sha256
 from pathlib import Path
 from transformers import AutoTokenizer, PreTrainedTokenizer, PreTrainedTokenizerFast
-from typing import List, Optional, Union
+from typing import Union
 
-from app.app import get_app_logger
-eval_logger = get_app_logger("sample")
+try:
+    from app.app import get_app_logger
+    eval_logger = get_app_logger("sample")
+except:
+    print('No logger available')
+    eval_logger=None
 
-def _get_tokenizer_jsons(tokenizer: Union[PreTrainedTokenizer, PreTrainedTokenizerFast])-> dict:
+def _get_tokenizer_jsons(tokenizer: Union[PreTrainedTokenizer, PreTrainedTokenizerFast], TOKENIZER_EPHIMERAL_PATH = None)-> dict:
     """Get tokenizer jsons been used"""
     CURRENT_DIR = os.path.dirname(__file__)
-    EPHIMERAL_FOLDER_NAME = "tmp_tokenizer"
-    TOKENIZER_EPHIMERAL_PATH = Path(
-        os.path.join(CURRENT_DIR, EPHIMERAL_FOLDER_NAME))
+    
+    if TOKENIZER_EPHIMERAL_PATH == None:
+        TOKENIZER_EPHIMERAL_PATH = Path(
+            os.path.join(CURRENT_DIR, "tmp_tokenizer"))
+    else:
+        TOKENIZER_EPHIMERAL_PATH = Path(TOKENIZER_EPHIMERAL_PATH)
+    TOKENIZER_EPHIMERAL_PATH.mkdir(parents=True, exist_ok=True)
 
     # save tokenizer files in ephimeral folder
     tokenizer.save_pretrained(TOKENIZER_EPHIMERAL_PATH.absolute())
@@ -38,9 +45,9 @@ def _get_tokenizer_jsons(tokenizer: Union[PreTrainedTokenizer, PreTrainedTokeniz
 
     return tokenizer_jsons
 
-def prepare_tokenizer(tokenizer: Union[PreTrainedTokenizer, PreTrainedTokenizerFast])-> dict:
+def prepare_tokenizer(tokenizer: Union[PreTrainedTokenizer, PreTrainedTokenizerFast], TOKENIZER_EPHIMERAL_PATH = None)-> dict:
      
-    tokenizer_jsons = _get_tokenizer_jsons(tokenizer)
+    tokenizer_jsons = _get_tokenizer_jsons(tokenizer, TOKENIZER_EPHIMERAL_PATH = TOKENIZER_EPHIMERAL_PATH)
 
 
     if 'model_max_length' in tokenizer_jsons['tokenizer_config']:
@@ -49,8 +56,7 @@ def prepare_tokenizer(tokenizer: Union[PreTrainedTokenizer, PreTrainedTokenizerF
 
     hash = json.dumps(tokenizer_jsons, sort_keys=True).encode('utf-8')
     tokenizer_hash = sha256(hash).hexdigest()
-    tokenizer_mongo = {'tokenizer': tokenizer_jsons, 'hash': tokenizer_hash, '_id': ObjectId()}
-    return tokenizer_mongo
+    return tokenizer_jsons, tokenizer_hash
 
 def load_tokenizer(tokenizer_objects: dict, wf_id:str, tokenizer_ephimeral_path: str=None)-> Union[PreTrainedTokenizer, PreTrainedTokenizerFast]:
 
@@ -61,9 +67,13 @@ def load_tokenizer(tokenizer_objects: dict, wf_id:str, tokenizer_ephimeral_path:
     tokenizer_ephimeral_path.mkdir(parents=True, exist_ok=True)
 
     for key, value in tokenizer_objects.items():
-        with open(
-            os.path.join(tokenizer_ephimeral_path, key + ".json"), "w"
-        ) as f:
+        filename = os.path.join(tokenizer_ephimeral_path, key + ".json")
+        with open(filename, "w") as f:
+            print(filename)
+            if eval_logger != None:
+                eval_logger.debug(
+                    f"Writing '{filename}'"
+                )
             json.dump(value, f)
             f.close()
     
@@ -72,12 +82,13 @@ def load_tokenizer(tokenizer_objects: dict, wf_id:str, tokenizer_ephimeral_path:
     )
     try:
         shutil.rmtree(tokenizer_ephimeral_path)
-        eval_logger.debug(
-            f"Ephimeral '{tokenizer_ephimeral_path.name}' directory removed successfully."
-        )
-        eval_logger.debug(
-            f"Tokenizer objects availables: {str(tokenizer_objects.keys())}"
-        )
+        if eval_logger != None:
+            eval_logger.debug(
+                f"Ephimeral '{tokenizer_ephimeral_path.name}' directory removed successfully."
+            )
+            eval_logger.debug(
+                f"Tokenizer objects availables: {str(tokenizer_objects.keys())}"
+            )
     except OSError as e:
         raise RuntimeError(
             f"Error removing '{tokenizer_ephimeral_path.name}' directory: {e}"

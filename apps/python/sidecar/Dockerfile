@@ -17,7 +17,6 @@ RUN pip install --no-cache-dir --upgrade -r /home/app/code/requirements.txt
 
 
 COPY apps/python/sidecar/app /home/app/code/app
-COPY apps/python/sidecar/tokenizers_utils /home/app/code/tokenizers_utils
 COPY apps/python/sidecar/main.py /home/app/code/main.py
 COPY packages /home/app/code/packages
 

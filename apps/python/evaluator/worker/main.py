@@ -12,7 +12,11 @@ from packages.python.common.utils import get_from_dict
 from app.app import setup_app, get_app_logger
 from app.config import read_config
 
-from activities.lmeh.evaluate import evaluation as lmeh_evaluate
+from activities.lmeh.evaluate import lmeh_evaluate
+from activities.get_task_data import get_task_data
+from activities.signatures.tokenizer_evaluate import tokenizer_evaluate
+
+
 from workflows.evaluator import Evaluator
 import concurrent.futures
 
@@ -78,7 +82,9 @@ async def main():
                 Evaluator,
             ],
             "activities": [
+                get_task_data,
                 lmeh_evaluate,
+                tokenizer_evaluate,
             ],
             "activity_executor": activity_executor,
         }

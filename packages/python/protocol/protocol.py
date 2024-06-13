@@ -161,7 +161,11 @@ class PocketNetworkMongoDBTask(BaseModel):
 ###########
 # EVALUATOR
 ###########
-class PocketNetworkEvaluationTaskRequest(PocketNetworkTaskRequest):
+
+# TODO: Sepparate this class into an agnostic input to the evaluation workflow. 
+# This class is inhering multiple optional parameters that dont play any role in
+# non-LMEH or non-LLM tasks.
+class PocketNetworkEvaluationTaskRequest(PocketNetworkTaskRequest): 
     framework: Optional[str] = None
     task_id: Union[str, PyObjectId]
     tasks: Optional[str] = None
@@ -213,3 +217,45 @@ class CompletionResponse(OpenAIBaseModel):
     model: str
     choices: List[CompletionResponseChoice]
     usage: UsageInfo
+
+
+
+###########
+# RESPONSES
+###########
+
+class PocketNetworkMongoDBResultBase(BaseModel):
+    id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
+    task_id: ObjectId
+    num_samples:    int
+
+    class Config:
+        arbitrary_types_allowed = True
+
+class SignatureSample(BaseModel):
+    signature: str
+    id: int
+
+class PocketNetworkMongoDBResultSignature(PocketNetworkMongoDBResultBase):
+	signatures: List[SignatureSample]
+
+
+class NumericSample(BaseModel):
+    score: float
+    id: int
+
+class PocketNetworkMongoDBResultNumerical(PocketNetworkMongoDBResultBase):
+	scores: List[NumericSample]
+
+
+###########
+# Tokenizer
+###########
+
+class PocketNetworkMongoDBTokenizer(BaseModel):
+    id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
+    tokenizer : dict
+    hash : str
+
+    class Config:
+        arbitrary_types_allowed = True
