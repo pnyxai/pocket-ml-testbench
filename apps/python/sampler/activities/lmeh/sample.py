@@ -5,6 +5,7 @@ from packages.python.lmeh.utils.common import get_task_manager
 from app.app import get_app_logger, get_app_config
 from packages.python.protocol.protocol import PocketNetworkTaskRequest
 from packages.python.lmeh.utils import generator as lmeh_generator
+from packages.python.lmeh.utils import task_config as open_llm_config
 from packages.python.lmeh.pocket_lm_eval.models.pocket_network import PocketNetworkLM
 from activities.utils import auto_heartbeater
 from packages.python.lmeh.utils import sql as lmeh_sql
@@ -57,6 +58,8 @@ async def lmeh_sample(args: PocketNetworkTaskRequest) -> bool:
 
                 # generate configurable tasks
                 try:
+                    open_llm_cfg = open_llm_config.get_task_config(task_names[0])
+                    args.num_fewshot = open_llm_cfg["num_fewshot"]                    
                     task_dict = lmeh_generator.get_configurable_task(
                         tasks=[task_name],
                         num_fewshot=args.num_fewshot,

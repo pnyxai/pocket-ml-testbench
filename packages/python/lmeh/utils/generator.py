@@ -1,3 +1,4 @@
+from datetime import datetime
 import logging
 from collections import defaultdict
 from typing import TYPE_CHECKING, List, Optional, Union
@@ -22,7 +23,7 @@ from temporalio.exceptions import ApplicationError
 from packages.python.lmeh.utils.mongodb import MongoOperator
 from packages.python.lmeh.pocket_lm_eval.tasks import PocketNetworkTaskManager
 from packages.python.protocol.protocol import PocketNetworkTaskRequest, PocketNetworkMongoDBTask, \
-    PocketNetworkMongoDBPrompt
+    PocketNetworkMongoDBPrompt, NumericSample, PocketNetworkMongoDBResultNumerical
 from motor.motor_asyncio import AsyncIOMotorClient
 from packages.python.common.mongodb import MongoClient
 from bson import ObjectId
@@ -67,7 +68,8 @@ def get_configurable_task(
         tasks = []
     if len(tasks) == 0:
         raise ApplicationError(
-            "No tasks specified, or no tasks found. Please verify the task names.", non_retryable=True
+            "No tasks specified, or no tasks found. Please verify the task names.",
+            non_retryable=True,
         )
 
     if gen_kwargs is not None:
@@ -197,16 +199,23 @@ async def generate_requests(
         for _, rs in requests.items():
             for r in rs:
                 task_name, instance_id = r.metadata[0], r.doc_id
-                if instance_id not in task_dict[task_name].config.metadata['pocket_args'].doc_ids:
+                if (
+                    instance_id
+                    not in task_dict[task_name].config.metadata["pocket_args"].doc_ids
+                ):
                     # noinspection PyArgumentList
                     eval_logger.error(
-                        f"Instance id not found in task.config.metadata[\"pocket_args\"].doc_ids",
-                        instance_id=instance_id, task=task_name,
-                        task_ids=task_dict[task_name].config.metadata['pocket_args'].doc_ids
+                        'Instance id not found in task.config.metadata["pocket_args"].doc_ids',
+                        instance_id=instance_id,
+                        task=task_name,
+                        task_ids=task_dict[task_name]
+                        .config.metadata["pocket_args"]
+                        .doc_ids,
                     )
                     raise ApplicationError(
                         f"Request id {instance_id} not found in task.config.metadata",
-                        instance_id, task_name,
+                        instance_id,
+                        task_name,
                         type="InstanceNotFound",
                         non_retryable=True,
                     )
@@ -245,24 +254,23 @@ async def generate_requests(
         task_mongodb = PocketNetworkMongoDBTask(
             **{
                 **args.model_dump(),
-                **{
-                    "total_instances": len(instances),
-                    "request_type": task.OUTPUT_TYPE
-                },
+                **{"total_instances": len(instances), "request_type": task.OUTPUT_TYPE},
             },
         )
         insert_mongo_tasks.append(task_mongodb.model_dump(by_alias=True))
         # Instances
         for instance in instances:
-            instance_mongo = MongoOperator.instance_to_dict(instance=instance, task_id=task_mongodb.id)
+            instance_mongo = MongoOperator.instance_to_dict(
+                instance=instance, task_id=task_mongodb.id
+            )
             insert_mongo_instances.append(instance_mongo)
             # noinspection PyArgumentList
             # Prompts
             for pocket_req in instance.resps:
-                instance_id = instance_mongo['_id']
+                instance_id = instance_mongo["_id"]
                 data = pocket_req.model_dump_json(
                     exclude_defaults=True,
-                    exclude={"ctxlen", "context_enc", "continuation_enc"}
+                    exclude={"ctxlen", "context_enc", "continuation_enc"},
                 )
                 prompt_mongo = PocketNetworkMongoDBPrompt(
                     data=data,
@@ -270,7 +278,8 @@ async def generate_requests(
                     instance_id=instance_id,
                     ctxlen=pocket_req.ctxlen,
                     context_enc=pocket_req.context_enc,
-                    continuation_enc=pocket_req.continuation_enc)
+                    continuation_enc=pocket_req.continuation_enc,
+                )
                 insert_mongo_prompts.append(prompt_mongo.model_dump(by_alias=True))
     try:
         async with mongo_client.start_transaction() as session:
@@ -307,17 +316,16 @@ async def generate_requests(
 
 
 async def evaluate(
-        lm: "LM",
-        task_dict,
-        task_id: ObjectId,
-        mongo_client: MongoClient,
-        collection: str = 'tasks',
-        limit: Optional[int] = None,
-        bootstrap_iters: int = 100000,
-        cache_requests: bool = False,
-        rewrite_requests_cache: bool = False,
-        log_samples: bool = True,
-        eval_logger: Optional[logging.Logger] = None,
+    lm: "LM",
+    task_dict,
+    task_id: ObjectId,
+    mongo_client: MongoClient,
+    selected_metrics: str,
+    limit: Optional[int] = None,
+    cache_requests: bool = False,
+    rewrite_requests_cache: bool = False,
+    log_samples: bool = True,
+    eval_logger: Optional[logging.Logger] = None,
 ):
     """
     :param lm: LM
@@ -334,6 +342,30 @@ async def evaluate(
         Dictionary of results
     """
 
+    async def save_results(
+            mongo_client: MongoClient,
+            insert_mongo_results: List[dict],
+            eval_logger: Optional[logging.Logger] = None,
+    ):
+        
+        try:
+            async with mongo_client.start_transaction() as session:
+
+                await mongo_client.db['results'].insert_many(
+                        insert_mongo_results,
+                        ordered=False,
+                        session=session,
+                    )
+        except Exception as e:
+            eval_logger.error("Failed to save documents (results) to MongoDB.", error=e)
+            raise ApplicationError(
+                "Failed to save documents (results) to MongoDB.",
+                str(e),
+                type="Mongodb",
+                non_retryable=True,
+            )
+        return
+
     # tracks all Instances/requests a model must generate output on.
     requests = defaultdict(list)
 
@@ -341,31 +373,51 @@ async def evaluate(
     task_hierarchy, eval_tasks = get_task_list(task_dict)
     if not log_samples:
         if not all(
-                "bypass" not in getattr(task_output.task, "_metric_fn_list", {}).keys()
-                for task_output in eval_tasks
+            "bypass" not in getattr(task_output.task, "_metric_fn_list", {}).keys()
+            for task_output in eval_tasks
         ):
             raise ValueError("log_samples must be True for 'bypass' metric-only tasks")
 
     for task_output in eval_tasks:
         task: Task = task_output.task
         limit = get_sample_size(task, limit)
-        await task.build_all_requests(
-            task_id=task_id,
-            mongo_client=mongo_client,
-            collection=collection,
-            limit=limit,
-            rank=lm.rank,
-            world_size=lm.world_size,
-            cache_requests=cache_requests,
-            rewrite_requests_cache=rewrite_requests_cache,
-        )
-        eval_logger.debug(
-            f"Task: {task_output.task_name}; number of requests on this rank: {len(task.instances)}"
-        )
-        # aggregate Instances by LM method requested to get output.
-        for instance in task.instances:
-            reqtype = instance.request_type
-            requests[reqtype].append(instance)
+        try:
+            await task.build_all_requests(
+                task_id=task_id,
+                mongo_client=mongo_client,
+                limit=limit,
+                rank=lm.rank,
+                world_size=lm.world_size,
+                cache_requests=cache_requests,
+                rewrite_requests_cache=rewrite_requests_cache,
+            )
+            eval_logger.debug(
+                f"Task: {task_output.task_name}; number of requests on this rank: {len(task.instances)}"
+            )
+            # aggregate Instances by LM method requested to get output.
+            for instance in task.instances:
+                reqtype = instance.request_type
+                requests[reqtype].append(instance)
+        except Exception as e:
+            raise e
+    
+        if len(task.instances) == 0:
+            insert_mongo_results = []
+            eval_logger.debug("No instances/doc_id generated for task.", task_id=str(task_id))
+            num_result = PocketNetworkMongoDBResultNumerical(
+                task_id=task_id,
+                num_samples=0,
+                status=1,
+                result_height=task.result_height,
+                result_time=datetime.today().isoformat(),
+                scores=[])
+            insert_mongo_results.append(num_result.model_dump(by_alias=True))
+            await save_results(
+                mongo_client=mongo_client,
+                insert_mongo_results=insert_mongo_results,
+                eval_logger=eval_logger,
+            )
+            return True
 
     eval_logger.debug("Instances generated successfully:")
     ### Run LM on inputs, get all outputs ###
@@ -379,21 +431,21 @@ async def evaluate(
 
         # run requests through model
         resps = getattr(lm, reqtype)(cloned_reqs)
-        eval_logger.debug(f"Response:", resps=resps)
+        eval_logger.debug("Response:", resps=resps)
 
         # put responses from model into a list of length K for each request.
         for x, req in zip(resps, cloned_reqs):
             req.resps.append(x)
-            eval_logger.debug(f"Request:", req=req, resps=req.resps, x=x)
+            eval_logger.debug("Request:", req=req, resps=req.resps, x=x)
 
     RANK = lm.rank
     WORLD_SIZE = lm.world_size
+    insert_mongo_results = []
     ### Postprocess outputs ###
     # TODO: del model here, maybe (idea: allow user to specify device of e.g. reward model separately)
     for task_output in eval_tasks:
         task = task_output.task
         task.apply_filters()
-        eval_logger.debug(f"Filtered Instance:", task=task.instances[0])
         ### Collect values of metrics on all datapoints ###
         # # unpack results and sort back in order and return control to Task
         # TODO: make it possible to use a different metric per filter
@@ -403,20 +455,19 @@ async def evaluate(
             instances_by_doc_id[instance.doc_id].append(instance)
         list_doc_id = list(instances_by_doc_id.keys())
         # Sort instances within each group
-        eval_logger.debug(f"Instance by doc id:", instances_by_doc_id=instances_by_doc_id)
         for instances in instances_by_doc_id.values():
             instances.sort(key=lambda x: x.idx)
         # iterate over different filters used
+        scores = []
+        result_num_samples = set()
         for filter_key in task.instances[0].filtered_resps.keys():
             doc_iterator = task.doc_iterator(
                 rank=RANK, limit=limit, world_size=WORLD_SIZE
             )
             for i, doc in doc_iterator:
                 doc_id = list_doc_id[i]
-                eval_logger.debug(f"Processing doc_id: {doc_id}")
-                eval_logger.debug(f"Doc:", doc=doc)
+                result_num_samples.add(doc_id)
                 requests = instances_by_doc_id[doc_id]
-                eval_logger.debug(f"Requests (doc_iterator):", requests=requests)
                 metrics = task.process_results(
                     doc, [req.filtered_resps[filter_key] for req in requests]
                 )
@@ -436,101 +487,24 @@ async def evaluate(
                     task_output.logged_samples.append(example)
                 for metric, value in metrics.items():
                     task_output.sample_metrics[(metric, filter_key)].append(value)
+                if selected_metrics in metrics:
+                    numericSample = NumericSample(score=example[selected_metrics], id=doc_id)
+                    scores.append(numericSample)
 
-    if RANK == 0:
-        ### Aggregate results over all datapoints ###
-        # aggregate results ; run bootstrap CIs
-        for task_output in eval_tasks:
-            task_output.calculate_aggregate_metric(bootstrap_iters=bootstrap_iters)
-        results, samples, configs, versions, num_fewshot = consolidate_results(
-            eval_tasks
-        )
+        num_result = PocketNetworkMongoDBResultNumerical(
+            task_id=task_id,
+            num_samples=len(result_num_samples),
+            status=0,
+            result_height=task.result_height,
+            result_time=datetime.today().isoformat(),
+            scores=scores)
+        insert_mongo_results.append(num_result.model_dump(by_alias=True))
+    eval_logger.debug("Mongo Result:", mongo_result=insert_mongo_results)
 
-        ### Calculate group metrics ###
-        if bool(results):
-            for group, task_list in reversed(task_hierarchy.items()):
-                if len(task_list) == 0:
-                    # task_hierarchy entries are either
-                    # `group_name: [subtask1, subtask2, ...]`
-                    # or `task_name: []`.
-                    # we only want to operate on groups here.
-                    continue
-                metric_list = list(
-                    {
-                        key
-                        for task in task_list
-                        for key in results[task].keys()
-                        if "_stderr" not in key and key not in ["alias", "samples"]
-                    }
-                )
-                for metric in metric_list:
-                    stderr = "_stderr,".join(metric.split(","))
+    await save_results(
+        mongo_client=mongo_client,
+        insert_mongo_results=insert_mongo_results,
+        eval_logger=eval_logger,
+    )
 
-                    # gather metrics, sizes, and stderrs from subtasks
-                    metrics = [
-                        results[task][metric]
-                        for task in task_list
-                        if metric in results[task]
-                    ]  # TODO: copy?
-                    stderrs = [
-                        results[task][stderr]
-                        for task in task_list
-                        if stderr in results[task]
-                    ]
-                    sizes = [
-                        results[task]["samples"]
-                        for task in task_list
-                        if metric in results[task]
-                    ]
-
-                    # compute group's pooled metric and stderr
-                    results[group][
-                        metric
-                    ] = aggregate_subtask_metrics(metrics, sizes)
-                    # TODO: calculate grouped metric using aggregation fn
-                    if "N/A" in stderrs:
-                        results[group][stderr] = "N/A"
-                    else:
-                        results[group][
-                            stderr
-                        ] = pooled_sample_stderr(stderrs, sizes)
-                        # TODO: allow GroupConfigs to choose which variance formula is used, for back-compatibility
-                        # To use the old (likely incorrect) variance formula, comment out the above and uncomment this line:
-                        # results[group][stderr] = lm_eval.api.metrics.combined_sample_stderr(stderrs, sizes, metrics=metrics)
-
-                    results[group]["samples"] = sum(sizes)
-
-        results_agg = defaultdict(dict)
-        groups_agg = defaultdict(dict)
-        all_tasks_list = list(task_hierarchy.keys())
-        while True:
-            add_tasks_list = list(k for k in results_agg.keys())
-            left_tasks_list = sorted(list(set(all_tasks_list) - set(add_tasks_list)))
-            if len(left_tasks_list) == 0:
-                break
-
-            _task_hierarchy = {
-                k: v for k, v in task_hierarchy.items() if k in left_tasks_list
-            }
-            _results_agg, _groups_agg = prepare_print_tasks(_task_hierarchy, results)
-
-            results_agg = {**results_agg, **_results_agg}
-            groups_agg = {**groups_agg, **_groups_agg}
-
-        for group_name, task_list in task_hierarchy.items():
-            if task_list:
-                num_fewshot[group_name] = num_fewshot[
-                    task_list[0]
-                ]  # TODO: validate this
-
-        results_dict = {
-            "results": dict(results_agg.items()),
-            **({"groups": dict(groups_agg.items())} if bool(groups_agg) else {}),
-            "group_subtasks": dict(reversed(task_hierarchy.items())),
-            "configs": dict(sorted(configs.items())),
-            "versions": dict(sorted(versions.items())),
-            "n-shot": dict(sorted(num_fewshot.items())),
-        }
-        if log_samples:
-            results_dict["samples"] = dict(samples)
-        return results_dict
+    return True

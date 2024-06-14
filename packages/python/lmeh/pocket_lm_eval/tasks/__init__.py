@@ -71,9 +71,9 @@ class PocketNetworkTaskManager(TaskManager):
             else:
                 config = self._process_alias(config, group=group)
                 if self.stage == TASK_MANAGER_REGISTER_STAGE or self.stage == TASK_MANAGER_SAMPLE_STAGE:
-                    task_object = PocketNetworkConfigurableTask(config=config, postgres_conn=self.postgres_conn)
+                    task_object = PocketNetworkConfigurableTask(config=config, postgres_conn=self.postgres_conn, eval_logger=self.logger)
                 elif self.stage == TASK_MANAGER_EVALUATE_STAGE:
-                    task_object = EvaluatePocketNetworkConfigurableTask(config=config, postgres_conn=self.postgres_conn)
+                    task_object = EvaluatePocketNetworkConfigurableTask(config=config, postgres_conn=self.postgres_conn, eval_logger=self.logger)
                 else:
                     ApplicationError(f"Stage {self.stage} not supported", non_retryable=True)
             if group is not None:

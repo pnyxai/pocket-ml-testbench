@@ -19,7 +19,7 @@ def _get_tokenizer_jsons(tokenizer: Union[PreTrainedTokenizer, PreTrainedTokeniz
     """Get tokenizer jsons been used"""
     CURRENT_DIR = os.path.dirname(__file__)
     
-    if TOKENIZER_EPHIMERAL_PATH == None:
+    if TOKENIZER_EPHIMERAL_PATH is None:
         TOKENIZER_EPHIMERAL_PATH = Path(
             os.path.join(CURRENT_DIR, "tmp_tokenizer"))
     else:

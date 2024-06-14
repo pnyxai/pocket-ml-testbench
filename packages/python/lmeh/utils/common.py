@@ -33,6 +33,7 @@ def get_task_manager(
         include_path=include_path,
         pocket_args=pocket_args,
         stage=stage,
+        logger=logger,
     )
 
     if tasks is None:

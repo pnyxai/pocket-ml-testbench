@@ -8,11 +8,11 @@ task_cnfg = {
         "num_fewshot":10
         },
     "truthfulqa_mc2": {
-        "metric": "mc2",
+        "metric": "acc",
         "num_fewshot":0
         },
     "mmlu": {
-        "metric": "average",
+        "metric": "acc",
         "num_fewshot":5
         },
     "winogrande": {
