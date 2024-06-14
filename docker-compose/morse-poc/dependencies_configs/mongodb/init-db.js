@@ -1,7 +1,7 @@
 db = db.getSiblingDB('pocket-ml-testbench');
 
 db.createCollection('tokenizers');
-db.tokenizers.createIndex({hash: 1});
+db.tokenizers.createIndex({hash: 1}, {unique: true});
 
 db.createCollection('tasks');
 db.tasks.createIndex({

@@ -378,7 +378,7 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
             # validate that the split exists in the _split_ranges
             self.check_split_exist(_split, _split_ranges)
         else:
-            self.eval_logger.error(f"Config without splits:", config=self.config)
+            self.eval_logger.error("Config without splits:", config=self.config)
             raise ApplicationError(
                 f"Neither {self.config.test_split} nor {self.config.validation_split} in splits were found in "
                 f"'_split_ranges'. Available splits are {_split_ranges.keys()}",
@@ -393,7 +393,7 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
             if doc_ids:
                 if _split != self.get_split_from_ids(_split_ranges, doc_ids):
                     self.eval_logger.error(
-                        f"Doc_ids not in split range used for evaluation:",
+                        "Doc_ids not in split range used for evaluation:",
                         doc_ids=doc_ids,
                         _split=_split,
                         range_min=_range['min'],
@@ -420,13 +420,14 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
         # assign dataset as dataset dictionary
         ds_dict = DatasetDict()
         for split in ds.unique("__split"):
-            self.eval_logger.debug(f"Adding split to DatasetDict:", split=split)
+            self.eval_logger.debug("Adding split to DatasetDict:", split=split)
             ds_dict[split] = ds.filter(lambda x: x["__split"] == split)
-        self.dataset = ds_dict.remove_columns(["__id", "__split"])
+        self.dataset = ds_dict.remove_columns(["__split"])
         # save in config the indexes used to download the dataset
         self._config.metadata['pocket_args'].doc_ids = indexes
         # Update qty to the number of documents downloaded
         self._config.metadata['pocket_args'].qty = len(indexes)
+        self.eval_split = _split
         ###########################################################
         # call the code that was after the download on the __init__
         ###########################################################
@@ -616,7 +617,7 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
         This function checks if a self.config.split exists in the keys of _split_ranges
         """
         if split not in _split_ranges.keys():
-            self.eval_logger.error(f"Split not found in _split_ranges:", split=split, _split_ranges=_split_ranges)
+            self.eval_logger.error("Split not found in _split_ranges:", split=split, _split_ranges=_split_ranges)
             raise ApplicationError(
                 f"'{split}' split not found in _split_ranges: {_split_ranges.keys()}",
                 non_retryable=True
@@ -636,7 +637,7 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
         """
         min_range = _split_ranges[split]['min']
         max_range = _split_ranges[split]['max'] + 1
-        self.eval_logger.debug(f"Adding ids from split range:", split=split, min_range=min_range, max_range=max_range)
+        self.eval_logger.debug("Adding ids from split range:", split=split, min_range=min_range, max_range=max_range)
         id_list_str += ', '.join(str(id) for id in range(min_range, max_range))
         return id_list_str
 
@@ -647,7 +648,7 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
         """
         # check that the quantity of numbers to generate is less than the range
         if qty > (max - min + 1):
-            self.eval_logger.error(f"quantity overflow:", table_name=table_name, _split=_split, qty=qty, range_min=min,
+            self.eval_logger.error("quantity overflow:", table_name=table_name, _split=_split, qty=qty, range_min=min,
                                    range_max=max)
             raise ApplicationError(
                 "Quantity of numbers to generate is greater than the range",
@@ -661,7 +662,7 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
             ints = ints - set(blacklist)
             # Check that the blacklist numbers were removed
             if len(ints) == original_len:
-                self.eval_logger.error(f"Blacklist out of range:", table_name=table_name, _split=_split, range_min=min,
+                self.eval_logger.error("Blacklist out of range:", table_name=table_name, _split=_split, range_min=min,
                                        range_max=max, blacklist=blacklist)
                 raise ApplicationError(
                     "Blacklist corresponding to '{}' table & '{}' split were not founded in the range: [{}-{}]".format(
@@ -670,7 +671,7 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
                 )
         # sorted random numbers
         choices = sorted(np.random.choice(list(ints), qty, replace=False).tolist())
-        self.eval_logger.debug(f"Random numbers generated:", choices=choices)
+        self.eval_logger.debug("Random numbers generated:", choices=choices)
         return choices
 
     def get_all_doc_ids(self, _split: str, _split_ranges: dict) -> List[int]:
@@ -679,7 +680,7 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
         """
         min_range = _split_ranges[_split]['min']
         max_range = _split_ranges[_split]['max'] + 1
-        self.eval_logger.debug(f"Getting all ids from split range:", split=_split, min_range=min_range,
+        self.eval_logger.debug("Getting all ids from split range:", split=_split, min_range=min_range,
                                max_range=max_range)
         return list(range(min_range, max_range))
 
@@ -693,7 +694,7 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
         if self.config.test_split:
             self.check_split_exist(self.config.test_split, _split_ranges)
             if _split != self.config.test_split:
-                self.eval_logger.error(f"mismatch test_split:", _split=_split, test_split=self.config.test_split)
+                self.eval_logger.error("mismatch test_split:", _split=_split, test_split=self.config.test_split)
                 raise ApplicationError(
                     f"_split '{_split}' not equal to test_split '{self.config.test_split}'",
                     non_retryable=True
@@ -716,7 +717,7 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
         elif self.config.validation_split:
             self.check_split_exist(self.config.validation_split, _split_ranges)
             if _split != self.config.validation_split:
-                self.eval_logger.error(f"mismatch validation_split:", _split=_split,
+                self.eval_logger.error("mismatch validation_split:", _split=_split,
                                        validation_split=self.config.validation_split)
                 raise ApplicationError(
                     f"_split '{_split}' not equal to validation_split '{self.config.validation_split}'",
@@ -731,7 +732,7 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
                 self.check_split_exist(self.config.fewshot_split, _split_ranges)
                 id_list_str = self.add_string_ids_range(self.config.fewshot_split, id_list_str, _split_ranges)
         else:
-            self.eval_logger.error(f"Config without splits:", config=self.config)
+            self.eval_logger.error("Config without splits:", config=self.config)
             raise ApplicationError(
                 "Neither test_split nor validation_split in config, cannot proceed, please check get_SQL_where_clause",
                 non_retryable=True
@@ -776,7 +777,7 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
                 GROUP BY
                     "__split";
             """.format(table_name)
-            self.eval_logger.debug(f"SQL query:", sql_query=sql_query)
+            self.eval_logger.debug("SQL query:", sql_query=sql_query)
 
             # Fetch all rows from the result
             rows = await postgres_conn.fetch(sql_query)
@@ -789,7 +790,7 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
             for row in rows:
                 _split_ranges[row[0]] = {'min': row[1], 'max': row[2]}
         except Exception as error:
-            self.eval_logger.error(f"Error while connecting to PostgreSQL:", error=error)
+            self.eval_logger.error("Error while connecting to PostgreSQL:", error=error)
             raise ApplicationError("Error while connecting to PostgreSQL", non_retryable=True)
 
         return _split_ranges
@@ -828,22 +829,18 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
                     break
         # all ids should belong to a split range
         if len(split_range) != len(__ids):
-            self.eval_logger.error(f"Ids not in split range:", split_range=split_range, __ids=__ids)
+            self.eval_logger.error("Ids not in split range:", split_range=split_range, __ids=__ids)
             raise ApplicationError("Some ids do not belong to any split range", non_retryable=True)
 
         # all ids should belong to a unique split range
         if len(set(split_range)) != 1:
-            self.eval_logger.error(f"Ids in more than one split:", __ids=__ids, split_range=split_range)
+            self.eval_logger.error("Ids in more than one split:", __ids=__ids, split_range=split_range)
             raise ApplicationError("Some ids belong to more than one split.", non_retryable=True)
 
         return list(set(split_range))[0]
 
 
 class EvaluatePocketNetworkConfigurableTask(PocketNetworkConfigurableTask):
-    # todo: override __init__ and receive also mongo_client to set on self.mongo_client avoiding pass it on build_all_requests
-    # like we are already doing on PocketNetworkConfigurableTask
-    # after do that remember call super().__init__(*args, **kwargs)
-    # noinspection PyMethodOverriding
     async def build_all_requests(
             self,
             *,
@@ -857,12 +854,13 @@ class EvaluatePocketNetworkConfigurableTask(PocketNetworkConfigurableTask):
             rewrite_requests_cache=False,
     ) -> None:
         """Build a set of Instances for a task, and store them in task.instances"""
-        self._instances = await MongoOperator(client=mongo_client).reconstruct_instances(task_id=task_id)
-
-        if len(self._instances) == 0:
-            raise ApplicationError(
-                "task.build_all_requests() did not find any docs!",
-                task_id,
-                type="DocumentsNotFound",
-                non_retryable=False,
-            )
+        self._instances, kept_doc_ids = await MongoOperator(client=mongo_client).reconstruct_instances(task_id=task_id, eval_logger=self.eval_logger)
+        # Kept only those docs_ids filled by all its instances/responses
+        if kept_doc_ids:
+            b_dict = {}
+            for i, b in enumerate(self.config.metadata['pocket_args'].doc_ids):
+                b_dict[b] = i
+            a_indices = [b_dict[a] for a in kept_doc_ids]
+            self.dataset[self.eval_split] = Dataset.from_dict(self.dataset[self.eval_split][a_indices])
+            for doc_id in self.eval_docs:
+                self.eval_logger.info("Doc_id:", doc_id=doc_id)

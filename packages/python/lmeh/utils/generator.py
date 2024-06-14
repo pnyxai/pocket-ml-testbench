@@ -356,23 +356,25 @@ async def evaluate(
     for task_output in eval_tasks:
         task: Task = task_output.task
         limit = get_sample_size(task, limit)
-        await task.build_all_requests(
-            task_id=task_id,
-            mongo_client=mongo_client,
-            limit=limit,
-            rank=lm.rank,
-            world_size=lm.world_size,
-            cache_requests=cache_requests,
-            rewrite_requests_cache=rewrite_requests_cache,
-        )
-        eval_logger.debug(
-            f"Task: {task_output.task_name}; number of requests on this rank: {len(task.instances)}"
-        )
-        # aggregate Instances by LM method requested to get output.
-        for instance in task.instances:
-            reqtype = instance.request_type
-            requests[reqtype].append(instance)
-
+        try:
+            await task.build_all_requests(
+                task_id=task_id,
+                mongo_client=mongo_client,
+                limit=limit,
+                rank=lm.rank,
+                world_size=lm.world_size,
+                cache_requests=cache_requests,
+                rewrite_requests_cache=rewrite_requests_cache,
+            )
+            eval_logger.debug(
+                f"Task: {task_output.task_name}; number of requests on this rank: {len(task.instances)}"
+            )
+            # aggregate Instances by LM method requested to get output.
+            for instance in task.instances:
+                reqtype = instance.request_type
+                requests[reqtype].append(instance)
+        except Exception as e:
+            raise e
     eval_logger.debug("Instances generated successfully:")
     ### Run LM on inputs, get all outputs ###
     # execute each type of request
@@ -394,7 +396,7 @@ async def evaluate(
 
     RANK = lm.rank
     WORLD_SIZE = lm.world_size
-    mongo_result = []
+    insert_mongo_results = []
     ### Postprocess outputs ###
     # TODO: del model here, maybe (idea: allow user to specify device of e.g. reward model separately)
     for task_output in eval_tasks:
@@ -413,7 +415,6 @@ async def evaluate(
             instances.sort(key=lambda x: x.idx)
         # iterate over different filters used
         scores = []
-        result_task_id = set()
         result_num_samples = set()
         for filter_key in task.instances[0].filtered_resps.keys():
             doc_iterator = task.doc_iterator(
@@ -426,7 +427,6 @@ async def evaluate(
                 metrics = task.process_results(
                     doc, [req.filtered_resps[filter_key] for req in requests]
                 )
-                result_task_id.add(requests[0].prompt.task_id)
                 if log_samples:
                     target = task.doc_to_target(doc)
                     example = {
@@ -443,16 +443,31 @@ async def evaluate(
                     task_output.logged_samples.append(example)
                 for metric, value in metrics.items():
                     task_output.sample_metrics[(metric, filter_key)].append(value)
-            if selected_metrics in metrics:
-                numericSample = NumericSample(score=example[selected_metrics], id=doc_id)
-                scores.append(numericSample)
+                if selected_metrics in metrics:
+                    numericSample = NumericSample(score=example[selected_metrics], id=doc_id)
+                    scores.append(numericSample)
 
-        assert len(result_task_id) == 1
-
-        mongo_result = PocketNetworkMongoDBResultNumerical(
-            task_id=list(result_task_id)[0],
+        num_result = PocketNetworkMongoDBResultNumerical(
+            task_id=task_id,
             num_samples=len(result_num_samples),
             scores=scores)
-        mongo_result.append(mongo_result.model_dump(by_alias=True))
-        eval_logger.debug("Mongo Result:", mongo_result=mongo_result)
-        return mongo_result
+        insert_mongo_results.append(num_result.model_dump(by_alias=True))
+    eval_logger.debug("Mongo Result:", mongo_result=insert_mongo_results)
+    try:
+        async with mongo_client.start_transaction() as session:
+
+            await mongo_client.db['results'].insert_many(
+                    insert_mongo_results,
+                    ordered=False,
+                    session=session,
+                )
+    except Exception as e:
+        eval_logger.error("Failed to save documents (results) to MongoDB.", error=e)
+        raise ApplicationError(
+            "Failed to save documents (results) to MongoDB.",
+            str(e),
+            type="Mongodb",
+            non_retryable=True,
+        )
+
+    return True

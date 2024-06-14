@@ -227,7 +227,7 @@ class CompletionResponse(OpenAIBaseModel):
 class PocketNetworkMongoDBResultBase(BaseModel):
     id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
     task_id: ObjectId
-    num_samples:    int
+    num_samples: int
 
     class Config:
         arbitrary_types_allowed = True
@@ -259,4 +259,3 @@ class PocketNetworkMongoDBTokenizer(BaseModel):
 
     class Config:
         arbitrary_types_allowed = True
-    scores: List[NumericSample]

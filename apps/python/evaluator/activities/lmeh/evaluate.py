@@ -171,14 +171,17 @@ async def lmeh_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
                 eval_logger.debug("Generating LM")
                 lm = EvaluatorLM(**args.llm_args)
                 eval_logger.debug("LM generated successfully.")
-                task_output = await lmeh_generator.evaluate(
-                    lm=lm,
-                    task_dict=task_dict,
-                    task_id=args.task_id,
-                    mongo_client=mongo_client,
-                    selected_metrics=open_llm_metrics,
-                    eval_logger=eval_logger,
-                )
-                eval_logger.info("Evaluation completed successfully.")
+                try:
+                    result = await lmeh_generator.evaluate(
+                        lm=lm,
+                        task_dict=task_dict,
+                        task_id=args.task_id,
+                        mongo_client=mongo_client,
+                        selected_metrics=open_llm_metrics,
+                        eval_logger=eval_logger,
+                    )
+                    eval_logger.info("Evaluation completed successfully.")
+                except ApplicationError as e:
+                    raise e
 
-    return True
+    return result

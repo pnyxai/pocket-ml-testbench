@@ -1,4 +1,5 @@
 import json
+import logging
 from copy import deepcopy
 from typing import List, Optional
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCollection
@@ -81,7 +82,7 @@ class MongoOperator:
 
         # Validate that the tokenizer is not empty
         if tokenizer_object is None:
-            eval_logger.error(f"Tokenizer hash not found.", address=address, hash=tokenizer_hash)
+            eval_logger.error("Tokenizer hash not found.", address=address, hash=tokenizer_hash)
             raise ApplicationError(f"Tokenizer with hash {tokenizer_hash} does not exist in the database.")
 
         tokenizer = tokenizer_object['tokenizer']
@@ -132,7 +133,7 @@ class MongoOperator:
             evaluation_logger.error("Task ID not found.", task_id=task_id)
             raise ApplicationError(
                 f"Task ID {task_id} does not exist in the database.",
-                task_id,
+                str(task_id),
                 type="TaskNotFound",
                 non_retryable=False,
             )
@@ -148,7 +149,7 @@ class MongoOperator:
             evaluation_logger.error("Task ID not found.", task_id=task_id)
             raise ApplicationError(
                 f"Task ID {task_id} does not exist in the database.",
-                task_id,
+                str(task_id),
                 type="TaskNotFound",
                 non_retryable=False,
             )
@@ -168,7 +169,7 @@ class MongoOperator:
             evaluation_logger.error("Task ID not found.", task_id=task_id)
             raise ApplicationError(
                 f"Task ID {task_id} does not exist in the database.",
-                task_id,
+                str(task_id),
                 type="TaskNotFound",
                 non_retryable=False,
             )
@@ -176,24 +177,31 @@ class MongoOperator:
         return result
 
 
-    async def reconstruct_instances(self, task_id: ObjectId, ) -> List[Instance]:
+    async def reconstruct_instances(self, task_id: ObjectId, eval_logger:logging.Logger) -> List[Instance]:
         
         result = await self.retrieve_responses(task_id)
 
         valid_fields = {field.name for field in Instance.__dataclass_fields__.values()}
         instances = []
+        remove_doc_ids = set()
+        kept_doc_ids = set()
         for doc in result:
             i, p = doc['instance'], doc['prompt']
-            try:
-                # handle the exception to bring a light on production debugging if needed.
-                r = json.loads(doc['response']['response'])
-            except Exception as e:
-                raise ApplicationError(
-                    "Bad JSON data format",
-                    doc['response']['response'], str(e),
-                    type="BadJSONFormat",
-                    non_retryable=True,
-                )
+            if not doc['response']['ok']:
+                remove_doc_ids.add(i['doc_id'])
+                continue
+            else:
+                try:
+                    # handle the exception to bring a light on production debugging if needed.
+                    r = json.loads(doc['response']['response'])
+                except Exception as e:
+                    remove_doc_ids.add(i['doc_id'])
+                    eval_logger.error(
+                        "Bad JSON data format",
+                        response = doc['response']['response'], 
+                        errpr = str(e),
+                    )
+                    continue
             instance_dict = {key: value for key, value in i.items() if key in valid_fields}
             instance = Instance(**instance_dict)
             instance.repeats = 1  # to avoid double evaluation for each instance
@@ -204,15 +212,37 @@ class MongoOperator:
                 # handle the exception to bring a light on production debugging if needed.
                 request_data = json.loads(instance.prompt.data)
             except Exception as e:
-                raise ApplicationError(
-                    "Bad JSON data format",
-                    instance.prompt.data, str(e),
-                    type="BadJSONFormat",
-                    non_retryable=True,
+                remove_doc_ids.add(i['doc_id'])
+                eval_logger.error(
+                    "Bad JSON data format", 
+                    prompt_data=instance.prompt.data, 
+                    error=str(e),
                 )
+                continue
             instance.prompt.data = CompletionRequest(**request_data)
-            instance.resp = CompletionResponse(**r)
+
+            try:
+                instance.resp = CompletionResponse(**r)
+            except Exception as e:
+                remove_doc_ids.add(i['doc_id'])
+                eval_logger.error(
+                    "Bad JSON CompletionResponse format",
+                    response=r,
+                    error=str(e),
+                )
+                continue
             instances.append(instance)
+        if len(instances) == 0 and len(remove_doc_ids) > 0:
+            raise ApplicationError(
+                f"Instances do not complete a doc_id for the task ID {str(task_id)}",
+                non_retryable=False,
+            )
+        # Remove uncompleted docs_ids
+        if len(remove_doc_ids) > 0:
+            eval_logger.warning("Some instances were not completed, removing all instances with the same doc_id.", doc_ids=remove_doc_ids)
+            instances = [i for i in instances if i.doc_id not in remove_doc_ids]
+            for i in instances:
+                kept_doc_ids.add(i.doc_id)
 
         instances = sorted(instances, key=lambda x: (x.doc_id, x.idx))
-        return instances
+        return instances, sorted(list(kept_doc_ids))

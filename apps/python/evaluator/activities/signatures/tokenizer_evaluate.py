@@ -94,29 +94,29 @@ async def tokenizer_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
             tokenizer_ok = True
         except Exception as e:
             # This is not an error is just a failure in retrieval of tokenizer
-            eval_logger.info(f"Cannot load tokenizer from response.")
-            eval_logger.debug(f"Exeption:", Exeption=str(e))
+            eval_logger.info("Cannot load tokenizer from response.")
+            eval_logger.debug("Exeption:", Exeption=str(e))
             tokenizer_ok = False
 
     tokenizer_new = False
     if tokenizer_ok:
         # check if the tokenizer exists in db
         tokenizer_db = await mongo_operator.get_tokenizer_entry(tokenizer_mongo_new.hash)
-        if tokenizer_db == None:
+        if tokenizer_db is None:
             eval_logger.debug("Tokenizer does not exists.")
             # the tokenizer is not tracked, we need to create an entry
             tokenizer_new = True
             try:
                 async with mongo_client.start_transaction() as session:
                     await mongo_client.db["tokenizers"].insert_many(
-                        [tokenizer_mongo_new],
+                        [tokenizer_mongo_new.model_dump(by_alias=True)],
                         ordered=False,
                         session=session,
                     )
                 eval_logger.debug("Saved new tokenizer to DB.")
             except Exception as e:
                 eval_logger.error("Failed to save Tokenizer to MongoDB.")
-                eval_logger.error(f"Exeption:", Exeption=str(e))
+                eval_logger.error("Exeption:", Exeption=str(e))
                 raise ApplicationError("Failed to save tokenizer to MongoDB.", non_retryable=True)
 
         # Update the result with valid data
