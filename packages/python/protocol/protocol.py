@@ -1,5 +1,6 @@
 import time
 import uuid
+from datetime import datetime
 from typing import List, Literal, Optional, Union, Dict
 from bson import ObjectId
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -228,6 +229,9 @@ class PocketNetworkMongoDBResultBase(BaseModel):
     id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
     task_id: ObjectId
     num_samples: int
+    status: int
+    result_height: int
+    result_time: datetime
 
     class Config:
         arbitrary_types_allowed = True

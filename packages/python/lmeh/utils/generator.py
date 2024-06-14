@@ -1,3 +1,4 @@
+from datetime import datetime
 import logging
 from collections import defaultdict
 from typing import TYPE_CHECKING, List, Optional, Union
@@ -341,6 +342,30 @@ async def evaluate(
         Dictionary of results
     """
 
+    async def save_results(
+            mongo_client: MongoClient,
+            insert_mongo_results: List[dict],
+            eval_logger: Optional[logging.Logger] = None,
+    ):
+        
+        try:
+            async with mongo_client.start_transaction() as session:
+
+                await mongo_client.db['results'].insert_many(
+                        insert_mongo_results,
+                        ordered=False,
+                        session=session,
+                    )
+        except Exception as e:
+            eval_logger.error("Failed to save documents (results) to MongoDB.", error=e)
+            raise ApplicationError(
+                "Failed to save documents (results) to MongoDB.",
+                str(e),
+                type="Mongodb",
+                non_retryable=True,
+            )
+        return
+
     # tracks all Instances/requests a model must generate output on.
     requests = defaultdict(list)
 
@@ -375,6 +400,25 @@ async def evaluate(
                 requests[reqtype].append(instance)
         except Exception as e:
             raise e
+    
+        if len(task.instances) == 0:
+            insert_mongo_results = []
+            eval_logger.debug("No instances/doc_id generated for task.", task_id=str(task_id))
+            num_result = PocketNetworkMongoDBResultNumerical(
+                task_id=task_id,
+                num_samples=0,
+                status=1,
+                result_height=task.result_height,
+                result_time=datetime.today().isoformat(),
+                scores=[])
+            insert_mongo_results.append(num_result.model_dump(by_alias=True))
+            await save_results(
+                mongo_client=mongo_client,
+                insert_mongo_results=insert_mongo_results,
+                eval_logger=eval_logger,
+            )
+            return True
+
     eval_logger.debug("Instances generated successfully:")
     ### Run LM on inputs, get all outputs ###
     # execute each type of request
@@ -450,24 +494,17 @@ async def evaluate(
         num_result = PocketNetworkMongoDBResultNumerical(
             task_id=task_id,
             num_samples=len(result_num_samples),
+            status=0,
+            result_height=task.result_height,
+            result_time=datetime.today().isoformat(),
             scores=scores)
         insert_mongo_results.append(num_result.model_dump(by_alias=True))
     eval_logger.debug("Mongo Result:", mongo_result=insert_mongo_results)
-    try:
-        async with mongo_client.start_transaction() as session:
 
-            await mongo_client.db['results'].insert_many(
-                    insert_mongo_results,
-                    ordered=False,
-                    session=session,
-                )
-    except Exception as e:
-        eval_logger.error("Failed to save documents (results) to MongoDB.", error=e)
-        raise ApplicationError(
-            "Failed to save documents (results) to MongoDB.",
-            str(e),
-            type="Mongodb",
-            non_retryable=True,
-        )
+    await save_results(
+        mongo_client=mongo_client,
+        insert_mongo_results=insert_mongo_results,
+        eval_logger=eval_logger,
+    )
 
     return True

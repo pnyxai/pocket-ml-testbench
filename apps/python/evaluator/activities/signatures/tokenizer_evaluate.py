@@ -1,5 +1,6 @@
 import json
 from hashlib import sha256
+from datetime import datetime
 
 from app.app import get_app_config, get_app_logger
 from bson import ObjectId
@@ -45,22 +46,26 @@ async def tokenizer_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
     mongo_client = config["mongo_client"]
     mongo_operator = MongoOperator(client=mongo_client)
 
-    # Retrieve Task request.
-    task_data = await mongo_operator.get_task(args.task_id)
-
     # Retrieve all responses
     responses = await mongo_operator.retrieve_responses(args.task_id)
     if len(responses) != 1:
         eval_logger.error(f"Found {len(responses)} responses, only 1 is expected.")
         raise ApplicationError(
             f"Task ID {args.task_id}: Found {len(responses)} responses, only 1 is expected.",
-            args.task_id,
+            str(args.task_id),
             type="ResponseError",
             non_retryable=False,
         )
-
+    
     # Create the result, empty for now
-    result = PocketNetworkMongoDBResultSignature(task_id=args.task_id, num_samples=0, signatures=[])
+    result = PocketNetworkMongoDBResultSignature(task_id=args.task_id, 
+                                                 status=responses[0]["response"]["error_code"], 
+                                                 num_samples=0, 
+                                                 result_height=responses[0]["response"]["height"],
+                                                 result_time=datetime.today().isoformat(),
+                                                 signatures=[])
+
+    
 
     # Get tokenizer jsons
     tokenizer_decoded = False
@@ -68,7 +73,7 @@ async def tokenizer_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
         tokenizer_jsons = json.loads(responses[0]["response"]["response"])
         tokenizer_decoded = True
     except Exception as e:
-        eval_logger.debug(f"Exeption:", Exeption=str(e))
+        eval_logger.debug("Exeption:", Exeption=str(e))
 
     tokenizer_ok = False
     if tokenizer_decoded:
@@ -121,6 +126,7 @@ async def tokenizer_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
 
         # Update the result with valid data
         result.num_samples = 1  # Always one
+        result.status = 0 # OK
         result.signatures = [
             SignatureSample(signature=str(tokenizer_mongo_new.hash), id=0)  # This task has a single sample id
         ]
@@ -136,11 +142,11 @@ async def tokenizer_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
         eval_logger.debug("Saved result to DB.")
     except Exception as e:
         eval_logger.error("Failed to save Result to MongoDB.")
-        eval_logger.error(f"Exeption:", Exeption=str(e))
+        eval_logger.error("Exeption:", Exeption=str(e))
         raise ApplicationError("Failed to save result to MongoDB.", non_retryable=True)
 
     eval_logger.info(
-        f"Status:", tokenizer_decoded=tokenizer_decoded, tokenizer_is_valid=tokenizer_ok, tokenizer_is_new=tokenizer_new
+        "Status:", tokenizer_decoded=tokenizer_decoded, tokenizer_is_valid=tokenizer_ok, tokenizer_is_new=tokenizer_new
     )
 
     return True

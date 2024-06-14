@@ -42,6 +42,10 @@ async def lmeh_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
 
     if args.llm_args is None:
         args.llm_args = {}
+    eval_logger.info(
+        "Starting activity lmeh_evaluate",
+        task_id = str(args.task_id),
+    )
 
     mongo_client = config["mongo_client"]
     mongo_operator = MongoOperator(client=mongo_client)
@@ -154,7 +158,7 @@ async def lmeh_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
                 try:
                     # it is loading data from sql to a dataset
                     await task_dict[task_name].load_from_sql()
-                    eval_logger.info("Task loaded successfully:", task_dict=task_dict)
+                    eval_logger.debug("Task loaded successfully:", task_dict=task_dict)
                 except ApplicationError as e:
                     raise e
                 except Exception as error:

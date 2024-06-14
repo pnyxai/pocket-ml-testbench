@@ -185,8 +185,10 @@ class MongoOperator:
         instances = []
         remove_doc_ids = set()
         kept_doc_ids = set()
+        list_result_height = []
         for doc in result:
             i, p = doc['instance'], doc['prompt']
+            list_result_height.append(doc['response']['session_height'])
             if not doc['response']['ok']:
                 remove_doc_ids.add(i['doc_id'])
                 continue
@@ -206,7 +208,7 @@ class MongoOperator:
             instance = Instance(**instance_dict)
             instance.repeats = 1  # to avoid double evaluation for each instance
             p['id'] = deepcopy(p['_id'])
-            p.pop('_id')            
+            p.pop('_id')
             instance.prompt = PocketNetworkMongoDBPrompt(**p)
             try:
                 # handle the exception to bring a light on production debugging if needed.
@@ -231,18 +233,20 @@ class MongoOperator:
                     error=str(e),
                 )
                 continue
+
             instances.append(instance)
+
+        result_height = max(list_result_height)
+
         if len(instances) == 0 and len(remove_doc_ids) > 0:
-            raise ApplicationError(
-                f"Instances do not complete a doc_id for the task ID {str(task_id)}",
-                non_retryable=False,
-            )
+            return [], [], result_height
+
         # Remove uncompleted docs_ids
         if len(remove_doc_ids) > 0:
-            eval_logger.warning("Some instances were not completed, removing all instances with the same doc_id.", doc_ids=remove_doc_ids)
             instances = [i for i in instances if i.doc_id not in remove_doc_ids]
             for i in instances:
                 kept_doc_ids.add(i.doc_id)
 
         instances = sorted(instances, key=lambda x: (x.doc_id, x.idx))
-        return instances, sorted(list(kept_doc_ids))
+
+        return instances, sorted(list(kept_doc_ids)), result_height
