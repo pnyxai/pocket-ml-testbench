@@ -13,8 +13,14 @@ type NodeData struct {
 	Service string
 }
 
+type BlockData struct {
+	Height           int64
+	BlocksPerSession int64
+}
+
 type GetStakedResults struct {
 	Nodes []NodeData
+	Block BlockData
 }
 
 //------------------------------------------------------------------------------
@@ -23,6 +29,7 @@ type GetStakedResults struct {
 
 type AnalyzeNodeParams struct {
 	Node  NodeData    `json:"node"`
+	Block BlockData   `json:"block"`
 	Tests []TestsData `json:"tests"`
 }
 

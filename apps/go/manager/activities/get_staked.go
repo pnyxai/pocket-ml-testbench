@@ -3,6 +3,7 @@ package activities
 import (
 	"context"
 	"manager/types"
+	"strconv"
 )
 
 var GetStakedName = "get_staked"
@@ -40,11 +41,31 @@ func (aCtx *Ctx) GetStaked(ctx context.Context, params types.GetStakedParams) (*
 		l.Info().Int("nodes_staked", len(result.Nodes)).Msg("Successfully pulled staked node-services.")
 	}
 
-	// // cheap mock
-	// for i := 0; i < 5; i++ {
-	// 	thisNode := NodeData{Address: fmt.Sprint(i), Service: fmt.Sprint(i * 10)}
-	// 	result.Nodes = append(result.Nodes, thisNode)
-	// }
+	// Get block data
+	currHeight, err := aCtx.App.PocketRpc.GetHeight()
+	if err != nil {
+		l.Error().Str("service", params.Service).Msg("Could not retrieve latest block hieght.")
+		return nil, err
+	}
+	blockParams, err := aCtx.App.PocketRpc.GetAllParams(currHeight)
+	if err != nil {
+		l.Error().Str("service", params.Service).Msg("Could not retrieve block params.")
+		return nil, err
+	}
+	blocksPerSession, ok := blockParams.NodeParams.Get("pos/BlocksPerSession")
+	if !ok {
+		l.Error().Str("service", params.Service).Msg("Cannot get blocks per session parameter.")
+		return nil, err
+	}
+
+	result.Block.Height = currHeight
+	i64, err := strconv.ParseInt(blocksPerSession, 10, 64)
+	if err != nil {
+		l.Error().Str("service", params.Service).Msg("Could convert parameter to number.")
+		return nil, err
+	}
+
+	result.Block.BlocksPerSession = i64
 
 	return &result, nil
 }

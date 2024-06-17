@@ -30,7 +30,7 @@ func (aCtx *Ctx) TriggerSampler(_ context.Context, params types.TriggerSamplerPa
 		Blacklist: params.Trigger.Blacklist,
 		Qty:       params.Trigger.Qty,
 	}
-	evaluatorWorkflowOptions := client.StartWorkflowOptions{
+	samplerWorkflowOptions := client.StartWorkflowOptions{
 		TaskQueue:                                aCtx.App.Config.Temporal.Sampler.TaskQueue,
 		WorkflowExecutionErrorWhenAlreadyStarted: true,
 		WorkflowIDReusePolicy:                    enums.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE_FAILED_ONLY,
@@ -42,7 +42,7 @@ func (aCtx *Ctx) TriggerSampler(_ context.Context, params types.TriggerSamplerPa
 	// Do not wait for a result by not calling .Get() on the returned future
 	_, err := aCtx.App.TemporalClient.ExecuteWorkflow(
 		context.Background(),
-		evaluatorWorkflowOptions,
+		samplerWorkflowOptions,
 		aCtx.App.Config.Temporal.Sampler.WorkflowName,
 		samplerParams,
 	)

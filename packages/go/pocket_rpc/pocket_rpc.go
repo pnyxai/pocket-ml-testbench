@@ -5,14 +5,15 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	poktGoSdk "github.com/pokt-foundation/pocket-go/provider"
-	poktGoUtils "github.com/pokt-foundation/pocket-go/utils"
 	"io"
 	"net/http"
 	"packages/pocket_rpc/common"
 	"packages/pocket_rpc/types"
 	"packages/utils"
 	"time"
+
+	poktGoSdk "github.com/pokt-foundation/pocket-go/provider"
+	poktGoUtils "github.com/pokt-foundation/pocket-go/utils"
 )
 
 type PocketRpc struct {
@@ -252,6 +253,9 @@ func (rpc *PocketRpc) getNodesByPage(service string, page int, pageSize int, ch 
 }
 
 func (rpc *PocketRpc) GetNodes(service string) (nodes []*poktGoSdk.Node, e error) {
+
+	// TODO : Handle case where no nodes are staked in service
+
 	if e := common.ServiceIdentifierVerification(service); e != nil {
 		return nil, ErrBadRequestParams
 	}

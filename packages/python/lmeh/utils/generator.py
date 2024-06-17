@@ -23,7 +23,7 @@ from temporalio.exceptions import ApplicationError
 from packages.python.lmeh.utils.mongodb import MongoOperator
 from packages.python.lmeh.pocket_lm_eval.tasks import PocketNetworkTaskManager
 from packages.python.protocol.protocol import PocketNetworkTaskRequest, PocketNetworkMongoDBTask, \
-    PocketNetworkMongoDBPrompt, NumericSample, PocketNetworkMongoDBResultNumerical
+    PocketNetworkMongoDBPrompt, NumericSample, PocketNetworkMongoDBResultNumerical, PocketNetworkMongoDBResultBase
 from motor.motor_asyncio import AsyncIOMotorClient
 from packages.python.common.mongodb import MongoClient
 from bson import ObjectId
@@ -404,12 +404,15 @@ async def evaluate(
         if len(task.instances) == 0:
             insert_mongo_results = []
             eval_logger.debug("No instances/doc_id generated for task.", task_id=str(task_id))
-            num_result = PocketNetworkMongoDBResultNumerical(
-                task_id=task_id,
-                num_samples=0,
-                status=1,
+            base_result = PocketNetworkMongoDBResultBase(
+                task_id=task_id, 
+                status=1, 
+                num_samples=0, 
                 result_height=task.result_height,
                 result_time=datetime.today().isoformat(),
+            )
+            num_result = PocketNetworkMongoDBResultNumerical(
+                result_data=base_result,
                 scores=[])
             insert_mongo_results.append(num_result.model_dump(by_alias=True))
             await save_results(
@@ -491,12 +494,15 @@ async def evaluate(
                     numericSample = NumericSample(score=example[selected_metrics], id=doc_id)
                     scores.append(numericSample)
 
+        base_result = PocketNetworkMongoDBResultBase(
+                task_id=task_id, 
+                status=0, 
+                num_samples=len(result_num_samples), 
+                result_height=task.result_height,
+                result_time=datetime.today().isoformat(),
+            )
         num_result = PocketNetworkMongoDBResultNumerical(
-            task_id=task_id,
-            num_samples=len(result_num_samples),
-            status=0,
-            result_height=task.result_height,
-            result_time=datetime.today().isoformat(),
+            result_data=base_result,
             scores=scores)
         insert_mongo_results.append(num_result.model_dump(by_alias=True))
     eval_logger.debug("Mongo Result:", mongo_result=insert_mongo_results)

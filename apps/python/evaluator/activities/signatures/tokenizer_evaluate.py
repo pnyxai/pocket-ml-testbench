@@ -15,6 +15,7 @@ from packages.python.protocol.protocol import (
     PocketNetworkMongoDBResultSignature,
     PocketNetworkMongoDBTokenizer,
     SignatureSample,
+    PocketNetworkMongoDBResultBase
 )
 
 
@@ -58,12 +59,15 @@ async def tokenizer_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
         )
     
     # Create the result, empty for now
-    result = PocketNetworkMongoDBResultSignature(task_id=args.task_id, 
-                                                 status=responses[0]["response"]["error_code"], 
-                                                 num_samples=0, 
-                                                 result_height=responses[0]["response"]["height"],
-                                                 result_time=datetime.today().isoformat(),
-                                                 signatures=[])
+    result = PocketNetworkMongoDBResultSignature(
+        result_data = PocketNetworkMongoDBResultBase(
+            task_id=args.task_id, 
+            status=responses[0]["response"]["error_code"], 
+            num_samples=0, 
+            result_height=responses[0]["response"]["height"],
+            result_time=datetime.today().isoformat(),
+        ),
+        signatures=[])
 
     
 
@@ -125,8 +129,8 @@ async def tokenizer_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
                 raise ApplicationError("Failed to save tokenizer to MongoDB.", non_retryable=True)
 
         # Update the result with valid data
-        result.num_samples = 1  # Always one
-        result.status = 0 # OK
+        result.result_data.num_samples = 1  # Always one
+        result.result_data.status = 0 # OK
         result.signatures = [
             SignatureSample(signature=str(tokenizer_mongo_new.hash), id=0)  # This task has a single sample id
         ]

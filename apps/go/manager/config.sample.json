@@ -33,9 +33,24 @@
     }
   },
   "frameworks": {
-    "lmeh" : {"task_types": {"any" : "numerical"}},
-    "helm" : {"task_types": {"any" : "numerical"}},
-    "signatures" : {"task_types": {"any" : "signature"}}
+    "lmeh" : {
+      "task_types": {"any" : "numerical"},
+      "task_dependency": {"any" : "signatures:tokenizer:ok"},
+      "schedule_limits": {"any" : "none:none"},
+      "trigger_minimum": {"any" : "0"}
+    },
+    "helm" : {
+      "task_types": {"any" : "numerical"},
+      "task_dependency": {"any" : "signatures:tokenizer:ok"},
+      "schedule_limits": {"any" : "none:none"},
+      "trigger_minimum": {"any" : "0"}
+    },
+    "signatures" : {
+      "task_types": {"any" : "signature"},
+      "task_dependency": {"any" : "none:none:none"},
+      "schedule_limits": {"any" : "1:session"},
+      "trigger_minimum": {"tokenizer" : "1"}
+    }
   }
 
 }

@@ -234,9 +234,9 @@ type Config struct {
 	Temporal   *TemporalConfig            `json:"temporal"`
 }
 
-// This config structure holds, for a given framework, the specifics of its task
-// Initially this will only determine the type of task: Numerical, Signature, etc
 type FrameworkConfig struct {
 	TasksTypes      map[string]string `json:"task_types"`
 	TasksDependency map[string]string `json:"task_dependency"`
+	ScheduleLimits  map[string]string `json:"schedule_limits"`
+	TriggerMinimum  map[string]string `json:"trigger_minimum"`
 }

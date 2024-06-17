@@ -1,13 +1,20 @@
 package records
 
 import (
+	"context"
 	"fmt"
 	"manager/types"
+	"packages/mongodb"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/rs/zerolog"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"gonum.org/v1/gonum/stat"
 )
 
@@ -17,9 +24,16 @@ import (
 
 // This is the basic information that all tasks should have
 type BaseTaskRecord struct {
-	Framework string    `bson:"framework"`
-	Task      string    `bson:"task"`
-	LastSeen  time.Time `bson:"last_seen"`
+	NodeID    primitive.ObjectID `bson:"node_id"`
+	Framework string             `bson:"framework"`
+	Task      string             `bson:"task"`
+
+	LastSeen   time.Time `bson:"last_seen"`
+	LastHeight int64     `bson:"last_height"`
+}
+
+func (record *BaseTaskRecord) GetNodeID() primitive.ObjectID {
+	return record.NodeID
 }
 
 func (record *BaseTaskRecord) GetTask() string {
@@ -34,8 +48,17 @@ func (record *BaseTaskRecord) GetLastSeen() time.Time {
 	return record.LastSeen
 }
 
+func (record *BaseTaskRecord) GetLastHeight() int64 {
+	return record.LastHeight
+}
+
 func (record *BaseTaskRecord) UpdateLastSeen(timeSample time.Time) (err error) {
 	record.LastSeen = timeSample
+	return nil
+}
+
+func (record *BaseTaskRecord) UpdateLastHeight(height int64) (err error) {
+	record.LastHeight = height
 	return nil
 }
 
@@ -48,34 +71,59 @@ const TaskTTLDays uint32 = 32
 
 type TaskInterface interface {
 	ProcessData(l *zerolog.Logger) error
-	stepIndex(step int, marker string) error
+	StepIndex(step uint32, marker string, positive_step bool, l *zerolog.Logger) error
 	CycleIndexes(l *zerolog.Logger) error
-	InsertSample(timeSample time.Time, data interface{}) (err error)
+	InsertSample(timeSample time.Time, data interface{}, l *zerolog.Logger) (err error)
 	GetNumSamples() uint32
 	GetFramework() string
 	GetTask() string
-	UpdateLastSeen(timeSample time.Time) (err error)
 	GetMinSamplesPerTask() uint32
 	GetMaxConcurrentSamplesPerTask() uint32
 	GetCircularBufferLength() uint32
 	GetSampleTTLDays() uint32
 	GetResultStruct() ResultInterface
 	GetLastSeen() time.Time
+	GetLastHeight() int64
+	UpdateLastSeen(timeSample time.Time) (err error)
+	UpdateLastHeight(height int64) (err error)
 	IsOK() bool
+	NewTask(nodeID primitive.ObjectID, framework string, task string, date time.Time, l *zerolog.Logger)
+	LoadTask(nodeID primitive.ObjectID, framework string, task string, mongoDB mongodb.MongoDb, l *zerolog.Logger) (bool, error)
+	UpdateTask(nodeID primitive.ObjectID, framework string, task string, mongoDB mongodb.MongoDb, l *zerolog.Logger) (bool, error)
 }
 
 // Get specific task data from a node record
-func GetTaskData(nodeData *NodeRecord, framework string, task string, l *zerolog.Logger) (TaskInterface, bool) {
+func GetTaskData(nodeID primitive.ObjectID, taskType string, framework string, task string, mongoDB mongodb.MongoDb, l *zerolog.Logger) (TaskInterface, bool) {
 
-	// Get all tasks as a single array
-	combinedTasks := nodeData.CombineTasks()
 	// Look for entry
-	for _, taskEntry := range combinedTasks {
-		// Check if the Name field matches the search string
-		if taskEntry.GetFramework() == framework && taskEntry.GetTask() == task {
-			l.Debug().Str("address", nodeData.Address).Str("service", nodeData.Service).Str("framework", framework).Str("task", task).Msg("Found!")
-			return taskEntry, true
+	if taskType == NumericalTaskTypeName {
+		// get task record
+		var record NumericalTaskRecord
+		found, err := record.LoadTask(nodeID, framework, task, mongoDB, l)
+		if err != nil {
+			l.Error().Str("nodeID", nodeID.String()).Str("framework", framework).Str("task", task).Msg("cannot find default task buffer")
+			return nil, false
 		}
+		if !found {
+			// Initialize and save
+			record.NewTask(nodeID, framework, task, types.EpochStart.UTC(), l)
+			record.UpdateTask(nodeID, framework, task, mongoDB, l)
+		}
+		return &record, true
+	} else if taskType == SignatureTaskTypeName {
+		// set task record
+		var record SignatureTaskRecord
+		found, err := record.LoadTask(nodeID, framework, task, mongoDB, l)
+		if err != nil {
+			l.Error().Str("nodeID", nodeID.String()).Str("framework", framework).Str("task", task).Msg("cannot find default task buffer")
+			return nil, false
+		}
+		if !found {
+			// Initialize and save
+			record.NewTask(nodeID, framework, task, types.EpochStart.UTC(), l)
+			record.UpdateTask(nodeID, framework, task, mongoDB, l)
+		}
+		return &record, true
 	}
 
 	return nil, false
@@ -110,25 +158,24 @@ func GetTaskType(framework string, task string, configMap map[string]types.Frame
 
 // Analyzes the configuration and returns if it is possible to proceed with this task triggering/analysis
 // A task can depend on others (such as having a tokenizer signature), here we check for that
-func CheckTaskDependency(nodeData *NodeRecord, framework string, task string, configMap map[string]types.FrameworkConfig, l *zerolog.Logger) (status bool, err error) {
-	status = false
+func CheckTaskDependency(nodeData *NodeRecord, framework string, task string, configMap map[string]types.FrameworkConfig, mongoDB mongodb.MongoDb, l *zerolog.Logger) (bool, error) {
 
 	// Get Framework config
 	frameworkCfg, ok := configMap[framework]
 	if !ok {
 		l.Error().Str("framework", framework).Msg("framework config not found")
-		err = fmt.Errorf("framework config not found")
+		err := fmt.Errorf("framework config not found")
 		return false, err
 	}
 
-	// Get task type
+	// Get task dependency
 	taskDep, ok := frameworkCfg.TasksDependency[task]
 	if !ok {
 		// Search for the "any" field
 		taskDep, ok = frameworkCfg.TasksDependency["any"]
 		if !ok {
 			l.Error().Str("framework", framework).Str("task", task).Msg("cannot find default (or specific) value for task type")
-			err = fmt.Errorf("cannot find default (or specific) value for task type")
+			err := fmt.Errorf("cannot find default (or specific) value for task type")
 			return false, err
 		}
 	}
@@ -144,7 +191,12 @@ func CheckTaskDependency(nodeData *NodeRecord, framework string, task string, co
 		l.Debug().Str("address", nodeData.Address).Str("service", nodeData.Service).Str("framework", framework).Str("task", task).Msg("No dependency: Dependecy OK")
 		return true, nil
 	}
-	thisTaskRecord, found := GetTaskData(nodeData, frameworkTaskandStatus[0], frameworkTaskandStatus[1], l)
+	taskType, err := GetTaskType(frameworkTaskandStatus[0], frameworkTaskandStatus[1], configMap, l)
+	if err != nil {
+		l.Error().Str("framework", framework).Str("task", task).Str("task type", taskType).Msg("Error getting task type")
+		return false, err
+	}
+	thisTaskRecord, found := GetTaskData(nodeData.ID, taskType, frameworkTaskandStatus[0], frameworkTaskandStatus[1], mongoDB, l)
 	if !found {
 		// The task is not even created, we must fail
 		return false, nil
@@ -167,6 +219,110 @@ func CheckTaskDependency(nodeData *NodeRecord, framework string, task string, co
 	}
 
 	return false, nil
+}
+
+// Analyzes the configuration and checks wheter the triggering the task will
+// break the schedule limits or not (i.e. trigger twice in the same session)
+func CheckTaskSchedule(taskData TaskInterface, block types.BlockData, configMap map[string]types.FrameworkConfig, l *zerolog.Logger) (bool, error) {
+
+	framework := taskData.GetFramework()
+	task := taskData.GetTask()
+
+	// Get Framework config
+	frameworkCfg, ok := configMap[framework]
+	if !ok {
+		l.Error().Str("framework", framework).Msg("framework config not found")
+		err := fmt.Errorf("framework config not found")
+		return false, err
+	}
+
+	// Get task schedule
+	taskSchedule, ok := frameworkCfg.ScheduleLimits[task]
+	if !ok {
+		// Search for the "any" field
+		taskSchedule, ok = frameworkCfg.ScheduleLimits["any"]
+		if !ok {
+			l.Error().Str("framework", framework).Str("task", task).Msg("cannot find default (or specific) value for task schedule")
+			err := fmt.Errorf("cannot find default (or specific) value for task schedule")
+			return false, err
+		}
+	}
+
+	// Check schedule
+	frameworkTaskandSchedule := strings.Split(taskSchedule, ":")
+	if len(frameworkTaskandSchedule) != 2 {
+		l.Error().Str("framework", framework).Str("task", task).Msg("malformed dependency configuration, expected two elements separated by \":\" ")
+		return false, nil
+	}
+	if frameworkTaskandSchedule[0] == "none" {
+		// No dependencies
+		l.Debug().Str("framework", framework).Str("task", task).Msg("No schedule: Dchedule OK")
+		return true, nil
+	}
+	value, err := strconv.ParseInt(frameworkTaskandSchedule[0], 10, 32)
+	if err != nil {
+		l.Error().Str("framework", framework).Str("task", task).Msg("malformed dependency configuration, first element must be an integer number")
+		return false, nil
+	}
+
+	if frameworkTaskandSchedule[1] == "session" {
+		// Check if session is within minimum schedule
+		lastHeight := taskData.GetLastHeight()
+		if (block.Height - lastHeight) >= (value * block.BlocksPerSession) {
+			return true, nil
+		}
+
+	} else if frameworkTaskandSchedule[1] == "block" {
+		// Check if amount of blocks have passed
+		lastHeight := taskData.GetLastHeight()
+		if (block.Height - lastHeight) >= value {
+			return true, nil
+		}
+
+	} else {
+		l.Error().Str("framework", framework).Str("task", task).Str("second_element", frameworkTaskandSchedule[1]).Msg("schedule configuration cannot be processed (second element type unknown)")
+		return false, nil
+	}
+
+	return true, nil
+}
+
+// Analyzes the configuration and checks wheter the task should be triggered
+// despite having its buffers filled and up to date. This is useful for tasks
+// that require scheduled updates, like signatures (i.e getting tokenizers every session)
+func CheckTaskTriggerMin(taskData TaskInterface, block types.BlockData, configMap map[string]types.FrameworkConfig, l *zerolog.Logger) (uint32, error) {
+
+	framework := taskData.GetFramework()
+	task := taskData.GetTask()
+
+	// Get Framework config
+	frameworkCfg, ok := configMap[framework]
+	if !ok {
+		l.Error().Str("framework", framework).Msg("framework config not found")
+		err := fmt.Errorf("framework config not found")
+		return 0, err
+	}
+
+	// Get task schedule
+	taskTriggerMin, ok := frameworkCfg.TriggerMinimum[task]
+	if !ok {
+		// Search for the "any" field
+		taskTriggerMin, ok = frameworkCfg.TriggerMinimum["any"]
+		if !ok {
+			l.Error().Str("framework", framework).Str("task", task).Msg("cannot find default (or specific) value for task trgger minimum")
+			err := fmt.Errorf("cannot find default (or specific) value for task trigger minimum")
+			return 0, err
+		}
+	}
+
+	// Check trigger minimum
+	value, err := strconv.ParseInt(taskTriggerMin, 10, 32)
+	if err != nil {
+		l.Error().Str("framework", framework).Str("task", task).Msg("malformed trigger minimum configuration, the entry must be a positive integer number")
+		return 0, nil
+	}
+
+	return uint32(value), nil
 }
 
 // ------------------------------------------------------------------------------
@@ -207,6 +363,89 @@ type ScoresSample struct {
 	ID    int     `bson:"id"`
 }
 
+func (record *NumericalTaskRecord) NewTask(nodeID primitive.ObjectID, framework string, task string, date time.Time, l *zerolog.Logger) {
+	// TODO: Get default values from framework-task
+	bufferLen := NumericalCircularBufferLength
+	timeArray := make([]time.Time, bufferLen)
+	for i := range timeArray {
+		timeArray[i] = date
+	}
+
+	record.TaskData.NodeID = nodeID
+	record.TaskData.Framework = framework
+	record.TaskData.Task = task
+	record.TaskData.LastSeen = date
+
+	record.MeanScore = 0.0
+	record.StdScore = 0.0
+	record.ScoresSamples = make([]ScoresSample, bufferLen)
+	record.CircBuffer = types.CircularBuffer{
+		CircBufferLen: bufferLen,
+		NumSamples:    0,
+		Times:         timeArray,
+		Indexes: types.CircularIndexes{
+			Start: 0,
+			End:   0,
+		},
+	}
+
+}
+
+func (record *NumericalTaskRecord) LoadTask(nodeID primitive.ObjectID, framework string, task string, mongoDB mongodb.MongoDb, l *zerolog.Logger) (bool, error) {
+
+	task_filter := bson.D{{Key: "task_data.node_id", Value: nodeID}, {Key: "task_data.framework", Value: framework}, {Key: "task_data.task", Value: task}}
+	tasksCollection := mongoDB.GetCollection(types.NumericalTaskCollection)
+	opts := options.FindOne()
+
+	// Set mongo context
+	ctxM, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Retrieve this node entry
+	var found bool = true
+	cursor := tasksCollection.FindOne(ctxM, task_filter, opts)
+	err := cursor.Decode(record)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			l.Warn().Str("node_id", nodeID.String()).Str("framework", framework).Str("task", task).Msg("Numerical Task not found")
+			found = false
+		} else {
+			l.Error().Msg("Could not retrieve task data from MongoDB.")
+			fmt.Print(err)
+			return false, err
+		}
+	}
+
+	return found, nil
+}
+
+func (record *NumericalTaskRecord) UpdateTask(nodeID primitive.ObjectID, framework string, task string, mongoDB mongodb.MongoDb, l *zerolog.Logger) (bool, error) {
+
+	tasksCollection := mongoDB.GetCollection(types.NumericalTaskCollection)
+
+	opts := options.FindOneAndUpdate().SetUpsert(true)
+	task_filter := bson.D{{Key: "task_data.node_id", Value: nodeID}, {Key: "task_data.framework", Value: framework}, {Key: "task_data.task", Value: task}}
+	ctxM, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Update given struct
+	update := bson.D{{Key: "$set", Value: record}}
+	// Get collection and update
+	var found bool = true
+	err := tasksCollection.FindOneAndUpdate(ctxM, task_filter, update, opts).Decode(record)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			l.Warn().Str("node_id", nodeID.String()).Str("framework", framework).Str("task", task).Msg("Numerical Task not found, creating one.")
+			found = false
+		} else {
+			l.Error().Msg("Could not retrieve numerical task data from MongoDB.")
+			return false, err
+		}
+	}
+
+	return found, nil
+}
+
 func (record *NumericalTaskRecord) GetMinSamplesPerTask() uint32 {
 	return NumericalMinSamplesPerTask
 }
@@ -235,8 +474,17 @@ func (record *NumericalTaskRecord) GetLastSeen() time.Time {
 	return record.TaskData.GetLastSeen()
 }
 
+func (record *NumericalTaskRecord) GetLastHeight() int64 {
+	return record.TaskData.GetLastHeight()
+}
+
 func (record *NumericalTaskRecord) UpdateLastSeen(timeSample time.Time) (err error) {
 	record.TaskData.UpdateLastSeen(timeSample)
+	return nil
+}
+
+func (record *NumericalTaskRecord) UpdateLastHeight(height int64) (err error) {
+	record.TaskData.UpdateLastHeight(height)
 	return nil
 }
 
@@ -258,21 +506,19 @@ func (record *NumericalTaskRecord) IsOK() bool {
 // Calculate task statistics
 func (record *NumericalTaskRecord) ProcessData(l *zerolog.Logger) (err error) {
 
+	// Get valid samples
+	validIdx, err := record.CircBuffer.GetBufferValidIndexes(l)
+	if err != nil {
+		return err
+	}
+
 	// Slice the buffer and cast
 	var auxData []float64
-	idxNow := record.CircBuffer.Indexes.Start
-	for true {
-		// run until we complete the circular buffer
-		if idxNow == record.CircBuffer.Indexes.End {
-			break
-		}
+	for _, sampleId := range validIdx {
 		// Add sample to data array
-		auxData = append(auxData, float64(record.ScoresSamples[idxNow].Score))
-		// perform the step
-		nextVal := int(idxNow) + 1
-		// Check limits and assign value
-		idxNow = record.CircBuffer.BufferLimitCheck(nextVal, record.CircBuffer.Indexes.End)
+		auxData = append(auxData, float64(record.ScoresSamples[sampleId].Score))
 	}
+
 	length := len(auxData)
 	if length == 0 {
 		record.MeanScore = 0
@@ -299,15 +545,15 @@ func (record *NumericalTaskRecord) ProcessData(l *zerolog.Logger) (err error) {
 }
 
 // Gets the sample index given a step direction (positive: 1 or negative: -1) and for a given marker (start or end of buffer)
-func (record *NumericalTaskRecord) stepIndex(step int, marker string) error {
-	return record.CircBuffer.StepIndex(step, marker)
+func (record *NumericalTaskRecord) StepIndex(step uint32, marker string, positive_step bool, l *zerolog.Logger) error {
+	return record.CircBuffer.StepIndex(step, marker, positive_step, l)
 }
 
 // Updates the indexes making them point to the initial and final samples in a given time window.
 func (record *NumericalTaskRecord) CycleIndexes(l *zerolog.Logger) error {
 	return record.CircBuffer.CycleIndexes(NumericalSampleTTLDays, l)
 }
-func (record *NumericalTaskRecord) InsertSample(timeSample time.Time, data interface{}) (err error) {
+func (record *NumericalTaskRecord) InsertSample(timeSample time.Time, data interface{}, l *zerolog.Logger) (err error) {
 	// Assert data type
 	dataOk, ok := data.(ScoresSample)
 	if !ok {
@@ -315,7 +561,7 @@ func (record *NumericalTaskRecord) InsertSample(timeSample time.Time, data inter
 	}
 
 	// Increment the end
-	err = record.stepIndex(1, "end")
+	err = record.StepIndex(1, "end", true, l)
 	// Save sample
 	record.ScoresSamples[record.CircBuffer.Indexes.End].Score = dataOk.Score
 	record.ScoresSamples[record.CircBuffer.Indexes.End].ID = dataOk.ID
@@ -339,13 +585,13 @@ const SignatureTaskTypeName string = "signature"
 const SignatureSampleTTLDays uint32 = 5
 
 // Minimum number of samples to have in a task to consider that it does not require more samples
-const SignatureMinSamplesPerTask uint32 = 50
+const SignatureMinSamplesPerTask uint32 = 5
 
 // Maximum size of result buffer and also maximum number of samples to ask per task
-const SignatureMaxConcurrentSamplesPerTask uint32 = 10
+const SignatureMaxConcurrentSamplesPerTask uint32 = 1
 
 // This is the length of the buffer and will set the maximum accuracy of the metric.
-const SignatureCircularBufferLength uint32 = NumericalMinSamplesPerTask
+const SignatureCircularBufferLength uint32 = SignatureMinSamplesPerTask
 
 // Signatures task data
 type SignatureTaskRecord struct {
@@ -361,6 +607,87 @@ type SignatureTaskRecord struct {
 type SignatureSample struct {
 	Signature string `bson:"signature"`
 	ID        int    `bson:"id"`
+}
+
+func (record *SignatureTaskRecord) NewTask(nodeID primitive.ObjectID, framework string, task string, date time.Time, l *zerolog.Logger) {
+	// TODO: Get default values from framework-task
+	bufferLen := SignatureCircularBufferLength
+	timeArray := make([]time.Time, bufferLen)
+	for i := range timeArray {
+		timeArray[i] = date
+	}
+
+	record.TaskData.NodeID = nodeID
+	record.TaskData.Framework = framework
+	record.TaskData.Task = task
+	record.TaskData.LastSeen = date
+
+	record.LastSignature = ""
+	record.Signatures = make([]SignatureSample, bufferLen)
+	record.CircBuffer = types.CircularBuffer{
+		CircBufferLen: bufferLen,
+		NumSamples:    0,
+		Times:         timeArray,
+		Indexes: types.CircularIndexes{
+			Start: 0,
+			End:   0,
+		},
+	}
+}
+
+func (record *SignatureTaskRecord) LoadTask(nodeID primitive.ObjectID, framework string, task string, mongoDB mongodb.MongoDb, l *zerolog.Logger) (bool, error) {
+
+	task_filter := bson.D{{Key: "task_data.node_id", Value: nodeID}, {Key: "task_data.framework", Value: framework}, {Key: "task_data.task", Value: task}}
+	tasksCollection := mongoDB.GetCollection(types.SignaturesTaskCollection)
+	opts := options.FindOne()
+
+	// Set mongo context
+	ctxM, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Retrieve this node entry
+	var found bool = true
+	cursor := tasksCollection.FindOne(ctxM, task_filter, opts)
+	err := cursor.Decode(record)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			l.Warn().Str("node_id", nodeID.String()).Str("framework", framework).Str("task", task).Msg("Signature Task not found")
+			found = false
+		} else {
+			l.Error().Msg("Could not retrieve task data from MongoDB.")
+			fmt.Print(err)
+			return false, err
+		}
+	}
+
+	return found, nil
+}
+
+func (record *SignatureTaskRecord) UpdateTask(nodeID primitive.ObjectID, framework string, task string, mongoDB mongodb.MongoDb, l *zerolog.Logger) (bool, error) {
+
+	tasksCollection := mongoDB.GetCollection(types.SignaturesTaskCollection)
+
+	opts := options.FindOneAndUpdate().SetUpsert(true)
+	task_filter := bson.D{{Key: "task_data.node_id", Value: nodeID}, {Key: "task_data.framework", Value: framework}, {Key: "task_data.task", Value: task}}
+	ctxM, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Update given struct
+	update := bson.D{{Key: "$set", Value: record}}
+	// Get collection and update
+	var found bool = true
+	err := tasksCollection.FindOneAndUpdate(ctxM, task_filter, update, opts).Decode(record)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			l.Warn().Str("node_id", nodeID.String()).Str("framework", framework).Str("task", task).Msg("Signature Task not found, creating one.")
+			found = false
+		} else {
+			l.Error().Str("node_id", nodeID.String()).Str("framework", framework).Str("task", task).Msg("Could not retrieve signature task data from MongoDB.")
+			return false, err
+		}
+	}
+
+	return found, nil
 }
 
 func (record *SignatureTaskRecord) GetMinSamplesPerTask() uint32 {
@@ -391,14 +718,23 @@ func (record *SignatureTaskRecord) GetLastSeen() time.Time {
 	return record.TaskData.GetLastSeen()
 }
 
+func (record *SignatureTaskRecord) GetLastHeight() int64 {
+	return record.TaskData.GetLastHeight()
+}
+
 func (record *SignatureTaskRecord) UpdateLastSeen(timeSample time.Time) (err error) {
 	record.TaskData.UpdateLastSeen(timeSample)
 	return nil
 }
 
+func (record *SignatureTaskRecord) UpdateLastHeight(height int64) (err error) {
+	record.TaskData.UpdateLastHeight(height)
+	return nil
+}
+
 // Gets the sample index given a step direction (positive: 1 or negative: -1) and for a given marker (start or end of buffer)
-func (record *SignatureTaskRecord) stepIndex(step int, marker string) error {
-	return record.CircBuffer.StepIndex(step, marker)
+func (record *SignatureTaskRecord) StepIndex(step uint32, marker string, positive_step bool, l *zerolog.Logger) error {
+	return record.CircBuffer.StepIndex(step, marker, positive_step, l)
 }
 
 // Updates the indexes making them point to the initial and final samples in a given time window.
@@ -412,14 +748,17 @@ func (record *SignatureTaskRecord) GetNumSamples() uint32 {
 }
 
 // insert a new signature into the circular buffer
-func (record *SignatureTaskRecord) InsertSample(timeSample time.Time, data interface{}) (err error) {
+func (record *SignatureTaskRecord) InsertSample(timeSample time.Time, data interface{}, l *zerolog.Logger) (err error) {
 	// Assert data type
 	dataOk, ok := data.(SignatureSample)
 	if !ok {
 		return fmt.Errorf("invalid sample data type")
 	}
+
+	l.Debug().Str("signature", dataOk.Signature).Int("ID", dataOk.ID).Msg("Inserting sample.")
+
 	// Increment the end
-	err = record.stepIndex(1, "end")
+	err = record.StepIndex(1, "end", true, l)
 	// Save sample
 	record.Signatures[record.CircBuffer.Indexes.End].Signature = dataOk.Signature
 	record.Signatures[record.CircBuffer.Indexes.End].ID = dataOk.ID

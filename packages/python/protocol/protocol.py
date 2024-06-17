@@ -236,20 +236,30 @@ class PocketNetworkMongoDBResultBase(BaseModel):
     class Config:
         arbitrary_types_allowed = True
 
+    
+
 class SignatureSample(BaseModel):
     signature: str
     id: int
 
-class PocketNetworkMongoDBResultSignature(PocketNetworkMongoDBResultBase):
-	signatures: List[SignatureSample]
+class PocketNetworkMongoDBResultSignature(BaseModel):
+    id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
+    result_data: PocketNetworkMongoDBResultBase
+    signatures: List[SignatureSample]
+    class Config:
+        arbitrary_types_allowed = True
 
 
 class NumericSample(BaseModel):
     score: float
     id: int
 
-class PocketNetworkMongoDBResultNumerical(PocketNetworkMongoDBResultBase):
-	scores: List[NumericSample]
+class PocketNetworkMongoDBResultNumerical(BaseModel):
+    id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
+    result_data: PocketNetworkMongoDBResultBase
+    scores: List[NumericSample]
+    class Config:
+        arbitrary_types_allowed = True
 
 
 ###########
