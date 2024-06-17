@@ -1,4 +1,5 @@
 # Adapted from lm_eval/models/openai_completions.py
+import copy
 import transformers
 
 from typing import List, Optional, Tuple
@@ -199,8 +200,28 @@ class PocketNetworkLM(TemplateLM):
                 context_enc = self.tok_encode(context)
                 inp = context_enc[-(self.max_length - self.max_gen_toks):]
                 inps.append(inp)
-
-            until = request_args.get("until", ["<|endoftext|>"])
+            gen_kwargs = request_args[0]
+            until = None
+            if isinstance(gen_kwargs, dict):
+                kwargs = copy.deepcopy(gen_kwargs)  # edge case for repeats > 1
+                if "until" in kwargs.keys():
+                    until = kwargs.pop("until")
+                    if isinstance(until, str):
+                        until = [until]
+                    elif not isinstance(until, list):
+                        raise ValueError(
+                            f"Expected `kwargs['until']` to be of type Union[str,list] but got {until}"
+                        )
+            else:
+                raise ValueError(
+                    f"Expected `kwargs` to be of type `dict` but got {gen_kwargs}"
+                )
+            # add EOS token to stop sequences
+            eos = self.tokenizer.decode(self.eot_token_id)
+            if not until:
+                until = [eos]
+            else:
+                until.append(eos)
             request_args["temperature"] = request_args.get("temperature", 0)
             ############################################################
             # START: POCKET NETWORK CODE
@@ -223,7 +244,10 @@ class PocketNetworkLM(TemplateLM):
             )
             for prompt_i, (context, args_) in zip(request.prompt, chunk):
                 req_dict = request.to_dict(remove_fields=["prompt"])
+                # context is a string
                 req_dict["prompt"] = prompt_i
+                req_dict["ctxlen"] = len(prompt_i)
+                req_dict["context_enc"] = prompt_i
                 req_i = CompletionRequest(**req_dict)
                 res.append(req_i)
             ############################################################
@@ -397,17 +421,6 @@ class EvaluatorLM(TemplateLM):
                 ctxlens.append(ctxlen)
                 response.append(resp)
 
-            # response = oa_completion(
-            #     client=self.client,
-            #     model=self.model,
-            #     prompt=inps,
-            #     echo=True,
-            #     max_tokens=0,
-            #     temperature=0.0,
-            #     logprobs=10,
-            #     seed=self.seed,
-            # )
-
             for resp, ctxlen, (cache_key, context_enc, continuation_enc, resp) in zip(
                 response, ctxlens, chunk
             ):
@@ -415,22 +428,23 @@ class EvaluatorLM(TemplateLM):
 
                 res.append(answer)
                 evaluation_logger.debug("Response: ", answer=answer)
-                # partial caching
-                #if cache_key is not None:
-                #    self.cache_hook.add_partial("loglikelihood", cache_key, answer)
-        #return ApplicationError("END OF TEST",non_retryable=True)
         return re_ord.get_original(res)
 
     def generate_until(self, requests, disable_tqdm: bool = False) -> List[CompletionRequest]:
         if not requests:
             return []
         res = []
-        requests = [req.args for req in requests]
-
+        # batch tokenize contexts
+        context, all_gen_kwargs = zip(*(req.args[0] for req in requests))
+        context_encoding = [req.prompt.context_enc for req in requests]
+        responses = [req.resp for req in requests]
+        completion_requests = [req.prompt.data for req in requests]
+        requests = [
+            ((a, b, cr, r), c) for a, b, cr, r, c in zip(context, context_encoding, completion_requests, responses, all_gen_kwargs)
+        ]
         def _collate(x):
-            toks = self.tok_encode(x[0])
-            return len(toks), x[0]
-
+            toks = x[0][1]
+            return len(toks), x[0][0]
         re_ord = utils.Reorderer(requests, _collate)
 
         def sameuntil_chunks(xs, size):
@@ -451,42 +465,18 @@ class EvaluatorLM(TemplateLM):
             list(sameuntil_chunks(re_ord.get_reordered(), self.batch_size)),
             disable=disable_tqdm,
         ):
-            return ApplicationError("Currently evaluation of task with generate_until are not suported",non_retryable=True)
-            inps = []
-            self._max_gen_toks = request_args.get("max_gen_toks", self.max_gen_toks)
-            for context, _ in chunk:
-                context_enc = self.tok_encode(context)
-                inp = context_enc[-(self.max_length - self.max_gen_toks) :]
-                inps.append(inp)
+            context, _, completion_request, response = chunk[0][0]
 
-            until = request_args.get("until", ["<|endoftext|>"])
-            request_args["temperature"] = request_args.get("temperature", 0)
-            ############################################################
-            # START: POCKET NETWORK CODE
-            ############################################################
-            extra_args = {
-                    k: v
-                    for k, v in request_args.items()
-                    if k not in ["do_sample", "max_gen_toks", "until"]
-                }
-            evaluation_logger.debug("CompletionRequest: ", model=self.model, prompt=inps, max_tokens=self.max_gen_toks, stop=until, seed=self.seed)
-            evaluation_logger.debug("Extra args: ", **extra_args)
-            request = CompletionRequest(
-                model=self.model,
-                prompt=inps,
-                max_tokens=self.max_gen_toks,
-                stop=until,
-                seed=self.seed,
-                **extra_args,
-            )
-            for prompt_i, (context, args_) in zip(request.prompt, chunk):
-                req_dict = request.to_dict(remove_fields=["prompt"])
-                req_dict["prompt"] = prompt_i
-                req_i = CompletionRequest(**req_dict)
-                res.append(req_i)
-            ############################################################
-            # END: POCKET NETWORK CODE
-            ############################################################                
+            until = completion_request.stop
+            for resp, (context, args_) in zip(response.choices, chunk):
+                s = getattr(resp, "text")
+
+                until_ = until
+
+                for term in until_:
+                    if len(term) > 0:
+                        s = s.split(term)[0]
+                res.append(s)            #                 
         return re_ord.get_original(res)
 
     def _model_call(self, inps):

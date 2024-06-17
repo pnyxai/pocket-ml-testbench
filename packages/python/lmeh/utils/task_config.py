@@ -20,7 +20,7 @@ task_cnfg = {
         "num_fewshot":5
         },
     "gsm8k": {
-        "metric": "acc",
+        "metric": "exact_match",
         "num_fewshot":5
         }
 }
