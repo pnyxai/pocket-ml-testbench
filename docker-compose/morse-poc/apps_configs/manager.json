@@ -9,7 +9,7 @@
     "max_backoff": 60,
     "req_per_sec": 10
   },
-  "log_level": "debug",
+  "log_level": "info",
   "temporal": {
     "host": "temporal",
     "port": 7233,

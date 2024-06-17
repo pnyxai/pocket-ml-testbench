@@ -71,7 +71,7 @@ const TaskTTLDays uint32 = 32
 
 type TaskInterface interface {
 	ProcessData(l *zerolog.Logger) error
-	StepIndex(step int, marker string, l *zerolog.Logger) error
+	StepIndex(step uint32, marker string, positive_step bool, l *zerolog.Logger) error
 	CycleIndexes(l *zerolog.Logger) error
 	InsertSample(timeSample time.Time, data interface{}, l *zerolog.Logger) (err error)
 	GetNumSamples() uint32
@@ -106,7 +106,7 @@ func GetTaskData(nodeID primitive.ObjectID, taskType string, framework string, t
 		}
 		if !found {
 			// Initialize and save
-			record.NewTask(nodeID, framework, task, time.Now().UTC(), l)
+			record.NewTask(nodeID, framework, task, types.EpochStart.UTC(), l)
 			record.UpdateTask(nodeID, framework, task, mongoDB, l)
 		}
 		return &record, true
@@ -120,7 +120,7 @@ func GetTaskData(nodeID primitive.ObjectID, taskType string, framework string, t
 		}
 		if !found {
 			// Initialize and save
-			record.NewTask(nodeID, framework, task, time.Now().UTC(), l)
+			record.NewTask(nodeID, framework, task, types.EpochStart.UTC(), l)
 			record.UpdateTask(nodeID, framework, task, mongoDB, l)
 		}
 		return &record, true
@@ -545,8 +545,8 @@ func (record *NumericalTaskRecord) ProcessData(l *zerolog.Logger) (err error) {
 }
 
 // Gets the sample index given a step direction (positive: 1 or negative: -1) and for a given marker (start or end of buffer)
-func (record *NumericalTaskRecord) StepIndex(step int, marker string, l *zerolog.Logger) error {
-	return record.CircBuffer.StepIndex(step, marker, l)
+func (record *NumericalTaskRecord) StepIndex(step uint32, marker string, positive_step bool, l *zerolog.Logger) error {
+	return record.CircBuffer.StepIndex(step, marker, positive_step, l)
 }
 
 // Updates the indexes making them point to the initial and final samples in a given time window.
@@ -561,7 +561,7 @@ func (record *NumericalTaskRecord) InsertSample(timeSample time.Time, data inter
 	}
 
 	// Increment the end
-	err = record.StepIndex(1, "end", l)
+	err = record.StepIndex(1, "end", true, l)
 	// Save sample
 	record.ScoresSamples[record.CircBuffer.Indexes.End].Score = dataOk.Score
 	record.ScoresSamples[record.CircBuffer.Indexes.End].ID = dataOk.ID
@@ -733,8 +733,8 @@ func (record *SignatureTaskRecord) UpdateLastHeight(height int64) (err error) {
 }
 
 // Gets the sample index given a step direction (positive: 1 or negative: -1) and for a given marker (start or end of buffer)
-func (record *SignatureTaskRecord) StepIndex(step int, marker string, l *zerolog.Logger) error {
-	return record.CircBuffer.StepIndex(step, marker, l)
+func (record *SignatureTaskRecord) StepIndex(step uint32, marker string, positive_step bool, l *zerolog.Logger) error {
+	return record.CircBuffer.StepIndex(step, marker, positive_step, l)
 }
 
 // Updates the indexes making them point to the initial and final samples in a given time window.
@@ -758,7 +758,7 @@ func (record *SignatureTaskRecord) InsertSample(timeSample time.Time, data inter
 	l.Debug().Str("signature", dataOk.Signature).Int("ID", dataOk.ID).Msg("Inserting sample.")
 
 	// Increment the end
-	err = record.StepIndex(1, "end", l)
+	err = record.StepIndex(1, "end", true, l)
 	// Save sample
 	record.Signatures[record.CircBuffer.Indexes.End].Signature = dataOk.Signature
 	record.Signatures[record.CircBuffer.Indexes.End].ID = dataOk.ID
