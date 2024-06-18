@@ -411,7 +411,6 @@ class EvaluatorLM(TemplateLM):
             ctxlens = []
             response = []
             for cache_key, context_enc, continuation_enc, resp in chunk:
-                evaluation_logger.debug("Loaded Sample: ", cache_key=cache_key, context_enc=context_enc, continuation_enc=continuation_enc, resp=resp)
                 # max_length+1 because the API takes up to 2049 tokens, including the first context token
                 inp = (context_enc + continuation_enc)[-(self.max_length + 1):]
                 # TODO: the logic is much simpler if we just look at the length of continuation tokens
@@ -428,7 +427,6 @@ class EvaluatorLM(TemplateLM):
                 answer = get_result(resp.choices[0], ctxlen)
 
                 res.append(answer)
-                evaluation_logger.debug("Response: ", answer=answer)
         return re_ord.get_original(res)
 
     def generate_until(self, requests, disable_tqdm: bool = True) -> List[CompletionRequest]:
@@ -503,16 +501,6 @@ class EvaluatorLM(TemplateLM):
 
         new_reqs = []
         for (([context, continuation],), context_enc, continuation_enc, resp) in [(req.args, req.prompt.context_enc, req.prompt.continuation_enc, req.resp) for req in requests]:
-        # for context, continuation in [req.args for req in requests]:
-        #     if context == "":
-        #         # BOS or EOS as context
-        #         context_enc, continuation_enc = (
-        #             [self.prefix_token_id],
-        #             self.tok_encode(continuation),
-        #         )
-        #     else:
-        #         context_enc, continuation_enc = self._encode_pair(context, continuation)
-
             new_reqs.append(((context, continuation), context_enc, continuation_enc, resp))
 
         return self._loglikelihood_tokens(new_reqs, disable_tqdm=disable_tqdm)

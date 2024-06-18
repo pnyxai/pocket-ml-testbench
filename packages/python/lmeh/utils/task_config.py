@@ -1,27 +1,28 @@
 task_cnfg = {
     "arc_challenge": {
-        "metric": "acc_norm",
-        "num_fewshot":25
+        "metrics": ["acc_norm"],
+        "num_fewshot": 25,
         },
     "hellaswag": {
-        "metric": "acc_norm",
-        "num_fewshot":10
+        "metrics": ["acc_norm"],
+        "num_fewshot": 10,
         },
     "truthfulqa_mc2": {
-        "metric": "acc",
-        "num_fewshot":0
+        "metrics": ["acc"],
+        "num_fewshot": 0,
         },
     "mmlu": {
-        "metric": "acc",
-        "num_fewshot":5
+        "metrics": ["acc"],
+        "num_fewshot": 5,
         },
     "winogrande": {
-        "metric": "acc",
-        "num_fewshot":5
+        "metrics": ["acc"],
+        "num_fewshot": 5,
         },
     "gsm8k": {
-        "metric": "exact_match",
-        "num_fewshot":5
+        "metrics": ["exact_match"],
+        "num_fewshot": 5,
+        "filters": ["flexible-extract"]
         }
 }
 

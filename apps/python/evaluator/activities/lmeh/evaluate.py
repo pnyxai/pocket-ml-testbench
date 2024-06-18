@@ -123,7 +123,8 @@ async def lmeh_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
                 # generate configurable tasks
                 try:
                     open_llm_cfg = open_llm_config.get_task_config(task_names[0])
-                    open_llm_metrics = open_llm_cfg["metric"]           
+                    open_llm_filters = open_llm_cfg.get("filters", ["none"])
+                    open_llm_metrics = open_llm_cfg["metrics"]
                     task_dict = lmeh_generator.get_configurable_task(
                         tasks=[task_name],
                         num_fewshot=args.num_fewshot,
@@ -181,6 +182,7 @@ async def lmeh_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
                         task_dict=task_dict,
                         task_id=args.task_id,
                         mongo_client=mongo_client,
+                        selected_filters=open_llm_filters,
                         selected_metrics=open_llm_metrics,
                         eval_logger=eval_logger,
                     )
