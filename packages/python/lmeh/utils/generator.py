@@ -320,7 +320,8 @@ async def evaluate(
     task_dict,
     task_id: ObjectId,
     mongo_client: MongoClient,
-    selected_metrics: str,
+    selected_filters: List[str],
+    selected_metrics: List[str],
     limit: Optional[int] = None,
     cache_requests: bool = False,
     rewrite_requests_cache: bool = False,
@@ -434,12 +435,10 @@ async def evaluate(
 
         # run requests through model
         resps = getattr(lm, reqtype)(cloned_reqs)
-        eval_logger.debug("Response:", resps=resps)
 
         # put responses from model into a list of length K for each request.
         for x, req in zip(resps, cloned_reqs):
             req.resps.append(x)
-            eval_logger.debug("Request:", req=req, resps=req.resps, x=x)
 
     RANK = lm.rank
     WORLD_SIZE = lm.world_size
@@ -464,6 +463,10 @@ async def evaluate(
         scores = []
         result_num_samples = set()
         for filter_key in task.instances[0].filtered_resps.keys():
+            if filter_key not in selected_filters:
+                eval_logger.debug("Skipping Filter Key:", filter_key=filter_key)
+                continue
+            eval_logger.debug("Entering Filter Key:", filter_key=filter_key)
             doc_iterator = task.doc_iterator(
                 rank=RANK, limit=limit, world_size=WORLD_SIZE
             )
@@ -490,9 +493,9 @@ async def evaluate(
                     task_output.logged_samples.append(example)
                 for metric, value in metrics.items():
                     task_output.sample_metrics[(metric, filter_key)].append(value)
-                if selected_metrics in metrics:
-                    numericSample = NumericSample(score=example[selected_metrics], id=doc_id)
-                    scores.append(numericSample)
+                    if metric in selected_metrics:
+                        numericSample = NumericSample(score=example[metric], id=doc_id)
+                        scores.append(numericSample)
 
         base_result = PocketNetworkMongoDBResultBase(
                 task_id=task_id, 
