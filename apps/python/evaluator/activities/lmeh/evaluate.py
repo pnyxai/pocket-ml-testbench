@@ -184,7 +184,7 @@ async def lmeh_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
                         selected_metrics=open_llm_metrics,
                         eval_logger=eval_logger,
                     )
-                    eval_logger.info("Evaluation completed successfully.")
+                    eval_logger.info("Evaluation completed successfully.", task_id=str(args.task_id))
                 except ApplicationError as e:
                     raise e
 
