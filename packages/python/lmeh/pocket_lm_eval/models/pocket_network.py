@@ -88,7 +88,7 @@ class PocketNetworkLM(TemplateLM):
             wf_id=self.wf_id,
         )
         self.vocab_size = self.tokenizer.vocab
-        self.end_of_text_token_id = self.tokenizer.eos_token
+        self.end_of_text_token_id = self.tokenizer.eos_token_id
         eval_logger.debug(
             "Tokenizer loaded successfully.",
             adress=self.requester_args.address,
@@ -96,6 +96,7 @@ class PocketNetworkLM(TemplateLM):
         )    
 
     def tok_encode(self, string: str, **kwargs) -> List[int]:
+        # TODO: Add options like in lm_eval/models/vllm_causallms.py
         if not self.tokenizer:
             raise "must call await <instance>.load_tokenizer()"
         return self.tokenizer.encode(string)
@@ -106,7 +107,7 @@ class PocketNetworkLM(TemplateLM):
         return self.tokenizer.decode(tokens)
 
     def _loglikelihood_tokens(
-            self, requests, disable_tqdm: bool = False
+            self, requests,disable_tqdm: bool = True
     ) -> List[CompletionRequest]:
         res = []
 
@@ -164,7 +165,7 @@ class PocketNetworkLM(TemplateLM):
 
         return re_ord.get_original(res)
 
-    def generate_until(self, requests, disable_tqdm: bool = False) -> List[CompletionRequest]:
+    def generate_until(self, requests,disable_tqdm: bool = True) -> List[CompletionRequest]:
         if not requests:
             return []
         res = []
@@ -200,7 +201,7 @@ class PocketNetworkLM(TemplateLM):
                 context_enc = self.tok_encode(context)
                 inp = context_enc[-(self.max_length - self.max_gen_toks):]
                 inps.append(inp)
-            gen_kwargs = request_args[0]
+            gen_kwargs = request_args
             until = None
             if isinstance(gen_kwargs, dict):
                 kwargs = copy.deepcopy(gen_kwargs)  # edge case for repeats > 1
@@ -264,7 +265,7 @@ class PocketNetworkLM(TemplateLM):
         raise NotImplementedError()
 
     def loglikelihood_rolling(
-            self, requests, disable_tqdm: bool = False
+            self, requests,disable_tqdm: bool = True
     ) -> List[float]:
         loglikelihoods = []
 
@@ -297,7 +298,7 @@ class PocketNetworkLM(TemplateLM):
         return loglikelihoods
 
     def loglikelihood(
-            self, requests, disable_tqdm: bool = False
+            self, requests, disable_tqdm: bool = True
     ) -> List[CompletionRequest]:
         new_reqs = []
         for context, continuation in [req.args for req in requests]:
@@ -389,7 +390,7 @@ class EvaluatorLM(TemplateLM):
         return self.tokenizer.decode(tokens)
 
     def _loglikelihood_tokens(
-            self, requests, disable_tqdm: bool = False
+            self, requests,disable_tqdm: bool = True
     ) -> List[Tuple[float, bool]]:
         res = []
 
@@ -430,7 +431,7 @@ class EvaluatorLM(TemplateLM):
                 evaluation_logger.debug("Response: ", answer=answer)
         return re_ord.get_original(res)
 
-    def generate_until(self, requests, disable_tqdm: bool = False) -> List[CompletionRequest]:
+    def generate_until(self, requests, disable_tqdm: bool = True) -> List[CompletionRequest]:
         if not requests:
             return []
         res = []
@@ -442,6 +443,7 @@ class EvaluatorLM(TemplateLM):
         requests = [
             ((a, b, cr, r), c) for a, b, cr, r, c in zip(context, context_encoding, completion_requests, responses, all_gen_kwargs)
         ]
+        evaluation_logger.debug("Qty of requests: ", qty_req=len(requests))
         def _collate(x):
             toks = x[0][1]
             return len(toks), x[0][0]
@@ -459,7 +461,6 @@ class EvaluatorLM(TemplateLM):
 
             if ret:
                 yield ret, lastuntil
-
         # todo: more intelligent batching for heterogeneous `until`
         for chunk, request_args in tqdm(
             list(sameuntil_chunks(re_ord.get_reordered(), self.batch_size)),
@@ -488,13 +489,13 @@ class EvaluatorLM(TemplateLM):
         raise NotImplementedError()
 
     def loglikelihood_rolling(
-        self, requests, disable_tqdm: bool = False
+        self, requests, disable_tqdm: bool = True
     ) -> List[float]:
         # TODO: Update this method in order to be available for the Pocket Network
         return ApplicationError("Currently evaluation of task with loglikelihood_rolling are not suported",non_retryable=True)
     
     def loglikelihood(
-        self, requests, disable_tqdm: bool = False
+        self, requests,disable_tqdm: bool = True
     ) -> List[CompletionRequest]:
         # Modify this in order to insted of get contex and continuation,
         # get the context, continuation, context_enc and continuation_enc.
