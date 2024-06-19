@@ -92,7 +92,7 @@ func (aCtx *Ctx) AnalyzeNode(ctx context.Context, params types.AnalyzeNodeParams
 			// Check schedule restrictions
 			schdStatus, err := records.CheckTaskSchedule(thisTaskRecord, params.Block, aCtx.App.Config.Frameworks, l)
 			if err != nil {
-				l.Error().Msg("Could not check task sqchedule.")
+				l.Error().Msg("Could not check task schedule.")
 				return nil, err
 			}
 			if !schdStatus {

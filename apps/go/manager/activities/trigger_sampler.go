@@ -2,6 +2,7 @@ package activities
 
 import (
 	"context"
+	"fmt"
 	"manager/types"
 	"time"
 
@@ -31,9 +32,17 @@ func (aCtx *Ctx) TriggerSampler(_ context.Context, params types.TriggerSamplerPa
 		Qty:       params.Trigger.Qty,
 	}
 	samplerWorkflowOptions := client.StartWorkflowOptions{
+		ID: fmt.Sprintf(
+			// lmeh-hellaswag-nodeaddress-servicehex
+			"%s-%s-%s-%s",
+			params.Trigger.Framework,
+			params.Trigger.Task,
+			params.Trigger.Address,
+			params.Trigger.Service,
+		),
 		TaskQueue:                                aCtx.App.Config.Temporal.Sampler.TaskQueue,
 		WorkflowExecutionErrorWhenAlreadyStarted: true,
-		WorkflowIDReusePolicy:                    enums.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE_FAILED_ONLY,
+		WorkflowIDReusePolicy:                    enums.WORKFLOW_ID_REUSE_POLICY_TERMINATE_IF_RUNNING,
 		WorkflowTaskTimeout:                      120 * time.Second,
 		RetryPolicy: &temporal.RetryPolicy{
 			MaximumAttempts: 3,

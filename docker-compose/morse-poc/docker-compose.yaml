@@ -129,7 +129,7 @@ services:
     <<: *base
     image: temporalio/admin-tools:${TEMPORAL_TOOLS_VERSION}
     container_name: wf-setup
-    restart: on-failure
+    restart: no
     entrypoint: [ "/home/temporal/initialize.sh" ]
     volumes:
       - ./dependencies_configs/temporal/initialize.sh:/home/temporal/initialize.sh
@@ -413,7 +413,10 @@ services:
       dockerfile: apps/python/sampler/Dockerfile
     image: pocket_ml_testbench_sampler:dev
     deploy:
-      replicas: 5
+      replicas: 4
+      resources:
+        limits:
+          cpus: "16"
     environment:
       CONFIG_PATH: /home/app/configs/config.json
       OPENAI_API_KEY: EMPTY
@@ -458,7 +461,10 @@ services:
       dockerfile: apps/python/evaluator/Dockerfile
     image: pocket_ml_testbench_evaluator:dev
     deploy:
-      replicas: 2
+      replicas: 4
+      resources:
+        limits:
+          cpus: "16"
     environment:
       CONFIG_PATH: /home/app/configs/config.json
       OPENAI_API_KEY: EMPTY

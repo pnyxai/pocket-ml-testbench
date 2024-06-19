@@ -2,5 +2,21 @@
   {
     "id": "A100",
     "url": "http://nginx-sidecar:9087"
+  },
+  {
+    "id": "A101",
+    "url": "http://nginx-sidecar:9087"
+  },
+  {
+    "id": "A102",
+    "url": "http://nginx-sidecar:9087"
+  },
+  {
+    "id": "A103",
+    "url": "http://nginx-sidecar:9087"
+  },
+  {
+    "id": "A1FF",
+    "url": "http://nginx-sidecar:9087"
   }
 ]
