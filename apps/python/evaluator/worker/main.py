@@ -15,11 +15,11 @@ from app.config import read_config
 
 from activities.lmeh.evaluate import lmeh_evaluate
 from activities.get_task_data import get_task_data
+from activities.lookup_tasks import lookup_tasks
 from activities.signatures.tokenizer_evaluate import tokenizer_evaluate
 
-
 from workflows.evaluator import Evaluator
-import concurrent.futures
+from workflows.lookup_tasks import LookupTasks
 
 # We always want to pass through external modules to the sandbox that we know
 # are safe for workflow use
@@ -72,6 +72,7 @@ async def main():
         namespace=namespace,
         # data_converter=pydantic_data_converter
     )
+    app_config["temporal_client"] = client
 
     worker_kwargs = {
         "client": client,
@@ -85,8 +86,10 @@ async def main():
         ),
         "workflows": [
             Evaluator,
+            LookupTasks,
         ],
         "activities": [
+            lookup_tasks,
             get_task_data,
             lmeh_evaluate,
             tokenizer_evaluate,
