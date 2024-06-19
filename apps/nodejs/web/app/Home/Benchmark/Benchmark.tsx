@@ -108,6 +108,11 @@ export default function Benchmark({ initialData }: BenchmarkProps) {
     }
 
     const mean = Number(Number(row[field]).toFixed(2))
+
+    if (process.env.SHOW_STDERR !== 'true') {
+      return mean
+    }
+
     // @ts-ignore
     const stderr = row[`${field}_stderr`]
 

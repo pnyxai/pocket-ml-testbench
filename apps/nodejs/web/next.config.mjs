@@ -39,6 +39,7 @@ const nextConfig = {
   },
   env: {
     API_ENDPOINT_URL: process.env.API_ENDPOINT_URL,
+    SHOW_STDERR: process.env.SHOW_STDERR,
   },
 }
 
