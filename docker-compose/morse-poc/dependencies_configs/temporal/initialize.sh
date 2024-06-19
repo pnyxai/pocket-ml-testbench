@@ -9,7 +9,7 @@ mmlu="mmlu_abstract_algebra,mmlu_anatomy,mmlu_astronomy,mmlu_business_ethics,mml
 heavy="arc_challenge,hellaswag,truthfulqa_mc2,winogrande,gsm8k"
 one="gsm8k"
 # change this if you want a different set of datasets, by default it create everything
-keys=$one
+keys=$heavy
 
 json_array=$(printf ',"%s"' "${key_array[@]}")
 json_array="[${json_array:1}]"
@@ -18,7 +18,10 @@ json_array="[${json_array:1}]"
 IFS=',' read -ra key_array <<< "$keys"
 
 for key in "${key_array[@]}"; do
+  # set a workflow id to prevent it been created twice
   temporal workflow start \
+    --workflow-id "register-$key" \
+    --id-reuse-policy "AllowDuplicateFailedOnly" \
     --task-queue 'sampler' \
     --type 'Register' \
     --input "{\"framework\": \"lmeh\", \"tasks\": \"$key\"}" \
@@ -29,7 +32,8 @@ done
 
 # this time will be more or less depending on internet speed, amount of replicas of sampler and resources assigned to it
 # this is an estimate after test with 30MB/s, 3 replicas with 2 Cores each
-sleep 60
+echo "waiting 2 minutes before create manager and requester schedules"
+sleep 120
 
 for key in "${key_array[@]}"; do
   temporal schedule create \
@@ -38,10 +42,10 @@ for key in "${key_array[@]}"; do
       --namespace 'pocket-ml-testbench' \
       --workflow-type 'Manager' \
       --task-queue 'manager' \
-      --cron '@every 2m' \
-      --execution-timeout 350 \
-      --task-timeout 175 \
-      --overlap-policy 'BufferOne' \
+      --interval '2m' \
+      --overlap-policy "Skip" \
+      --execution-timeout 120 \
+      --task-timeout 120 \
       --input "{\"service\":\"A100\", \"tests\": [{\"framework\": \"lmeh\", \"tasks\": [\"$key\"]}]}"
 done
 
@@ -51,10 +55,10 @@ temporal schedule create \
       --namespace 'pocket-ml-testbench' \
       --workflow-type 'Manager' \
       --task-queue 'manager' \
-      --cron '@every 2m' \
-      --execution-timeout 350 \
-      --task-timeout 175 \
-      --overlap-policy 'BufferOne' \
+      --interval '2m' \
+      --overlap-policy "Skip" \
+      --execution-timeout 120 \
+      --task-timeout 120 \
       --input "{\"service\":\"A100\", \"tests\": [{\"framework\": \"signatures\", \"tasks\": [\"tokenizer\"]}]}"
 
 temporal schedule create \
@@ -63,7 +67,8 @@ temporal schedule create \
     --namespace 'pocket-ml-testbench' \
     --workflow-type 'Requester' \
     --task-queue 'requester' \
-    --cron '@every 1m' \
+    --interval '1m' \
+    --overlap-policy "Skip" \
     --execution-timeout 350 \
     --task-timeout 175 \
     --input '{"app":"f3abbe313689a603a1a6d6a43330d0440a552288","service":"A100"}'

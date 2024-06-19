@@ -111,7 +111,7 @@
             "TimeoutCommit": 30000000000,
             "SkipTimeoutCommit": false,
             "CreateEmptyBlocks": true,
-            "CreateEmptyBlocksInterval": 30000000000,
+            "CreateEmptyBlocksInterval": 120000000000,
 
             "PeerGossipSleepDuration": 30000000000,
             "PeerQueryMaj23SleepDuration": 20000000000

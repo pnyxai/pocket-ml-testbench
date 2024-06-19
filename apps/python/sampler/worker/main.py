@@ -1,8 +1,10 @@
 import sys
 import asyncio
-import concurrent.futures
+# import concurrent.futures
+import multiprocessing
+from concurrent.futures import ProcessPoolExecutor
 from temporalio.client import Client
-from temporalio.worker import Worker
+from temporalio.worker import Worker, SharedStateManager
 from temporalio.worker.workflow_sandbox import SandboxedWorkflowRunner, SandboxRestrictions
 
 sys.path.append('.')
@@ -24,10 +26,10 @@ modules = [
     # internal lib
     "app",
     "activities",
-    "protocol",
-    "packages.common",
-    "packages.logger",
-    "packages.lmeh",
+    "packages.python.protocol",
+    "packages.python.common",
+    "packages.python.logger",
+    "packages.python.lmeh",
     # external lib
     "motor",
     "asyncpg",
@@ -68,37 +70,39 @@ async def main():
         # data_converter=pydantic_data_converter
     )
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as activity_executor:
-        worker_kwargs = {
-            "client": client,
-            "task_queue": task_queue,
-            "workflow_runner": SandboxedWorkflowRunner(
-                restrictions=SandboxRestrictions.default.with_passthrough_modules(*modules)
-            ),
-            "workflows": [
-                Register,
-                Sampler,
-            ],
-            "activities": [
-                lmeh_register_task,
-                lmeh_sample,
-                sign_sample,
-            ],
-            "activity_executor": activity_executor,
-        }
+    worker_kwargs = {
+        "client": client,
+        "task_queue": task_queue,
+        "activity_executor": ProcessPoolExecutor(max_workers),
+        "shared_state_manager": SharedStateManager.create_from_multiprocessing(
+            multiprocessing.Manager()
+        ),
+        "workflow_runner": SandboxedWorkflowRunner(
+            restrictions=SandboxRestrictions.default.with_passthrough_modules(*modules)
+        ),
+        "workflows": [
+            Register,
+            Sampler,
+        ],
+        "activities": [
+            lmeh_register_task,
+            lmeh_sample,
+            sign_sample,
+        ],
+    }
 
-        if max_concurrent_activities is not None:
-            worker_kwargs["max_concurrent_activities"] = max_concurrent_activities
-        if max_concurrent_workflow_tasks is not None:
-            worker_kwargs["max_concurrent_workflow_tasks"] = max_concurrent_workflow_tasks
-        if max_concurrent_workflow_task_polls is not None:
-            worker_kwargs["max_concurrent_workflow_task_polls"] = max_concurrent_workflow_task_polls
-        if max_concurrent_activity_task_polls is not None:
-            worker_kwargs["max_concurrent_activity_task_polls"] = max_concurrent_activity_task_polls
+    if max_concurrent_activities is not None:
+        worker_kwargs["max_concurrent_activities"] = max_concurrent_activities
+    if max_concurrent_workflow_tasks is not None:
+        worker_kwargs["max_concurrent_workflow_tasks"] = max_concurrent_workflow_tasks
+    if max_concurrent_workflow_task_polls is not None:
+        worker_kwargs["max_concurrent_workflow_task_polls"] = max_concurrent_workflow_task_polls
+    if max_concurrent_activity_task_polls is not None:
+        worker_kwargs["max_concurrent_activity_task_polls"] = max_concurrent_activity_task_polls
 
-        worker = Worker(**worker_kwargs)
+    worker = Worker(**worker_kwargs)
 
-        await worker.run()
+    await worker.run()
 
 
 if __name__ == "__main__":

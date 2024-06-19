@@ -79,6 +79,9 @@ func (wCtx *Ctx) Relayer(ctx workflow.Context, params activities.RelayerParams) 
 			ID:                    updateTaskTreeResult.TaskId,
 			TaskQueue:             wCtx.App.Config.Temporal.Evaluator.TaskQueue,
 			WorkflowIDReusePolicy: enums.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE_FAILED_ONLY,
+			RetryPolicy: &temporal.RetryPolicy{
+				MaximumAttempts: 0,
+			},
 		}
 		// Do not wait for a result by not calling .Get() on the returned future
 		_, wfErr := wCtx.App.TemporalClient.ExecuteWorkflow(
