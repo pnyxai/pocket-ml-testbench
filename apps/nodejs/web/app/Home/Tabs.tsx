@@ -11,6 +11,7 @@ interface HomeTabsProps {
   about: React.ReactNode
   benchmark: React.ReactNode
   metricsThroughTime: React.ReactNode
+  api: React.ReactNode
   defaultTab?: Tabs
 }
 
@@ -18,14 +19,18 @@ export enum Tabs {
   about = 'about',
   benchmark = 'benchmark',
   metricsThroughTime = 'metricsThroughTime',
+  api = 'api',
 }
 
-export default function HomeTabs({ about, defaultTab, benchmark, metricsThroughTime }: HomeTabsProps) {
+export default function HomeTabs({ about, defaultTab, benchmark, metricsThroughTime, api }: HomeTabsProps) {
   const isLight = useTheme().palette.mode === 'light'
   const [tab, setTab] = useState<Tabs>(Object.values(Tabs).includes(defaultTab!) ? defaultTab! : Tabs.benchmark)
 
-  const handleChange = (event: React.SyntheticEvent, newValue: Tabs) => {
+  const handleChange = (_: React.SyntheticEvent, newValue: Tabs) => {
     setTab(newValue)
+    const params = new URLSearchParams()
+    params.set('tab', newValue)
+    window.history.pushState(null, '', `?${params.toString()}`)
   }
 
   return (
@@ -36,6 +41,7 @@ export default function HomeTabs({ about, defaultTab, benchmark, metricsThroughT
             <Tab label={'LLM Benchmark'} value={Tabs.benchmark} />
             <Tab label={'Metrics Through Time'} value={Tabs.metricsThroughTime} />
             <Tab label={'About'} value={Tabs.about} />
+            <Tab label={'API'} value={Tabs.api} />
           </TabList>
         </Box>
         <Box
@@ -43,6 +49,7 @@ export default function HomeTabs({ about, defaultTab, benchmark, metricsThroughT
           visibility={tab === Tabs.benchmark ? 'visible' : 'hidden'}
           sx={{
             opacity: tab === Tabs.benchmark ? 1 : 0,
+            padding: tab === Tabs.benchmark ? undefined : '0!important',
             pointerEvents: tab === Tabs.benchmark ? undefined : 'none',
           }}
           height={tab === Tabs.benchmark ? undefined : 0}
@@ -51,6 +58,7 @@ export default function HomeTabs({ about, defaultTab, benchmark, metricsThroughT
         </Box>
         <TabPanel value={Tabs.metricsThroughTime}>{metricsThroughTime}</TabPanel>
         <TabPanel value={Tabs.about}>{about}</TabPanel>
+        <TabPanel value={Tabs.api}>{api}</TabPanel>
       </TabContext>
     </Box>
   )
