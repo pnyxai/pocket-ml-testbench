@@ -85,7 +85,6 @@ class MongoOperator:
     async def get_tokenizer_entry(self, tokenizer_hash: str):
         return await self.client.db[self.tokenizers_collection].find_one({'hash': tokenizer_hash})
 
-
     async def get_tokenizer_objects(self, address: str, service: str) -> dict:
         
         tokenizer_hash = await self.get_tokenizer_hash(address, service)
@@ -176,7 +175,12 @@ class MongoOperator:
         task.id = task_id
 
         return task
-    
+
+    async def get_tasks(self):
+        cursor = self.client.db[self.tasks_collection].find({'done': True})
+        tasks = await cursor.to_list(length=None)
+        return tasks
+
     async def retrieve_responses(self, task_id: ObjectId, ) -> List[str]:
         cursor = self.client.db[self.tasks_collection].aggregate(aggregate_response_tree(task_id))
         result = await cursor.to_list(length=None)
@@ -192,9 +196,7 @@ class MongoOperator:
         
         return result
 
-
     async def reconstruct_instances(self, task_id: ObjectId, eval_logger:logging.Logger) -> List[Instance]:
-        
         result = await self.retrieve_responses(task_id)
 
         valid_fields = {field.name for field in Instance.__dataclass_fields__.values()}

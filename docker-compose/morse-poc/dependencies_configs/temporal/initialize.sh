@@ -32,8 +32,6 @@ done
 
 # this time will be more or less depending on internet speed, amount of replicas of sampler and resources assigned to it
 # this is an estimate after test with 30MB/s, 3 replicas with 2 Cores each
-echo "waiting 2 minutes before create manager and requester schedules"
-sleep 120
 
 for key in "${key_array[@]}"; do
   temporal schedule create \
@@ -72,3 +70,14 @@ temporal schedule create \
     --execution-timeout 350 \
     --task-timeout 175 \
     --input '{"app":"f3abbe313689a603a1a6d6a43330d0440a552288","service":"A100"}'
+
+temporal schedule create \
+    --schedule-id 'lookup-done-tasks' \
+    --workflow-id 'lookup-done-tasks' \
+    --namespace 'pocket-ml-testbench' \
+    --workflow-type 'LookupTasks' \
+    --task-queue 'evaluator' \
+    --interval '1m' \
+    --overlap-policy "Skip" \
+    --execution-timeout 350 \
+    --task-timeout 175
