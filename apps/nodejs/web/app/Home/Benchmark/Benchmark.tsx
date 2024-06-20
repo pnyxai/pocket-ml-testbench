@@ -7,6 +7,8 @@ import { useQuery } from '@tanstack/react-query'
 import { getData } from '@/app/utilities'
 import { Search } from '@mui/icons-material'
 import { useEffect, useRef, useState } from 'react'
+import PoktscanLogo from '../../assets/logo/poktscan_logo.svg'
+
 
 interface RawValues {
   'mean': number,
@@ -23,8 +25,18 @@ interface BenchmarkRawData {
   'gsm8k': RawValues,
 }
 
+interface NodeData {
+  qos: {
+    response_time: number,
+    error_rate: number,
+  },
+  metrics: BenchmarkRawData
+}
+
 type BenchmarkRows = {
   node: string
+  response_time: number
+  error_rate: number
   average: number
   average_stderr: number
   hellaswag: number
@@ -41,7 +53,7 @@ type BenchmarkRows = {
   gsm8k_stderr: number
 }
 
-type NodeBenchmarkRawData = Record<string, BenchmarkRawData>
+type NodeBenchmarkRawData = Record<string, NodeData>
 
 const getProcessedData = (rawData: NodeBenchmarkRawData, searchText: string) => {
   const rawDataToProcess: NodeBenchmarkRawData = searchText ? searchText.replaceAll(' ', '').split(',').reduce((acc, address) => ({
@@ -52,19 +64,20 @@ const getProcessedData = (rawData: NodeBenchmarkRawData, searchText: string) => 
   const processedData: Array<BenchmarkRows> = []
 
   for (const node in rawDataToProcess) {
-    const newRow: Partial<BenchmarkRows> = {
-      node,
-    }
-
     const nodeData = rawData[node]
-
     if (!nodeData) continue
 
-    for (const key in nodeData) {
+    const newRow: Partial<BenchmarkRows> = {
+      node,
+      error_rate: nodeData.qos.error_rate,
+      response_time: nodeData.qos.response_time,
+    }
+
+    for (const key in nodeData.metrics) {
       const nodeDataKey = key as keyof BenchmarkRawData
 
-      newRow[nodeDataKey] = nodeData[nodeDataKey].mean * 100
-      newRow[`${nodeDataKey}_stderr`] = nodeData[nodeDataKey].stderr * 100
+      newRow[nodeDataKey] = nodeData.metrics[nodeDataKey].mean * 100
+      newRow[`${nodeDataKey}_stderr`] = nodeData.metrics[nodeDataKey].stderr * 100
     }
 
     processedData.push(newRow as BenchmarkRows)
@@ -104,7 +117,65 @@ export default function Benchmark({ initialData }: BenchmarkProps) {
     const field = params.field as keyof BenchmarkRows
 
     if (field === 'node') {
-      return row[field]
+      let latencyColor: string
+      if (row.response_time <= 300) {
+        latencyColor = isLight ? '#3aa624' : '#55e136'
+      } else if (row.response_time <= 600) {
+        latencyColor = isLight ? '#d57001' : '#e1b936'
+      } else {
+        latencyColor = isLight ? '#d93030' : '#ff4444'
+      }
+      return (
+        <Stack
+          height={1}
+          spacing={0.4}
+          justifyContent={'center'}
+        >
+          <Typography fontSize={14}>{row.node}</Typography>
+          <Stack direction={'row'} alignItems={'center'} spacing={1.2}>
+            <Typography fontSize={12}>
+              Latency Average:
+              <span
+                style={{
+                  color: latencyColor,
+                  fontWeight: 600,
+                  marginLeft: '7px',
+                }}
+              >
+                {row.response_time.toFixed(0)} ms
+              </span>
+            </Typography>
+            <Typography fontSize={12}>
+              Success Rate:{' '}
+              <span
+                style={{
+                  fontWeight: 500,
+                }}
+              >
+                {Number(((1 - row.error_rate) * 100).toFixed(1))}%
+              </span>
+            </Typography>
+            <Button
+              sx={{
+                textTransform: 'none',
+                fontSize: 12,
+                fontWeight: 700,
+                paddingY: 0,
+                paddingX: 0.5,
+                marginTop: '-2px!important',
+                marginLeft: '7px!important',
+              }}
+              component={'a'} href={`https://poktscan.com/node/${row.node}`}
+              target={'_blank'}
+            >
+              Details
+              <Stack height={16} width={16} marginLeft={0.5}>
+                <PoktscanLogo />
+              </Stack>
+            </Button>
+          </Stack>
+        </Stack>
+      )
     }
 
     const mean = Number(Number(row[field]).toFixed(2))
@@ -131,7 +202,8 @@ export default function Benchmark({ initialData }: BenchmarkProps) {
     field: 'node',
     headerName: 'Node',
     flex: 4,
-    minWidth: 350,
+    minWidth: 360,
+    renderCell,
   },
     { field: 'average', headerName: 'Average', ...numberColumnDefaultProps }, {
       field: 'arc', headerName: 'ARC', ...numberColumnDefaultProps,
@@ -224,6 +296,7 @@ export default function Benchmark({ initialData }: BenchmarkProps) {
                 disableColumnResize={true}
                 disableRowSelectionOnClick={true}
                 disableColumnSelector={true}
+                rowHeight={60}
                 initialState={{
                   sorting: {
                     sortModel: [{ field: 'average', sort: 'desc' }],

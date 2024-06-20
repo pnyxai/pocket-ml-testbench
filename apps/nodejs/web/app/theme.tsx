@@ -1,8 +1,8 @@
 'use client'
-import {Open_Sans} from 'next/font/google'
-import {createTheme, Theme} from '@mui/material/styles'
-import {ThemeProvider as MuiThemeProvider} from '@mui/material/styles'
-import React, {useEffect, useState} from 'react'
+import { Open_Sans } from 'next/font/google'
+import { createTheme, Theme } from '@mui/material/styles'
+import { ThemeProvider as MuiThemeProvider } from '@mui/material/styles'
+import React, { useEffect, useState } from 'react'
 
 const openSans = Open_Sans({
   weight: ['300', '400', '500', '600', '700', '800'],
@@ -25,7 +25,7 @@ const defaultTheme = createTheme({
         color: 'default',
       },
       styleOverrides: {
-        root: ({theme}) => ({
+        root: ({ theme }) => ({
           backgroundColor: theme.palette.background.paper,
           backgroundImage: 'none',
         }),
@@ -70,7 +70,7 @@ const darkTheme = createTheme(defaultTheme, {
       paper: '#1a1a1a',
     },
     text: {
-      primary: 'white',
+      primary: '#fff',
     },
   },
   components: {
@@ -117,7 +117,7 @@ export function setCookie(name: string, value: string, days?: number) {
   document.cookie = name + '=' + (value || '') + expires + '; path=/'
 }
 
-export default function ThemeProvider({children, defaultTheme}: React.PropsWithChildren<{
+export default function ThemeProvider({ children, defaultTheme }: React.PropsWithChildren<{
   defaultTheme: string
 }>) {
   const [muiTheme, setMuiTheme] = useState<Theme>(defaultTheme === 'light' ? lightTheme : darkTheme)
