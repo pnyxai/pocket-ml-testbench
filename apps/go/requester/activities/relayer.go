@@ -48,6 +48,7 @@ type RelayResponseCodesEnum struct {
 	SignerNotFound int
 	SignerError    int
 	AATSignature   int
+	Evaluation     int
 }
 
 var RelayResponseCodes = RelayResponseCodesEnum{
@@ -62,6 +63,7 @@ var RelayResponseCodes = RelayResponseCodesEnum{
 	SignerNotFound: 8,
 	SignerError:    9,
 	AATSignature:   10,
+	Evaluation:     11,
 }
 
 var RelayerName = "relayer"

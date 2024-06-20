@@ -5,7 +5,6 @@ from app.app import get_app_logger, get_app_config
 from packages.python.common.utils import get_from_dict
 from activities.lookup_tasks import lookup_tasks
 from workflows.evaluator import Evaluator
-import asyncio
 
 
 @workflow.defn
@@ -15,7 +14,6 @@ class LookupTasks:
         app_config = get_app_config()
         eval_logger = get_app_logger("lookup_tasks")
         config = app_config['config']
-        tmp_client = app_config["temporal_client"]
         task_queue = get_from_dict(config, 'temporal.task_queue')
         eval_logger.info("Starting Workflow LookupTasks")
         # Extract framework and task to evaluate
@@ -37,7 +35,7 @@ class LookupTasks:
                     task_queue=task_queue,
                     execution_timeout=timedelta(seconds=120),
                     task_timeout=timedelta(seconds=60),
-                    id_reuse_policy=WorkflowIDReusePolicy.TERMINATE_IF_RUNNING,
+                    id_reuse_policy=WorkflowIDReusePolicy.ALLOW_DUPLICATE_FAILED_ONLY,
                     retry_policy=RetryPolicy(maximum_attempts=1),
                 )
             except Exception as e:
