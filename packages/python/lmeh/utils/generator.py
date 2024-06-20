@@ -353,14 +353,14 @@ async def evaluate(
                 for result in insert_mongo_results:
                     bulk_op.append(
                         UpdateOne(
-                            {'results_data.task_id': result['results_data']['task_id']},
+                            {'result_data.task_id': result['result_data']['task_id']},
                             {'$set': result},
                             upsert=True
                         )
                     )
                     bulk_task_op.append(
                         UpdateOne(
-                            {'_id': result['results_data']['task_id']},
+                            {'_id': result['result_data']['task_id']},
                             {'$set': {"evaluated": True}},
                         )
                     )

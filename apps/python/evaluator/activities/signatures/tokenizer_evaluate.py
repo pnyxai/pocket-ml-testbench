@@ -137,7 +137,7 @@ async def tokenizer_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
         try:
             async with mongo_client.start_transaction() as session:
                 await mongo_client.db["results"].find_one_and_update(
-                    {"results_data.task_id": args.task_id},
+                    {"result_data.task_id": args.task_id},
                     {"$set": result.model_dump(by_alias=True)},
                     session=session,
                 )

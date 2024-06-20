@@ -27,7 +27,7 @@ db.createCollection('nodes');
 db.nodes.createIndex({address: 1, service: 1}, {unique: true});
 
 db.createCollection('results');
-db.nodes.createIndex({'results_data.task_id': 1}, {unique: true});
+db.nodes.createIndex({'result_data.task_id': 1}, {unique: true});
 
 db.createCollection('buffers_numerical');
 db.buffers_numerical.createIndex({"task_data.node_id": 1, "task_data.framework": 1, "task_data.task": 1}, {unique: true});
