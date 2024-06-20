@@ -205,6 +205,7 @@ services:
     depends_on:
       - sidecar-A
       - llm-engine
+
   sidecar-B:
     <<: *base
     build:
@@ -292,11 +293,6 @@ services:
     volumes:
       - ${MODELS_PATH}:/root/.cache/huggingface/hub/
       - ./dependencies_configs/llm-engine/healthcheck.py:/root/healthcheck.py
-    depends_on:
-      sidecar:
-        condition: service_started
-  #   ports:
-  #     - 9187:9187
     environment:
       - MODEL_NAME=${MODEL_NAME}
       - NUM_GPUS=${NUM_GPUS}

@@ -32,7 +32,7 @@ class PocketNetworkTaskRequest(PocketNetworkRegisterTaskRequest):
     model: Optional[str] = "pocket_network"
     llm_args: Optional[Dict] = None  # TODO : Remove: This is LLM specific, move to agnostic format.
     num_fewshot: Optional[int] = Field(None, ge=0)  # TODO : Remove: This is LLM specific, move to agnostic format.
-    gen_kwargs:Optional[str] = None
+    gen_kwargs: Optional[str] = None
     bootstrap_iters: Optional[int] = 100000
 
     @model_validator(mode="after")
@@ -47,7 +47,7 @@ class PocketNetworkTaskRequest(PocketNetworkRegisterTaskRequest):
             self.blacklist = []
             self.doc_ids = None
         return self
-    
+
     # TODO: Fix this, problem between pydantic and temporalio
     # @model_validator(mode="after")
     # def verify_blacklist_with_doc_ids(self):
@@ -69,6 +69,7 @@ class PyObjectId(ObjectId):
             raise ValueError('Not a valid ObjectId')
         return str(v)
 
+
 # From vllm/entrypoints/openai/protocol.py
 class OpenAIBaseModel(BaseModel):
     # OpenAI API does not allow extra fields
@@ -89,8 +90,8 @@ class CompletionRequest(BaseModel):
     n: int = 1
     presence_penalty: Optional[float] = 0.0
     seed: Optional[int] = Field(None,
-                                ge=-9223372036854775808, #from torch.iinfo(torch.long).min,
-                                le=9223372036854775807) #from torch.iinfo(torch.long).max)
+                                ge=-9223372036854775808,  # from torch.iinfo(torch.long).min,
+                                le=9223372036854775807)  # from torch.iinfo(torch.long).max)
     stop: Optional[Union[str, List[str]]] = Field(default_factory=list)
     stream: Optional[bool] = False
     suffix: Optional[str] = None
@@ -109,6 +110,7 @@ class CompletionRequest(BaseModel):
                 if field in data:
                     del data[field]
         return data
+
 
 # This class serves a subgroup of prompts, as a task can have many instances,
 # and each instance has many prompts.
@@ -145,7 +147,7 @@ class PocketNetworkMongoDBTask(BaseModel):
     blacklist: Optional[List[int]] = []
     llm_args: Optional[Dict] = None  # TODO : Remove: This is LLM specific, move to agnostic format.
     num_fewshot: Optional[int] = Field(None, ge=0)  # TODO : Remove: This is LLM specific, move to agnostic format.
-    gen_kwargs:Optional[str] = None
+    gen_kwargs: Optional[str] = None
     bootstrap_iters: Optional[int] = 100000
     qty: int
     tasks: str
@@ -153,6 +155,8 @@ class PocketNetworkMongoDBTask(BaseModel):
     request_type: str  # TODO : Remove, specific of LMEH
     id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
     done: bool = False
+    evaluated: bool = False
+    drop: bool = False
 
     class Config:
         populate_by_name = True
@@ -166,7 +170,7 @@ class PocketNetworkMongoDBTask(BaseModel):
 # TODO: Sepparate this class into an agnostic input to the evaluation workflow. 
 # This class is inhering multiple optional parameters that dont play any role in
 # non-LMEH or non-LLM tasks.
-class PocketNetworkEvaluationTaskRequest(PocketNetworkTaskRequest): 
+class PocketNetworkEvaluationTaskRequest(PocketNetworkTaskRequest):
     framework: Optional[str] = None
     task_id: Union[str, PyObjectId]
     tasks: Optional[str] = None
@@ -175,9 +179,11 @@ class PocketNetworkEvaluationTaskRequest(PocketNetworkTaskRequest):
     @field_validator("qty")
     def check_qty(cls, v):
         return v
+
     @model_validator(mode="after")
     def verify_qty_or_doc_ids(self):
         return self
+
     @model_validator(mode="after")
     def remove_blacklist_when_all(self):
         return self
@@ -220,7 +226,6 @@ class CompletionResponse(OpenAIBaseModel):
     usage: UsageInfo
 
 
-
 ###########
 # RESPONSES
 ###########
@@ -236,16 +241,17 @@ class PocketNetworkMongoDBResultBase(BaseModel):
     class Config:
         arbitrary_types_allowed = True
 
-    
 
 class SignatureSample(BaseModel):
     signature: str
     id: int
 
+
 class PocketNetworkMongoDBResultSignature(BaseModel):
     id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
     result_data: PocketNetworkMongoDBResultBase
     signatures: List[SignatureSample]
+
     class Config:
         arbitrary_types_allowed = True
 
@@ -254,10 +260,12 @@ class NumericSample(BaseModel):
     score: float
     id: int
 
+
 class PocketNetworkMongoDBResultNumerical(BaseModel):
     id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
     result_data: PocketNetworkMongoDBResultBase
     scores: List[NumericSample]
+
     class Config:
         arbitrary_types_allowed = True
 
@@ -268,8 +276,8 @@ class PocketNetworkMongoDBResultNumerical(BaseModel):
 
 class PocketNetworkMongoDBTokenizer(BaseModel):
     id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
-    tokenizer : dict
-    hash : str
+    tokenizer: dict
+    hash: str
 
     class Config:
         arbitrary_types_allowed = True

@@ -19,7 +19,7 @@ heavy="arc_challenge,hellaswag,truthfulqa_mc2,winogrande,gsm8k"
 some="mmlu_philosophy,mmlu_anatomy,mmlu_medical_genetics,mmlu_high_school_psychology,mmlu_human_sexuality,mmlu_professional_law,mmlu_moral_disputes,mmlu_virology,mmlu_international_law,mmlu_professional_psychology,mmlu_high_school_world_history,mmlu_professional_medicine,mmlu_professional_accounting,mmlu_miscellaneous,mmlu_us_foreign_policy,mmlu_high_school_chemistry,mmlu_security_studies,mmlu_high_school_european_history,mmlu_sociology,mmlu_high_school_us_history"
 one="gsm8k"
 # change this if you want a different set of datasets, by default it create everything
-keys=$some
+keys=$one
 
 json_array=$(printf ',"%s"' "${key_array[@]}")
 json_array="[${json_array:1}]"
