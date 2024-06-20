@@ -117,7 +117,7 @@ async def lmeh_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
                         "Task not found on task_registry table",
                         task_name,
                         type="NotFound",
-                        non_retryable=False,
+                        non_retryable=True,
                     )
 
                 # generate configurable tasks
