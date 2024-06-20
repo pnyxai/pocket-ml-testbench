@@ -20,10 +20,14 @@
   "app_state": {
     "pocketcore": {
       "params": {
-        "session_node_count": "24",
+        "session_node_count": "1",
         "proof_waiting_period": "2",
         "supported_blockchains": [
-          "A100"
+          "A100",
+          "A101",
+          "A102",
+          "A103",
+          "A1FF"
         ],
         "claim_expiration": "12",
         "replay_attack_burn_multiplier": "3",
@@ -46,7 +50,11 @@
         {
           "address": "f3abbe313689a603a1a6d6a43330d0440a552288",
           "chains": [
-            "A100"
+            "A100",
+            "A101",
+            "A102",
+            "A103",
+            "A1FF"
           ],
           "jailed": false,
           "max_relays": "10000000",
@@ -545,7 +553,7 @@
           "tokens": "60000000000",
           "service_url": "http://mesh.dev:9081",
           "chains": [
-            "A100"
+            "A101"
           ],
           "unstaking_time": "0001-01-01T00:00:00Z"
         },
@@ -557,7 +565,7 @@
           "tokens": "60000000000",
           "service_url": "http://mesh.dev:9081",
           "chains": [
-            "A100"
+            "A103"
           ],
           "unstaking_time": "0001-01-01T00:00:00Z"
         },
@@ -569,7 +577,7 @@
           "tokens": "60000000000",
           "service_url": "http://mesh.dev:9081",
           "chains": [
-            "A100"
+            "A1FF"
           ],
           "unstaking_time": "0001-01-01T00:00:00Z"
         },
@@ -581,7 +589,7 @@
           "tokens": "60000000000",
           "service_url": "http://mesh.dev:9081",
           "chains": [
-            "A100"
+            "A1FF"
           ],
           "unstaking_time": "0001-01-01T00:00:00Z"
         },
@@ -593,7 +601,7 @@
           "tokens": "60000000000",
           "service_url": "http://mesh.dev:9081",
           "chains": [
-            "A100"
+            "A1FF"
           ],
           "unstaking_time": "0001-01-01T00:00:00Z"
         },
@@ -605,7 +613,7 @@
           "tokens": "60000000000",
           "service_url": "http://mesh.dev:9081",
           "chains": [
-            "A100"
+            "A1FF"
           ],
           "unstaking_time": "0001-01-01T00:00:00Z"
         },
@@ -617,7 +625,7 @@
           "tokens": "60000000000",
           "service_url": "http://mesh.dev:9081",
           "chains": [
-            "A100"
+            "A1FF"
           ],
           "unstaking_time": "0001-01-01T00:00:00Z"
         },
@@ -629,7 +637,7 @@
           "tokens": "60000000000",
           "service_url": "http://mesh.dev:9081",
           "chains": [
-            "A100"
+            "A1FF"
           ],
           "unstaking_time": "0001-01-01T00:00:00Z"
         },
@@ -641,7 +649,7 @@
           "tokens": "60000000000",
           "service_url": "http://mesh.dev:9081",
           "chains": [
-            "A100"
+            "A1FF"
           ],
           "unstaking_time": "0001-01-01T00:00:00Z"
         },
@@ -653,7 +661,7 @@
           "tokens": "60000000000",
           "service_url": "http://mesh.dev:9081",
           "chains": [
-            "A100"
+            "A102"
           ],
           "unstaking_time": "0001-01-01T00:00:00Z"
         },
@@ -665,7 +673,7 @@
           "tokens": "60000000000",
           "service_url": "http://mesh.dev:9081",
           "chains": [
-            "A100"
+            "A1FF"
           ],
           "unstaking_time": "0001-01-01T00:00:00Z"
         },
@@ -677,7 +685,7 @@
           "tokens": "60000000000",
           "service_url": "http://mesh.dev:9081",
           "chains": [
-            "A100"
+            "A1FF"
           ],
           "unstaking_time": "0001-01-01T00:00:00Z"
         },
@@ -689,7 +697,7 @@
           "tokens": "60000000000",
           "service_url": "http://mesh.dev:9081",
           "chains": [
-            "A100"
+            "A1FF"
           ],
           "unstaking_time": "0001-01-01T00:00:00Z"
         },
@@ -701,7 +709,7 @@
           "tokens": "60000000000",
           "service_url": "http://mesh.dev:9081",
           "chains": [
-            "A100"
+            "A1FF"
           ],
           "unstaking_time": "0001-01-01T00:00:00Z"
         },
@@ -713,7 +721,7 @@
           "tokens": "60000000000",
           "service_url": "http://mesh.dev:9081",
           "chains": [
-            "A100"
+            "A1FF"
           ],
           "unstaking_time": "0001-01-01T00:00:00Z"
         },
@@ -725,7 +733,7 @@
           "tokens": "60000000000",
           "service_url": "http://mesh.dev:9081",
           "chains": [
-            "A100"
+            "A1FF"
           ],
           "unstaking_time": "0001-01-01T00:00:00Z"
         },
@@ -737,7 +745,7 @@
           "tokens": "60000000000",
           "service_url": "http://mesh.dev:9081",
           "chains": [
-            "A100"
+            "A1FF"
           ],
           "unstaking_time": "0001-01-01T00:00:00Z"
         },
@@ -749,7 +757,7 @@
           "tokens": "60000000000",
           "service_url": "http://mesh.dev:9081",
           "chains": [
-            "A100"
+            "A1FF"
           ],
           "unstaking_time": "0001-01-01T00:00:00Z"
         },
@@ -761,7 +769,7 @@
           "tokens": "60000000000",
           "service_url": "http://mesh.dev:9081",
           "chains": [
-            "A100"
+            "A1FF"
           ],
           "unstaking_time": "0001-01-01T00:00:00Z"
         },
@@ -773,7 +781,7 @@
           "tokens": "60000000000",
           "service_url": "http://mesh.dev:9081",
           "chains": [
-            "A100"
+            "A1FF"
           ],
           "unstaking_time": "0001-01-01T00:00:00Z"
         },
@@ -785,7 +793,7 @@
           "tokens": "60000000000",
           "service_url": "http://mesh.dev:9081",
           "chains": [
-            "A100"
+            "A1FF"
           ],
           "unstaking_time": "0001-01-01T00:00:00Z"
         },
@@ -797,7 +805,7 @@
           "tokens": "60000000000",
           "service_url": "http://mesh.dev:9081",
           "chains": [
-            "A100"
+            "A1FF"
           ],
           "unstaking_time": "0001-01-01T00:00:00Z"
         },
@@ -809,7 +817,7 @@
           "tokens": "60000000000",
           "service_url": "http://mesh.dev:9081",
           "chains": [
-            "A100"
+            "A1FF"
           ],
           "unstaking_time": "0001-01-01T00:00:00Z"
         }

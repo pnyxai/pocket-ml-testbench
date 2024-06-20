@@ -80,6 +80,32 @@ services:
       - postgresql
       - temporal
       - mongodb
+  
+  test-api:
+    build:
+      context: ../../../
+      dockerfile: apps/nodejs/test-api/Dockerfile
+    image: pocket_ml_testbench_test_api:dev
+    extra_hosts:
+      host.docker.internal: host-gateway
+    ports:
+      - 3001:3001
+  
+  web:
+    build:
+      context: ../../../
+      dockerfile: apps/nodejs/web/Dockerfile
+      args:
+        SHOW_STDERR: $SHOW_STDERR
+        API_ENDPOINT_URL: $API_ENDPOINT_URL
+    image: pocket_ml_testbench_web:dev
+    extra_hosts:
+      host.docker.internal: host-gateway
+    ports:
+      - 3000:3000
+    depends_on:
+      test-api:
+        condition: service_started
 
 networks:
   temporal:

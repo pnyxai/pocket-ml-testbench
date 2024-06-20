@@ -359,7 +359,7 @@ type NumericalTaskRecord struct {
 }
 
 type ScoresSample struct {
-	Score float32 `bson:"score"`
+	Score float64 `bson:"score"`
 	ID    int     `bson:"id"`
 }
 
@@ -525,9 +525,9 @@ func (record *NumericalTaskRecord) ProcessData(l *zerolog.Logger) (err error) {
 		record.StdScore = 0
 		record.MedianScore = 0
 	} else if length == 1 {
-		record.MeanScore = record.ScoresSamples[record.CircBuffer.Indexes.Start].Score
+		record.MeanScore = float32(record.ScoresSamples[record.CircBuffer.Indexes.Start].Score)
 		record.StdScore = 0
-		record.MedianScore = record.ScoresSamples[record.CircBuffer.Indexes.Start].Score
+		record.MedianScore = float32(record.ScoresSamples[record.CircBuffer.Indexes.Start].Score)
 	} else {
 		// Calculate the mean
 		record.MeanScore = float32(stat.Mean(auxData, nil))

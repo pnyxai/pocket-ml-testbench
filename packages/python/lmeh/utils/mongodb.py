@@ -1,8 +1,9 @@
 import json
 import logging
 from copy import deepcopy
-from typing import List, Optional
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCollection
+from typing import List
+from datetime import datetime
+from packages.python.protocol.protocol import PocketNetworkMongoDBResultNumerical, PocketNetworkMongoDBResultBase
 from dataclasses import asdict
 from bson.objectid import ObjectId
 from lm_eval.api.instance import Instance
@@ -32,6 +33,7 @@ class MongoOperator:
         self.instances_collection = collections_map["instances"] if "instances" in collections_map else "instances"
         self.prompts_collection = collections_map["prompts"] if "prompts" in collections_map else "prompts"
         self.responses_collection = collections_map["responses"] if "responses" in collections_map else "responses"
+        self.results_collection = collections_map["results"] if "results" in collections_map else "results"
         self.buffers_numerical_collection = collections_map["buffers_numerical"] if "buffers_numerical" in collections_map else "buffers_numerical"
         self.buffers_signatures_collection = collections_map["buffers_signatures"] if "buffers_signatures" in collections_map else "buffers_signatures"
         
@@ -84,7 +86,6 @@ class MongoOperator:
     
     async def get_tokenizer_entry(self, tokenizer_hash: str):
         return await self.client.db[self.tokenizers_collection].find_one({'hash': tokenizer_hash})
-
 
     async def get_tokenizer_objects(self, address: str, service: str) -> dict:
         
@@ -176,7 +177,12 @@ class MongoOperator:
         task.id = task_id
 
         return task
-    
+
+    async def get_tasks(self):
+        cursor = self.client.db[self.tasks_collection].find({'done': True, 'evaluated': False})
+        tasks = await cursor.to_list(length=None)
+        return tasks
+
     async def retrieve_responses(self, task_id: ObjectId, ) -> List[str]:
         cursor = self.client.db[self.tasks_collection].aggregate(aggregate_response_tree(task_id))
         result = await cursor.to_list(length=None)
@@ -192,9 +198,7 @@ class MongoOperator:
         
         return result
 
-
     async def reconstruct_instances(self, task_id: ObjectId, eval_logger:logging.Logger) -> List[Instance]:
-        
         result = await self.retrieve_responses(task_id)
 
         valid_fields = {field.name for field in Instance.__dataclass_fields__.values()}
@@ -266,3 +270,27 @@ class MongoOperator:
         instances = sorted(instances, key=lambda x: (x.doc_id, x.idx))
 
         return instances, sorted(list(kept_doc_ids)), result_height
+
+    async def mark_task_to_drop(self, task_id: ObjectId):
+        empty_result = PocketNetworkMongoDBResultNumerical(
+            result_data=PocketNetworkMongoDBResultBase(
+                task_id=task_id,
+                status=11,
+                num_samples=0,
+                result_height=-1,
+                result_time=datetime.today().isoformat(),
+            ),
+            scores=[]
+        ).model_dump(by_alias=True)
+
+        async with self.client.start_transaction() as session:
+            await self.client.db[self.tasks_collection].find_one_and_update(
+                {"_id": task_id},
+                {"$set": {"drop": True}},
+                session=session,
+            )
+            await self.client.db[self.results_collection].insert_one(
+                empty_result,
+                session=session,
+            )
+

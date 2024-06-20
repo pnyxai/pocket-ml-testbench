@@ -2,12 +2,13 @@ package activities
 
 import (
 	"context"
+	"requester/common"
+	"requester/types"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.temporal.io/sdk/temporal"
-	"requester/common"
-	"requester/types"
 )
 
 type UpdateTaskTreeRequest struct {

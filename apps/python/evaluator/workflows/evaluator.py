@@ -2,23 +2,19 @@ from datetime import timedelta
 from temporalio import workflow
 from temporalio.common import RetryPolicy
 from temporalio.exceptions import ApplicationError
-from packages.python.protocol.protocol import  PocketNetworkEvaluationTaskRequest
-with workflow.unsafe.imports_passed_through():
-    # add this to ensure app config is available on the thread
-    from app.app import get_app_logger, get_app_config
-    # add any activity that needs to be used on this workflow
-    from activities.lmeh.evaluate import lmeh_evaluate
-    from activities.get_task_data import get_task_data
-    from activities.signatures.tokenizer_evaluate import tokenizer_evaluate
-    from pydantic import BaseModel
-    from packages.python.protocol.converter import pydantic_data_converter
+from packages.python.protocol.protocol import PocketNetworkEvaluationTaskRequest
+from app.app import get_app_logger
+from activities.lmeh.evaluate import lmeh_evaluate
+from activities.get_task_data import get_task_data
+from activities.signatures.tokenizer_evaluate import tokenizer_evaluate
 
 
 @workflow.defn
 class Evaluator:
     @workflow.run
     async def run(self, args: PocketNetworkEvaluationTaskRequest) -> bool:
-
+        eval_logger = get_app_logger("Register")
+        eval_logger.info("Starting Workflow Evaluator")
         # Extract framework and task to evaluate
         framework, task = await workflow.execute_activity(
             get_task_data,
@@ -34,7 +30,7 @@ class Evaluator:
                 start_to_close_timeout=timedelta(seconds=300),
                 retry_policy=RetryPolicy(maximum_attempts=2),
             )
-            
+
         elif framework == "signatures":
             if task == "tokenizer":
                 _ = await workflow.execute_activity(
@@ -58,5 +54,6 @@ class Evaluator:
                 type="BadParams",
                 non_retryable=True
             )
-        
+
+        eval_logger.info("Workflow Evaluator done")
         return True

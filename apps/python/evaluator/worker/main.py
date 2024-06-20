@@ -1,8 +1,9 @@
 import asyncio
 import sys
-
+import multiprocessing
+from concurrent.futures import ProcessPoolExecutor
 from temporalio.client import Client
-from temporalio.worker import Worker
+from temporalio.worker import Worker, SharedStateManager
 from temporalio.worker.workflow_sandbox import SandboxedWorkflowRunner, SandboxRestrictions
 
 sys.path.append('.')
@@ -14,11 +15,11 @@ from app.config import read_config
 
 from activities.lmeh.evaluate import lmeh_evaluate
 from activities.get_task_data import get_task_data
+from activities.lookup_tasks import lookup_tasks
 from activities.signatures.tokenizer_evaluate import tokenizer_evaluate
 
-
 from workflows.evaluator import Evaluator
-import concurrent.futures
+from workflows.lookup_tasks import LookupTasks
 
 # We always want to pass through external modules to the sandbox that we know
 # are safe for workflow use
@@ -28,9 +29,10 @@ modules = [
     "app",
     "activities",
     "protocol",
-    "packages.common",
-    "packages.logger",
-    "packages.lmeh",
+    "packages.python.protocol",
+    "packages.python.common",
+    "packages.python.logger",
+    "packages.python.lmeh",
     # external lib
     "motor",
     "asyncpg",
@@ -70,37 +72,42 @@ async def main():
         namespace=namespace,
         # data_converter=pydantic_data_converter
     )
+    app_config["temporal_client"] = client
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as activity_executor:
-        worker_kwargs = {
-            "client": client,
-            "task_queue": task_queue,
-            "workflow_runner": SandboxedWorkflowRunner(
-                restrictions=SandboxRestrictions.default.with_passthrough_modules(*modules)
-            ),
-            "workflows": [
-                Evaluator,
-            ],
-            "activities": [
-                get_task_data,
-                lmeh_evaluate,
-                tokenizer_evaluate,
-            ],
-            "activity_executor": activity_executor,
-        }
+    worker_kwargs = {
+        "client": client,
+        "task_queue": task_queue,
+        "activity_executor": ProcessPoolExecutor(max_workers),
+        "shared_state_manager": SharedStateManager.create_from_multiprocessing(
+            multiprocessing.Manager()
+        ),
+        "workflow_runner": SandboxedWorkflowRunner(
+            restrictions=SandboxRestrictions.default.with_passthrough_modules(*modules)
+        ),
+        "workflows": [
+            Evaluator,
+            LookupTasks,
+        ],
+        "activities": [
+            lookup_tasks,
+            get_task_data,
+            lmeh_evaluate,
+            tokenizer_evaluate,
+        ],
+    }
 
-        if max_concurrent_activities is not None:
-            worker_kwargs["max_concurrent_activities"] = max_concurrent_activities
-        if max_concurrent_workflow_tasks is not None:
-            worker_kwargs["max_concurrent_workflow_tasks"] = max_concurrent_workflow_tasks
-        if max_concurrent_workflow_task_polls is not None:
-            worker_kwargs["max_concurrent_workflow_task_polls"] = max_concurrent_workflow_task_polls
-        if max_concurrent_activity_task_polls is not None:
-            worker_kwargs["max_concurrent_activity_task_polls"] = max_concurrent_activity_task_polls
+    if max_concurrent_activities is not None:
+        worker_kwargs["max_concurrent_activities"] = max_concurrent_activities
+    if max_concurrent_workflow_tasks is not None:
+        worker_kwargs["max_concurrent_workflow_tasks"] = max_concurrent_workflow_tasks
+    if max_concurrent_workflow_task_polls is not None:
+        worker_kwargs["max_concurrent_workflow_task_polls"] = max_concurrent_workflow_task_polls
+    if max_concurrent_activity_task_polls is not None:
+        worker_kwargs["max_concurrent_activity_task_polls"] = max_concurrent_activity_task_polls
 
-        worker = Worker(**worker_kwargs)
+    worker = Worker(**worker_kwargs)
 
-        await worker.run()
+    await worker.run()
 
 
 if __name__ == "__main__":

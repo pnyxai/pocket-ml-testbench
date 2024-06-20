@@ -6,7 +6,13 @@ import { getData } from '@/app/utilities'
 import API from '@/app/Home/API'
 
 export default async function Home({ searchParams }: { searchParams: { tab?: Tabs } }) {
-  const data = await getData()
+  let data
+
+  try {
+    data = await getData()
+  } catch (e) {
+      console.error("unable to get data")
+  }
 
   const about = <About />
   const benchmark = <Benchmark initialData={data} />

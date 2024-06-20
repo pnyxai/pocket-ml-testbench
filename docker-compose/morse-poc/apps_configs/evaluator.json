@@ -6,6 +6,11 @@
       "host": "temporal",
       "port": 7233,
       "namespace": "pocket-ml-testbench",
-      "task_queue": "evaluator"
+      "task_queue": "evaluator",
+      "max_workers": 4,
+      "max_concurrent_activities": 4,
+      "max_concurrent_workflow_tasks": 4,
+      "max_concurrent_workflow_task_polls": 4,
+      "max_concurrent_activity_task_polls": 4
     }
   }

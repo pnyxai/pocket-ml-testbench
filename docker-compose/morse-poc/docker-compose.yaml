@@ -129,7 +129,7 @@ services:
     <<: *base
     image: temporalio/admin-tools:${TEMPORAL_TOOLS_VERSION}
     container_name: wf-setup
-    restart: on-failure
+    restart: no
     entrypoint: [ "/home/temporal/initialize.sh" ]
     volumes:
       - ./dependencies_configs/temporal/initialize.sh:/home/temporal/initialize.sh
@@ -180,7 +180,7 @@ services:
         condition: service_completed_successfully
 
   ### LLM ENGINE + SIDECAR + NGINX
-  sidecar:
+  sidecar-A:
     <<: *base
     build:
       context: ../../
@@ -192,18 +192,96 @@ services:
       CONFIG_PATH: /home/app/configs/config.json
     volumes:
       - $SIDECAR_CONFIG_FILE:/home/app/configs/config.json
-      - $SIDECAR_TOKENIZER_FILE:/tokenizer/
+      - $SIDECAR_TOKENIZER_FILE_A:/tokenizer/
 
-  nginx-sidecar:
+  nginx-sidecar-A:
     <<: *base
     image: nginx:latest
-    container_name: nginx-sidecar
+    container_name: nginx-sidecar-A
     ports:
       - "9087:9087"
     volumes:
-      - $SIDECAR_NGINX_CONFIG_FILE:/etc/nginx/nginx.conf:ro
+      - $SIDECAR_NGINX_CONFIG_FILE_A:/etc/nginx/nginx.conf:ro
     depends_on:
-      - sidecar
+      - sidecar-A
+      - llm-engine
+
+  sidecar-B:
+    <<: *base
+    build:
+      context: ../../
+      dockerfile: apps/python/sidecar/Dockerfile
+    image: pocket_ml_sidecar:dev
+    deploy:
+      replicas: 1
+    environment:
+      CONFIG_PATH: /home/app/configs/config.json
+    volumes:
+      - $SIDECAR_CONFIG_FILE:/home/app/configs/config.json
+      - $SIDECAR_TOKENIZER_FILE_B:/tokenizer/
+
+  nginx-sidecar-B:
+    <<: *base
+    image: nginx:latest
+    container_name: nginx-sidecar-B
+    ports:
+      - "9077:9077"
+    volumes:
+      - $SIDECAR_NGINX_CONFIG_FILE_B:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - sidecar-B
+      - llm-engine
+
+  sidecar-C:
+    <<: *base
+    build:
+      context: ../../
+      dockerfile: apps/python/sidecar/Dockerfile
+    image: pocket_ml_sidecar:dev
+    deploy:
+      replicas: 1
+    environment:
+      CONFIG_PATH: /home/app/configs/config.json
+    volumes:
+      - $SIDECAR_CONFIG_FILE:/home/app/configs/config.json
+      - $SIDECAR_TOKENIZER_FILE_B:/tokenizer/
+
+  nginx-sidecar-C:
+    <<: *base
+    image: nginx:latest
+    container_name: nginx-sidecar-C
+    ports:
+      - "9067:9067"
+    volumes:
+      - $SIDECAR_NGINX_CONFIG_FILE_C:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - sidecar-C
+      - llm-engine
+
+  sidecar-D:
+    <<: *base
+    build:
+      context: ../../
+      dockerfile: apps/python/sidecar/Dockerfile
+    image: pocket_ml_sidecar:dev
+    deploy:
+      replicas: 1
+    environment:
+      CONFIG_PATH: /home/app/configs/config.json
+    volumes:
+      - $SIDECAR_CONFIG_FILE:/home/app/configs/config.json
+      - $SIDECAR_TOKENIZER_FILE_D:/tokenizer/
+
+  nginx-sidecar-D:
+    <<: *base
+    image: nginx:latest
+    container_name: nginx-sidecar-D
+    ports:
+      - "9057:9057"
+    volumes:
+      - $SIDECAR_NGINX_CONFIG_FILE_D:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - sidecar-D
       - llm-engine
 
   llm-engine:
@@ -215,11 +293,6 @@ services:
     volumes:
       - ${MODELS_PATH}:/root/.cache/huggingface/hub/
       - ./dependencies_configs/llm-engine/healthcheck.py:/root/healthcheck.py
-    depends_on:
-      sidecar:
-        condition: service_started
-  #   ports:
-  #     - 9187:9187
     environment:
       - MODEL_NAME=${MODEL_NAME}
       - NUM_GPUS=${NUM_GPUS}
@@ -413,7 +486,10 @@ services:
       dockerfile: apps/python/sampler/Dockerfile
     image: pocket_ml_testbench_sampler:dev
     deploy:
-      replicas: 5
+      replicas: 4
+      resources:
+        limits:
+          cpus: "16"
     environment:
       CONFIG_PATH: /home/app/configs/config.json
       OPENAI_API_KEY: EMPTY
@@ -458,7 +534,10 @@ services:
       dockerfile: apps/python/evaluator/Dockerfile
     image: pocket_ml_testbench_evaluator:dev
     deploy:
-      replicas: 2
+      replicas: 4
+      resources:
+        limits:
+          cpus: "16"
     environment:
       CONFIG_PATH: /home/app/configs/config.json
       OPENAI_API_KEY: EMPTY
@@ -474,6 +553,38 @@ services:
         condition: service_healthy
       postgresql:
         condition: service_healthy
+        
+  test-api:
+    # TODO: Ramiro should change this for the real API
+    <<: *base
+    build:
+      context: ../../
+      dockerfile: apps/nodejs/test-api/Dockerfile
+    image: pocket_ml_testbench_test_api:dev
+    deploy:
+      replicas: 1
+    ports:
+      - 3001:3001
+    depends_on:
+      mongodb:
+        condition: service_healthy
+  
+  web:
+    <<: *base
+    build:
+      context: ../../
+      dockerfile: apps/nodejs/web/Dockerfile
+      args:
+        SHOW_STDERR: $SHOW_STDERR
+        API_ENDPOINT_URL: $API_ENDPOINT_URL
+    image: pocket_ml_testbench_web:dev
+    deploy:
+      replicas: 1
+    ports:
+      - 3000:3000
+    depends_on:
+      test-api:
+        condition: service_started
 
 networks:
   morse-poc:

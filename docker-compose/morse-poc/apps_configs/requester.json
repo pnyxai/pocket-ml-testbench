@@ -24,7 +24,7 @@
       "enable_logging_in_replay": false,
       "max_concurrent_activity_task_pollers": 50,
       "deadlock_detection_timeout": 120,
-      "worker_activities_per_second": 100
+      "worker_activities_per_second": 10
     },
     "evaluator": {
       "workflow_name": "Evaluator",
