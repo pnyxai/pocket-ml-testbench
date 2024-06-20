@@ -54,13 +54,13 @@ export default function About() {
         <li>
           <Typography>
             <strong>Trustless and Permissionless:</strong> If you connect your model to the POKT Network, we will track
-            it, we don't care who is behind the node or what they claim about it. We test and report, period.
+            it, we don{"'"}t care who is behind the node or what they claim about it. We test and report, period.
           </Typography>
         </li>
       </ul>
       <Typography variant={'h3'} fontSize={20} fontWeight={500}>Tasks</Typography>
       <Typography>
-        Following Hugging Face's Open LLM Leaderboard, we evaluate models on 6 key benchmarks using our Machine Learning
+        Following Hugging Face{"'"}s Open LLM Leaderboard, we evaluate models on 6 key benchmarks using our Machine Learning
         Test Bench that implements the Eleuther AI Language Model Evaluation Harness under the hood. The tasks
         implemented are:
       </Typography>
@@ -82,14 +82,14 @@ export default function About() {
         <li>
           <Typography>
             <a href={'https://arxiv.org/abs/2009.03300'} target={'_blank'}>MMLU</a> (5-shot) - a test to measure a text
-            model's multitask accuracy. The
+            model{"'"}s multitask accuracy. The
             test covers 57 tasks including elementary mathematics, US history, computer science, law, and more.
           </Typography>
         </li>
         <li>
           <Typography>
             <a href={'https://arxiv.org/abs/2109.07958'} target={'_blank'}>TruthfulQA</a> (0-shot) - a test to measure a
-            model's propensity to reproduce
+            model{"'"}s propensity to reproduce
             falsehoods commonly found online. Note: TruthfulQA is technically a 6-shot task in the Harness because each
             example is prepended with 6 Q/A pairs, even in the 0-shot setting.
           </Typography>
@@ -105,7 +105,7 @@ export default function About() {
           <Typography>
             <a href={'https://arxiv.org/abs/2110.14168'} target={'_blank'}>GSM8k</a> (5-shot) - diverse grade school
             math word problems to measure a
-            model's ability to solve multi-step mathematical reasoning problems (only partial match).
+            model{"'"}s ability to solve multi-step mathematical reasoning problems (only partial match).
           </Typography>
         </li>
       </ul>

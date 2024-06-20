@@ -97,7 +97,10 @@ export default function Benchmark({ initialData }: BenchmarkProps) {
     queryFn: getData,
     queryKey: ['benchmark-data'],
     placeholderData: initialData,
-    refetchInterval: 60000, refetchOnMount: false, refetchOnWindowFocus: false, refetchOnReconnect: true,
+    refetchInterval: 60000,
+    refetchOnMount: !initialData,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: true,
   })
   const firstMountRef = useRef(false)
   const [searchText, setSearchText] = useState('')
