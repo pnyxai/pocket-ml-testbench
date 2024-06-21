@@ -555,16 +555,17 @@ services:
         condition: service_healthy
         
   test-api:
-    # TODO: Ramiro should change this for the real API
     <<: *base
     build:
       context: ../../
-      dockerfile: apps/nodejs/test-api/Dockerfile
-    image: pocket_ml_testbench_test_api:dev
+      dockerfile: apps/python/api/Dockerfile
+    image: pocket_ml_api:dev
     deploy:
       replicas: 1
     ports:
       - 3001:3001
+    environment:
+      MONGODB_URI: ${MONGODB_URI}
     depends_on:
       mongodb:
         condition: service_healthy
