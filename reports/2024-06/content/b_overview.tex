@@ -1,0 +1,86 @@
+\section{\Glsfmtlong{MLTB}}\label{sec:b}
+\epigraph{BLA BLA BLA BLA}{\textit{Unkown, 2024}}
+
+
+Throughout these four months, POKTscan and PNYX have worked on reproducing a Huggingface Open LLM Leaderboard that serves as a reference for the Pocket Network ommunity. 
+All the code for reproduction is available in the \textcolor{red}{LINK} repository. 
+Throughout this section we will summarize the different modules:
+
+\begin{itemize}[noitemsep]
+    \item \textbf{Manager}
+    \item \textbf{Regisrter}
+    \item \textbf{Sampler}
+    \item \textbf{Requester}
+    \item \textbf{Evaluator}
+\end{itemize}
+
+and how they they interact, as detailed in Figure \ref{fig:workflow}. 
+Finally, the results obtained when evaluating some \glspl{LM}. 
+It is important to mention that we will not delve into some of the design decisions that were made, since most of these were discussed in the previous reports \textcolor{red}{citation}, which we refer the reader to for more details.
+
+\begin{figure}[ht]
+    \centering
+    \animategraphics[autoplay, loop, width=0.7\textwidth]{1}{workflow}{0}{8}
+    \caption{\Glsfmtlong{MLTB} workflow.}
+    \label{fig:workflow}
+\end{figure}
+
+Manager detect nodes staked, checking signatures for example tokenizers. If the node has not a signature/tokenizer associated, it will be requested. 
+If signatures are ok, then it will check if the model requires new samples to update any task/metrics. 
+when is required (low threshold of the samples required), trigger sampler. 
+During the creation of the samples, the tokenizer is called, and prepare the prompt. 
+The requester check if there is any prompt not done, and send to trhougth the network. 
+Once each sample from a task is done, the requester marks the task as done. 
+Due to Evaluator is scanning for tasks done, it will start the evaluation of each sample, then saving the results in the database. 
+
+\subsection{Workflow:}
+
+Consider a scenario where nodes $N$ are staked in service $S$ ... \textcolor{red}{COMPLET}
+
+Then, the main steps are:
+
+
+\paragraph{Cheking signatures:}
+The Manager will check if $N$ in $S$ has a signature $\sigma$ associated in the nodes collection. 
+If not, it will request it. 
+In the particular case of testing \gls{LM}, its signature consists of a hash of its tokenizer $T$, hereafter referenced as $\sigma(T)$. 
+In ease of expression, we will refer to the signature of node $N$ in $S$ as $\sigma(T_{N}^{S})$. 
+
+
+\paragraph{Sample tokenizer:}
+To produce the signature, the Manager triggers the Sampler module to save a prompt for the Requester pointing to the endpoint \textcolor{red}{endpoint} of $N_s$ in the \textit{prompts} collection.
+
+
+\paragraph{Request tokenizer:}
+When $N$ is serving in a session, the app \textcolor{red}{(explain how the app will work?)} will send a request with the prompt, and the node will respond with the a json tokenizer $T$. 
+
+
+\paragraph{Save tokenizer and hashing:}
+Once the Requester saves the tokenizer $T$ in the \textit{responses} collection, the Evaluator will load it to check that its a valid one using the huggingface library. 
+Then will generate and save a signature $\sigma(T_{N}^{S})$ with ...\textcolor{red}{COMPLET}
+Finally, $T$ will be saved in the collection \textit{tokenizers}, noting that if many nodes have the same tokenizer, it will be saved only. 
+
+
+\paragraph{Checking metrics:}
+\textcolor{red}{COMPLET}
+
+
+\paragraph{Task sampling:}
+\textcolor{red}{COMPLET}
+
+
+\paragraph{Prompt request:}
+\textcolor{red}{COMPLET}
+
+
+\paragraph{Evaluation response \& save metrics:}
+\textcolor{red}{COMPLET}
+
+\subsection{Leaderboard:}
+\textcolor{red}{COMPLET}
+
+\subsection{Results:}
+\textcolor{red}{COMPLET}
+
+
+
