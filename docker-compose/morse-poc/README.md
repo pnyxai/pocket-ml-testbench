@@ -1,10 +1,10 @@
 # Morse Proof of Concept - "One-Command" Environment
 
 To execute the Pocket MLTB with one command, you first need to ensure you have the minimum hardware:
-- RAM : `32 GB`
+- RAM : `64 GB` yes this is a big boy, mostly due to having to deploy so many services around the MLTB.
 - CPU : Something rather fast? we tested on a `Ryzen 5950X` and a `MacBook Pro 2,3 GHz 8-Core Intel Core i9`.
 - Disk : `~50 GB`, we need to download some heavy docker images and datasets.
-- GPU : Anything from NVIDIA with at least `12 GB` VRAM. We tested on a `RTX3060`, `RTX3080` and `RTX4070`.
+- GPU : Anything from NVIDIA with at least `12 GB` VRAM. We tested on a `RTX2080ti`, `RTX3060`, `RTX3080` and `RTX4070`.
 
 Then ensure that you have the software dependencies:
 - [Docker Compose](https://docs.docker.com/compose/install/linux/)
@@ -45,3 +45,9 @@ Then, deploy all services but exclude the `llm-engine`:
 ```bash
 docker compose up --scale llm-engine=0 -d
 ```
+
+
+# Using more Models - I'm GPU rich!
+If you want to test on multiple models you can either stake more nodes in a single service (like `A100`) by editing the `genesis.json` of the POKT Network or just use different services. We recommend the second one, not because it changes anything (the MLTB do not care about services), but because it is easier to activate/deactivate the Temporal.io workflows and you can control the tokenizers (different models may require different tokenizers).
+
+The docker-compose file has 4 different `nginx` and `sidecars` to use. For each model that you deploy you can edit the `./dependencies_configs/sidecar/nginx-X.conf` and point the server of the `upstream llm-engine` endpoint to anywhere you like (and also set the path to the correct tokenizer in that sidecar config). You don't need to re-genesis or re-stake any node, just select the correct services in the `./dependencies_configs/temporal/initialize.sh` and the MLTB will start sampling the new service (re-start the `wf-setup` service of course).
