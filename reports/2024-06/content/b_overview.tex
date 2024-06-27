@@ -1,18 +1,6 @@
 \section{\Glsfmtlong{MLTB}}\label{sec:b}
-\epigraph{BLA BLA BLA BLA}{\textit{Unkown, 2024}}
-
-\begin{tcolorbox}[colback=red!5!white,colframe=red!75!black]
-\textbf{Note:} This report was written \today, and the Huggingface announced an update in the \gls{HFOLML} at Jun 26, 2024. 
-Major change are related to unimplemented tasks, new metrics, and task higly related to chat models. On the other hand, there are tasks that just have new configs. 
-This report will not cover the new Leaderboard. 
-Nevertheles, at POKTscan and PNYX, we are confident that the \gls{MLTB} is ready to be developed in order to reproduce the \textbf{old} Leaderboard. 
-furthermore, we except that the \gls{MLTB} will be able in a short time to be updated to the new Leaderboard. 
-
-Addressing evaluations of \gls{LM}, a topic that is at the forefront of knowledge, has an inherently dynamic nature. 
-That is to say, the constant (and increasingly accelerated) improvement of the \gls{LM} requires the development of new evaluations that have to be constantly improved. 
-What happened with the \gls{HFOLML} is just the first case Pocket Network faces when it wants to support AI in it. 
-At POKTscan we alert the community about this inevitable game of cat and mouse, and we encourage everyone to join the game. GG IZI HF
-\end{tcolorbox}
+\setlength{\epigraphwidth}{\textwidth}
+\epigraph{\small "Thinking, analyzing, inventing are not anomalous acts, they are the normal breathing of intelligence. To glorify the occasional fulfillment of that function, to treasure old and foreign thoughts, to recall with incredulous amazement what the doctor universalis thought, is to confess our languor or our barbarism. Every man must be capable of all ideas, and I understand that in the future he will be."}{"Pierre Menard, author of Don Quixote", "Ficciones", Jorge Luis Borges}
 
 
 Throughout these four months, POKTscan and PNYX have worked on reproducing the \gls{HFOLML} \cite{noauthor_open_nodate} that serves as a reference for the Pocket Network community. 
@@ -40,6 +28,7 @@ Finally, the results obtained when evaluating some \glspl{LM} will be presented.
 \end{figure}
 
 \begin{figure}[H]
+
     \centering        
     \includegraphics[width=0.8\textwidth]{workflow2}
     \caption{}
@@ -123,14 +112,8 @@ Figure \ref{secb:fig:wf2} shows the workflow until this step.
 
 
 \paragraph{Request tokenizer:}
-When $N$ is serving in a session, the app \textcolor{red}{(explain how the app will work?)} will send a request with the prompt, and the node will respond with the a json tokenizer $T$. 
-Figure \ref{secb:fig:wf3} shows the workflow until this step.
-
-
-\paragraph{Save tokenizer and hashing:}
-Once the Requester saves the tokenizer $T$ in the \textit{responses} collection, the Evaluator will load it to check that its a valid one using the huggingface library. 
-Then will generate and save a signature $\sigma(T_{N}^{S})$ with ...\textcolor{red}{COMPLET}
-Finally, $T$ will be saved in the collection \textit{tokenizers}, noting that if many nodes have the same tokenizer, it will be saved only. 
+When $N$ is serving in a session, the app \textcolor{red}{(explain how the app will work?)} will send a request with the prompt, and the node will respond with the a json tokenizer $T$.  glorify the occasional fulfillment of that function, to treasure old and foreign thoughts, to recall
+with incredulous amazement what the doctor universalis thought, is to confess our languor or ourection \textit{tokenizers}, noting that if many nodes have the same tokenizer, it will be saved only. 
 Figure \ref{secb:fig:wf4} shows the workflow until this step.
 
 
@@ -228,7 +211,7 @@ Nevertheless, it can be seen that the both $R$ and p-value have statistical sign
         \begin{tabular}{llllccccccccccccccccccccc}
             \toprule
             \multirow{2}{*}{\textbf{Node}} & \multirow{2}{*}{\textbf{Model}} &\multirow{2}{*}{\textbf{R}} &\multirow{2}{*}{\textbf{p}} &\multicolumn{2}{c}{\textbf{Average}} &  & \multicolumn{2}{c}{\textbf{ARC}} &  & \multicolumn{2}{c}{\textbf{Hellaswag}} &  & \multicolumn{2}{c}{\textbf{MMLU}} &  & \multicolumn{2}{c}{\textbf{TruthfulQA}} &  & \multicolumn{2}{c}{\textbf{Winogrande}} &  & \multicolumn{2}{c}{\textbf{GSM8K}}\\
-             &  &  &  & \gls{MLTB} & \gls{HFOLML} & & \gls{MLTB} & \gls{HFOLML} & & \gls{MLTB} & \gls{HFOLML} & & \gls{MLTB} & \gls{HFOLML} & & \gls{MLTB} & \gls{HFOLML} & & \gls{MLTB} & \gls{HFOLML} & & \gls{MLTB} & \gls{HFOLML} \\ \cmidrule{5-6} \cmidrule{8-9} \cmidrule{11-12} \cmidrule{14-15} \cmidrule{17-18} \cmidrule{20-21} \cmidrule{23-24}
+             &  &  &  & MLTB & HFOLML & & MLTB & HFOLML & & MLTB & HFOLML & & MLTB & HFOLML & & MLTB & HFOLML & & MLTB & HFOLML & & MLTB & HFOLML \\ \cmidrule{5-6} \cmidrule{8-9} \cmidrule{11-12} \cmidrule{14-15} \cmidrule{17-18} \cmidrule{20-21} \cmidrule{23-24}
             A & Llama-3-8b-instruct & 0.83 & < 0.05 & 69.8 & 66.9 &  & 54.0 & 60.7 &  & 80.0 & 78.5 &  & 63.3 & 67.1 &  & 58.6 & 51.6 &  & 88.0 & 74.5 &  & 74.0 & 68.7 \\
             B & Deepseek-coder-6.7B-instruct & 0.92 & < 0.05 & 48.3 & 43.6 &  & 41.9 & 38.1 &  & 56.0 & 55.1 &  & 39.9 & 39.0 &  & 43.5 & 45.6 &  & 60.0 & 56.8 &  & 0.0 & 26.8 \\
             C & TinyLlama-1.1B-Chat-v1.0 & 0.78 & 0.06 & 30.4 & 37.3 & & 25.9 & 36.1 & & 31.9 & 61.1 & & 24.0 & 25.4 & & 50.4 & 37.5 & & 50.0 & 61.2 & & 0.0 & 2.3 \\
