@@ -1,4 +1,6 @@
-# Notes:
+# Sampler App
+
+The Sampler receives workflow requests from the Manager and creates the tasks that are consumed by the Requester. It is in charge of populating the `tasks`, `instances` and `prompts` collection with all the correct task data.
 
 ## [From HF OpenLLM Leadeabord - FAQ](https://huggingface.co/spaces/HuggingFaceH4/open_llm_leaderboard)
 
