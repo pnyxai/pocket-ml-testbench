@@ -3,9 +3,9 @@
 \epigraph{\small "Thinking, analyzing, inventing are not anomalous acts, they are the normal breathing of intelligence. To glorify the occasional fulfillment of that function, to treasure old and foreign thoughts, to recall with incredulous amazement what the doctor universalis thought, is to confess our languor or our barbarism. Every man must be capable of all ideas, and I understand that in the future he will be."}{"Pierre Menard, author of Don Quixote", "Ficciones", Jorge Luis Borges}
 
 
-Throughout these four months, POKTscan and PNYX have worked on reproducing the \gls{HFOLML} \cite{noauthor_open_nodate} that serves as a reference for the Pocket Network community. 
-All the code for reproduction is available in the repository. 
-This conclude our series of reports, that has to be considered as a whole to understand the full picture of the work done. 
+Throughout these four months, POKTscan and PNYX have worked on reproducing the \gls{HFOLML}~\cite{noauthor_open_nodate} that serves as a reference for the POKT Network community and relates its model's offer to terms that are familiar for the \gls{ML} community. 
+With this document we conclude our series of reports. The reports need to be considered as a whole to understand the full picture of the work done.
+
 Throughout this section we will summarize the different modules:
 
 \begin{itemize}[noitemsep]
@@ -16,9 +16,16 @@ Throughout this section we will summarize the different modules:
     \item \textbf{Evaluator}
 \end{itemize}
 
-and how they they interact, as detailed from Figure \ref{secb:fig:wf1} to \ref{secb:fig:wf9}. 
+We will show how they interact, as detailed from Figure \ref{secb:fig:wf1} to \ref{secb:fig:wf9}. 
 It is important to mention that we will not delve into some of the design decisions that were made, since most of these were discussed in the previous reports \footnote{\url{https://github.com/pokt-scan/pocket-ml-testbench/tree/main/reports}}, which we refer the reader to for more details. 
 Finally, the results obtained when evaluating some \glspl{LM} will be presented.  
+
+\subsection{Workflows}
+
+Consider a scenario where nodes $N$ are staked in service $S$ ... \textcolor{red}{COMPLET}
+
+Then, the main steps are the following:
+
 
 \begin{figure}[H]
     \centering        
@@ -26,6 +33,14 @@ Finally, the results obtained when evaluating some \glspl{LM} will be presented.
     \caption{}
     \label{secb:fig:wf1}
 \end{figure}
+
+\paragraph{Checking signatures:}
+The Manager will check if $N$ in $S$ has a signature $\sigma$ associated in the nodes collection. The signatures are the first thing to check because they are either requirements for other tasks (i.e. tokenizers data) or they signal if a node changed or not (which would trigger complete resampling).
+
+In the particular case of testing \gls{LM}, the most important signature consists of a hash of its tokenizer $T$, hereafter referenced as $\sigma(T)$. 
+In ease of expression, we will refer to the signature of node $N$ in $S$ as $\sigma(T_{N}^{S})$. Without a tokenizer signature (signaling that we know the tokenizer) the rest of the tests cannot be performed.
+Figure \ref{secb:fig:wf1} shows the workflow until this step.
+
 
 \begin{figure}[H]
 
@@ -35,12 +50,26 @@ Finally, the results obtained when evaluating some \glspl{LM} will be presented.
     \label{secb:fig:wf2}
 \end{figure}
 
+
+
+\paragraph{Sample tokenizer:}
+To produce the tokenizer signature, the Manager triggers the Sampler module to save a prompt for the Requester pointing to the endpoint of $N_s$ in the \textit{prompts} collection.
+Figure \ref{secb:fig:wf2} shows the workflow until this step.
+
+
+
 \begin{figure}[H]
     \centering        
     \includegraphics[width=0.8\textwidth]{workflow3}
     \caption{}
     \label{secb:fig:wf3}
 \end{figure}
+
+
+\paragraph{Request tokenizer:}
+The tokenizer signature, is produced from the a full json tokenizer $T$ data that is available in the \emph{pokt/tokenizer} endpoint of the POKT Sidecar. This prompt is not responded by the OpenAI API because it is not part of the spec since the tokenizer is known. In the case of the POKT network, the tokenizer is unknown because the model itself is unknown.
+Figure \ref{secb:fig:wf3} shows the workflow until this step.
+
 
 \begin{figure}[H]
     \centering        
@@ -49,72 +78,16 @@ Finally, the results obtained when evaluating some \glspl{LM} will be presented.
     \label{secb:fig:wf4}
 \end{figure}
 
+
+\paragraph{Save tokenizer:}
+Finally the evaluator loads the Requester response and calculates the tokenizer hash. If the tokenizer is not already tracked in the tokenizers collection, it will create a new entry. Finally the Manager will recover the tokenizer hash from the results collection entry and add it to the node data. Figure \ref{secb:fig:wf4} shows the workflow until this step.
+
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.8\textwidth]{workflow5}
     \caption{}
     \label{secb:fig:wf5}
 \end{figure}
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.8\textwidth]{workflow6}
-    \caption{}
-    \label{secb:fig:wf6}
-\end{figure}
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.8\textwidth]{workflow7}
-    \caption{}
-    \label{secb:fig:wf7}
-\end{figure}
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.8\textwidth]{workflow8}
-    \caption{}
-    \label{secb:fig:wf8}
-\end{figure}
-
-\begin{figure}[htb!]
-    \centering
-    \includegraphics[width=0.8\textwidth]{workflow9}
-    \caption{Update metrics.}
-    \label{secb:fig:wf9}
-\end{figure}
-
-Manager detect nodes staked, checking signatures for example tokenizers. If the node has not a signature/tokenizer associated, it will be requested. 
-If signatures are ok, then it will check if the model requires new samples to update any task/metrics. 
-when is required (low threshold of the samples required), trigger sampler. 
-During the creation of the samples, the tokenizer is called, and prepare the prompt. 
-The requester check if there is any prompt not done, and send to trhougth the network. 
-Once each sample from a task is done, the requester marks the task as done. 
-Due to Evaluator is scanning for tasks done, it will start the evaluation of each sample, then saving the results in the database. 
-
-\subsection{Workflows}
-
-Consider a scenario where nodes $N$ are staked in service $S$ ... \textcolor{red}{COMPLET}
-
-Then, the main steps are the following:
-
-\paragraph{Cheking signatures:}
-The Manager will check if $N$ in $S$ has a signature $\sigma$ associated in the nodes collection. 
-If not, it will request it. 
-In the particular case of testing \gls{LM}, its signature consists of a hash of its tokenizer $T$, hereafter referenced as $\sigma(T)$. 
-In ease of expression, we will refer to the signature of node $N$ in $S$ as $\sigma(T_{N}^{S})$. 
-Figure \ref{secb:fig:wf1} shows the workflow until this step.
-
-
-\paragraph{Sample tokenizer:}
-To produce the signature, the Manager triggers the Sampler module to save a prompt for the Requester pointing to the endpoint of $N_s$ in the \textit{prompts} collection. |textcolor{red}{COMPLET WITHMORE DEITAL ABOUNT SIDECARD?}
-Figure \ref{secb:fig:wf2} shows the workflow until this step.
-
-
-\paragraph{Request tokenizer:}
-When $N$ is serving in a session, the app \textcolor{red}{(explain how the app will work?)} will send a request with the prompt, and the node will respond with the a json tokenizer $T$.  glorify the occasional fulfillment of that function, to treasure old and foreign thoughts, to recall
-with incredulous amazement what the doctor universalis thought, is to confess our languor or ourection \textit{tokenizers}, noting that if many nodes have the same tokenizer, it will be saved only. 
-Figure \ref{secb:fig:wf4} shows the workflow until this step.
 
 
 \paragraph{Checking metrics:}
@@ -123,42 +96,83 @@ If required, the Manager will trigger the Sampler, requiring from the Sampler a 
 Figure \ref{secb:fig:wf5} shows the workflow until this step.
 
 
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{workflow6}
+    \caption{}
+    \label{secb:fig:wf6}
+\end{figure}
+
 \paragraph{Task sapling:}
 When the Sampler receives the request from the Manager, it will load the dataset corresponding to the task but avoiding to load samples previously requested from the evaluation dataset. 
 The Sampler randomly selects $q$ docs from the dataset, and create a \gls{LM} prompt following the OpenAI API. The Sampler ends by saving the task, instance, prompt and request information the corresponding collections.
-Figure \ref{secb:fig:wf7} shows the workflow until this step.
+Figure \ref{secb:fig:wf6} shows the workflow until this step.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{workflow7}
+    \caption{}
+    \label{secb:fig:wf7}
+\end{figure}
+
 
 \paragraph{Prompt request:}
-After the asyncronous creation of the request by the Sampler, the Requester \textcolor{red}{EXPLICAR BREVEMENTE COMO FUNCIONA EL REQUESTER CON POKT NODE , ETC}
+After the asynchronous creation of the request by the Sampler, the Requester will try to prompt the node whenever it enters into session with one of its controlled apps. It is normal that the task will remain in the collection for a long period until this happens. Once the requested node is found in session, the relay is done and the result is written to the response collection.
 Figure \ref{secb:fig:wf7} shows the workflow until this step.
 
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{workflow8}
+    \caption{}
+    \label{secb:fig:wf8}
+\end{figure}
 
 \paragraph{Evaluation response \& save metrics:}
 The Evaluator can be triggered by the Requester when a task is marked as done, meaning that all request had been responded, or by a periodic time previously configured. 
 At this point it is necessary to regenerate the same evaluation state as if lm-eval-harness had been executed locally, that is to say, the same execution state is generated (this includes: task, instance, prompt, datasets, etc) as the Sampler, with the addition that now we have the responses. 
 It is important to mention that because Requester simply returns any response that the Pocket Network node sends it, and this includes any type of error, the Evaluator will only be able to continue with the evaluation and generate metrics when at least one sample has all its requests responded. 
 To recall, the relation between a sample and requests is 1:N, as was illustrated in the previous report. 
-Finally, after the Evaluator has generated the metrics individually for each sample, they are stored in the \textcolor{red}{RAMIRO} collection for the \textcolor{red}{RAMIRO} to calculate the statistics needed to update the leaderboard. 
-
 Figure \ref{secb:fig:wf8} shows the workflow until this step.
 
 
-\paragraph{Leaderboard:}
-\textcolor{red}{RAMIRO}
-Once all
+
+\begin{figure}[htb!]
+    \centering
+    \includegraphics[width=0.8\textwidth]{workflow9}
+    \caption{Update metrics.}
+    \label{secb:fig:wf9}
+\end{figure}
+
+\paragraph{Leaderboard Update:}
+
+Finally, after the Manager has written all the metrics data in the corresponding nodes collections, the API process will re-process the higher level information, such as the leaderboard scores. 
+Figure \ref{secb:fig:wf9} shows the last step of the workflow.
+
+
+% Que quisiste decir aca ameooooo
+% Manager detect nodes staked, checking signatures for example tokenizers. If the node has not a signature/tokenizer associated, it will be requested. 
+% If signatures are ok, then it will check if the model requires new samples to update any task/metrics. 
+% when is required (low threshold of the samples required), trigger sampler. 
+% During the creation of the samples, the tokenizer is called, and prepare the prompt. 
+% The requester check if there is any prompt not done, and send to trhougth the network. 
+% Once each sample from a task is done, the requester marks the task as done. 
+% Due to Evaluator is scanning for tasks done, it will start the evaluation of each sample, then saving the results in the database. 
+
 
 
 \subsection{Experiments}
 
-In order to replicate the \gls{HFOLML}, we selected three models:
+In order to asses if the proposed replication of the \gls{HFOLML} was correct, we selected three models with different characteristics and compared them to the publicized scores. The selected models were:
 
 \begin{itemize}[noitemsep]
     \item Llama-3-8b-instruct \footnote{\url{https://huggingface.co/casperhansen/llama-3-8b-instruct-awq}}
-    \item Deepseek-coder-6.7B-instruct \footnote{\url{https://huggingface.co/deepseek-ai/deepseek-coder-6.7b-instruct}}
-    \item TinyLlama-1.1B-Chat-v1.0 \footnote{\url{https://huggingface.co/TinyLlama/TinyLlama-1.1B-Chat-v1.0}}
+    \item Deepseek-coder-6.7B-instruct \footnote{\url{https://huggingface.co/TheBloke/deepseek-coder-6.7B-instruct-AWQ}}
+    \item TinyLlama-1.1B-Chat-v1.0 \footnote{\url{https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v1.0-AWQ}}
 \end{itemize}
 
-Models were evaluated in the following tasks:
+Models were evaluated in the same tasks as the ones proposed in the \gls{HFOLML}. These are the following:
+
+\textcolor{red}{COMPLETAR CON LAS REFERENCIAS DE TODOS LOS DATASTES, CITAS, NOMBRES COMPLETOS, PARA Q SIRVEN} 
 
 \begin{itemize}[noitemsep]
     \item ARC
@@ -169,13 +183,12 @@ Models were evaluated in the following tasks:
     \item GSM8K
 \end{itemize}
 
-Since at the moment of the experiment we are dealing with live endpoints, we do not sample the whole datasets, instead we sample 50 samples for each task (or sub-task in the case of MMLU). 
-The effect on the tests accuracy according to \citeauthor{polo_tinybenchmarks_2024} \cite{polo_tinybenchmarks_2024} should be less than 5\%. 
-Regarding the \gls{LMEH} \cite{biderman_lessons_2024} code, we are in the release \verb|0.4.2| due to a major refactoring was performed after Huggingface released his Leaderboard. 
-This decision was made to improve maintainability of the repository provided and trying to assing correctly any discrepancies in metrics or configs between de version using by Huggingface and the \gls{LMEH}. 
+Since at the moment of the experiment we are dealing with live endpoints that have an associated cost, we do not sample the whole datasets, instead we sample only $50$ samples for each task (or sub-task in the case of MMLU). 
+The effect on the tests accuracy according to~\citeauthor{polo_tinybenchmarks_2024} should be less than 5\%~\cite{polo_tinybenchmarks_2024}. 
+Regarding the \gls{LMEH}~\cite{biderman_lessons_2024} code, the \gls{MLTB} implements the release \verb|0.4.2|, this is not the same as the \gls{HFOLML} due to a major refactoring was performed after Huggingface released his Leaderboard. 
+This decision was made to improve maintainability of the repository provided and trying to assessing correctly any discrepancies in metrics or configs between de version using by Huggingface and the \gls{LMEH}. 
 
-Regarding the command to run the evaluation, fist of all it's mandatory to write a \verb|.env| with necessary variables placed with the docker compose defined next. 
-Once it's done, the following command should be executed:
+Regarding the command to run the evaluation, it was done using the \emph{morse-poc} deployment files. It requires only a few steps~\footnote{We refer the reader to \url{https://github.com/pokt-scan/pocket-ml-testbench/tree/main/docker-compose/morse-poc} for more instructions on how to deploy.}: writing a \verb|.env| with necessary variables placed with the docker compose defined next and executing the following command:
 \begin{lstlisting}[language=bash, caption={Command to run the evaluation.}, numbers=none]
 cd docker-compose/morse-poc
 docker-compose up -d
@@ -184,24 +197,22 @@ docker-compose up -d
 Internally, the command will run the following containers:
 
 \begin{itemize}[noitemsep]
-    \item a vLLM \cite{kwon_efficient_2023} engine for serving a model,
-    \item componentes related to Temporal server,
+    \item a vLLM~\cite{kwon_efficient_2023} engine for serving a model,
+    \item components related to Temporal server,
     \item Manager, Register, Sampler, Requester, and Evaluator modules as Temporal workers,
     \item the pocketnetwork protocaol, its genesis, and three pocket network lean nodes,
-    \item componentes related to PostgreSQL database to store the datasets corresponding to each task,
-    \item componentes related to MongoDB to store the rest of the data, 
-    \item a web \textcolor{red}{COMPLETAR CON LO RELACIONADO AL Leaderboard} 
+    \item components related to PostgreSQL database to store the datasets corresponding to each task,
+    \item components related to MongoDB to store the rest of the data, 
+    \item a minimal web site an API to display results as they are collected.
 \end{itemize}
-
-\textcolor{red}{HOW TO CHECK DE RESULTS.}
 
 
 \subsection{Results}
 
-In Table \ref{sec:tab:results} we present the results obtained when evaluating some \glspl{LM}. 
-The table shows the Pearson correlation coefficient $R$ and the p-value for each pair of node/model and task, and the average of the metrics obtained both for the current node and the \gls{HFOLML}. 
-Of course, in a production scenario, we would have more nodes and no information about the ground truth, due to it will be not possible to kwon the real model behind the node. 
-Nevertheless, it can be seen that the both $R$ and p-value have statistical significance in two of the three nodes, 
+In Table \ref{sec:tab:results} we present the results obtained when evaluating the presented \glspl{LM}. 
+The table shows the Pearson correlation coefficient $R$ and its p-value for each pair of node/model and task, and the average of the metrics obtained both for the current node and the \gls{HFOLML}. 
+Of course, in a production scenario, we would have more nodes and no information about the ground truth, since it is not possible to kwon the real model behind the node. 
+Nevertheless, it can be seen that the $R$ is high (near $1.0$ which is the ideal) and the p-value shows that the results have statistical significance in two of the three nodes~\footnote{The node that has a p-value above $0.05$ is actually very near ($0.06$) and is also the worst performing model.}, 
 
 \begin{table}[htb!]
     \caption{Results obtained with the \gls{MLTB} and those published in the \gls{HFOLML}.}
@@ -221,6 +232,35 @@ Nevertheless, it can be seen that the both $R$ and p-value have statistical sign
     }
 \end{table}
 
+We also present the results for each model in particular in the images:
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.8\textwidth]{llama3}
+    \caption{Model: Llama-3-8b-instruct; Correlation Coef: 0.833 ; P-value: 0.039}
+    \label{secb:fig:m1}
+\end{figure}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.8\textwidth]{deepseek}
+    \caption{Model: Deepseek-coder-6.7B-instruct; Correlation Coef: 0.924 ; P-value: 0.009}
+    \label{secb:fig:m2}
+\end{figure}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.8\textwidth]{tiny}
+    \caption{Model: TinyLlama-1.1B-Chat-v1.0; Correlation Coef: 0.785 ; P-value: 0.064}
+    \label{secb:fig:m3}
+\end{figure}
+
+
 
 \subsection{Conclusions}
-\textcolor{red}{COMPLET}numbers=none
+
+The \gls{MLTB} was developed to perform arbitrary tests on \gls{ML} models that are staked in the POKT Network. In this first iteration it was configured to recreate the \gls{HFOLML}, a known source for model quality in the \gls{ML} community. After the initial tests we can say that the \gls{MLTB} is able to deliver on its promises: it was successfully deployed on a POKT Network local net, communicated with POKT nodes hosting \glspl{LM} and successfully retrieved the required data to populate the leaderboard. 
+
+The \gls{MLTB} is not only able to reproduce the \gls{HFOLML} data, it also does it with much less samples (and hence cost) and keep high correlation with fully-sampled tests. Also, the test bench is created to be fully modular and scalable, being able to process tests form many nodes concurretly, something beyond the capabilities of the \gls{LMEH} that was not created to support loads as the ones we expect in the POKT Network.
+
+\textcolor{red}{COMPLETALO MAS SI QUERES, DALE UN CIERRE}
