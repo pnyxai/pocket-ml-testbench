@@ -27,7 +27,7 @@ Consider a scenario where nodes $N$ are staked in service $S$ ... \textcolor{red
 Then, the main steps are the following:
 
 
-\begin{figure}[H]
+\begin{figure}[htb!]
     \centering        
     \includegraphics[width=0.8\textwidth]{workflow1}
     \caption{}
@@ -42,7 +42,7 @@ In ease of expression, we will refer to the signature of node $N$ in $S$ as $\si
 Figure \ref{secb:fig:wf1} shows the workflow until this step.
 
 
-\begin{figure}[H]
+\begin{figure}[htb!]
 
     \centering        
     \includegraphics[width=0.8\textwidth]{workflow2}
@@ -58,7 +58,7 @@ Figure \ref{secb:fig:wf2} shows the workflow until this step.
 
 
 
-\begin{figure}[H]
+\begin{figure}[htb!]
     \centering        
     \includegraphics[width=0.8\textwidth]{workflow3}
     \caption{}
@@ -71,7 +71,7 @@ The tokenizer signature, is produced from the a full json tokenizer $T$ data tha
 Figure \ref{secb:fig:wf3} shows the workflow until this step.
 
 
-\begin{figure}[H]
+\begin{figure}[htb!]
     \centering        
     \includegraphics[width=0.8\textwidth]{workflow4}
     \caption{}
@@ -82,7 +82,7 @@ Figure \ref{secb:fig:wf3} shows the workflow until this step.
 \paragraph{Save tokenizer:}
 Finally the evaluator loads the Requester response and calculates the tokenizer hash. If the tokenizer is not already tracked in the tokenizers collection, it will create a new entry. Finally the Manager will recover the tokenizer hash from the results collection entry and add it to the node data. Figure \ref{secb:fig:wf4} shows the workflow until this step.
 
-\begin{figure}[H]
+\begin{figure}[htb!]
     \centering
     \includegraphics[width=0.8\textwidth]{workflow5}
     \caption{}
@@ -96,7 +96,7 @@ If required, the Manager will trigger the Sampler, requiring from the Sampler a 
 Figure \ref{secb:fig:wf5} shows the workflow until this step.
 
 
-\begin{figure}[H]
+\begin{figure}[htb!]
     \centering
     \includegraphics[width=0.8\textwidth]{workflow6}
     \caption{}
@@ -108,7 +108,7 @@ When the Sampler receives the request from the Manager, it will load the dataset
 The Sampler randomly selects $q$ docs from the dataset, and create a \gls{LM} prompt following the OpenAI API. The Sampler ends by saving the task, instance, prompt and request information the corresponding collections.
 Figure \ref{secb:fig:wf6} shows the workflow until this step.
 
-\begin{figure}[H]
+\begin{figure}[htb!]
     \centering
     \includegraphics[width=0.8\textwidth]{workflow7}
     \caption{}
@@ -120,7 +120,7 @@ Figure \ref{secb:fig:wf6} shows the workflow until this step.
 After the asynchronous creation of the request by the Sampler, the Requester will try to prompt the node whenever it enters into session with one of its controlled apps. It is normal that the task will remain in the collection for a long period until this happens. Once the requested node is found in session, the relay is done and the result is written to the response collection.
 Figure \ref{secb:fig:wf7} shows the workflow until this step.
 
-\begin{figure}[H]
+\begin{figure}[htb!]
     \centering
     \includegraphics[width=0.8\textwidth]{workflow8}
     \caption{}
@@ -172,15 +172,13 @@ In order to asses if the proposed replication of the \gls{HFOLML} was correct, w
 
 Models were evaluated in the same tasks as the ones proposed in the \gls{HFOLML}. These are the following:
 
-\textcolor{red}{COMPLETAR CON LAS REFERENCIAS DE TODOS LOS DATASTES, CITAS, NOMBRES COMPLETOS, PARA Q SIRVEN} 
-
 \begin{itemize}[noitemsep]
-    \item ARC
-    \item Hellaswag
-    \item MMLU
-    \item TruthfulQA
-    \item Winogrande
-    \item GSM8K
+    \item ARC \cite{Clark2018ThinkYH}
+    \item Hellaswag \cite{zellers2019hellaswag}
+    \item MMLU \cite{hendrycks_measuring_2021}
+    \item TruthfulQA \cite{lin-etal-2022-truthfulqa}
+    \item Winogrande \cite{sakaguchi2019winogrande}
+    \item GSM8K \cite{cobbe2021training}
 \end{itemize}
 
 Since at the moment of the experiment we are dealing with live endpoints that have an associated cost, we do not sample the whole datasets, instead we sample only $50$ samples for each task (or sub-task in the case of MMLU). 
@@ -232,23 +230,23 @@ Nevertheless, it can be seen that the $R$ is high (near $1.0$ which is the ideal
     }
 \end{table}
 
-We also present the results for each model in particular in the images:
+We also present the results for each model in particular in Figures \ref{secb:fig:m1}, \ref{secb:fig:m2}, and \ref{secb:fig:m3}. 
 
-\begin{figure}
+\begin{figure}[htb!]
     \centering
     \includegraphics[width=0.8\textwidth]{llama3}
     \caption{Model: Llama-3-8b-instruct; Correlation Coef: 0.833 ; P-value: 0.039}
     \label{secb:fig:m1}
 \end{figure}
 
-\begin{figure}
+\begin{figure}[htb!]
     \centering
     \includegraphics[width=0.8\textwidth]{deepseek}
     \caption{Model: Deepseek-coder-6.7B-instruct; Correlation Coef: 0.924 ; P-value: 0.009}
     \label{secb:fig:m2}
 \end{figure}
 
-\begin{figure}
+\begin{figure}[htb!]
     \centering
     \includegraphics[width=0.8\textwidth]{tiny}
     \caption{Model: TinyLlama-1.1B-Chat-v1.0; Correlation Coef: 0.785 ; P-value: 0.064}
@@ -259,8 +257,8 @@ We also present the results for each model in particular in the images:
 
 \subsection{Conclusions}
 
-The \gls{MLTB} was developed to perform arbitrary tests on \gls{ML} models that are staked in the POKT Network. In this first iteration it was configured to recreate the \gls{HFOLML}, a known source for model quality in the \gls{ML} community. After the initial tests we can say that the \gls{MLTB} is able to deliver on its promises: it was successfully deployed on a POKT Network local net, communicated with POKT nodes hosting \glspl{LM} and successfully retrieved the required data to populate the leaderboard. 
+The \gls{MLTB} was developed to perform arbitrary tests on \gls{ML} models that are staked in the POKT Network. In this first iteration it was configured to recreate the \gls{HFOLML}, a known source for model quality in the \gls{ML} community. 
+After the initial tests we can say that the \gls{MLTB} is able to deliver on its promises: it was successfully deployed on a POKT Network local net, communicated with POKT nodes hosting \glspl{LM} and successfully retrieved the required data to populate the leaderboard. 
 
-The \gls{MLTB} is not only able to reproduce the \gls{HFOLML} data, it also does it with much less samples (and hence cost) and keep high correlation with fully-sampled tests. Also, the test bench is created to be fully modular and scalable, being able to process tests form many nodes concurretly, something beyond the capabilities of the \gls{LMEH} that was not created to support loads as the ones we expect in the POKT Network.
-
-\textcolor{red}{COMPLETALO MAS SI QUERES, DALE UN CIERRE}
+The \gls{MLTB} is not only able to reproduce the \gls{HFOLML} data, it also does it with much less samples (and hence cost) and keep high correlation with fully-sampled tests. 
+Also, the test bench is created to be fully modular and scalable, being able to process tests form many nodes concurretly, something beyond the capabilities of the \gls{LMEH} that was not created to support loads as the ones we expect in the POKT Network. 

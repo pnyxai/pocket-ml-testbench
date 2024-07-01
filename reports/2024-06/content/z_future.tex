@@ -13,10 +13,11 @@ The \gls{HFOLML} is not the only leaderboard out there, there are many other lea
 
 \subsection*{More Tests}
 
-For example, more specific evaluations could be added for \glspl{LM}, such as the so-called "function call evaluation" \cite{patil_gorilla_2023} 
+For example, more specific evaluations could be added for \glspl{LM}, such as the so-called "function call evaluation" \cite{patil_gorilla_2023}. 
 On the other hand, if the network wants to add support for multimodal models, specific benchmarks \cite{yue_mmmu_2024} should be adapted for these cases. 
 
-Also we can develop custom test, or generative tests to counter the overspecialization (or contamination) of new models in the mainstream tests \textcolor{red}{CITATION NEEDED de esto ultimo de la contaminacion y/o especializacions}. 
+Also we can develop custom test, or generative tests to counter the overspecialization (or contamination) of new models in the mainstream tests. 
+The last can alert about data leakage, a common problem during the traing of \glspl{LM} \cite{zhang_careful_2024, golchin_data_2024, xu_benchmarking_2024, balloccu_leak_2024}, both closed and open source. 
 
 \subsection*{Model Signatures}
 
@@ -26,10 +27,5 @@ Also there are techniques likes watermarking~\cite{kirchenbauer2023watermark} th
 
 \subsection*{On-chain}
 
-The ideal \gls{ML} test suite should be one developed by a big community and implemented by parties with no conflicts of interest~\footnote{Model providers cannot be trusted to provide service with models that are the same as what they publish in journals \textcolor{red}{CITATION NEEDED buscate el paper de como cambiaban los scores del GPT a travex del tiempo.}.}. We consider this work as an actionable first step towards the descentralization of \gls{ML} tests, and we want to explore ways of enabling a crypto-economic incentive for providing this service, something close to the phylosofy of the POKT Network watchers~\footnote{For reference, a description of a watcher actor can be found here: \url{https://github.com/pokt-network/pocket-network-protocol/blob/main/utility/README.md\#33-fisherman-protocol}}.
-
-
-
-
-
-\textcolor{red}{COMPLETA CON ALGO MAS SI QUERES PERO PONELE UN SUBTITULO}
+The ideal \gls{ML} test suite should be one developed by a big community and implemented by parties with no conflicts of interest~\footnote{Model providers cannot be trusted to provide service with models that are the same as what they publish in journals \cite{chen_how_2023}.}. 
+We consider this work as an actionable first step towards the descentralization of \gls{ML} tests, and we want to explore ways of enabling a crypto-economic incentive for providing this service, something close to the phylosofy of the POKT Network watchers~\footnote{For reference, a description of a watcher actor can be found here: \url{https://github.com/pokt-network/pocket-network-protocol/blob/main/utility/README.md\#33-fisherman-protocol}}.
