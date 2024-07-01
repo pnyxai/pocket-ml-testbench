@@ -1,7 +1,8 @@
 \section{\Glsfmtlong{MLTB}}\label{sec:b}
 \setlength{\epigraphwidth}{\textwidth}
-\epigraph{\small "Thinking, analyzing, inventing are not anomalous acts, they are the normal breathing of intelligence. To glorify the occasional fulfillment of that function, to treasure old and foreign thoughts, to recall with incredulous amazement what the doctor universalis thought, is to confess our languor or our barbarism. Every man must be capable of all ideas, and I understand that in the future he will be."}{"Pierre Menard, author of Don Quixote", "Ficciones", Jorge Luis Borges}
-
+\epigraph{\small "Thinking, analyzing, inventing are not anomalous acts, they are the normal breathing of intelligence. 
+To glorify the occasional fulfillment of that function, to treasure old and foreign thoughts, to recall with incredulous amazement what the doctor universalis thought, is to confess our languor or our barbarism. 
+Every man must be capable of all ideas, and I understand that in the future he will be."}{"Pierre Menard, author of Don Quixote", "Ficciones", Jorge Luis Borges}
 
 Throughout these four months, POKTscan and PNYX have worked on reproducing the \gls{HFOLML}~\cite{noauthor_open_nodate} that serves as a reference for the POKT Network community and relates its model's offer to terms that are familiar for the \gls{ML} community. 
 With this document we conclude our series of reports. The reports need to be considered as a whole to understand the full picture of the work done.
@@ -257,8 +258,13 @@ We also present the results for each model in particular in Figures \ref{secb:fi
 
 \subsection{Conclusions}
 
-The \gls{MLTB} was developed to perform arbitrary tests on \gls{ML} models that are staked in the POKT Network. In this first iteration it was configured to recreate the \gls{HFOLML}, a known source for model quality in the \gls{ML} community. 
+The \gls{MLTB} was developed to perform arbitrary tests on \gls{ML} models that are staked in the POKT Network. 
+In this first iteration it was configured to recreate the \gls{HFOLML}, a known source for model quality in the \gls{ML} community. 
 After the initial tests we can say that the \gls{MLTB} is able to deliver on its promises: it was successfully deployed on a POKT Network local net, communicated with POKT nodes hosting \glspl{LM} and successfully retrieved the required data to populate the leaderboard. 
 
 The \gls{MLTB} is not only able to reproduce the \gls{HFOLML} data, it also does it with much less samples (and hence cost) and keep high correlation with fully-sampled tests. 
 Also, the test bench is created to be fully modular and scalable, being able to process tests form many nodes concurretly, something beyond the capabilities of the \gls{LMEH} that was not created to support loads as the ones we expect in the POKT Network. 
+
+Regarding the update in the \gls{HFOLML}, it is important to recall what Borges said: "Thinking, analyzing, inventing are not anomalous acts, they are the normal breathing of intelligence". 
+As the \gls{ML} field progresses, the adoption and refinement of frameworks like the \gls{LMEH} will remain crucial, ensuring that benchmarks evolve in tandem with the technologies they aim to measure. 
+In the context of the POKT network, \gls{MLTB} is a first step towards the adoption of a decentralized \gls{ML} market following the state of the art in the field of benchmarking, and thus trying to shed light on the quality of service expected.

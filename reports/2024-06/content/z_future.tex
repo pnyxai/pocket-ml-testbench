@@ -1,6 +1,7 @@
 \section{Future Work}\label{sec:z}
 
-So we have created a scalable and organized \gls{LM} evaluation workflow. But does this have to end here? What other possibilities are open?
+So we have created a scalable and organized \gls{LM} evaluation workflow. 
+But does this have to end here? What other possibilities are open?
 
 We believe that the methodology presented throughout the different reports is abstract enough to be able to implement many ideas on top of the \gls{MLTB}. Our main ambitions are the following:
 
@@ -21,7 +22,9 @@ The last can alert about data leakage, a common problem during the traing of \gl
 
 \subsection*{Model Signatures}
 
-Getting signatures from a model is not restricted to getting a tokenizer. The concept of a signature is to identify if a model is of a given kind and track its changes. We might not be able to tell (confidently) the name of the model being staked in the POKT network but we can find all models of the same kind and group them by means of random signatures.
+Getting signatures from a model is not restricted to getting a tokenizer. 
+The concept of a signature is to identify if a model is of a given kind and track its changes. 
+We might not be able to tell (confidently) the name of the model being staked in the POKT network but we can find all models of the same kind and group them by means of random signatures.
 
 Also there are techniques likes watermarking~\cite{kirchenbauer2023watermark} that could be useful to implement in POKT and the \gls{MLTB} can be used to calculate and track such signatures.
 
