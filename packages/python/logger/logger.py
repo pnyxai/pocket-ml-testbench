@@ -18,7 +18,7 @@ def configure_structlog():
         structlog.processors.StackInfoRenderer(),
         structlog.processors.format_exc_info,
         structlog.processors.UnicodeDecoder(),
-        structlog.processors.JSONRenderer()  # Outputs events as JSON strings.
+        structlog.processors.JSONRenderer(),  # Outputs events as JSON strings.
     ]
 
     # noinspection PyTypeChecker

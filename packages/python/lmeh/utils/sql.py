@@ -11,12 +11,10 @@ from temporalio.exceptions import ApplicationError
 _ID_NAME = "__id"
 _SPLIT_NAME = "__split"
 
-POCKET_COLUMNS = {
-    _ID_NAME: "INTEGER",
-    _SPLIT_NAME: "TEXT"
-}
+POCKET_COLUMNS = {_ID_NAME: "INTEGER", _SPLIT_NAME: "TEXT"}
 
 PRIMARY_KEY_DEF = f"PRIMARY KEY ({_ID_NAME}, {_SPLIT_NAME})"
+
 
 async def checked_task(task_name: str, connection: asyncpg.Connection):
     """
@@ -34,13 +32,15 @@ async def checked_task(task_name: str, connection: asyncpg.Connection):
         """
         SELECT COUNT(*) FROM task_registry WHERE task_name = $1;
         """,
-        task_name
+        task_name,
     )
 
     return record["count"] > 0
 
 
-async def register_task(task_name: str, dataset_table_name: str, connection: asyncpg.Connection):
+async def register_task(
+    task_name: str, dataset_table_name: str, connection: asyncpg.Connection
+):
     """
     Register a task in the registry task.
 
@@ -57,11 +57,13 @@ async def register_task(task_name: str, dataset_table_name: str, connection: asy
         INSERT INTO task_registry (task_name, dataset_table_name) VALUES ($1, $2) ON CONFLICT DO NOTHING;
         """,
         task_name,
-        dataset_table_name
+        dataset_table_name,
     )
 
 
-async def create_dataset_table(table_name: str, data: datasets.DatasetDict, connection: asyncpg.Connection):
+async def create_dataset_table(
+    table_name: str, data: datasets.DatasetDict, connection: asyncpg.Connection
+):
     """
     Create a PostgreSQL table based on a list of Python dictionaries.
 
@@ -84,7 +86,7 @@ async def create_dataset_table(table_name: str, data: datasets.DatasetDict, conn
     # Extract column names and data types from the dictionaries
     columns = {}
 
-    # Add manually k,v pairs "pocket_ID":INT, and "SPLIT":TEXT 
+    # Add manually k,v pairs "pocket_ID":INT, and "SPLIT":TEXT
     columns.update(POCKET_COLUMNS)
 
     for key, value in sample.items():
@@ -94,8 +96,7 @@ async def create_dataset_table(table_name: str, data: datasets.DatasetDict, conn
 
     # Generate column definitions
     column_definitions = [
-        f"\"{column_name}\" {data_type}"
-        for column_name, data_type in columns.items()
+        f'"{column_name}" {data_type}' for column_name, data_type in columns.items()
     ]
 
     # Generate primary key definition
@@ -103,13 +104,17 @@ async def create_dataset_table(table_name: str, data: datasets.DatasetDict, conn
 
     # Create a table statement
     # noinspection SqlNoDataSourceInspection
-    column_definitions_str = ', '.join(column_definitions)
-    create_table = f"CREATE TABLE IF NOT EXISTS \"{table_name}\" ({column_definitions_str})"
+    column_definitions_str = ", ".join(column_definitions)
+    create_table = (
+        f'CREATE TABLE IF NOT EXISTS "{table_name}" ({column_definitions_str})'
+    )
 
     # Insert data into the table statement
-    column_names = ", ".join(f"\"{column_name}\"" for column_name in columns.keys())
+    column_names = ", ".join(f'"{column_name}"' for column_name in columns.keys())
     placeholders = ", ".join(f"${i + 1}" for i in range(len(columns)))
-    insert_query = f"INSERT INTO \"{table_name}\" ({column_names}) VALUES ({placeholders});"
+    insert_query = (
+        f'INSERT INTO "{table_name}" ({column_names}) VALUES ({placeholders});'
+    )
 
     await connection.execute(create_table)
 
@@ -154,7 +159,7 @@ def infer_data_type(value):
         decimal.Decimal: "DECIMAL",
         list: "[]",
         dict: "JSON",
-        bytes: "BYTEA"
+        bytes: "BYTEA",
     }
     v_type = mapping.get(type(value), "TEXT")
     # Handle lists

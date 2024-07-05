@@ -4,10 +4,13 @@ import multiprocessing
 from concurrent.futures import ProcessPoolExecutor
 from temporalio.client import Client
 from temporalio.worker import Worker, SharedStateManager
-from temporalio.worker.workflow_sandbox import SandboxedWorkflowRunner, SandboxRestrictions
+from temporalio.worker.workflow_sandbox import (
+    SandboxedWorkflowRunner,
+    SandboxRestrictions,
+)
 
-sys.path.append('.')
-sys.path.append('../../../')
+sys.path.append(".")
+sys.path.append("../../../")
 
 from packages.python.common.utils import get_from_dict
 from app.app import setup_app, get_app_logger
@@ -39,7 +42,7 @@ modules = [
     "asyncio",
     "lm_eval",
     "pydantic",
-    "datasets"
+    "datasets",
 ]
 
 
@@ -55,17 +58,25 @@ async def main():
 
     config = app_config["config"]
 
-    l = get_app_logger("worker")
-    l.info("starting worker")
+    logger = get_app_logger("worker")
+    logger.info("starting worker")
 
     temporal_host = f"{get_from_dict(config, 'temporal.host')}:{get_from_dict(config, 'temporal.port')}"
-    namespace = get_from_dict(config, 'temporal.namespace')
-    task_queue = get_from_dict(config, 'temporal.task_queue')
+    namespace = get_from_dict(config, "temporal.namespace")
+    task_queue = get_from_dict(config, "temporal.task_queue")
     max_workers = get_from_dict(config, "temporal.max_workers")
-    max_concurrent_activities = get_from_dict(config, "temporal.max_concurrent_activities")
-    max_concurrent_workflow_tasks = get_from_dict(config, "temporal.max_concurrent_workflow_tasks")
-    max_concurrent_workflow_task_polls = get_from_dict(config, "temporal.max_concurrent_workflow_task_polls")
-    max_concurrent_activity_task_polls = get_from_dict(config, "temporal.max_concurrent_activity_task_polls")
+    max_concurrent_activities = get_from_dict(
+        config, "temporal.max_concurrent_activities"
+    )
+    max_concurrent_workflow_tasks = get_from_dict(
+        config, "temporal.max_concurrent_workflow_tasks"
+    )
+    max_concurrent_workflow_task_polls = get_from_dict(
+        config, "temporal.max_concurrent_workflow_task_polls"
+    )
+    max_concurrent_activity_task_polls = get_from_dict(
+        config, "temporal.max_concurrent_activity_task_polls"
+    )
 
     client = await Client.connect(
         temporal_host,
@@ -101,9 +112,13 @@ async def main():
     if max_concurrent_workflow_tasks is not None:
         worker_kwargs["max_concurrent_workflow_tasks"] = max_concurrent_workflow_tasks
     if max_concurrent_workflow_task_polls is not None:
-        worker_kwargs["max_concurrent_workflow_task_polls"] = max_concurrent_workflow_task_polls
+        worker_kwargs["max_concurrent_workflow_task_polls"] = (
+            max_concurrent_workflow_task_polls
+        )
     if max_concurrent_activity_task_polls is not None:
-        worker_kwargs["max_concurrent_activity_task_polls"] = max_concurrent_activity_task_polls
+        worker_kwargs["max_concurrent_activity_task_polls"] = (
+            max_concurrent_activity_task_polls
+        )
 
     worker = Worker(**worker_kwargs)
 

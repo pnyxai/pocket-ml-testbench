@@ -15,7 +15,7 @@ default_config = {
         "port": 7233,
         "namespace": "pocket-ml-testbench",
         "task_queue": "evaluator",
-    }
+    },
 }
 
 
@@ -28,7 +28,7 @@ def read_config():
         return {}
 
     try:
-        with open(config_path, 'r') as f:
+        with open(config_path, "r") as f:
             config = json.load(f)
             config_with_default = deep_update(default_config, config)
             return config_with_default

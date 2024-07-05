@@ -1,5 +1,4 @@
 import json
-from hashlib import sha256
 from datetime import datetime
 
 from app.app import get_app_config, get_app_logger
@@ -15,7 +14,7 @@ from packages.python.protocol.protocol import (
     PocketNetworkMongoDBResultSignature,
     PocketNetworkMongoDBTokenizer,
     SignatureSample,
-    PocketNetworkMongoDBResultBase
+    PocketNetworkMongoDBResultBase,
 )
 
 
@@ -66,7 +65,8 @@ async def tokenizer_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
                 result_height=responses[0]["response"]["height"],
                 result_time=datetime.today().isoformat(),
             ),
-            signatures=[])
+            signatures=[],
+        )
 
         # Get tokenizer jsons
         tokenizer_decoded = False
@@ -78,7 +78,9 @@ async def tokenizer_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
 
         tokenizer_ok = False
         if tokenizer_decoded:
-            eval_logger.debug("Tokenizer found.", tokenizer_keys=list(tokenizer_jsons.keys()))
+            eval_logger.debug(
+                "Tokenizer found.", tokenizer_keys=list(tokenizer_jsons.keys())
+            )
 
             if "model_max_length" in tokenizer_jsons["tokenizer_config"]:
                 tokenizer_jsons["tokenizer_config"]["model_max_length"] = int(
@@ -87,8 +89,11 @@ async def tokenizer_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
             try:
                 # Try to load, if this succeds, the tokenizer is OK
                 temp_path = "/tmp/" + task_id_str
-                tokenizer = load_tokenizer(tokenizer_objects=tokenizer_jsons, wf_id="",
-                                           tokenizer_ephimeral_path=temp_path)
+                tokenizer = load_tokenizer(
+                    tokenizer_objects=tokenizer_jsons,
+                    wf_id="",
+                    tokenizer_ephimeral_path=temp_path,
+                )
                 eval_logger.debug("Tokenizer loaded.")
                 # This creates the structure used in the database, containing the hash
                 tokenizer_jsons_loaded, tokenizer_hash_loaded = prepare_tokenizer(
@@ -108,7 +113,9 @@ async def tokenizer_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
         tokenizer_new = False
         if tokenizer_ok:
             # check if the tokenizer exists in db
-            tokenizer_db = await mongo_operator.get_tokenizer_entry(tokenizer_mongo_new.hash)
+            tokenizer_db = await mongo_operator.get_tokenizer_entry(
+                tokenizer_mongo_new.hash
+            )
             if tokenizer_db is None:
                 eval_logger.debug("Tokenizer does not exists.")
                 # the tokenizer is not tracked, we need to create an entry
@@ -124,13 +131,17 @@ async def tokenizer_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
                 except Exception as e:
                     eval_logger.error("Failed to save Tokenizer to MongoDB.")
                     eval_logger.error("Exeption:", Exeption=str(e))
-                    raise ApplicationError("Failed to save tokenizer to MongoDB.", non_retryable=True)
+                    raise ApplicationError(
+                        "Failed to save tokenizer to MongoDB.", non_retryable=True
+                    )
 
             # Update the result with valid data
             result.result_data.num_samples = 1  # Always one
             result.result_data.status = 0  # OK
             result.signatures = [
-                SignatureSample(signature=str(tokenizer_mongo_new.hash), id=0)  # This task has a single sample id
+                SignatureSample(
+                    signature=str(tokenizer_mongo_new.hash), id=0
+                )  # This task has a single sample id
             ]
 
         # Save to results db (a failure is also an answer)
@@ -150,11 +161,15 @@ async def tokenizer_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
         except Exception as e:
             eval_logger.error("Failed to save Result to MongoDB.")
             eval_logger.error("Exception:", Exeption=str(e))
-            raise ApplicationError("Failed to save result to MongoDB.", non_retryable=True)
+            raise ApplicationError(
+                "Failed to save result to MongoDB.", non_retryable=True
+            )
 
         eval_logger.info(
-            "Status:", tokenizer_decoded=tokenizer_decoded, tokenizer_is_valid=tokenizer_ok,
-            tokenizer_is_new=tokenizer_new
+            "Status:",
+            tokenizer_decoded=tokenizer_decoded,
+            tokenizer_is_valid=tokenizer_ok,
+            tokenizer_is_new=tokenizer_new,
         )
     except Exception as e:
         # TODO: enhance drop task logic

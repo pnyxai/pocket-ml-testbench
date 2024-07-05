@@ -15,13 +15,15 @@ app_config = setup_app(cfg)
 
 config = app_config["config"]
 
-l = get_app_logger("sidecar")
-l.info("starting sidecar")
+logger = get_app_logger("sidecar")
+logger.info("starting sidecar")
 
 # Read tokenizer data
 tokenizer = AutoTokenizer.from_pretrained(config["tokenizer_path"])
 # Process it using the MLTB library (functions are reused by the MLTB)
-TOKENIZER_JSON, TOKENIZER_HASH = prepare_tokenizer(tokenizer, TOKENIZER_EPHIMERAL_PATH="/tmp/tokenizer_aux")
+TOKENIZER_JSON, TOKENIZER_HASH = prepare_tokenizer(
+    tokenizer, TOKENIZER_EPHIMERAL_PATH="/tmp/tokenizer_aux"
+)
 
 
 # Create serving app
@@ -31,12 +33,13 @@ app = FastAPI()
 # ENDPOINTS
 ###################################################
 
+
 # -----------------------------------------------
 # Get Full Tokenizer
 # -----------------------------------------------
 @app.get("/pokt/tokenizer")
 def get_tokenizer():
-    l.debug("returning tokenizer data")
+    logger.debug("returning tokenizer data")
     return JSONResponse(content=TOKENIZER_JSON)
 
 
@@ -44,6 +47,6 @@ def get_tokenizer():
 # Get Tokenizer Hash
 # -----------------------------------------------
 @app.get("/pokt/tokenizer-hash")
-def get_tokenizer():
-    l.debug("returning tokenizer hash")
+def get_tokenizer_hash():
+    logger.debug("returning tokenizer hash")
     return JSONResponse({"hash": TOKENIZER_HASH})

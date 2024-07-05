@@ -27,6 +27,7 @@ class MongoClient:
         start_transaction(self, *args, **kwargs): Asynchronously starts a transaction with the MongoDB client.
 
     """
+
     def __init__(self, uri):
         self._uri = uri
         self._parsed_uri = urllib.parse.urlparse(uri)
@@ -46,7 +47,7 @@ class MongoClient:
         return self._uri_db_name
 
     async def ping(self):
-        return self._client.admin.command('ping')
+        return self._client.admin.command("ping")
 
     @asynccontextmanager
     async def start_session(self, *args, **kwargs):

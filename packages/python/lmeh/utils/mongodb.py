@@ -3,14 +3,24 @@ import logging
 from copy import deepcopy
 from typing import List
 from datetime import datetime
-from packages.python.protocol.protocol import PocketNetworkMongoDBResultNumerical, PocketNetworkMongoDBResultBase
+from packages.python.protocol.protocol import (
+    PocketNetworkMongoDBResultNumerical,
+    PocketNetworkMongoDBResultBase,
+)
 from dataclasses import asdict
 from bson.objectid import ObjectId
 from lm_eval.api.instance import Instance
 from temporalio.exceptions import ApplicationError
-from packages.python.protocol.protocol import PocketNetworkMongoDBTask, CompletionRequest, PocketNetworkMongoDBPrompt, \
-    CompletionResponse
-from packages.python.lmeh.utils.mongo_aggrs import aggregate_doc_ids, aggregate_response_tree
+from packages.python.protocol.protocol import (
+    PocketNetworkMongoDBTask,
+    CompletionRequest,
+    PocketNetworkMongoDBPrompt,
+    CompletionResponse,
+)
+from packages.python.lmeh.utils.mongo_aggrs import (
+    aggregate_doc_ids,
+    aggregate_response_tree,
+)
 
 from app.app import get_app_logger
 from packages.python.common.mongodb import MongoClient
@@ -27,105 +37,165 @@ class MongoOperator:
         self.client = client
         # try to read the rewrite collection name or use the default one
         # avoiding pass it on every call if not need
-        self.tokenizers_collection = collections_map["tokenizers"] if "tokenizers" in collections_map else "tokenizers"
-        self.nodes_collection = collections_map["nodes"] if "nodes" in collections_map else "nodes"
-        self.tasks_collection = collections_map["tasks"] if "tasks" in collections_map else "tasks"
-        self.instances_collection = collections_map["instances"] if "instances" in collections_map else "instances"
-        self.prompts_collection = collections_map["prompts"] if "prompts" in collections_map else "prompts"
-        self.responses_collection = collections_map["responses"] if "responses" in collections_map else "responses"
-        self.results_collection = collections_map["results"] if "results" in collections_map else "results"
-        self.buffers_numerical_collection = collections_map["buffers_numerical"] if "buffers_numerical" in collections_map else "buffers_numerical"
-        self.buffers_signatures_collection = collections_map["buffers_signatures"] if "buffers_signatures" in collections_map else "buffers_signatures"
-        
+        self.tokenizers_collection = (
+            collections_map["tokenizers"]
+            if "tokenizers" in collections_map
+            else "tokenizers"
+        )
+        self.nodes_collection = (
+            collections_map["nodes"] if "nodes" in collections_map else "nodes"
+        )
+        self.tasks_collection = (
+            collections_map["tasks"] if "tasks" in collections_map else "tasks"
+        )
+        self.instances_collection = (
+            collections_map["instances"]
+            if "instances" in collections_map
+            else "instances"
+        )
+        self.prompts_collection = (
+            collections_map["prompts"] if "prompts" in collections_map else "prompts"
+        )
+        self.responses_collection = (
+            collections_map["responses"]
+            if "responses" in collections_map
+            else "responses"
+        )
+        self.results_collection = (
+            collections_map["results"] if "results" in collections_map else "results"
+        )
+        self.buffers_numerical_collection = (
+            collections_map["buffers_numerical"]
+            if "buffers_numerical" in collections_map
+            else "buffers_numerical"
+        )
+        self.buffers_signatures_collection = (
+            collections_map["buffers_signatures"]
+            if "buffers_signatures" in collections_map
+            else "buffers_signatures"
+        )
 
     # TODO : This should reffer to PocketNetworkMongoDBInstance and not depend on LMEH blindly
     @staticmethod
     def instance_to_dict(instance: Instance, task_id: ObjectId) -> dict:
         instance_mongo = asdict(instance)
-        instance_mongo.pop('resps', None)
-        instance_mongo.pop('filtered_resps', None)
-        instance_mongo['task_id'] = task_id
-        instance_mongo['_id'] = ObjectId()
-        instance_mongo['done'] = False
+        instance_mongo.pop("resps", None)
+        instance_mongo.pop("filtered_resps", None)
+        instance_mongo["task_id"] = task_id
+        instance_mongo["_id"] = ObjectId()
+        instance_mongo["done"] = False
         return instance_mongo
-    
-    async def get_tokenizer_hash(self, address: str, service: str) -> str:
 
-        node = await self.client.db[self.nodes_collection].find_one({'address': address, 'service': service})
+    async def get_tokenizer_hash(self, address: str, service: str) -> str:
+        node = await self.client.db[self.nodes_collection].find_one(
+            {"address": address, "service": service}
+        )
 
         if node is None:
             eval_logger.error("Node address not found.", adress=address)
-            raise ApplicationError(f"Node address {address} does not exist in the database.")
+            raise ApplicationError(
+                f"Node address {address} does not exist in the database."
+            )
 
         eval_logger.debug("Node found.", node=node)
 
         # Get the node ID
-        if node.get('_id', None) is None:
-            eval_logger.error("Node address has no _id, cannot load tokenizer hash.", adress=address)
-            raise ApplicationError(f"Node address {address}, has no _id, cannot load tokenizer hash.")
-        
+        if node.get("_id", None) is None:
+            eval_logger.error(
+                "Node address has no _id, cannot load tokenizer hash.", adress=address
+            )
+            raise ApplicationError(
+                f"Node address {address}, has no _id, cannot load tokenizer hash."
+            )
+
         # Get the corresponding signature buffer
-        buffer = await self.client.db[self.buffers_signatures_collection].find_one({'task_data.node_id': node['_id'], 
-                                                                                    'task_data.framework': "signatures", 
-                                                                                    'task_data.task': "tokenizer"
-                                                                                    })
+        buffer = await self.client.db[self.buffers_signatures_collection].find_one(
+            {
+                "task_data.node_id": node["_id"],
+                "task_data.framework": "signatures",
+                "task_data.task": "tokenizer",
+            }
+        )
 
         if buffer is None:
-            eval_logger.error("Buffer for tokenizer signature not found.", adress=address)
-            raise ApplicationError(f"Node address {address} does not have a tokenizer signature buffer associated.")
+            eval_logger.error(
+                "Buffer for tokenizer signature not found.", adress=address
+            )
+            raise ApplicationError(
+                f"Node address {address} does not have a tokenizer signature buffer associated."
+            )
 
         eval_logger.debug("Tokennizer signature buffer found.", buffer=buffer)
 
-
-        tokenizer_hash =  buffer.get('last_signature', None)
+        tokenizer_hash = buffer.get("last_signature", None)
         if tokenizer_hash is None:
-            eval_logger.error("Buffer has no last signature field, entry is malformed cannot procede.", adress=address)
-            raise ApplicationError(f"Node address {address} buffer has no last signature field, entry is malformed cannot procede.")
+            eval_logger.error(
+                "Buffer has no last signature field, entry is malformed cannot procede.",
+                adress=address,
+            )
+            raise ApplicationError(
+                f"Node address {address} buffer has no last signature field, entry is malformed cannot procede."
+            )
 
         return tokenizer_hash
-    
+
     async def get_tokenizer_entry(self, tokenizer_hash: str):
-        return await self.client.db[self.tokenizers_collection].find_one({'hash': tokenizer_hash})
+        return await self.client.db[self.tokenizers_collection].find_one(
+            {"hash": tokenizer_hash}
+        )
 
     async def get_tokenizer_objects(self, address: str, service: str) -> dict:
-        
         tokenizer_hash = await self.get_tokenizer_hash(address, service)
 
-        if tokenizer_hash == '':
-            eval_logger.error("Node address does not have a valid tokenizer_hash.", adress=address)
-            raise ApplicationError(f"Node address {address} does not have a valid tokenizer_hash.")
+        if tokenizer_hash == "":
+            eval_logger.error(
+                "Node address does not have a valid tokenizer_hash.", adress=address
+            )
+            raise ApplicationError(
+                f"Node address {address} does not have a valid tokenizer_hash."
+            )
 
         tokenizer_object = await self.get_tokenizer_entry(tokenizer_hash)
 
         # Validate that the tokenizer is not empty
         if tokenizer_object is None:
-            eval_logger.error("Tokenizer hash not found.", address=address, hash=tokenizer_hash)
-            raise ApplicationError(f"Tokenizer with hash {tokenizer_hash} does not exist in the database.")
+            eval_logger.error(
+                "Tokenizer hash not found.", address=address, hash=tokenizer_hash
+            )
+            raise ApplicationError(
+                f"Tokenizer with hash {tokenizer_hash} does not exist in the database."
+            )
 
-        tokenizer = tokenizer_object['tokenizer']
+        tokenizer = tokenizer_object["tokenizer"]
         eval_logger.debug("Tokenizer found.", tokenizer_keys=list(tokenizer.keys()))
 
-        if 'model_max_length' in tokenizer['tokenizer_config']:
-            tokenizer['tokenizer_config']['model_max_length'] = int(
-                tokenizer['tokenizer_config']['model_max_length'])
+        if "model_max_length" in tokenizer["tokenizer_config"]:
+            tokenizer["tokenizer_config"]["model_max_length"] = int(
+                tokenizer["tokenizer_config"]["model_max_length"]
+            )
 
         return tokenizer
 
     async def get_prompt_request(self, request_id: ObjectId) -> CompletionRequest:
-        prompt_doc = await self.client.db[self.prompts_collection].find_one({'_id': request_id})
+        prompt_doc = await self.client.db[self.prompts_collection].find_one(
+            {"_id": request_id}
+        )
 
         if prompt_doc is None:
             eval_logger.error("Prompt request not found.", request_id=request_id)
-            raise ApplicationError(f"Prompt request with ID {request_id} does not exist in the database.")
+            raise ApplicationError(
+                f"Prompt request with ID {request_id} does not exist in the database."
+            )
 
-        data = prompt_doc['data']
+        data = prompt_doc["data"]
         try:
             # handle the exception to bring a light on production debugging if needed.
             data = json.loads(data)
         except Exception as e:
             raise ApplicationError(
                 "Bad JSON data format",
-                data, str(e),
+                data,
+                str(e),
                 type="BadJSONFormat",
                 non_retryable=True,
             )
@@ -156,11 +226,11 @@ class MongoOperator:
             )
 
         # Convert the result to a list and return it
-        doc_ids = result[0]['doc_ids']
+        doc_ids = result[0]["doc_ids"]
         return doc_ids
 
     async def get_task(self, task_id: ObjectId):
-        task = await self.client.db[self.tasks_collection].find_one({'_id': task_id})
+        task = await self.client.db[self.tasks_collection].find_one({"_id": task_id})
 
         if task is None:
             evaluation_logger.error("Task ID not found.", task_id=task_id)
@@ -171,7 +241,7 @@ class MongoOperator:
                 non_retryable=False,
             )
 
-        task.pop('_id', None)
+        task.pop("_id", None)
         evaluation_logger.debug("Task:", task=task)
         task = PocketNetworkMongoDBTask(**task)
         task.id = task_id
@@ -179,12 +249,19 @@ class MongoOperator:
         return task
 
     async def get_tasks(self):
-        cursor = self.client.db[self.tasks_collection].find({'done': True, 'evaluated': False})
+        cursor = self.client.db[self.tasks_collection].find(
+            {"done": True, "evaluated": False}
+        )
         tasks = await cursor.to_list(length=None)
         return tasks
 
-    async def retrieve_responses(self, task_id: ObjectId, ) -> List[str]:
-        cursor = self.client.db[self.tasks_collection].aggregate(aggregate_response_tree(task_id))
+    async def retrieve_responses(
+        self,
+        task_id: ObjectId,
+    ) -> List[str]:
+        cursor = self.client.db[self.tasks_collection].aggregate(
+            aggregate_response_tree(task_id)
+        )
         result = await cursor.to_list(length=None)
 
         if len(result) == 0:
@@ -195,10 +272,12 @@ class MongoOperator:
                 type="TaskNotFound",
                 non_retryable=False,
             )
-        
+
         return result
 
-    async def reconstruct_instances(self, task_id: ObjectId, eval_logger:logging.Logger) -> List[Instance]:
+    async def reconstruct_instances(
+        self, task_id: ObjectId, eval_logger: logging.Logger
+    ) -> List[Instance]:
         result = await self.retrieve_responses(task_id)
 
         valid_fields = {field.name for field in Instance.__dataclass_fields__.values()}
@@ -207,37 +286,39 @@ class MongoOperator:
         kept_doc_ids = set()
         list_result_height = []
         for doc in result:
-            i, p = doc['instance'], doc['prompt']
-            list_result_height.append(doc['response']['session_height'])
-            if not doc['response']['ok']:
-                remove_doc_ids.add(i['doc_id'])
+            i, p = doc["instance"], doc["prompt"]
+            list_result_height.append(doc["response"]["session_height"])
+            if not doc["response"]["ok"]:
+                remove_doc_ids.add(i["doc_id"])
                 continue
             else:
                 try:
                     # handle the exception to bring a light on production debugging if needed.
-                    r = json.loads(doc['response']['response'])
+                    r = json.loads(doc["response"]["response"])
                 except Exception as e:
-                    remove_doc_ids.add(i['doc_id'])
+                    remove_doc_ids.add(i["doc_id"])
                     eval_logger.error(
                         "Bad JSON data format",
-                        response = doc['response']['response'], 
-                        errpr = str(e),
+                        response=doc["response"]["response"],
+                        errpr=str(e),
                     )
                     continue
-            instance_dict = {key: value for key, value in i.items() if key in valid_fields}
+            instance_dict = {
+                key: value for key, value in i.items() if key in valid_fields
+            }
             instance = Instance(**instance_dict)
             instance.repeats = 1  # to avoid double evaluation for each instance
-            p['id'] = deepcopy(p['_id'])
-            p.pop('_id')
+            p["id"] = deepcopy(p["_id"])
+            p.pop("_id")
             instance.prompt = PocketNetworkMongoDBPrompt(**p)
             try:
                 # handle the exception to bring a light on production debugging if needed.
                 request_data = json.loads(instance.prompt.data)
             except Exception as e:
-                remove_doc_ids.add(i['doc_id'])
+                remove_doc_ids.add(i["doc_id"])
                 eval_logger.error(
-                    "Bad JSON data format", 
-                    prompt_data=instance.prompt.data, 
+                    "Bad JSON data format",
+                    prompt_data=instance.prompt.data,
                     error=str(e),
                 )
                 continue
@@ -246,7 +327,7 @@ class MongoOperator:
             try:
                 instance.resp = CompletionResponse(**r)
             except Exception as e:
-                remove_doc_ids.add(i['doc_id'])
+                remove_doc_ids.add(i["doc_id"])
                 eval_logger.error(
                     "Bad JSON CompletionResponse format",
                     response=r,
@@ -280,7 +361,7 @@ class MongoOperator:
                 result_height=-1,
                 result_time=datetime.today().isoformat(),
             ),
-            scores=[]
+            scores=[],
         ).model_dump(by_alias=True)
 
         async with self.client.start_transaction() as session:
@@ -293,4 +374,3 @@ class MongoOperator:
                 empty_result,
                 session=session,
             )
-

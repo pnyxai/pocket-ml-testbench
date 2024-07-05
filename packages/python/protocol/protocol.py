@@ -12,7 +12,9 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 class PocketNetworkRegisterTaskRequest(BaseModel):
     framework: str
     tasks: str
-    verbosity: Optional[Literal["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"]] = "ERROR"
+    verbosity: Optional[Literal["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"]] = (
+        "ERROR"
+    )
     include_path: Optional[str] = None
 
 
@@ -30,8 +32,12 @@ class PocketNetworkTaskRequest(PocketNetworkRegisterTaskRequest):
     qty: Optional[int] = None
     doc_ids: Optional[List[int]] = None
     model: Optional[str] = "pocket_network"
-    llm_args: Optional[Dict] = None  # TODO : Remove: This is LLM specific, move to agnostic format.
-    num_fewshot: Optional[int] = Field(None, ge=0)  # TODO : Remove: This is LLM specific, move to agnostic format.
+    llm_args: Optional[Dict] = (
+        None  # TODO : Remove: This is LLM specific, move to agnostic format.
+    )
+    num_fewshot: Optional[int] = Field(
+        None, ge=0
+    )  # TODO : Remove: This is LLM specific, move to agnostic format.
     gen_kwargs: Optional[str] = None
     bootstrap_iters: Optional[int] = 100000
 
@@ -66,7 +72,7 @@ class PyObjectId(ObjectId):
     @classmethod
     def validate(cls, v):
         if not isinstance(v, ObjectId):
-            raise ValueError('Not a valid ObjectId')
+            raise ValueError("Not a valid ObjectId")
         return str(v)
 
 
@@ -89,9 +95,11 @@ class CompletionRequest(BaseModel):
     max_tokens: Optional[int] = 16
     n: int = 1
     presence_penalty: Optional[float] = 0.0
-    seed: Optional[int] = Field(None,
-                                ge=-9223372036854775808,  # from torch.iinfo(torch.long).min,
-                                le=9223372036854775807)  # from torch.iinfo(torch.long).max)
+    seed: Optional[int] = Field(
+        None,
+        ge=-9223372036854775808,  # from torch.iinfo(torch.long).min,
+        le=9223372036854775807,
+    )  # from torch.iinfo(torch.long).max)
     stop: Optional[Union[str, List[str]]] = Field(default_factory=list)
     stream: Optional[bool] = False
     suffix: Optional[str] = None
@@ -145,8 +153,12 @@ class PocketNetworkMongoDBTask(BaseModel):
     framework: str
     requester_args: RequesterArgs
     blacklist: Optional[List[int]] = []
-    llm_args: Optional[Dict] = None  # TODO : Remove: This is LLM specific, move to agnostic format.
-    num_fewshot: Optional[int] = Field(None, ge=0)  # TODO : Remove: This is LLM specific, move to agnostic format.
+    llm_args: Optional[Dict] = (
+        None  # TODO : Remove: This is LLM specific, move to agnostic format.
+    )
+    num_fewshot: Optional[int] = Field(
+        None, ge=0
+    )  # TODO : Remove: This is LLM specific, move to agnostic format.
     gen_kwargs: Optional[str] = None
     bootstrap_iters: Optional[int] = 100000
     qty: int
@@ -167,7 +179,8 @@ class PocketNetworkMongoDBTask(BaseModel):
 # EVALUATOR
 ###########
 
-# TODO: Sepparate this class into an agnostic input to the evaluation workflow. 
+
+# TODO: Sepparate this class into an agnostic input to the evaluation workflow.
 # This class is inhering multiple optional parameters that dont play any role in
 # non-LMEH or non-LLM tasks.
 class PocketNetworkEvaluationTaskRequest(PocketNetworkTaskRequest):
@@ -213,7 +226,8 @@ class CompletionResponseChoice(OpenAIBaseModel):
         description=(
             "The stop string or token id that caused the completion "
             "to stop, None if the completion finished for some other reason "
-            "including encountering the EOS token"),
+            "including encountering the EOS token"
+        ),
     )
 
 
@@ -229,6 +243,7 @@ class CompletionResponse(OpenAIBaseModel):
 ###########
 # RESPONSES
 ###########
+
 
 class PocketNetworkMongoDBResultBase(BaseModel):
     id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
@@ -273,6 +288,7 @@ class PocketNetworkMongoDBResultNumerical(BaseModel):
 ###########
 # Tokenizer
 ###########
+
 
 class PocketNetworkMongoDBTokenizer(BaseModel):
     id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")

@@ -1,4 +1,4 @@
-# from https://github.com/temporalio/samples-python/blob/main/pydantic_converter/converter.py   
+# from https://github.com/temporalio/samples-python/blob/main/pydantic_converter/converter.py
 import json
 from typing import Any, Optional
 

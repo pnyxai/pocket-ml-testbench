@@ -7,8 +7,10 @@ from temporalio.exceptions import ApplicationError
 from lm_eval import utils
 from lm_eval.tasks import TaskManager
 
-from packages.python.lmeh.pocket_lm_eval.api.task import PocketNetworkConfigurableTask, \
-    EvaluatePocketNetworkConfigurableTask
+from packages.python.lmeh.pocket_lm_eval.api.task import (
+    PocketNetworkConfigurableTask,
+    EvaluatePocketNetworkConfigurableTask,
+)
 
 from packages.python.protocol.protocol import PocketNetworkTaskRequest
 
@@ -16,18 +18,20 @@ TASK_MANAGER_REGISTER_STAGE = "register"
 TASK_MANAGER_SAMPLE_STAGE = "sample"
 TASK_MANAGER_EVALUATE_STAGE = "evaluate"
 
-STAGE_TYPING = Union[TASK_MANAGER_REGISTER_STAGE, TASK_MANAGER_SAMPLE_STAGE, TASK_MANAGER_EVALUATE_STAGE]
+STAGE_TYPING = Union[
+    TASK_MANAGER_REGISTER_STAGE, TASK_MANAGER_SAMPLE_STAGE, TASK_MANAGER_EVALUATE_STAGE
+]
 
 
 class PocketNetworkTaskManager(TaskManager):
     def __init__(
-            self,
-            postgres_conn: asyncpg.Connection,
-            stage: STAGE_TYPING,
-            verbosity="ERROR",
-            include_path: Optional[str] = None,
-            pocket_args: PocketNetworkTaskRequest = None,
-            logger: Optional[logging.Logger] = None,
+        self,
+        postgres_conn: asyncpg.Connection,
+        stage: STAGE_TYPING,
+        verbosity="ERROR",
+        include_path: Optional[str] = None,
+        pocket_args: PocketNetworkTaskRequest = None,
+        logger: Optional[logging.Logger] = None,
     ) -> None:
         self.verbosity = verbosity
         self.include_path = include_path
@@ -40,7 +44,7 @@ class PocketNetworkTaskManager(TaskManager):
 
         self.task_group_map = collections.defaultdict(list)
         self.injected_metadata = {
-            'pocket_args': self.pocket_args,
+            "pocket_args": self.pocket_args,
         }
 
     """PocketNetworkTaskManager indexes all tasks from the default `lm_eval/tasks/`
@@ -49,16 +53,18 @@ class PocketNetworkTaskManager(TaskManager):
     """
 
     def _load_individual_task_or_group(
-            self,
-            name_or_config: Optional[Union[str, dict]] = None,
-            parent_name: Optional[str] = None,
-            update_config: Optional[dict] = None,
-            yaml_path: Optional[str] = None,
+        self,
+        name_or_config: Optional[Union[str, dict]] = None,
+        parent_name: Optional[str] = None,
+        update_config: Optional[dict] = None,
+        yaml_path: Optional[str] = None,
     ) -> Mapping:
         def load_task(config, task, group=None, yaml_path=None):
             if "include" in config:
                 if yaml_path is None:
-                    raise ApplicationError(f"YAML path not provided for {task}", non_retryable=True)
+                    raise ApplicationError(
+                        f"YAML path not provided for {task}", non_retryable=True
+                    )
                 config.update(
                     utils.load_yaml_config(
                         yaml_path,
@@ -70,12 +76,25 @@ class PocketNetworkTaskManager(TaskManager):
                 task_object = config["class"]()
             else:
                 config = self._process_alias(config, group=group)
-                if self.stage == TASK_MANAGER_REGISTER_STAGE or self.stage == TASK_MANAGER_SAMPLE_STAGE:
-                    task_object = PocketNetworkConfigurableTask(config=config, postgres_conn=self.postgres_conn, eval_logger=self.logger)
+                if (
+                    self.stage == TASK_MANAGER_REGISTER_STAGE
+                    or self.stage == TASK_MANAGER_SAMPLE_STAGE
+                ):
+                    task_object = PocketNetworkConfigurableTask(
+                        config=config,
+                        postgres_conn=self.postgres_conn,
+                        eval_logger=self.logger,
+                    )
                 elif self.stage == TASK_MANAGER_EVALUATE_STAGE:
-                    task_object = EvaluatePocketNetworkConfigurableTask(config=config, postgres_conn=self.postgres_conn, eval_logger=self.logger)
+                    task_object = EvaluatePocketNetworkConfigurableTask(
+                        config=config,
+                        postgres_conn=self.postgres_conn,
+                        eval_logger=self.logger,
+                    )
                 else:
-                    ApplicationError(f"Stage {self.stage} not supported", non_retryable=True)
+                    ApplicationError(
+                        f"Stage {self.stage} not supported", non_retryable=True
+                    )
             if group is not None:
                 task_object = (group, task_object)
             return {task: task_object}
@@ -89,13 +108,13 @@ class PocketNetworkTaskManager(TaskManager):
                 ############################################################
                 # START: POCKET NETWORK CODE
                 ############################################################
-                if 'metadata' in task_config.keys():
-                    task_config['metadata'].update(self.injected_metadata)
+                if "metadata" in task_config.keys():
+                    task_config["metadata"].update(self.injected_metadata)
                 else:
-                    task_config['metadata'] = self.injected_metadata
+                    task_config["metadata"] = self.injected_metadata
                 ############################################################
                 # END: POCKET NETWORK CODE
-                ############################################################                    
+                ############################################################
                 return load_task(task_config, task=name_or_config, group=parent_name)
             else:
                 group_name = name_or_config
@@ -166,10 +185,10 @@ class PocketNetworkTaskManager(TaskManager):
                         ############################################################
                         # START: POCKET NETWORK CODE
                         ############################################################
-                        if 'metadata' in task_config.keys():
-                            task_config['metadata'].update(self.injected_metadata)
+                        if "metadata" in task_config.keys():
+                            task_config["metadata"].update(self.injected_metadata)
                         else:
-                            task_config['metadata'] = self.injected_metadata
+                            task_config["metadata"] = self.injected_metadata
                         ############################################################
                         # END: POCKET NETWORK CODE
                         ############################################################

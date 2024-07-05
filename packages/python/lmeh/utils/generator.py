@@ -18,8 +18,14 @@ if TYPE_CHECKING:
 from temporalio.exceptions import ApplicationError
 from packages.python.lmeh.utils.mongodb import MongoOperator
 from packages.python.lmeh.pocket_lm_eval.tasks import PocketNetworkTaskManager
-from packages.python.protocol.protocol import PocketNetworkTaskRequest, PocketNetworkMongoDBTask, \
-    PocketNetworkMongoDBPrompt, NumericSample, PocketNetworkMongoDBResultNumerical, PocketNetworkMongoDBResultBase
+from packages.python.protocol.protocol import (
+    PocketNetworkTaskRequest,
+    PocketNetworkMongoDBTask,
+    PocketNetworkMongoDBPrompt,
+    NumericSample,
+    PocketNetworkMongoDBResultNumerical,
+    PocketNetworkMongoDBResultBase,
+)
 from motor.motor_asyncio import AsyncIOMotorClient
 from packages.python.common.mongodb import MongoClient
 from bson import ObjectId
@@ -29,14 +35,14 @@ from pymongo import UpdateOne
 # adapted from evaluator.py # def simple_evaluate(..) from lm-eval-harness to generate config task
 @positional_deprecated
 def get_configurable_task(
-        tasks: Optional[List[Union[str, dict, object]]] = None,
-        num_fewshot: Optional[int] = None,
-        check_integrity: bool = False,
-        gen_kwargs: Optional[str] = None,
-        task_manager: Optional[Union[TaskManager, PocketNetworkTaskManager]] = None,
-        verbosity: str = "ERROR",
-        predict_only: bool = False,
-        eval_logger: Optional[logging.Logger] = None,
+    tasks: Optional[List[Union[str, dict, object]]] = None,
+    num_fewshot: Optional[int] = None,
+    check_integrity: bool = False,
+    gen_kwargs: Optional[str] = None,
+    task_manager: Optional[Union[TaskManager, PocketNetworkTaskManager]] = None,
+    verbosity: str = "ERROR",
+    predict_only: bool = False,
+    eval_logger: Optional[logging.Logger] = None,
 ):
     """Instantiate and evaluate a model on a list of tasks.
 
@@ -96,7 +102,7 @@ def get_configurable_task(
                 )
 
         if predict_only:
-            log_samples = True
+            # log_samples = True
             eval_logger.debug(
                 f"Processing {task_name} in output-only mode. Metrics will not be calculated!"
             )
@@ -127,16 +133,16 @@ def get_configurable_task(
 
 
 async def generate_requests(
-        lm: "LM",
-        task_dict,
-        mongo_client: AsyncIOMotorClient,
-        args: PocketNetworkTaskRequest,
-        limit: Optional[int] = None,
-        cache_requests: bool = False,
-        rewrite_requests_cache: bool = False,
-        write_out: bool = False,
-        log_samples: bool = True,
-        eval_logger: Optional[logging.Logger] = None,
+    lm: "LM",
+    task_dict,
+    mongo_client: AsyncIOMotorClient,
+    args: PocketNetworkTaskRequest,
+    limit: Optional[int] = None,
+    cache_requests: bool = False,
+    rewrite_requests_cache: bool = False,
+    write_out: bool = False,
+    log_samples: bool = True,
+    eval_logger: Optional[logging.Logger] = None,
 ):
     """Generate and save in mongoDB: Task->Instances->Prompts
 
@@ -166,8 +172,8 @@ async def generate_requests(
     task_hierarchy, eval_tasks = get_task_list(task_dict)
     if not log_samples:
         if not all(
-                "bypass" not in getattr(task_output.task, "_metric_fn_list", {}).keys()
-                for task_output in eval_tasks
+            "bypass" not in getattr(task_output.task, "_metric_fn_list", {}).keys()
+            for task_output in eval_tasks
         ):
             raise ValueError("log_samples must be True for 'bypass' metric-only tasks")
 
@@ -197,8 +203,8 @@ async def generate_requests(
             for r in rs:
                 task_name, instance_id = r.metadata[0], r.doc_id
                 if (
-                        instance_id
-                        not in task_dict[task_name].config.metadata["pocket_args"].doc_ids
+                    instance_id
+                    not in task_dict[task_name].config.metadata["pocket_args"].doc_ids
                 ):
                     # noinspection PyArgumentList
                     eval_logger.error(
@@ -280,18 +286,17 @@ async def generate_requests(
                 insert_mongo_prompts.append(prompt_mongo.model_dump(by_alias=True))
     try:
         async with mongo_client.start_transaction() as session:
-
-            await mongo_client.db['tasks'].insert_many(
+            await mongo_client.db["tasks"].insert_many(
                 insert_mongo_tasks,
                 ordered=False,
                 session=session,
             )
-            await mongo_client.db['instances'].insert_many(
+            await mongo_client.db["instances"].insert_many(
                 insert_mongo_instances,
                 ordered=False,
                 session=session,
             )
-            await mongo_client.db['prompts'].insert_many(
+            await mongo_client.db["prompts"].insert_many(
                 insert_mongo_prompts,
                 ordered=False,
                 session=session,
@@ -313,17 +318,17 @@ async def generate_requests(
 
 
 async def evaluate(
-        lm: "LM",
-        task_dict,
-        task_id: ObjectId,
-        mongo_client: MongoClient,
-        selected_filters: List[str],
-        selected_metrics: List[str],
-        limit: Optional[int] = None,
-        cache_requests: bool = False,
-        rewrite_requests_cache: bool = False,
-        log_samples: bool = True,
-        eval_logger: Optional[logging.Logger] = None,
+    lm: "LM",
+    task_dict,
+    task_id: ObjectId,
+    mongo_client: MongoClient,
+    selected_filters: List[str],
+    selected_metrics: List[str],
+    limit: Optional[int] = None,
+    cache_requests: bool = False,
+    rewrite_requests_cache: bool = False,
+    log_samples: bool = True,
+    eval_logger: Optional[logging.Logger] = None,
 ):
     """
     :param lm: LM
@@ -341,9 +346,9 @@ async def evaluate(
     """
 
     async def save_results(
-            mongo_client: MongoClient,
-            insert_mongo_results: List[dict],
-            eval_logger: Optional[logging.Logger] = None,
+        mongo_client: MongoClient,
+        insert_mongo_results: List[dict],
+        eval_logger: Optional[logging.Logger] = None,
     ):
         try:
             async with mongo_client.start_transaction() as session:
@@ -353,24 +358,24 @@ async def evaluate(
                 for result in insert_mongo_results:
                     bulk_op.append(
                         UpdateOne(
-                            {'result_data.task_id': result['result_data']['task_id']},
-                            {'$set': result},
-                            upsert=True
+                            {"result_data.task_id": result["result_data"]["task_id"]},
+                            {"$set": result},
+                            upsert=True,
                         )
                     )
                     bulk_task_op.append(
                         UpdateOne(
-                            {'_id': result['result_data']['task_id']},
-                            {'$set': {"evaluated": True}},
+                            {"_id": result["result_data"]["task_id"]},
+                            {"$set": {"evaluated": True}},
                         )
                     )
 
-                await mongo_client.db['results'].bulk_write(
+                await mongo_client.db["results"].bulk_write(
                     bulk_op,
                     ordered=False,
                     session=session,
                 )
-                await mongo_client.db['tasks'].bulk_write(
+                await mongo_client.db["tasks"].bulk_write(
                     bulk_task_op,
                     ordered=False,
                     session=session,
@@ -392,8 +397,8 @@ async def evaluate(
     task_hierarchy, eval_tasks = get_task_list(task_dict)
     if not log_samples:
         if not all(
-                "bypass" not in getattr(task_output.task, "_metric_fn_list", {}).keys()
-                for task_output in eval_tasks
+            "bypass" not in getattr(task_output.task, "_metric_fn_list", {}).keys()
+            for task_output in eval_tasks
         ):
             raise ValueError("log_samples must be True for 'bypass' metric-only tasks")
 
@@ -422,7 +427,9 @@ async def evaluate(
 
         if len(task.instances) == 0:
             insert_mongo_results = []
-            eval_logger.debug("No instances/doc_id generated for task.", task_id=str(task_id))
+            eval_logger.debug(
+                "No instances/doc_id generated for task.", task_id=str(task_id)
+            )
             base_result = PocketNetworkMongoDBResultBase(
                 task_id=task_id,
                 status=1,
@@ -431,8 +438,8 @@ async def evaluate(
                 result_time=datetime.today().isoformat(),
             )
             num_result = PocketNetworkMongoDBResultNumerical(
-                result_data=base_result,
-                scores=[])
+                result_data=base_result, scores=[]
+            )
             insert_mongo_results.append(num_result.model_dump(by_alias=True))
             await save_results(
                 mongo_client=mongo_client,
@@ -523,8 +530,8 @@ async def evaluate(
             result_time=datetime.today().isoformat(),
         )
         num_result = PocketNetworkMongoDBResultNumerical(
-            result_data=base_result,
-            scores=scores)
+            result_data=base_result, scores=scores
+        )
         insert_mongo_results.append(num_result.model_dump(by_alias=True))
     eval_logger.debug("Mongo Result:", mongo_result=insert_mongo_results)
 
