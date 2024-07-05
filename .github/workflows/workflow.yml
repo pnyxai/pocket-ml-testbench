@@ -29,14 +29,26 @@ jobs:
 
       - run: |
           echo ${{ github.event.pull_request.draft != true }}
-          echo "Pull Request is not draft, this workflow need continue."
+          echo "Pull Request is not draft, this workflow will continue."
 
   check_env:
     name: 'Detect Environment'
-    needs: draft
+    # needs: draft
     uses: './.github/workflows/check_env.yml'
 
   check_path:
     name: 'Detect Changed Paths'
-    needs: draft
+    # needs: draft
     uses: './.github/workflows/check_path.yml'
+
+  python:
+    name: 'Python'
+    uses: './.github/workflows/python.yml'
+    needs:
+      - check_env
+      - check_path
+    secrets: inherit
+    if: ${{ needs.check_path.outputs.python == 'true' }}
+    with:
+      env: ${{ needs.check_env.outputs.env }}
+      push: ${{ needs.check_env.outputs.env == 'production' || needs.check_env.outputs.env == 'development' }}

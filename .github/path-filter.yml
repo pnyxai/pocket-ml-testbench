@@ -1,6 +1,7 @@
 ### language filters
 python:
   - 'apps/python/**'
+  - 'packages/python/**'
 
 ### application filters
 evaluator:

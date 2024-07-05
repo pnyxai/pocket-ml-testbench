@@ -2,60 +2,46 @@ import time
 import urllib
 from contextlib import asynccontextmanager
 
-import pandas as pd
 from app.logger import init_logger
 from motor.motor_asyncio import AsyncIOMotorClient
 
 
-
-agg_get_nodes_ids = [
-    {
-        '$project': {
-            '_id': 1
-        }
-    }
-]
+agg_get_nodes_ids = [{"$project": {"_id": 1}}]
 
 agg_data_node = [
+    {"$match": {"_id": ""}},
     {
-        '$match': {
-            '_id': ''
+        "$project": {
+            "_id": 0,
+            "address": "$address",
+            "service": "$service",
+            "last_seen_height": "$last_seen_height",
+            "last_seen_time": "$last_seen_time",
         }
-    }, {
-        '$project': {
-            '_id': 0, 
-            'address': '$address', 
-            'service': '$service', 
-            'last_seen_height': '$last_seen_height', 
-            'last_seen_time': '$last_seen_time'
-        }
-    }
+    },
 ]
 
 agg_data_scores = [
+    {"$match": {"task_data.node_id": ""}},
     {
-        '$match': {
-            'task_data.node_id': ''
+        "$project": {
+            "_id": 0,
+            "framework": "$task_data.framework",
+            "task": "$task_data.task",
+            "last_seen": "$task_data.last_seen",
+            "last_height": "$task_data.last_height",
+            "mean": "$mean_scores",
+            "std": "$std_scores",
+            "num": "$circ_buffer_control.num_samples",
         }
-    }, {
-        '$project': {
-            '_id': 0, 
-            'framework': '$task_data.framework', 
-            'task': '$task_data.task', 
-            'last_seen': '$task_data.last_seen', 
-            'last_height': '$task_data.last_height', 
-            'mean': '$mean_scores', 
-            'std': '$std_scores', 
-            'num': '$circ_buffer_control.num_samples'
-        }
-    }
+    },
 ]
 
 logger = init_logger(__name__)
 
+
 class PoktMongodb:
     def __init__(self, MONGO_URI, VERBOSE=True):
-
         # Connect to mongodb server
         self.MONGO_URI = MONGO_URI
         self._uri = self.MONGO_URI
@@ -111,7 +97,9 @@ class PoktMongodb:
             try:
                 result = list()
                 async with self.start_transaction() as session:
-                    async for document in self.db[collection].aggregate(aggregate, session=session):
+                    async for document in self.db[collection].aggregate(
+                        aggregate, session=session
+                    ):
                         # Process each document here
                         result.append(document)
             except Exception as e:
