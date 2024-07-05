@@ -33,12 +33,12 @@ jobs:
 
   check_env:
     name: 'Detect Environment'
-    # needs: draft
+    needs: draft
     uses: './.github/workflows/check_env.yml'
 
   check_path:
     name: 'Detect Changed Paths'
-    # needs: draft
+    needs: draft
     uses: './.github/workflows/check_path.yml'
 
   python:
