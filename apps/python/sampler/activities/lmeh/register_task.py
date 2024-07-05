@@ -44,7 +44,9 @@ async def register_task(args: PocketNetworkRegisterTaskRequest) -> bool:
                 eval_logger.info("Checking Task exists", task_name=task_name)
                 # check if the task is already registered
                 if not await lmeh_sql.checked_task(task_name, connection=conn):
-                    eval_logger.info("Missing Task. Starting Generation process", task_name=task_name)
+                    eval_logger.info(
+                        "Missing Task. Starting Generation process", task_name=task_name
+                    )
                     try:
                         task_dict = lmeh_generator.get_configurable_task(
                             tasks=[task_name],
@@ -54,12 +56,16 @@ async def register_task(args: PocketNetworkRegisterTaskRequest) -> bool:
                             task_manager=task_manager,
                             verbosity=str(args.verbosity),
                             predict_only=False,
-                            eval_logger=eval_logger
+                            eval_logger=eval_logger,
                         )
                     except ApplicationError as e:
                         raise e
                     except Exception as error:
-                        eval_logger.error("Generate Task raise an error", task_name=task_name, error=error)
+                        eval_logger.error(
+                            "Generate Task raise an error",
+                            task_name=task_name,
+                            error=error,
+                        )
                         raise ApplicationError(
                             "Generate TaskDict raise an error",
                             str(error),
@@ -73,12 +79,15 @@ async def register_task(args: PocketNetworkRegisterTaskRequest) -> bool:
                             "Missing Task name on TaskDict",
                             task_name,
                             type="LmehGenerator",
-                            non_retryable=False
+                            non_retryable=False,
                         )
 
                     try:
                         # Create dataset table
-                        eval_logger.info("Transferring Task from dataset to postgres", task_name=task_name)
+                        eval_logger.info(
+                            "Transferring Task from dataset to postgres",
+                            task_name=task_name,
+                        )
                         configurable_task = task_dict[task_name]
                         await configurable_task.save_to_sql()
                         # todo: remove line below
@@ -87,12 +96,13 @@ async def register_task(args: PocketNetworkRegisterTaskRequest) -> bool:
                         raise e
                     except Exception as error:
                         error_msg = "Transfer Dataset to SQL runs in errors"
-                        eval_logger.error(error_msg, task_name=task_name, error=error, )
-                        raise ApplicationError(
+                        eval_logger.error(
                             error_msg,
-                            str(error),
-                            type="SQLError",
-                            non_retryable=True
+                            task_name=task_name,
+                            error=error,
+                        )
+                        raise ApplicationError(
+                            error_msg, str(error), type="SQLError", non_retryable=True
                         )
 
                     try:
@@ -106,18 +116,22 @@ async def register_task(args: PocketNetworkRegisterTaskRequest) -> bool:
                         raise e
                     except Exception as error:
                         error_msg = "Register Task/Dataset pair runs in errors"
-                        eval_logger.error(error_msg, task_name=task_name, error=error, )
-                        raise ApplicationError(
+                        eval_logger.error(
                             error_msg,
-                            str(error),
-                            type="SQLError",
-                            non_retryable=True
+                            task_name=task_name,
+                            error=error,
+                        )
+                        raise ApplicationError(
+                            error_msg, str(error), type="SQLError", non_retryable=True
                         )
 
-
-                    eval_logger.info("Task registered successfully", task_name=task_name)
+                    eval_logger.info(
+                        "Task registered successfully", task_name=task_name
+                    )
                 else:
-                    eval_logger.info("ConfigurableTask already registered.", task_name=task_name)
+                    eval_logger.info(
+                        "ConfigurableTask already registered.", task_name=task_name
+                    )
 
     eval_logger.info("Register Task Activity done")
     return True

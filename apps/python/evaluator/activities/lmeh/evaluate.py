@@ -27,7 +27,7 @@ async def lmeh_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
     ############################################################
     app_config = get_app_config()
     eval_logger = get_app_logger("evaluation")
-    config = get_app_config()['config']
+    config = get_app_config()["config"]
     mongo_client = config["mongo_client"]
     mongo_operator = MongoOperator(client=mongo_client)
 
@@ -36,7 +36,8 @@ async def lmeh_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
     except Exception as e:
         raise ApplicationError(
             "Bad Task ID format",
-            str(e), args.task_id,
+            str(e),
+            args.task_id,
             type="BadParams",
             non_retryable=True,
         )
@@ -70,7 +71,7 @@ async def lmeh_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
                 "Need to specify task to evaluate.",
                 args.tasks,
                 type="BadParams",
-                non_retryable=True
+                non_retryable=True,
             )
         if not task_mongo.done:
             eval_logger.error("Task is not done.")
@@ -135,7 +136,11 @@ async def lmeh_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
                     except ApplicationError as e:
                         raise e
                     except Exception as error:
-                        eval_logger.error("Generate Task raise an error", task_name=task_name, error=error)
+                        eval_logger.error(
+                            "Generate Task raise an error",
+                            task_name=task_name,
+                            error=error,
+                        )
                         raise ApplicationError(
                             "Generate TaskDict raise an error",
                             str(error),
@@ -149,24 +154,27 @@ async def lmeh_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
                             "Missing Task name on TaskDict",
                             task_name,
                             type="LmehGenerator",
-                            non_retryable=False
+                            non_retryable=False,
                         )
 
                     # load dataset from database
                     try:
                         # it is loading data from sql to a dataset
                         await task_dict[task_name].load_from_sql()
-                        eval_logger.debug("Task loaded successfully:", task_dict=task_dict)
+                        eval_logger.debug(
+                            "Task loaded successfully:", task_dict=task_dict
+                        )
                     except ApplicationError as e:
                         raise e
                     except Exception as error:
                         error_msg = "Load Dataset from SQL runs in errors"
-                        eval_logger.error(error_msg, task_name=task_name, error=error, )
-                        raise ApplicationError(
+                        eval_logger.error(
                             error_msg,
-                            str(error),
-                            type="SQLError",
-                            non_retryable=True
+                            task_name=task_name,
+                            error=error,
+                        )
+                        raise ApplicationError(
+                            error_msg, str(error), type="SQLError", non_retryable=True
                         )
 
                     try:

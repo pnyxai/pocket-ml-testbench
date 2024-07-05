@@ -7,10 +7,14 @@ from packages.python.protocol.protocol import (
     RequesterArgs,
 )
 
+
 def get_tokenizer_task(
     args: RequesterArgs,
-) -> tuple[PocketNetworkMongoDBTask, List[PocketNetworkMongoDBInstance], List[PocketNetworkMongoDBPrompt]]:
-
+) -> tuple[
+    PocketNetworkMongoDBTask,
+    List[PocketNetworkMongoDBInstance],
+    List[PocketNetworkMongoDBPrompt],
+]:
     # Set call variables
     args.method = "GET"
     args.path = "/pokt/tokenizer"
@@ -29,6 +33,8 @@ def get_tokenizer_task(
     # There is a single instance for getting the tokenizer
     instance = PocketNetworkMongoDBInstance(task_id=task.id)
     # Create the void prompt
-    prompt = PocketNetworkMongoDBPrompt(model_config={}, data="", task_id=task.id, instance_id=instance.id, timeout=10)
+    prompt = PocketNetworkMongoDBPrompt(
+        model_config={}, data="", task_id=task.id, instance_id=instance.id, timeout=10
+    )
 
     return task, [instance], [prompt]

@@ -14,7 +14,7 @@ from bson import ObjectId
 async def get_task_data(args: PocketNetworkEvaluationTaskRequest) -> tuple[str, str]:
     app_config = get_app_config()
     eval_logger = get_app_logger("evaluation")
-    config = app_config['config']
+    config = app_config["config"]
 
     mongo_client = config["mongo_client"]
     mongo_operator = MongoOperator(client=mongo_client)
@@ -26,13 +26,16 @@ async def get_task_data(args: PocketNetworkEvaluationTaskRequest) -> tuple[str, 
     except Exception as e:
         raise ApplicationError(
             "Bad Task ID format",
-            str(e), args.task_id,
+            str(e),
+            args.task_id,
             type="BadParams",
             non_retryable=True,
         )
 
     task_mongo = await mongo_operator.get_task(args.task_id)
 
-    eval_logger.debug(f"Found! Evaluating [{task_mongo.framework}][{task_mongo.tasks}].")
+    eval_logger.debug(
+        f"Found! Evaluating [{task_mongo.framework}][{task_mongo.tasks}]."
+    )
 
     return task_mongo.framework, task_mongo.tasks

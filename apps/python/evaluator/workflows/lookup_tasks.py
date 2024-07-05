@@ -13,8 +13,8 @@ class LookupTasks:
     async def run(self) -> int:
         app_config = get_app_config()
         eval_logger = get_app_logger("lookup_tasks")
-        config = app_config['config']
-        task_queue = get_from_dict(config, 'temporal.task_queue')
+        config = app_config["config"]
+        task_queue = get_from_dict(config, "temporal.task_queue")
         eval_logger.info("Starting Workflow LookupTasks")
         # Extract framework and task to evaluate
         ids = await workflow.execute_activity(

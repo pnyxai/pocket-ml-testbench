@@ -1,7 +1,7 @@
 from datetime import timedelta
 from temporalio import workflow
 from temporalio.common import RetryPolicy
-from packages.python.protocol.protocol import  PocketNetworkTaskRequest
+from packages.python.protocol.protocol import PocketNetworkTaskRequest
 from temporalio.exceptions import ApplicationError
 
 from app.app import get_app_logger
@@ -36,7 +36,7 @@ class Sampler:
                 f"{params.framework} framework not implemented yet",
                 params,
                 type="BadParams",
-                non_retryable=True
+                non_retryable=True,
             )
 
         eval_logger.info("Workflow Sampler done")

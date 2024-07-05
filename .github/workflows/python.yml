@@ -1,0 +1,27 @@
+name: Python
+
+on:
+  workflow_call:
+    inputs:
+      env:
+        type: string
+        required: true
+      push:
+        description: 'Should push to docker registry?'
+        required: true
+        type: boolean
+      
+
+jobs:
+
+  # Lint the python code
+  lint:
+    name: Lint Python Code
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint Code Base
+        uses: chartboost/ruff-action@v1
+        with:
+          changed-files: 'true'
+        if: ${{ github.event.pull_request.merged == false }}

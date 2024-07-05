@@ -44,7 +44,7 @@ class Evaluator:
                     f"Task {task} of framework {framework} is not implemented yet.",
                     args,
                     type="BadParams",
-                    non_retryable=True
+                    non_retryable=True,
                 )
 
         else:
@@ -52,7 +52,7 @@ class Evaluator:
                 f"{framework} framework not implemented yet",
                 args,
                 type="BadParams",
-                non_retryable=True
+                non_retryable=True,
             )
 
         eval_logger.info("Workflow Evaluator done")

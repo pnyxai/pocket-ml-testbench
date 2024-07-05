@@ -1,19 +1,22 @@
 import logging
 import asyncpg
-from typing import Optional, Union
+from typing import Optional
 from temporalio.exceptions import ApplicationError
-from packages.python.lmeh.pocket_lm_eval.tasks import PocketNetworkTaskManager, STAGE_TYPING
+from packages.python.lmeh.pocket_lm_eval.tasks import (
+    PocketNetworkTaskManager,
+    STAGE_TYPING,
+)
 from packages.python.protocol.protocol import PocketNetworkTaskRequest
 
 
 def get_task_manager(
-        tasks: str,
-        include_path: str,
-        verbosity: str,
-        postgres_conn: asyncpg.Connection,
-        logger: Optional[logging.Logger] = None,
-        pocket_args: Optional[PocketNetworkTaskRequest] = None,
-        stage: Optional[STAGE_TYPING] = None,
+    tasks: str,
+    include_path: str,
+    verbosity: str,
+    postgres_conn: asyncpg.Connection,
+    logger: Optional[logging.Logger] = None,
+    pocket_args: Optional[PocketNetworkTaskRequest] = None,
+    stage: Optional[STAGE_TYPING] = None,
 ):
     """
     :param stage:
@@ -40,9 +43,11 @@ def get_task_manager(
         logger.error("Need to specify task to evaluate.")
         raise ApplicationError(
             "Need to specify task to evaluate.",
-            tasks, include_path, verbosity,
+            tasks,
+            include_path,
+            verbosity,
             type="BadParams",
-            non_retryable=True
+            non_retryable=True,
         )
     else:
         task_list = tasks.split(",")
@@ -56,6 +61,11 @@ def get_task_manager(
             missing_tasks = ", ".join(task_missing)
             # noinspection PyArgumentList
             logger.error("Tasks were not found", missing_tasks=missing_tasks)
-            raise ApplicationError("Tasks not found", missing_tasks, type="TaskNotFound", non_retryable=True)
+            raise ApplicationError(
+                "Tasks not found",
+                missing_tasks,
+                type="TaskNotFound",
+                non_retryable=True,
+            )
 
     return task_manager, task_names

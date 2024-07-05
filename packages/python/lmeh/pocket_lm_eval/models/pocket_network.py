@@ -11,7 +11,7 @@ from lm_eval.models.openai_completions import get_result
 from packages.python.lmeh.utils.mongodb import MongoOperator
 from packages.python.lmeh.utils.tokenizers import load_tokenizer
 from app.app import get_app_logger
-from packages.python.protocol.protocol import  RequesterArgs, CompletionRequest
+from packages.python.protocol.protocol import RequesterArgs, CompletionRequest
 from packages.python.common.mongodb import MongoClient
 from temporalio.exceptions import ApplicationError
 
@@ -23,17 +23,17 @@ class PocketNetworkLM(TemplateLM):
     _DEFAULT_MAX_LENGTH = 4096
 
     def __init__(
-            self,
-            requester_args: RequesterArgs,
-            mongo_client: MongoClient,
-            wf_id: str,
-            model: str="pocket_network",
-            base_url: str = None,
-            truncate: bool = False,
-            max_gen_toks: int = 256,
-            batch_size: int = 1,
-            seed: int = 1234,
-            max_length: Optional[int] = None,
+        self,
+        requester_args: RequesterArgs,
+        mongo_client: MongoClient,
+        wf_id: str,
+        model: str = "pocket_network",
+        base_url: str = None,
+        truncate: bool = False,
+        max_gen_toks: int = 256,
+        batch_size: int = 1,
+        seed: int = 1234,
+        max_length: Optional[int] = None,
     ) -> None:
         """
 
@@ -52,7 +52,7 @@ class PocketNetworkLM(TemplateLM):
         self.requester_args = requester_args
         self.mongo_client = mongo_client
         self.mongo_operator = MongoOperator(client=mongo_client)
-        
+
     @property
     def eot_token_id(self):
         return self.end_of_text_token_id
@@ -93,7 +93,7 @@ class PocketNetworkLM(TemplateLM):
             "Tokenizer loaded successfully.",
             adress=self.requester_args.address,
             service=self.requester_args.service,
-        )    
+        )
 
     def tok_encode(self, string: str, **kwargs) -> List[int]:
         # TODO: Add options like in lm_eval/models/vllm_causallms.py
@@ -107,7 +107,7 @@ class PocketNetworkLM(TemplateLM):
         return self.tokenizer.decode(tokens)
 
     def _loglikelihood_tokens(
-            self, requests,disable_tqdm: bool = True
+        self, requests, disable_tqdm: bool = True
     ) -> List[CompletionRequest]:
         res = []
 
@@ -121,14 +121,14 @@ class PocketNetworkLM(TemplateLM):
         re_ord = utils.Reorderer(requests, _collate)
 
         for chunk in tqdm(
-                list(lm_eval.models.utils.chunks(re_ord.get_reordered(), self.batch_size)),
-                disable=disable_tqdm,
+            list(lm_eval.models.utils.chunks(re_ord.get_reordered(), self.batch_size)),
+            disable=disable_tqdm,
         ):
             inps = []
             ctxlens = []
             for cache_key, context_enc, continuation_enc in chunk:
                 # max_length+1 because the API takes up to 2049 tokens, including the first context token
-                inp = (context_enc + continuation_enc)[-(self.max_length + 1):]
+                inp = (context_enc + continuation_enc)[-(self.max_length + 1) :]
                 # TODO: the logic is much simpler if we just look at the length of continuation tokens
                 ctxlen = len(context_enc) - max(
                     0, len(context_enc) + len(continuation_enc) - (self.max_length + 1)
@@ -150,7 +150,7 @@ class PocketNetworkLM(TemplateLM):
             )
 
             for prompt_i, ctxlen, (cache_key, context_enc, continuation_enc) in zip(
-                    request.prompt, ctxlens, chunk
+                request.prompt, ctxlens, chunk
             ):
                 req_dict = request.to_dict(remove_fields=["prompt"])
                 req_dict["prompt"] = prompt_i
@@ -165,7 +165,9 @@ class PocketNetworkLM(TemplateLM):
 
         return re_ord.get_original(res)
 
-    def generate_until(self, requests,disable_tqdm: bool = True) -> List[CompletionRequest]:
+    def generate_until(
+        self, requests, disable_tqdm: bool = True
+    ) -> List[CompletionRequest]:
         if not requests:
             return []
         res = []
@@ -192,14 +194,14 @@ class PocketNetworkLM(TemplateLM):
 
         # todo: more intelligent batching for heterogeneous `until`
         for chunk, request_args in tqdm(
-                list(sameuntil_chunks(re_ord.get_reordered(), self.batch_size)),
-                disable=disable_tqdm,
+            list(sameuntil_chunks(re_ord.get_reordered(), self.batch_size)),
+            disable=disable_tqdm,
         ):
             inps = []
             self._max_gen_toks = request_args.get("max_gen_toks", self.max_gen_toks)
             for context, _ in chunk:
                 context_enc = self.tok_encode(context)
-                inp = context_enc[-(self.max_length - self.max_gen_toks):]
+                inp = context_enc[-(self.max_length - self.max_gen_toks) :]
                 inps.append(inp)
             gen_kwargs = request_args
             until = None
@@ -232,8 +234,14 @@ class PocketNetworkLM(TemplateLM):
                 for k, v in request_args.items()
                 if k not in ["do_sample", "max_gen_toks", "until"]
             }
-            eval_logger.debug("CompletionRequest: ", model=self.model, prompt=inps, max_tokens=self.max_gen_toks,
-                              stop=until, seed=self.seed)
+            eval_logger.debug(
+                "CompletionRequest: ",
+                model=self.model,
+                prompt=inps,
+                max_tokens=self.max_gen_toks,
+                stop=until,
+                seed=self.seed,
+            )
             eval_logger.debug("Extra args: ", **extra_args)
             request = CompletionRequest(
                 model=self.model,
@@ -253,7 +261,7 @@ class PocketNetworkLM(TemplateLM):
                 res.append(req_i)
             ############################################################
             # END: POCKET NETWORK CODE
-            ############################################################                
+            ############################################################
         return re_ord.get_original(res)
 
     def _model_call(self, inps):
@@ -264,9 +272,7 @@ class PocketNetworkLM(TemplateLM):
         # Isn't used because we override generate_until
         raise NotImplementedError()
 
-    def loglikelihood_rolling(
-            self, requests,disable_tqdm: bool = True
-    ) -> List[float]:
+    def loglikelihood_rolling(self, requests, disable_tqdm: bool = True) -> List[float]:
         loglikelihoods = []
 
         for (string,) in tqdm([req.args for req in requests], disable=disable_tqdm):
@@ -298,7 +304,7 @@ class PocketNetworkLM(TemplateLM):
         return loglikelihoods
 
     def loglikelihood(
-            self, requests, disable_tqdm: bool = True
+        self, requests, disable_tqdm: bool = True
     ) -> List[CompletionRequest]:
         new_reqs = []
         for context, continuation in [req.args for req in requests]:
@@ -335,7 +341,7 @@ class PocketNetworkLM(TemplateLM):
             continuation_enc = whole_enc[context_enc_len:]
 
         return context_enc, continuation_enc
-    
+
 
 class EvaluatorLM(TemplateLM):
     _DEFAULT_MAX_LENGTH = 4096
@@ -358,7 +364,7 @@ class EvaluatorLM(TemplateLM):
         self._batch_size = batch_size
         self._max_gen_toks = max_gen_toks
         self._max_length = max_length
-        
+
     @property
     def eot_token_id(self):
         return self.end_of_text_token_id
@@ -390,7 +396,7 @@ class EvaluatorLM(TemplateLM):
         return self.tokenizer.decode(tokens)
 
     def _loglikelihood_tokens(
-            self, requests,disable_tqdm: bool = True
+        self, requests, disable_tqdm: bool = True
     ) -> List[Tuple[float, bool]]:
         res = []
 
@@ -412,7 +418,7 @@ class EvaluatorLM(TemplateLM):
             response = []
             for cache_key, context_enc, continuation_enc, resp in chunk:
                 # max_length+1 because the API takes up to 2049 tokens, including the first context token
-                inp = (context_enc + continuation_enc)[-(self.max_length + 1):]
+                inp = (context_enc + continuation_enc)[-(self.max_length + 1) :]
                 # TODO: the logic is much simpler if we just look at the length of continuation tokens
                 ctxlen = len(context_enc) - max(
                     0, len(context_enc) + len(continuation_enc) - (self.max_length + 1)
@@ -429,7 +435,9 @@ class EvaluatorLM(TemplateLM):
                 res.append(answer)
         return re_ord.get_original(res)
 
-    def generate_until(self, requests, disable_tqdm: bool = True) -> List[CompletionRequest]:
+    def generate_until(
+        self, requests, disable_tqdm: bool = True
+    ) -> List[CompletionRequest]:
         if not requests:
             return []
         res = []
@@ -439,12 +447,21 @@ class EvaluatorLM(TemplateLM):
         responses = [req.resp for req in requests]
         completion_requests = [req.prompt.data for req in requests]
         requests = [
-            ((a, b, cr, r), c) for a, b, cr, r, c in zip(context, context_encoding, completion_requests, responses, all_gen_kwargs)
+            ((a, b, cr, r), c)
+            for a, b, cr, r, c in zip(
+                context,
+                context_encoding,
+                completion_requests,
+                responses,
+                all_gen_kwargs,
+            )
         ]
         evaluation_logger.debug("Qty of requests: ", qty_req=len(requests))
+
         def _collate(x):
             toks = x[0][1]
             return len(toks), x[0][0]
+
         re_ord = utils.Reorderer(requests, _collate)
 
         def sameuntil_chunks(xs, size):
@@ -459,6 +476,7 @@ class EvaluatorLM(TemplateLM):
 
             if ret:
                 yield ret, lastuntil
+
         # todo: more intelligent batching for heterogeneous `until`
         for chunk, request_args in tqdm(
             list(sameuntil_chunks(re_ord.get_reordered(), self.batch_size)),
@@ -475,7 +493,7 @@ class EvaluatorLM(TemplateLM):
                 for term in until_:
                     if len(term) > 0:
                         s = s.split(term)[0]
-                res.append(s)            #                 
+                res.append(s)  #
         return re_ord.get_original(res)
 
     def _model_call(self, inps):
@@ -486,22 +504,28 @@ class EvaluatorLM(TemplateLM):
         # Isn't used because we override generate_until
         raise NotImplementedError()
 
-    def loglikelihood_rolling(
-        self, requests, disable_tqdm: bool = True
-    ) -> List[float]:
+    def loglikelihood_rolling(self, requests, disable_tqdm: bool = True) -> List[float]:
         # TODO: Update this method in order to be available for the Pocket Network
-        return ApplicationError("Currently evaluation of task with loglikelihood_rolling are not suported",non_retryable=True)
-    
+        return ApplicationError(
+            "Currently evaluation of task with loglikelihood_rolling are not suported",
+            non_retryable=True,
+        )
+
     def loglikelihood(
-        self, requests,disable_tqdm: bool = True
+        self, requests, disable_tqdm: bool = True
     ) -> List[CompletionRequest]:
         # Modify this in order to insted of get contex and continuation,
         # get the context, continuation, context_enc and continuation_enc.
         # then new_reqs should have the responses.
 
         new_reqs = []
-        for (([context, continuation],), context_enc, continuation_enc, resp) in [(req.args, req.prompt.context_enc, req.prompt.continuation_enc, req.resp) for req in requests]:
-            new_reqs.append(((context, continuation), context_enc, continuation_enc, resp))
+        for ([context, continuation],), context_enc, continuation_enc, resp in [
+            (req.args, req.prompt.context_enc, req.prompt.continuation_enc, req.resp)
+            for req in requests
+        ]:
+            new_reqs.append(
+                ((context, continuation), context_enc, continuation_enc, resp)
+            )
 
         return self._loglikelihood_tokens(new_reqs, disable_tqdm=disable_tqdm)
 

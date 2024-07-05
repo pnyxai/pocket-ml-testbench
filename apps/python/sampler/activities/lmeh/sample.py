@@ -17,9 +17,9 @@ from packages.python.lmeh.pocket_lm_eval.tasks import TASK_MANAGER_SAMPLE_STAGE
 async def lmeh_sample(args: PocketNetworkTaskRequest) -> bool:
     app_config = get_app_config()
     eval_logger = get_app_logger("sample")
-    config = get_app_config()['config']
+    config = get_app_config()["config"]
     wf_id = activity.info().workflow_id
-    
+
     eval_logger.info(
         "Starting activity lmeh_sample",
         task_name=args.tasks,
@@ -59,7 +59,7 @@ async def lmeh_sample(args: PocketNetworkTaskRequest) -> bool:
                 # generate configurable tasks
                 try:
                     open_llm_cfg = open_llm_config.get_task_config(task_names[0])
-                    args.num_fewshot = open_llm_cfg["num_fewshot"]                    
+                    args.num_fewshot = open_llm_cfg["num_fewshot"]
                     task_dict = lmeh_generator.get_configurable_task(
                         tasks=[task_name],
                         num_fewshot=args.num_fewshot,
@@ -73,7 +73,9 @@ async def lmeh_sample(args: PocketNetworkTaskRequest) -> bool:
                 except ApplicationError as e:
                     raise e
                 except Exception as error:
-                    eval_logger.error("Generate Task raise an error", task_name=task_name, error=error)
+                    eval_logger.error(
+                        "Generate Task raise an error", task_name=task_name, error=error
+                    )
                     raise ApplicationError(
                         "Generate TaskDict raise an error",
                         str(error),
@@ -87,7 +89,7 @@ async def lmeh_sample(args: PocketNetworkTaskRequest) -> bool:
                         "Missing Task name on TaskDict",
                         task_name,
                         type="LmehGenerator",
-                        non_retryable=False
+                        non_retryable=False,
                     )
 
                 # load dataset from database
@@ -99,12 +101,13 @@ async def lmeh_sample(args: PocketNetworkTaskRequest) -> bool:
                     raise e
                 except Exception as error:
                     error_msg = "Load Dataset from SQL runs in errors"
-                    eval_logger.error(error_msg, task_name=task_name, error=error, )
-                    raise ApplicationError(
+                    eval_logger.error(
                         error_msg,
-                        str(error),
-                        type="SQLError",
-                        non_retryable=True
+                        task_name=task_name,
+                        error=error,
+                    )
+                    raise ApplicationError(
+                        error_msg, str(error), type="SQLError", non_retryable=True
                     )
 
                 # Instance LM

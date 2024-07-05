@@ -8,9 +8,7 @@ from evaluate.utils import disable_progress_bar as evaluate_disable_progress_bar
 from transformers.utils.logging import set_verbosity as trasformer_set_verbosity
 
 app_config = {
-    "config": {
-        "log_level": "ERROR"
-    },
+    "config": {"log_level": "ERROR"},
     # set the postgres connection here
     "postgres": None,
     # set the mongodb connection here
@@ -28,8 +26,8 @@ async def setup_app(cfg) -> dict:
     # use get_from_dict(dict, "path") or get_from_dict(dict, "nested.path") to:
     # connect mongodb
     log_level = get_from_dict(app_config, "config.log_level")
-    logging.getLogger('motor').setLevel(log_level)
-    mongo_client = MongoClient(app_config["config"]['mongodb_uri'])
+    logging.getLogger("motor").setLevel(log_level)
+    mongo_client = MongoClient(app_config["config"]["mongodb_uri"])
     await mongo_client.ping()
     app_config["config"]["mongo_client"] = mongo_client
     # create postgres connection
@@ -42,10 +40,10 @@ async def setup_app(cfg) -> dict:
     )
 
     async with pg_pool.acquire() as conn:
-        await conn.execute('SELECT 1')
+        await conn.execute("SELECT 1")
 
     app_config["postgres"] = pg_pool
-    
+
     # disable download bars from lm_eval dependencies.
     trasformer_set_verbosity(logging.getLevelName(log_level))
     datasets_disable_progress_bars()
