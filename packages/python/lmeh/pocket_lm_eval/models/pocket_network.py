@@ -3,7 +3,6 @@ import copy
 from typing import Dict, List, Optional, Tuple, Union
 
 import lm_eval.models.utils
-import transformers
 from app.app import get_app_logger
 from lm_eval import utils
 from lm_eval.api.instance import Instance

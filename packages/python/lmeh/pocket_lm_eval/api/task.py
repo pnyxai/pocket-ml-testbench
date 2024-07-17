@@ -7,13 +7,8 @@ from collections.abc import Callable
 from typing import (
     Any,
     Dict,
-    Iterable,
-    Iterator,
     List,
-    Literal,
-    Mapping,
     Optional,
-    Tuple,
     Union,
 )
 
