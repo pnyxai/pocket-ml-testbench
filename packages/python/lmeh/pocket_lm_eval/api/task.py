@@ -436,6 +436,7 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
         where_clause = self.get_SQL_where_clause(indexes, _split, _split_ranges)
         # Construct the full SQL query
         sql_query = f'SELECT * FROM "{self.TABLE_NAME}" WHERE {where_clause};'
+        self.eval_logger.debug("SQL Query:", sql_query=sql_query)
         ds = await SqlDatasetLoader(
             postgres_connection=self.postgres_conn,
             query=sql_query,
@@ -688,28 +689,27 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
                 non_retryable=True,
             )
 
-    def add_string_ids_range(self, split: str, id_list_str: str, _split_ranges: dict):
+    def add_range_condition(self, split: str, _split_ranges: dict):
         """
-        This function adds a range of ids to the id_list_str
+        This function constructs a BETWEEN condition for a range of ids.
 
         Args:
         split: The split for which the range of ids should be added (this is one of self.config.<training|validation|dev>_split)
-        id_list_str: A string of ids separated by commas
         _split_ranges: A dictionary with the min and max ids for each split
 
         Returns:
-        id_list_str: A string of ids separated by commas (to be used in a SQL query)
+        condition: A string representing a SQL BETWEEN condition
         """
         min_range = _split_ranges[split]["min"]
-        max_range = _split_ranges[split]["max"] + 1
+        max_range = _split_ranges[split]["max"]
         self.eval_logger.debug(
-            "Adding ids from split range:",
+            "Adding range condition:",
             split=split,
             min_range=min_range,
             max_range=max_range,
         )
-        id_list_str += ", ".join(str(id) for id in range(min_range, max_range))
-        return id_list_str
+        condition = f"( __id BETWEEN {min_range} AND {max_range})"
+        return condition
 
     def generate_random_doc_ids(
         self,
@@ -783,11 +783,10 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
 
     def get_SQL_where_clause(self, indexes, _split: str, _split_ranges: dict):
         """
-        This function constructs a WHERE clause for a SQL query. Apply the logic detailed in
-
+        This function constructs a WHERE clause for a SQL query using BETWEEN for ranges.
         """
 
-        id_list_str = ""
+        conditions = []
         if self.config.test_split:
             self.check_split_exist(self.config.test_split, _split_ranges)
             if _split != self.config.test_split:
@@ -801,24 +800,26 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
                     non_retryable=True,
                 )
 
-            id_list_str += ", ".join(str(id) for id in indexes) + ", "
+            conditions.append(f"( __id IN ({', '.join(str(id) for id in indexes)}))")
 
             if self.config.validation_split:
                 self.check_split_exist(self.config.validation_split, _split_ranges)
-                id_list_str = self.add_string_ids_range(
-                    self.config.validation_split, id_list_str, _split_ranges
+                conditions.append(
+                    self.add_range_condition(
+                        self.config.validation_split, _split_ranges
+                    )
                 )
 
             if self.config.training_split:
                 self.check_split_exist(self.config.training_split, _split_ranges)
-                id_list_str = self.add_string_ids_range(
-                    self.config.training_split, id_list_str, _split_ranges
+                conditions.append(
+                    self.add_range_condition(self.config.training_split, _split_ranges)
                 )
 
             if self.config.fewshot_split:
                 self.check_split_exist(self.config.fewshot_split, _split_ranges)
-                id_list_str = self.add_string_ids_range(
-                    self.config.fewshot_split, id_list_str, _split_ranges
+                conditions.append(
+                    self.add_range_condition(self.config.fewshot_split, _split_ranges)
                 )
 
         elif self.config.validation_split:
@@ -833,17 +834,18 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
                     f"_split '{_split}' not equal to validation_split '{self.config.validation_split}'",
                     non_retryable=True,
                 )
-            id_list_str += ", ".join(str(id) for id in indexes) + ", "
+            conditions.append(f"( __id IN ({', '.join(str(id) for id in indexes)}))")
+
             if self.config.training_split:
                 self.check_split_exist(self.config.training_split, _split_ranges)
-                id_list_str = self.add_string_ids_range(
-                    self.config.training_split, id_list_str, _split_ranges
+                conditions.append(
+                    self.add_range_condition(self.config.training_split, _split_ranges)
                 )
 
             if self.config.fewshot_split:
                 self.check_split_exist(self.config.fewshot_split, _split_ranges)
-                id_list_str = self.add_string_ids_range(
-                    self.config.fewshot_split, id_list_str, _split_ranges
+                conditions.append(
+                    self.add_range_condition(self.config.fewshot_split, _split_ranges)
                 )
         else:
             self.eval_logger.error("Config without splits:", config=self.config)
@@ -852,13 +854,7 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
                 non_retryable=True,
             )
 
-        # ensure that id_list_str do not end with a comma
-        # in case where only one split is used or the last split is used
-        if id_list_str.endswith(", "):
-            id_list_str = id_list_str[:-2]
-
-        where_clause = f"__id IN ({id_list_str})"
-
+        where_clause = " OR ".join(conditions)
         return where_clause
 
     async def get_max_min_ids(self, postgres_conn: asyncpg.Connection, table_name: str):
