@@ -1,7 +1,8 @@
 import time
 import uuid
 from datetime import datetime
-from typing import List, Literal, Optional, Union, Dict
+from typing import Dict, List, Literal, Optional, Union
+
 from bson import ObjectId
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -40,6 +41,9 @@ class PocketNetworkTaskRequest(PocketNetworkRegisterTaskRequest):
     )  # TODO : Remove: This is LLM specific, move to agnostic format.
     gen_kwargs: Optional[str] = None
     bootstrap_iters: Optional[int] = 100000
+    system_instruction: Optional[str] = None
+    apply_chat_template: Optional[bool] = False
+    fewshot_as_multiturn: Optional[bool] = False
 
     @model_validator(mode="after")
     def verify_qty_or_doc_ids(self):
@@ -293,6 +297,15 @@ class PocketNetworkMongoDBResultNumerical(BaseModel):
 class PocketNetworkMongoDBTokenizer(BaseModel):
     id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
     tokenizer: dict
+    hash: str
+
+    class Config:
+        arbitrary_types_allowed = True
+
+
+class PocketNetworkMongoDBConfig(BaseModel):
+    id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
+    config: dict
     hash: str
 
     class Config:

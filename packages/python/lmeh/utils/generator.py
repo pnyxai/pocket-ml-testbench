@@ -1,6 +1,7 @@
-from datetime import datetime
+import json
 import logging
 from collections import defaultdict
+from datetime import datetime
 from typing import TYPE_CHECKING, List, Optional, Union
 
 from lm_eval.evaluator_utils import (
@@ -9,27 +10,33 @@ from lm_eval.evaluator_utils import (
     run_task_tests,
 )
 from lm_eval.tasks import TaskManager, get_task_dict
-from lm_eval.utils import positional_deprecated, simple_parse_args_string
+from lm_eval.utils import (
+    handle_non_serializable,
+    hash_string,
+    positional_deprecated,
+    simple_parse_args_string,
+)
 
 if TYPE_CHECKING:
     from lm_eval.api.model import LM
     from lm_eval.tasks import Task
 
-from temporalio.exceptions import ApplicationError
-from packages.python.lmeh.utils.mongodb import MongoOperator
-from packages.python.lmeh.pocket_lm_eval.tasks import PocketNetworkTaskManager
-from packages.python.protocol.protocol import (
-    PocketNetworkTaskRequest,
-    PocketNetworkMongoDBTask,
-    PocketNetworkMongoDBPrompt,
-    NumericSample,
-    PocketNetworkMongoDBResultNumerical,
-    PocketNetworkMongoDBResultBase,
-)
-from motor.motor_asyncio import AsyncIOMotorClient
-from packages.python.common.mongodb import MongoClient
 from bson import ObjectId
+from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo import UpdateOne
+from temporalio.exceptions import ApplicationError
+
+from packages.python.common.mongodb import MongoClient
+from packages.python.lmeh.pocket_lm_eval.tasks import PocketNetworkTaskManager
+from packages.python.lmeh.utils.mongodb import MongoOperator
+from packages.python.protocol.protocol import (
+    NumericSample,
+    PocketNetworkMongoDBPrompt,
+    PocketNetworkMongoDBResultBase,
+    PocketNetworkMongoDBResultNumerical,
+    PocketNetworkMongoDBTask,
+    PocketNetworkTaskRequest,
+)
 
 
 # adapted from evaluator.py # def simple_evaluate(..) from lm-eval-harness to generate config task
@@ -43,6 +50,7 @@ def get_configurable_task(
     verbosity: str = "ERROR",
     predict_only: bool = False,
     eval_logger: Optional[logging.Logger] = None,
+    fewshot_random_seed: int = 1234,
 ):
     """Instantiate and evaluate a model on a list of tasks.
 
@@ -125,6 +133,11 @@ def get_configurable_task(
             # if num_fewshot not provided, and the task does not define a default one, default to 0
             if (default_num_fewshot := task_obj.get_config("num_fewshot")) is None:
                 task_obj.set_config(key="num_fewshot", value=0)
+        # fewshot_random_seed set for tasks, even with a default num_fewshot (e.g. in the YAML file)
+        task_obj.set_fewshot_seed(seed=fewshot_random_seed)
+        eval_logger.info(
+            f"Setting fewshot random generator seed to {fewshot_random_seed}"
+        )
 
     if check_integrity:
         run_task_tests(task_list=tasks)
@@ -142,6 +155,9 @@ async def generate_requests(
     rewrite_requests_cache: bool = False,
     write_out: bool = False,
     log_samples: bool = True,
+    system_instruction: Optional[str] = None,
+    apply_chat_template: bool = False,
+    fewshot_as_multiturn: bool = False,
     eval_logger: Optional[logging.Logger] = None,
 ):
     """Generate and save in mongoDB: Task->Instances->Prompts
@@ -161,6 +177,12 @@ async def generate_requests(
         If True, write out an example document and model input for checking task integrity
     :param log_samples: bool
         If True, write out all model outputs and documents for per-sample measurement and post-hoc analysis
+    :param system_instruction: str
+        System instruction to be applied to the prompt
+    :param apply_chat_template: bool
+        If True, apply chat template to the prompt
+    :param fewshot_as_multiturn: bool
+        Whether to provide the fewshot examples as a multiturn conversation or a single user turn.
     :return
         Dictionary of results
     """
@@ -186,6 +208,15 @@ async def generate_requests(
             world_size=lm.world_size,
             cache_requests=cache_requests,
             rewrite_requests_cache=rewrite_requests_cache,
+            system_instruction=system_instruction,
+            apply_chat_template=apply_chat_template,
+            fewshot_as_multiturn=fewshot_as_multiturn,
+            chat_template=getattr(lm, "apply_chat_template")
+            if apply_chat_template
+            else None,
+            tokenizer_name=getattr(lm, "tokenizer_name", "")
+            if apply_chat_template
+            else "",
         )
         eval_logger.debug(
             f"Task: {task_output.task_name}; number of requests on this rank: {len(task.instances)}"
@@ -513,6 +544,16 @@ async def evaluate(
                         "filtered_resps": [
                             req.filtered_resps[filter_key] for req in requests
                         ],
+                        "doc_hash": hash_string(
+                            json.dumps(
+                                requests[0].doc,
+                                indent=2,
+                                default=handle_non_serializable,
+                                ensure_ascii=False,
+                            )
+                        ),
+                        "prompt_hash": hash_string(requests[0].arguments[0]),
+                        "target_hash": hash_string(str(target)),
                     }
                     example.update(metrics)
                     task_output.logged_samples.append(example)

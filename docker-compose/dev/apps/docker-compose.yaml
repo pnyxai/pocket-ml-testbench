@@ -84,7 +84,7 @@ services:
   test-api:
     build:
       context: ../../../
-      dockerfile: apps/nodejs/test-api/Dockerfile
+      dockerfile: apps/python/api/Dockerfile
     image: pocket_ml_testbench_test_api:dev
     extra_hosts:
       host.docker.internal: host-gateway

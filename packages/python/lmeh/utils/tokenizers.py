@@ -3,9 +3,15 @@ import os
 import shutil
 from hashlib import sha256
 from pathlib import Path
-from transformers import AutoTokenizer, PreTrainedTokenizer, PreTrainedTokenizerFast
 from typing import Union
 
+from transformers import (
+    AutoConfig,
+    AutoTokenizer,
+    PretrainedConfig,
+    PreTrainedTokenizer,
+    PreTrainedTokenizerFast,
+)
 
 home = os.environ["HOME"]
 
@@ -71,7 +77,10 @@ def prepare_tokenizer(
 
 
 def load_tokenizer(
-    tokenizer_objects: dict, wf_id: str, tokenizer_ephimeral_path: str = None
+    tokenizer_objects: dict,
+    wf_id: str,
+    tokenizer_ephimeral_path: str = None,
+    trust_remote_code: bool = True,
 ) -> Union[PreTrainedTokenizer, PreTrainedTokenizerFast]:
     if tokenizer_ephimeral_path is None:
         tokenizer_ephimeral_path = Path(
@@ -90,7 +99,9 @@ def load_tokenizer(
             json.dump(value, f)
             f.close()
 
-    tokenizer = AutoTokenizer.from_pretrained(tokenizer_ephimeral_path)
+    tokenizer = AutoTokenizer.from_pretrained(
+        tokenizer_ephimeral_path, trust_remote_code=trust_remote_code
+    )
     try:
         shutil.rmtree(tokenizer_ephimeral_path)
         if eval_logger is not None:
@@ -105,3 +116,84 @@ def load_tokenizer(
             f"Error removing '{tokenizer_ephimeral_path.name}' directory: {e}"
         )
     return tokenizer
+
+
+def _get_config_jsons(_config: PretrainedConfig, CONFIG_EPHIMERAL_PATH=None):
+    CONFIG_EPHIMERAL_PATH = Path(CONFIG_EPHIMERAL_PATH)
+    CONFIG_EPHIMERAL_PATH.mkdir(parents=True, exist_ok=True)
+    # save config files in ephimeral folder
+    _config.save_pretrained(CONFIG_EPHIMERAL_PATH.absolute())
+    tmp_list = [i for i in CONFIG_EPHIMERAL_PATH.glob("*.json")]
+    print(tmp_list)
+    # populate config json
+    config_jsons = {}
+    for json_path in tmp_list:
+        with open(json_path) as json_file:
+            filename = json_path.stem
+            print(filename)
+            config_jsons[filename] = json.load(json_file)
+    try:
+        shutil.rmtree(CONFIG_EPHIMERAL_PATH)
+    except OSError as e:
+        raise RuntimeError(
+            f"Error removing '{CONFIG_EPHIMERAL_PATH.name}' dir: {e}"
+        ) from e
+    for key in config_jsons.keys():
+        if "_name_or_path" in config_jsons[key]:
+            config_jsons[key]["_name_or_path"] = "Unknown"
+
+    return config_jsons
+
+
+def prepare_config(
+    _config: PretrainedConfig,
+    CONFIG_EPHIMERAL_PATH=None,
+) -> dict:
+    config_jsons = _get_config_jsons(
+        _config, CONFIG_EPHIMERAL_PATH=CONFIG_EPHIMERAL_PATH
+    )
+
+    hash = json.dumps(config_jsons, sort_keys=True).encode("utf-8")
+    config_hash = sha256(hash).hexdigest()
+
+    return config_jsons, config_hash
+
+
+def load_config(
+    config_objects: dict,
+    wf_id: str,
+    config_ephimeral_path: str = None,
+    trust_remote_code: bool = True,
+) -> PretrainedConfig:
+    if config_ephimeral_path is None:
+        config_ephimeral_path = Path(os.path.join(home, "config_ephimeral", wf_id))
+    else:
+        config_ephimeral_path = Path(config_ephimeral_path)
+    config_ephimeral_path.mkdir(parents=True, exist_ok=True)
+
+    for key, value in config_objects.items():
+        filename = os.path.join(config_ephimeral_path, key + ".json")
+        with open(filename, "w") as f:
+            print(filename)
+            if eval_logger is not None:
+                eval_logger.debug(f"Writing '{filename}'")
+            json.dump(value, f)
+            f.close()
+
+    _config = AutoConfig.from_pretrained(
+        config_ephimeral_path, trust_remote_code=trust_remote_code
+    )
+    try:
+        shutil.rmtree(config_ephimeral_path)
+        if eval_logger is not None:
+            eval_logger.debug(
+                f"Ephimeral '{config_ephimeral_path.name}' directory removed successfully."
+            )
+            eval_logger.debug(
+                f"Tokenizer objects availables: {str(config_objects.keys())}"
+            )
+    except OSError as e:
+        raise RuntimeError(
+            f"Error removing '{config_ephimeral_path.name}' directory: {e}"
+        )
+    return _config

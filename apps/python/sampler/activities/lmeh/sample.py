@@ -1,15 +1,15 @@
+from activities.utils import auto_heartbeater
+from app.app import get_app_config, get_app_logger
 from temporalio import activity
 from temporalio.exceptions import ApplicationError
 
-from packages.python.lmeh.utils.common import get_task_manager
-from app.app import get_app_logger, get_app_config
-from packages.python.protocol.protocol import PocketNetworkTaskRequest
-from packages.python.lmeh.utils import generator as lmeh_generator
-from packages.python.lmeh.utils import task_config as open_llm_config
 from packages.python.lmeh.pocket_lm_eval.models.pocket_network import PocketNetworkLM
-from activities.utils import auto_heartbeater
-from packages.python.lmeh.utils import sql as lmeh_sql
 from packages.python.lmeh.pocket_lm_eval.tasks import TASK_MANAGER_SAMPLE_STAGE
+from packages.python.lmeh.utils import generator as lmeh_generator
+from packages.python.lmeh.utils import sql as lmeh_sql
+from packages.python.lmeh.utils import task_config as open_llm_config
+from packages.python.lmeh.utils.common import get_task_manager
+from packages.python.protocol.protocol import PocketNetworkTaskRequest
 
 
 @activity.defn
@@ -112,6 +112,17 @@ async def lmeh_sample(args: PocketNetworkTaskRequest) -> bool:
 
                 # Instance LM
                 eval_logger.info("Generating LM")
+                eval_logger.debug(
+                    "Passed `--trust_remote_code`, setting environment variable `HF_DATASETS_TRUST_REMOTE_CODE=true`"
+                )
+                # HACK: import datasets and override its HF_DATASETS_TRUST_REMOTE_CODE value internally,
+                # because it's already been determined based on the prior env var before launching our
+                # script--`datasets` gets imported by lm_eval internally before these lines can update the env.
+                import datasets
+
+                datasets.config.HF_DATASETS_TRUST_REMOTE_CODE = True
+
+                args.llm_args["trust_remote_code"] = True
                 lm = PocketNetworkLM(
                     requester_args=args.requester_args,
                     mongo_client=mongo_client,

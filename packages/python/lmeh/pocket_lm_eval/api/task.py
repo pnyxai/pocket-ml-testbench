@@ -1,15 +1,28 @@
-import numpy as np
-import random
-import asyncpg
-from datasets import Dataset, load_dataset, DatasetDict
 import datetime
 import decimal
 import json
+import random
 import time
-from typing import Any, Dict, List, Optional
-from tqdm import tqdm
-from temporalio.exceptions import ApplicationError
-from lm_eval.api.task import ConfigurableTask, TaskConfig, ALL_OUTPUT_TYPES
+from collections.abc import Callable
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Literal,
+    Mapping,
+    Optional,
+    Tuple,
+    Union,
+)
+
+import asyncpg
+import numpy as np
+from app.app import get_app_logger
+from bson import ObjectId
+from datasets import Dataset, DatasetDict, DownloadMode, load_dataset
+from lm_eval import utils
 from lm_eval.api import samplers
 from lm_eval.api.registry import (
     AGGREGATION_REGISTRY,
@@ -19,13 +32,14 @@ from lm_eval.api.registry import (
     get_metric_aggregation,
     is_higher_better,
 )
+from lm_eval.api.task import ALL_OUTPUT_TYPES, ConfigurableTask, TaskConfig
 from lm_eval.caching.cache import load_from_cache, save_to_cache
 from lm_eval.filters import build_filter_ensemble
 from lm_eval.prompts import get_prompt
+from temporalio.exceptions import ApplicationError
+from tqdm import tqdm
 
-from app.app import get_app_logger
 from packages.python.common.mongodb import MongoClient
-from bson import ObjectId
 from packages.python.lmeh.utils.mongodb import MongoOperator
 
 
@@ -129,17 +143,18 @@ class SqlDatasetSaver:
         )
         await self._conn.execute(create_table)
 
-    async def transfer(self):
+    async def transfer(self, dataset_kwargs: Optional[Dict[str, Any]] = None):
         self._logger.info(
             "Starting dataset transfer",
             dataset_path=self.dataset_path,
             dataset_name=self.dataset_name,
+            dataset_kwargs=dataset_kwargs,
         )
         start_time = time.perf_counter()
         self.dataset = load_dataset(
             path=self.dataset_path,
             name=self.dataset_name,
-            trust_remote_code=True,
+            **dataset_kwargs if dataset_kwargs is not None else {},
         ).flatten_indices()
         for split in self.dataset:
             self.splits.append(split)
@@ -222,9 +237,9 @@ class SqlDatasetSaver:
 class PocketNetworkConfigurableTask(ConfigurableTask):
     def __init__(
         self,
-        data_dir=None,
-        cache_dir=None,
-        download_mode=None,
+        data_dir: Optional[str] = None,
+        cache_dir: Optional[str] = None,
+        download_mode: Optional[DownloadMode] = None,
         config: Optional[dict] = None,
         postgres_conn: Optional[asyncpg.Connection] = None,
         eval_logger: Any = get_app_logger("sampler"),
@@ -362,8 +377,9 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
             connection=self.postgres_conn,
             logger=self.eval_logger,
         )
+
         # transfer from dataset to the table
-        await streamer.transfer()
+        await streamer.transfer(self.config.dataset_kwargs)
 
     async def load_from_sql(
         self, dataset_kwargs: Optional[Dict[str, Any]] = None
@@ -475,11 +491,29 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
             self.prompt = None
 
         if self.fewshot_docs() is not None:
-            self.sampler = samplers.get_sampler(
+            self.fewshot_rnd = (
+                random.Random()
+            )  # setting with no seed, to be overridden at a later time
+            config_sampler: Union[str, Callable] = (
                 self.config.fewshot_config.get("sampler", "default")
                 if self.config.fewshot_config
                 else "default"
-            )(list(self.fewshot_docs()), self, rnd=random.Random(1234))
+            )
+            if isinstance(config_sampler, str):
+                self.sampler = samplers.get_sampler(config_sampler)(
+                    list(self.fewshot_docs()), self, rnd=self.fewshot_rnd
+                )
+            elif callable(config_sampler) and issubclass(
+                config_sampler, samplers.ContextSampler
+            ):
+                self.sampler = config_sampler(
+                    docs=list(self.fewshot_docs()), task=self, rnd=self.fewshot_rnd
+                )
+            else:
+                raise TypeError(
+                    f"fewshot_config.sampler should be a string or callable of ContextSampler type, "
+                    f"not {type(config_sampler)}"
+                )
 
         self.task_docs = self.eval_docs
 
@@ -539,11 +573,16 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
     def build_all_requests(
         self,
         *,
-        limit=None,
-        rank=None,
-        world_size=None,
-        cache_requests=False,
-        rewrite_requests_cache=False,
+        limit: Union[int, None] = None,
+        rank: int = 0,
+        world_size: int = 1,
+        cache_requests: bool = False,
+        rewrite_requests_cache: bool = False,
+        system_instruction: Optional[str] = None,
+        apply_chat_template: bool = False,
+        fewshot_as_multiturn: bool = False,
+        chat_template: Optional[Callable] = None,
+        tokenizer_name: str = "",
     ) -> None:
         """Build a set of Instances for a task, and store them in task.instances"""
 
@@ -551,6 +590,14 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
         og_limit = limit
 
         cache_key = f"requests-{self._config.task}-{self.config.num_fewshot}shot-rank{rank}-world_size{world_size}"
+        cache_key += "-chat_template" if apply_chat_template else ""
+        cache_key += "-fewshot_as_multiturn" if fewshot_as_multiturn else ""
+        cache_key += (
+            f"-system_prompt_hash{utils.hash_string(system_instruction)}"
+            if system_instruction is not None
+            else ""
+        )
+        cache_key += f"-tokenizer{tokenizer_name}"
 
         cached_instances = load_from_cache(file_name=cache_key)
 
@@ -594,6 +641,10 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
             fewshot_ctx = self.fewshot_context(
                 doc,
                 0 if self.config.num_fewshot is None else self.config.num_fewshot,
+                system_instruction,
+                apply_chat_template,
+                fewshot_as_multiturn,
+                chat_template,
             )
 
             # TODO: we should override self.config.repeats if doing greedy gen so users don't waste time+compute
@@ -931,11 +982,16 @@ class EvaluatePocketNetworkConfigurableTask(PocketNetworkConfigurableTask):
         task_id: ObjectId,
         mongo_client: MongoClient,
         collection: str = "tasks",
-        limit=None,
-        rank=None,
-        world_size=None,
-        cache_requests=False,
-        rewrite_requests_cache=False,
+        limit: Union[int, None] = None,
+        rank: int = 0,
+        world_size: int = 1,
+        cache_requests: bool = False,
+        rewrite_requests_cache: bool = False,
+        system_instruction: Optional[str] = None,
+        apply_chat_template: bool = False,
+        fewshot_as_multiturn: bool = False,
+        chat_template: Optional[Callable] = None,
+        tokenizer_name: str = "",
     ) -> None:
         """Build a set of Instances for a task, and store them in task.instances"""
         self._instances, kept_doc_ids, self.result_height = await MongoOperator(

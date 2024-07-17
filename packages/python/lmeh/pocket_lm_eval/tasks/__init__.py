@@ -1,17 +1,17 @@
 import collections
 import logging
-import asyncpg
 from functools import partial
-from typing import Mapping, Optional, Union
-from temporalio.exceptions import ApplicationError
+from typing import List, Mapping, Optional, Union
+
+import asyncpg
 from lm_eval import utils
 from lm_eval.tasks import TaskManager
+from temporalio.exceptions import ApplicationError
 
 from packages.python.lmeh.pocket_lm_eval.api.task import (
-    PocketNetworkConfigurableTask,
     EvaluatePocketNetworkConfigurableTask,
+    PocketNetworkConfigurableTask,
 )
-
 from packages.python.protocol.protocol import PocketNetworkTaskRequest
 
 TASK_MANAGER_REGISTER_STAGE = "register"
@@ -29,7 +29,8 @@ class PocketNetworkTaskManager(TaskManager):
         postgres_conn: asyncpg.Connection,
         stage: STAGE_TYPING,
         verbosity="ERROR",
-        include_path: Optional[str] = None,
+        include_path: Optional[Union[str, List]] = None,
+        include_defaults: bool = True,
         pocket_args: PocketNetworkTaskRequest = None,
         logger: Optional[logging.Logger] = None,
     ) -> None:
@@ -38,7 +39,9 @@ class PocketNetworkTaskManager(TaskManager):
         self.pocket_args = pocket_args
         self.postgres_conn = postgres_conn
         self.logger = logger
-        self._task_index = self.initialize_tasks(include_path=include_path)
+        self._task_index = self.initialize_tasks(
+            include_path=include_path, include_defaults=include_defaults
+        )
         self._all_tasks = sorted(list(self._task_index.keys()))
         self.stage = stage
 
@@ -65,13 +68,14 @@ class PocketNetworkTaskManager(TaskManager):
                     raise ApplicationError(
                         f"YAML path not provided for {task}", non_retryable=True
                     )
-                config.update(
-                    utils.load_yaml_config(
+                config = {
+                    **utils.load_yaml_config(
                         yaml_path,
                         yaml_config={"include": config.pop("include")},
                         mode="full",
-                    )
-                )
+                    ),
+                    **config,
+                }
             if self._config_is_python_task(config):
                 task_object = config["class"]()
             else:
