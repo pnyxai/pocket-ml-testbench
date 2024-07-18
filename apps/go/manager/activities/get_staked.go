@@ -57,15 +57,15 @@ func (aCtx *Ctx) GetStaked(ctx context.Context, params types.GetStakedParams) (*
 		l.Error().Str("service", params.Service).Msg("Cannot get blocks per session parameter.")
 		return nil, err
 	}
-
-	result.Block.Height = currHeight
 	i64, err := strconv.ParseInt(blocksPerSession, 10, 64)
 	if err != nil {
 		l.Error().Str("service", params.Service).Msg("Could convert parameter to number.")
 		return nil, err
 	}
 
+	// Assign
 	result.Block.BlocksPerSession = i64
+	result.Block.Height = currHeight
 
 	return &result, nil
 }

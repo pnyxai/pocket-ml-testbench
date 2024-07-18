@@ -120,7 +120,7 @@ func (aCtx *Ctx) AnalyzeNode(ctx context.Context, params types.AnalyzeNodeParams
 				}
 
 				// Get number of tasks in queue
-				inQueue, _, blackList, _, err := CheckTaskDatabase(thisNodeData.Address, thisNodeData.Service, test.Framework, task, aCtx.App.Mongodb, l)
+				inQueue, _, blackList, _, err := checkTaskDatabase(thisNodeData.Address, thisNodeData.Service, test.Framework, task, aCtx.App.Mongodb, l)
 				if err != nil {
 					return nil, err
 				}
@@ -203,7 +203,7 @@ func updateTasksNode(nodeData *records.NodeRecord, tests []types.TestsData, fram
 			//------------------------------------------------------------------
 			// Check pending and done tasks in the database
 			//------------------------------------------------------------------
-			_, tasksDone, _, tasksIDs, err := CheckTaskDatabase(nodeData.Address, nodeData.Service, test.Framework, task, mongoDB, l)
+			_, tasksDone, _, tasksIDs, err := checkTaskDatabase(nodeData.Address, nodeData.Service, test.Framework, task, mongoDB, l)
 			if err != nil {
 				l.Debug().Str("address", nodeData.Address).Str("service", nodeData.Service).Str("framework", test.Framework).Str("task", task).Msg("Cannot check Tasks Database.")
 				return err
@@ -275,7 +275,7 @@ func updateTasksNode(nodeData *records.NodeRecord, tests []types.TestsData, fram
 }
 
 // Looks for a framework-task-node in the TaskDB and retreives all the IDs adn tasks status
-func CheckTaskDatabase(address string, service string, framework string, task string, mongoDB mongodb.MongoDb, l *zerolog.Logger) (tasksInQueue uint32, tasksDone uint32, blackList []int, tasksIDs []primitive.ObjectID, err error) {
+func checkTaskDatabase(address string, service string, framework string, task string, mongoDB mongodb.MongoDb, l *zerolog.Logger) (tasksInQueue uint32, tasksDone uint32, blackList []int, tasksIDs []primitive.ObjectID, err error) {
 	// define blacklist as length zero
 	blackList = make([]int, 0)
 
