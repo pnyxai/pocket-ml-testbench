@@ -244,7 +244,7 @@ services:
       CONFIG_PATH: /home/app/configs/config.json
     volumes:
       - $SIDECAR_CONFIG_FILE:/home/app/configs/config.json
-      - $SIDECAR_TOKENIZER_FILE_B:/tokenizer/
+      - $SIDECAR_TOKENIZER_FILE_C:/tokenizer/
 
   nginx-sidecar-C:
     <<: *base
@@ -496,6 +496,7 @@ services:
       TQDM_DISABLE: "True"
       HF_DATASETS_DISABLE_PROGRESS_BAR: "True"
       EVALUATE_VERBOSITY: "error"
+      TRANSFORMERS_VERBOSITY : "error"
     volumes:
       - $SAMPLER_CONFIG_FILE:/home/app/configs/config.json
     depends_on:
@@ -544,6 +545,7 @@ services:
       TQDM_DISABLE: "True"
       HF_DATASETS_DISABLE_PROGRESS_BAR: "True"
       EVALUATE_VERBOSITY: "error"
+      TRANSFORMERS_VERBOSITY : "error"
     volumes:
       - $EVALUATOR_CONFIG_FILE:/home/app/configs/config.json
     depends_on:

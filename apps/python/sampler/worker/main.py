@@ -1,11 +1,12 @@
-import sys
 import asyncio
 
 # import concurrent.futures
 import multiprocessing
+import sys
 from concurrent.futures import ProcessPoolExecutor
+
 from temporalio.client import Client
-from temporalio.worker import Worker, SharedStateManager
+from temporalio.worker import SharedStateManager, Worker
 from temporalio.worker.workflow_sandbox import (
     SandboxedWorkflowRunner,
     SandboxRestrictions,
@@ -14,14 +15,15 @@ from temporalio.worker.workflow_sandbox import (
 sys.path.append(".")
 sys.path.append("../../../")
 
-from packages.python.common.utils import get_from_dict
-from app.app import setup_app, get_app_logger
-from app.config import read_config
 from activities.lmeh.register_task import register_task as lmeh_register_task
 from activities.lmeh.sample import lmeh_sample as lmeh_sample
+from activities.signatures.signatures import sign_sample
+from app.app import get_app_logger, setup_app
+from app.config import read_config
 from workflows.register import Register
 from workflows.sampler import Sampler
-from activities.signatures.signatures import sign_sample
+
+from packages.python.common.utils import get_from_dict
 
 # We always want to pass through external modules to the sandbox that we know
 # are safe for workflow use
@@ -41,6 +43,7 @@ modules = [
     "lm_eval",
     "pydantic",
     "datasets",
+    "transformers",
 ]
 
 

@@ -18,7 +18,7 @@ mmlu="mmlu_abstract_algebra,mmlu_anatomy,mmlu_astronomy,mmlu_business_ethics,mml
 heavy="arc_challenge,hellaswag,truthfulqa_mc2,winogrande,gsm8k"
 one="gsm8k"
 # change this if you want a different set of datasets, by default it create everything
-keys=$one
+keys=$heavy
 
 json_array=$(printf ',"%s"' "${key_array[@]}")
 json_array="[${json_array:1}]"

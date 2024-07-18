@@ -1,10 +1,15 @@
 import logging
-import asyncpg
+import random
 from typing import Optional
+
+import asyncpg
+import numpy as np
+import torch
 from temporalio.exceptions import ApplicationError
+
 from packages.python.lmeh.pocket_lm_eval.tasks import (
-    PocketNetworkTaskManager,
     STAGE_TYPING,
+    PocketNetworkTaskManager,
 )
 from packages.python.protocol.protocol import PocketNetworkTaskRequest
 
@@ -17,6 +22,9 @@ def get_task_manager(
     logger: Optional[logging.Logger] = None,
     pocket_args: Optional[PocketNetworkTaskRequest] = None,
     stage: Optional[STAGE_TYPING] = None,
+    random_seed: Optional[int] = None,
+    numpy_random_seed: Optional[int] = None,
+    torch_random_seed: Optional[int] = None,
 ):
     """
     :param stage:
@@ -30,6 +38,33 @@ def get_task_manager(
     :return: A tuple containing the task manager object and a list of matched task names.
 
     """
+
+    seed_message = []
+    if random_seed is not None:
+        # See https://github.com/EleutherAI/lm-evaluation-harness/pull/1412
+        seed_message.append(f"Setting random seed to {random_seed}")
+        random.seed(random_seed)
+    else:
+        random_seed = random.randint(0, 2**32 - 1)
+        random.seed(random_seed)
+
+    if numpy_random_seed is not None:
+        seed_message.append(f"Setting numpy seed to {numpy_random_seed}")
+        np.random.seed(numpy_random_seed)
+    else:
+        numpy_random_seed = random.randint(0, 2**32 - 1)
+        np.random.seed(numpy_random_seed)
+
+    if torch_random_seed is not None:
+        seed_message.append(f"Setting torch manual seed to {torch_random_seed}")
+        torch.manual_seed(torch_random_seed)
+    else:
+        torch_random_seed = torch.randint(0, 2**32 - 1, (1,)).item()
+        torch.manual_seed(torch_random_seed)
+
+    if seed_message:
+        logger.info(" | ".join(seed_message))
+
     task_manager = PocketNetworkTaskManager(
         postgres_conn=postgres_conn,
         verbosity=verbosity,

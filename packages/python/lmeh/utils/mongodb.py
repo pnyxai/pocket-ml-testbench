@@ -1,29 +1,28 @@
 import json
 import logging
 from copy import deepcopy
-from typing import List
-from datetime import datetime
-from packages.python.protocol.protocol import (
-    PocketNetworkMongoDBResultNumerical,
-    PocketNetworkMongoDBResultBase,
-)
 from dataclasses import asdict
+from datetime import datetime
+from typing import List
+
+from app.app import get_app_logger
 from bson.objectid import ObjectId
 from lm_eval.api.instance import Instance
 from temporalio.exceptions import ApplicationError
-from packages.python.protocol.protocol import (
-    PocketNetworkMongoDBTask,
-    CompletionRequest,
-    PocketNetworkMongoDBPrompt,
-    CompletionResponse,
-)
+
+from packages.python.common.mongodb import MongoClient
 from packages.python.lmeh.utils.mongo_aggrs import (
     aggregate_doc_ids,
     aggregate_response_tree,
 )
-
-from app.app import get_app_logger
-from packages.python.common.mongodb import MongoClient
+from packages.python.protocol.protocol import (
+    CompletionRequest,
+    CompletionResponse,
+    PocketNetworkMongoDBPrompt,
+    PocketNetworkMongoDBResultBase,
+    PocketNetworkMongoDBResultNumerical,
+    PocketNetworkMongoDBTask,
+)
 
 eval_logger = get_app_logger("sample")
 evaluation_logger = get_app_logger("evaluation")
@@ -41,6 +40,9 @@ class MongoOperator:
             collections_map["tokenizers"]
             if "tokenizers" in collections_map
             else "tokenizers"
+        )
+        self.configs_collection = (
+            collections_map["configs"] if "configs" in collections_map else "configs"
         )
         self.nodes_collection = (
             collections_map["nodes"] if "nodes" in collections_map else "nodes"
@@ -144,6 +146,11 @@ class MongoOperator:
             {"hash": tokenizer_hash}
         )
 
+    async def get_config_entry(self, config_hash: str):
+        return await self.client.db[self.configs_collection].find_one(
+            {"hash": config_hash}
+        )
+
     async def get_tokenizer_objects(self, address: str, service: str) -> dict:
         tokenizer_hash = await self.get_tokenizer_hash(address, service)
 
@@ -175,6 +182,34 @@ class MongoOperator:
             )
 
         return tokenizer
+
+    async def get_config_objects(self, address: str, service: str) -> dict:
+        # TODO
+        # add get_config_hash method to
+        config_hash = await self.get_tokenizer_hash(address, service)
+
+        if config_hash == "":
+            eval_logger.error(
+                "Node address does not have a valid config_hash.", adress=address
+            )
+            raise ApplicationError(
+                f"Node address {address} does not have a valid config_hash."
+            )
+
+        config_object = await self.get_config_entry(config_hash)
+
+        # Validate that the Config is not empty
+        if config_object is None:
+            eval_logger.error(
+                "Config hash not found.", address=address, hash=config_hash
+            )
+            raise ApplicationError(
+                f"Config with hash {config_hash} does not exist in the database."
+            )
+        eval_logger.debug("Config found.", config_keys=list(config_object.keys()))
+        _config = config_object["config"]
+        eval_logger.debug("Config found.", _config=list(_config.keys()))
+        return _config
 
     async def get_prompt_request(self, request_id: ObjectId) -> CompletionRequest:
         prompt_doc = await self.client.db[self.prompts_collection].find_one(
