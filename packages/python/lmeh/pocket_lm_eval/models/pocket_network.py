@@ -176,12 +176,42 @@ class PocketNetworkLM(TemplateLM):
             service=self.requester_args.service,
         )
 
-        self.tokenizer = load_tokenizer(
-            tokenizer_objects=tokenizer_objects,
-            wf_id=self.wf_id,
-            trust_remote_code=self.trust_remote_code,
-        )
-        self._config = load_config(config_objects=config_objects, wf_id=self.wf_id)
+        try:
+            self.tokenizer = load_tokenizer(
+                tokenizer_objects=tokenizer_objects,
+                wf_id=self.wf_id,
+                trust_remote_code=self.trust_remote_code,
+            )
+        except Exception as e:
+            eval_logger.error(
+                "Error loading tokenizer from database",
+                error=str(e),
+                address=self.requester_args.address,
+                service=self.requester_args.service,
+            )
+            raise ApplicationError(
+                "Error loading tokenizer from database",
+                error=str(e),
+                address=self.requester_args.address,
+                service=self.requester_args.service,
+                non_retryable=True,
+            )
+        try:
+            self._config = load_config(config_objects=config_objects, wf_id=self.wf_id)
+        except Exception as e:
+            eval_logger.error(
+                "Error loading config from database",
+                error=str(e),
+                address=self.requester_args.address,
+                service=self.requester_args.service,
+            )
+            raise ApplicationError(
+                "Error loading config from database",
+                error=str(e),
+                address=self.requester_args.address,
+                service=self.requester_args.service,
+                non_retryable=True,
+            )
 
         self.tokenizer = configure_pad_token(self.tokenizer)
         self.custom_prefix_token_id = self.init_prefix_token_id
