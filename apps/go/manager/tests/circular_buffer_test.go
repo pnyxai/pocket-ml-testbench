@@ -14,7 +14,7 @@ type CircularBuffertUnitTestSuite struct {
 // Size of the buffer to test
 const testBufferLen uint32 = 50
 
-func (s *CircularBuffertUnitTestSuite) Test_GetHeight_Activity() {
+func (s *CircularBuffertUnitTestSuite) Test_CircularBuffer() {
 
 	// Create a test circular buffer
 	timeArray := make([]time.Time, testBufferLen)
@@ -203,13 +203,5 @@ func (s *CircularBuffertUnitTestSuite) Test_GetHeight_Activity() {
 	if uint32(len(validIdx)) != testCircularBuffer.NumSamples {
 		s.T().Error(fmt.Errorf("Number of valid elements in the buffer is not equal to the number of samples counted (index cycling):  got = %v, want %v (Start Idx: %v - End Idx : %v)", testCircularBuffer.NumSamples, uint32(len(validIdx)), testCircularBuffer.Indexes.Start, testCircularBuffer.Indexes.End))
 	}
-
-	// // Generate a random value [-1,1]
-	// randHere := ((rand.Float64() * 2) - 1) * math.Pi
-
-	// Save sample
-	// dataVector[testCircularBuffer.Indexes.End] = math.Sin(randHere)
-
-	// fill the buffer following a simple sinusoidal function
 
 }

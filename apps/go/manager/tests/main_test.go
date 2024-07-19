@@ -142,8 +142,11 @@ func (s *BaseSuite) GetTemporalClientMock() *TemporalClientMock {
 func TestAll(t *testing.T) {
 	// Test functionality
 	suite.Run(t, new(CircularBuffertUnitTestSuite))
+	suite.Run(t, new(RecordstUnitTestSuite))
+
 	// test all activities
 	// TODO
+
 	// then test the workflow that will use all those activities
 	// TODO
 }
