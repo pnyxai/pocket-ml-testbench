@@ -52,8 +52,6 @@ func (s *RequesterWorkflowUnitTestSuite) Test_RequesterWorkflow_No_Errors() {
 	for i := range dispatchOutput.Session.Nodes {
 		node := &dispatchOutput.Session.Nodes[i]
 		taskRequests = append(taskRequests, activities.TaskRequest{
-			TaskId:       node.Address,
-			InstanceId:   node.Address,
 			PromptId:     node.Address,
 			Node:         node.Address,
 			RelayTimeout: relayTimeoutInSeconds,
@@ -221,8 +219,6 @@ func (s *RequesterWorkflowUnitTestSuite) Test_RequesterWorkflow_No_Errors_FewNod
 	for i := range firstThreeNodes {
 		node := &firstThreeNodes[i]
 		taskRequests = append(taskRequests, activities.TaskRequest{
-			TaskId:       node.Address,
-			InstanceId:   node.Address,
 			PromptId:     node.Address,
 			Node:         node.Address,
 			RelayTimeout: relayTimeoutInSeconds,

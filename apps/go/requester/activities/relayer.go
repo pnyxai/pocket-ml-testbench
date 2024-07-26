@@ -34,6 +34,8 @@ type RelayerParams struct {
 
 type RelayerResponse struct {
 	ResponseId string `json:"response_id"`
+	WasError   bool   `json:"was_error"`
+	ResponseMs int64  `json:"response_ms"`
 }
 
 type RelayResponseCodesEnum struct {
@@ -87,8 +89,8 @@ func GetCurrentSession(currentHeight, blocksPerSession int64) int64 {
 
 func CanHandleRelayWithinTolerance(currentSessionHeight, requestedSessionHeight, blocksPerSession, sessionTolerance int64) bool {
 	tolerance := sessionTolerance * blocksPerSession
-	minHeight := requestedSessionHeight - tolerance
-	return minHeight <= currentSessionHeight && currentSessionHeight <= currentSessionHeight
+	minHeight := currentSessionHeight - tolerance
+	return minHeight <= requestedSessionHeight && requestedSessionHeight <= currentSessionHeight
 }
 
 func GetPromptWithRequesterArgs(ctx context.Context, promptsCollection, tasksCollection mongodb.CollectionAPI, promptId *primitive.ObjectID) (*types.Prompt, error) {
@@ -133,6 +135,7 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 	// so no mater the result it will contain at least that
 	response := types.RelayResponse{Id: primitive.NewObjectID(), SessionHeight: params.SessionHeight}
 	result.ResponseId = response.Id.Hex()
+	result.WasError = false
 	defer func() {
 		// persist response
 		collection := aCtx.App.Mongodb.GetCollection(types.ResponseCollection)
@@ -241,6 +244,7 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 	defer cancelRelayerFn()
 	relay, relayErr := relayer.RelayWithCtx(relayerCtx, &relayInput, relayOpts)
 	response.Ms = time.Since(startTime).Milliseconds()
+	result.ResponseMs = response.Ms
 	if relayErr != nil {
 		// not an rpc error
 		response.Ok = false
@@ -267,6 +271,7 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 		response.Ok = true
 		response.Response = relay.RelayOutput.Response
 	}
+	result.WasError = !response.Ok
 
 	return
 }

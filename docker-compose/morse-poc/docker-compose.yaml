@@ -465,7 +465,7 @@ services:
       dockerfile: apps/go/manager/Dockerfile
     image: pocket_ml_testbench_manager:dev
     deploy:
-      replicas: 1
+      replicas: ${MANAGER_REPLICAS:-1}
     environment:
       CONFIG_PATH: /home/app/configs/config.json
     volumes:
@@ -486,7 +486,7 @@ services:
       dockerfile: apps/python/sampler/Dockerfile
     image: pocket_ml_testbench_sampler:dev
     deploy:
-      replicas: 4
+      replicas: ${SAMPLER_REPLICAS:-3}
       resources:
         limits:
           cpus: "16"
@@ -514,7 +514,7 @@ services:
       dockerfile: apps/go/requester/Dockerfile
     image: pocket_ml_testbench_requester:dev
     deploy:
-      replicas: 1
+      replicas: ${REQUESTER_REPLICAS:-1}
     environment:
       CONFIG_PATH: /home/app/configs/config.json
     volumes:
@@ -535,7 +535,7 @@ services:
       dockerfile: apps/python/evaluator/Dockerfile
     image: pocket_ml_testbench_evaluator:dev
     deploy:
-      replicas: 4
+      replicas: ${EVALUATOR_REPLICAS:-3}
       resources:
         limits:
           cpus: "16"

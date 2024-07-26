@@ -3,7 +3,6 @@ package workflows
 import (
 	"context"
 	"requester/activities"
-	"requester/types"
 	"time"
 
 	"go.temporal.io/api/enums/v1"
@@ -45,7 +44,7 @@ func (wCtx *Ctx) Relayer(ctx workflow.Context, params activities.RelayerParams) 
 		return
 	}
 
-	relayerResponse := types.RelayResponse{}
+	relayerResponse := activities.RelayerResponse{}
 	relayerErr := workflow.ExecuteActivity(relayerCtx, activities.Activities.Relayer, params).Get(relayerCtx, &relayerResponse)
 	if relayerErr != nil {
 		e = temporal.NewApplicationErrorWithCause("error retrieve from relayer activity", "Relayer", relayerErr)
@@ -96,6 +95,25 @@ func (wCtx *Ctx) Relayer(ctx workflow.Context, params activities.RelayerParams) 
 			e = temporal.NewApplicationErrorWithCause("error triggering Evaluator workflow", "WorkflowTrigger", wfErr)
 			return
 		}
+	}
+
+	trackRelayCtx := workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
+		TaskQueue:           wCtx.App.Config.Temporal.TaskQueue,
+		StartToCloseTimeout: 10 * time.Second,
+		WaitForCancellation: false,
+	})
+	trackRelayParams := activities.TrackRelayParams{
+		Servicer:      params.Node.Address,
+		Application:   params.App.Address,
+		Service:       params.Service,
+		SessionHeight: params.SessionHeight,
+		WasError:      relayerResponse.WasError,
+		ResponseMs:    relayerResponse.ResponseMs,
+	}
+	trackRelayErr := workflow.ExecuteActivity(trackRelayCtx, activities.Activities.TrackRelay, trackRelayParams).Get(updateTaskTreeCtx, &updateTaskTreeResult)
+	if trackRelayErr != nil {
+		e = temporal.NewApplicationErrorWithCause("error triggering TrackRelay activity", "TrackRelay", trackRelayErr)
+		return
 	}
 
 	return

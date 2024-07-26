@@ -14,6 +14,8 @@ var (
 	DefaultMaxBackoff            = 60
 	DefaultReqPerSec             = 10
 	DefaultSessionTolerance      = int64(1)
+	DefaultRelayPerSession       = int64(200)
+	DefaultBlockInterval         = int64(30)
 	DefaultRpc                   = RPCConfig{
 		Urls:             []string{},
 		Retries:          DefaultRpcRetries,
@@ -21,6 +23,8 @@ var (
 		MaxBackoff:       DefaultMaxBackoff,
 		ReqPerSec:        DefaultReqPerSec,
 		SessionTolerance: DefaultSessionTolerance,
+		RelayPerSession:  DefaultRelayPerSession,
+		BlockInterval:    DefaultBlockInterval,
 	}
 	DefaultTemporal = TemporalConfig{
 		Host:      DefaultTemporalHost,

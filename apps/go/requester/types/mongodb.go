@@ -13,10 +13,11 @@ import (
 )
 
 var (
-	TaskCollection     = "tasks"
-	InstanceCollection = "instances"
-	PromptsCollection  = "prompts"
-	ResponseCollection = "responses"
+	TaskCollection            = "tasks"
+	InstanceCollection        = "instances"
+	PromptsCollection         = "prompts"
+	ResponseCollection        = "responses"
+	RelaysBySessionCollection = "relays_by_session"
 )
 
 type RequesterArgs struct {
@@ -88,6 +89,32 @@ func (r *RelayResponse) Save(ctx context.Context, collection mongodb.CollectionA
 	opts := options.Update().SetUpsert(true)
 	filter := bson.M{"_id": r.Id}
 	update := bson.M{"$set": r}
+	_, err = collection.UpdateOne(ctx, filter, update, opts)
+	return
+}
+
+type RelaysBySession struct {
+	Servicer      string `bson:"servicer"`
+	Application   string `bson:"application"`
+	Service       string `bson:"service"`
+	SessionHeight int64  `bson:"session_height"`
+	IsError       bool   `bson:"-"`
+	Ms            int64  `bson:"-"`
+}
+
+func (r *RelaysBySession) IncreaseRelay(ctx context.Context, collection mongodb.CollectionAPI) (err error) {
+	opts := options.Update().SetUpsert(true)
+	filter := bson.M{
+		"servicer":       r.Servicer,
+		"application":    r.Application,
+		"service":        r.Service,
+		"session_height": r.SessionHeight,
+	}
+	errorIncrement := 0
+	if r.IsError {
+		errorIncrement++
+	}
+	update := bson.M{"$set": r, "$inc": bson.M{"relays": 1, "errors": errorIncrement, "time": r.Ms}}
 	_, err = collection.UpdateOne(ctx, filter, update, opts)
 	return
 }

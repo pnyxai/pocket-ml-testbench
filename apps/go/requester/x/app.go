@@ -74,6 +74,7 @@ func Initialize() *types.App {
 		types.InstanceCollection,
 		types.PromptsCollection,
 		types.ResponseCollection,
+		types.RelaysBySessionCollection,
 	}, l)
 
 	clientPoolOpts := pocket_rpc.ClientPoolOptions{

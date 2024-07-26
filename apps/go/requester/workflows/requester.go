@@ -37,6 +37,11 @@ type LookupChanResponse struct {
 	Response *activities.GetTaskRequestResults
 }
 
+type NodeDelay struct {
+	Base    float64
+	Current float64
+}
+
 var RequesterName = "Requester"
 
 // Requester check sessions
@@ -104,18 +109,31 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 	getAllParamsActivityCtx := workflow.WithActivityOptions(ctx, ao)
 	allParams := poktGoSdk.AllParams{}
 	l.Debug("Calling GetBlockParams activity")
-	getBlockErr := workflow.ExecuteActivity(
+	getBlockParamsErr := workflow.ExecuteActivity(
 		getAllParamsActivityCtx,
 		activities.Activities.GetBlockParams,
 		// latest height always
 		int64(0),
 	).Get(getAllParamsActivityCtx, &allParams)
-	if getBlockErr != nil {
+	if getBlockParamsErr != nil {
 		l.Error("GetBlockParams activity ends with error", "error", e)
-		e = temporal.NewApplicationErrorWithCause("unable to get block params", "GetBlockParams", getBlockErr)
+		e = temporal.NewApplicationErrorWithCause("unable to get block params", "GetBlockParams", getBlockParamsErr)
 		return
 	}
-	l.Debug("Calling GetBlockParams activity")
+
+	// get_block
+	getHeightActivityCtx := workflow.WithActivityOptions(ctx, ao)
+	currentHeight := int64(0)
+	l.Debug("Calling GetHeight activity")
+	getHeightErr := workflow.ExecuteActivity(
+		getHeightActivityCtx,
+		activities.Activities.GetHeight,
+	).Get(getHeightActivityCtx, &currentHeight)
+	if getHeightErr != nil {
+		l.Error("GetHeight activity ends with error", "error", e)
+		e = temporal.NewApplicationErrorWithCause("unable to get height", "GetHeight", getHeightErr)
+		return
+	}
 
 	blocksPerSession, blocksPerSessionErr := common.GetBlocksPerSession(&allParams)
 	if blocksPerSessionErr != nil {
@@ -128,8 +146,10 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 
 	l.Debug("Calling GetTasks activity")
 	request := activities.GetTasksParams{
-		Nodes:   make([]string, len(nodes)),
-		Service: params.Service,
+		Nodes:         make([]string, len(nodes)),
+		Application:   params.App,
+		Service:       params.Service,
+		SessionHeight: sessionHeight,
 	}
 	nodesMap := make(map[string]*poktGoSdk.Node, len(nodes))
 	for i, node := range nodes {
@@ -147,6 +167,22 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 		l.Error("GetTasks activity ends with error", "error", e)
 		e = temporal.NewApplicationErrorWithCause("unable to get tasks", "GetTasks", getTasksErr)
 		return
+	}
+
+	// calculate remaining blocks
+	remainingBlocks := (sessionHeight + blocksPerSession + wCtx.App.Config.Rpc.SessionTolerance) - currentHeight
+	// remaining time in seconds
+	estimateRemainingTime := remainingBlocks * wCtx.App.Config.Rpc.BlockInterval
+
+	delayByNodeMap := make(map[string]*NodeDelay)
+	for _, tr := range ltr.TaskRequests {
+		if _, ok := delayByNodeMap[tr.Node]; !ok {
+			delay := float64(estimateRemainingTime / tr.RemainingRelays)
+			delayByNodeMap[tr.Node] = &NodeDelay{
+				Base:    delay,
+				Current: 0,
+			}
+		}
 	}
 
 	skippedWorkflows := make([]string, 0)
@@ -189,7 +225,16 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 			RetryPolicy: &temporal.RetryPolicy{
 				MaximumAttempts: 3,
 			},
+			// add calculated delay base on the remaining blocks and relays to prevent burst.
+			StartDelay: time.Duration(delayByNodeMap[tr.Node].Current) * time.Second,
 		}
+		wCtx.App.Logger.Debug().Str("WID", fmt.Sprintf(
+			"%s-%s-%s-%s-%d",
+			params.App, tr.Node, request.Service,
+			tr.PromptId, sessionHeight,
+		)).
+			Float64("Delay", (time.Duration(delayByNodeMap[tr.Node].Current) * time.Second).Seconds()).
+			Msg("Workflow Delay")
 
 		// Do not wait for a result by not Calling .Get() on the returned future
 		wf, err := wCtx.App.TemporalClient.ExecuteWorkflow(
@@ -208,6 +253,8 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 			continue
 		}
 
+		// add base delay for the next relay of the same node.
+		delayByNodeMap[tr.Node].Current += delayByNodeMap[tr.Node].Base
 		triggeredWorkflows = append(triggeredWorkflows, fmt.Sprintf("ID:%s/RUN_ID:%s", wf.GetID(), wf.GetRunID()))
 	}
 

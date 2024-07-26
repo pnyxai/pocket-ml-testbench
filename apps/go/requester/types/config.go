@@ -262,6 +262,8 @@ type RPCConfig struct {
 	MaxBackoff       int      `json:"max_backoff"`
 	ReqPerSec        int      `json:"req_per_sec"`
 	SessionTolerance int64    `json:"session_tolerance"`
+	RelayPerSession  int64    `json:"relay_per_session"`
+	BlockInterval    int64    `json:"block_interval"`
 }
 
 type Config struct {

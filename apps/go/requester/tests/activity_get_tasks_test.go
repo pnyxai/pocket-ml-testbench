@@ -26,8 +26,6 @@ func (s *GetTasksUnitTestSuite) Test_GetTasks_AllGood() {
 	taskRequests := make([]*activities.TaskRequest, len(prompts))
 	for i, prompt := range prompts {
 		taskRequests[i] = &activities.TaskRequest{
-			TaskId:       prompt.TaskId.Hex(),
-			InstanceId:   prompt.InstanceId.Hex(),
 			PromptId:     prompt.Id.Hex(),
 			Node:         nodeAddress,
 			RelayTimeout: relayTimeout,
@@ -61,17 +59,7 @@ func (s *GetTasksUnitTestSuite) Test_GetTasks_AllGood() {
 	s.Equal(len(prompts), len(taskRequestsResults.TaskRequests), "tasks requests must be same number of prompts returned on prompts collection find cursor")
 
 	for _, taskRequest := range taskRequestsResults.TaskRequests {
-		id, e := primitive.ObjectIDFromHex(taskRequest.TaskId)
-		s.NoError(e)
-		s.NotNil(id)
-		s.Equal(task.Id.Hex(), taskRequest.TaskId)
-
-		id, e = primitive.ObjectIDFromHex(taskRequest.InstanceId)
-		s.NoError(e)
-		s.NotNil(id)
-		s.Equal(instance.Id.Hex(), taskRequest.InstanceId)
-
-		id, e = primitive.ObjectIDFromHex(taskRequest.PromptId)
+		id, e := primitive.ObjectIDFromHex(taskRequest.PromptId)
 		s.NoError(e)
 		s.NotNil(id)
 

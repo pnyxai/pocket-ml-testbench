@@ -11,7 +11,8 @@
     "min_backoff": 10,
     "max_backoff": 60,
     "req_per_sec": 10,
-    "session_tolerance": 1
+    "session_tolerance": 1,
+    "block_interval": 900
   },
   "log_level": "debug",
   "temporal": {

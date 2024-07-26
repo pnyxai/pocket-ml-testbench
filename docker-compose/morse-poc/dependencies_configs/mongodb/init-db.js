@@ -3,6 +3,9 @@ db = db.getSiblingDB('pocket-ml-testbench');
 db.createCollection('tokenizers');
 db.tokenizers.createIndex({hash: 1}, {unique: true});
 
+db.createCollection('configs');
+db.configs.createIndex({hash: 1});
+
 db.createCollection('tasks');
 db.tasks.createIndex({
     "tasks": 1,
@@ -30,7 +33,23 @@ db.createCollection('results');
 db.nodes.createIndex({'result_data.task_id': 1}, {unique: true});
 
 db.createCollection('buffers_numerical');
-db.buffers_numerical.createIndex({"task_data.node_id": 1, "task_data.framework": 1, "task_data.task": 1}, {unique: true});
+db.buffers_numerical.createIndex({
+    "task_data.node_id": 1,
+    "task_data.framework": 1,
+    "task_data.task": 1
+}, {unique: true});
 
 db.createCollection('buffers_signatures');
-db.buffers_numerical.createIndex({"task_data.node_id": 1, "task_data.framework": 1, "task_data.task": 1}, {unique: true});
+db.buffers_numerical.createIndex({
+    "task_data.node_id": 1,
+    "task_data.framework": 1,
+    "task_data.task": 1
+}, {unique: true});
+
+db.createCollection('relays_by_session');
+db.relays_by_session.createIndex({
+    "session_height": -1,
+    "servicer": 1,
+    "application": 1,
+    "service": 1,
+}, {unique: true});

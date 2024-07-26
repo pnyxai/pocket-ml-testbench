@@ -37,6 +37,10 @@ func (aCtx *Ctx) Register(w worker.Worker) {
 		Name: GetHeightName,
 	})
 
+	w.RegisterActivityWithOptions(aCtx.GetBlock, activity.RegisterOptions{
+		Name: GetBlockName,
+	})
+
 	w.RegisterActivityWithOptions(aCtx.GetBlockParams, activity.RegisterOptions{
 		Name: GetBlockParamsName,
 	})
@@ -55,5 +59,9 @@ func (aCtx *Ctx) Register(w worker.Worker) {
 
 	w.RegisterActivityWithOptions(aCtx.UpdateTaskTree, activity.RegisterOptions{
 		Name: UpdateTaskTreeName,
+	})
+
+	w.RegisterActivityWithOptions(aCtx.TrackRelay, activity.RegisterOptions{
+		Name: TrackRelayName,
 	})
 }
