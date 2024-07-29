@@ -41,7 +41,6 @@ func (s *CircularBuffertUnitTestSuite) Test_CircularBuffer() {
 	// Check step function
 	stepsMove := int(testBufferLen / 2)
 	for step := 0; step < stepsMove; step++ {
-
 		// Increment the end
 		err := testCircularBuffer.StepIndex(1, "end", true, s.app.Logger)
 		if err != nil {
@@ -50,7 +49,6 @@ func (s *CircularBuffertUnitTestSuite) Test_CircularBuffer() {
 		}
 		// Add time
 		testCircularBuffer.Times[testCircularBuffer.Indexes.End] = time.Now()
-
 	}
 	if uint32(stepsMove) != testCircularBuffer.NumSamples {
 		s.T().Error(fmt.Errorf("Number of elements in the buffer is not equal to the number of steps taken:  got = %v, want %v (Start Idx: %v - End Idx : %v)", testCircularBuffer.NumSamples, stepsMove, testCircularBuffer.Indexes.Start, testCircularBuffer.Indexes.End))
@@ -67,7 +65,6 @@ func (s *CircularBuffertUnitTestSuite) Test_CircularBuffer() {
 	// Make an overflow
 	stepsMove = int(testBufferLen)
 	for step := 0; step < stepsMove; step++ {
-
 		// Increment the end
 		err := testCircularBuffer.StepIndex(1, "end", true, s.app.Logger)
 		if err != nil {
@@ -100,7 +97,6 @@ func (s *CircularBuffertUnitTestSuite) Test_CircularBuffer() {
 			s.T().Error(err)
 			return
 		}
-		// fmt.Print(testCircularBuffer.Indexes.Start, testCircularBuffer.Indexes.End, testCircularBuffer.NumSamples, "\n")
 	}
 	if 0 != testCircularBuffer.NumSamples {
 		s.T().Error(fmt.Errorf("Number of elements in the buffer is not equal to the number of steps taken (moving end backwards):  got = %v, want %v (Start Idx: %v - End Idx : %v)", testCircularBuffer.NumSamples, 0, testCircularBuffer.Indexes.Start, testCircularBuffer.Indexes.End))
@@ -118,7 +114,6 @@ func (s *CircularBuffertUnitTestSuite) Test_CircularBuffer() {
 	// move end 5 and then start 10
 	stepsMove = int(5)
 	for step := 0; step < stepsMove; step++ {
-
 		// Increment the end
 		err := testCircularBuffer.StepIndex(1, "end", true, s.app.Logger)
 		if err != nil {
@@ -142,7 +137,6 @@ func (s *CircularBuffertUnitTestSuite) Test_CircularBuffer() {
 	}
 	stepsMove = int(10)
 	for step := 0; step < stepsMove; step++ {
-
 		// Increment the end
 		err := testCircularBuffer.StepIndex(1, "start", true, s.app.Logger)
 		if err != nil {
@@ -150,7 +144,6 @@ func (s *CircularBuffertUnitTestSuite) Test_CircularBuffer() {
 			return
 		}
 
-		// fmt.Print(testCircularBuffer.Indexes.Start, testCircularBuffer.Indexes.End, testCircularBuffer.NumSamples, "\n")
 	}
 	if 0 != testCircularBuffer.NumSamples {
 		s.T().Error(fmt.Errorf("Number of elements in the buffer is not equal to the number of steps taken (moving start forward):  got = %v, want %v (Start Idx: %v - End Idx : %v)", testCircularBuffer.NumSamples, 0, testCircularBuffer.Indexes.Start, testCircularBuffer.Indexes.End))
@@ -168,10 +161,8 @@ func (s *CircularBuffertUnitTestSuite) Test_CircularBuffer() {
 	// Check  cycling
 
 	// move end 4
-	// fmt.Print(testCircularBuffer.Indexes.Start, testCircularBuffer.Indexes.End, "\n")
 	stepsMove = int(4)
 	for step := 0; step < stepsMove; step++ {
-
 		// Increment the end
 		err := testCircularBuffer.StepIndex(1, "end", true, s.app.Logger)
 		if err != nil {

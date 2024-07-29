@@ -18,7 +18,6 @@ type RecordstUnitTestSuite struct {
 }
 
 func (s *RecordstUnitTestSuite) Test_NumericalTaskRecord() {
-
 	// Create record
 	var record records.NumericalTaskRecord
 	// Initialize
@@ -34,7 +33,6 @@ func (s *RecordstUnitTestSuite) Test_NumericalTaskRecord() {
 	// Insert some values and check process results
 	numInitialInserts := 8
 	for step := 0; step < numInitialInserts; step++ {
-
 		// Create score sample
 		var sample records.ScoresSample
 		sample.Score = truthVector[step]
@@ -72,7 +70,6 @@ func (s *RecordstUnitTestSuite) Test_NumericalTaskRecord() {
 
 	// Make an overflow
 	for step := 0; step < int(records.NumericalCircularBufferLength); step++ {
-
 		// Create score sample
 		var sample records.ScoresSample
 		sample.Score = truthVector[numInitialInserts+step]
@@ -109,7 +106,6 @@ func (s *RecordstUnitTestSuite) Test_NumericalTaskRecord() {
 }
 
 func (s *RecordstUnitTestSuite) Test_SignatureTaskRecord() {
-
 	// Create record
 	var record records.SignatureTaskRecord
 	// Initialize
@@ -133,7 +129,6 @@ func (s *RecordstUnitTestSuite) Test_SignatureTaskRecord() {
 	}
 
 	for sign := range signatures {
-
 		// Create score sample
 		var sample records.SignatureSample
 		sample.Signature = signatures[sign]

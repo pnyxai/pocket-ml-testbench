@@ -28,7 +28,11 @@ type CircularBuffer struct {
 // Gets the sample index given a step direction (positive: 1 or negative: -1) and for a given marker (start or end of buffer)
 func (buffer *CircularBuffer) StepIndex(step uint32, marker string, positive_step bool, l *zerolog.Logger) error {
 
-	l.Debug().Int("buffer.Indexes.Start", int(buffer.Indexes.Start)).Int("buffer.Indexes.End", int(buffer.Indexes.End)).Int("step", int(step)).Msg("Circular indexes moving.")
+	l.Debug().
+	  Int("buffer.Indexes.Start", int(buffer.Indexes.Start)).
+	  Int("buffer.Indexes.End", int(buffer.Indexes.End)).
+	  Int("step", int(step)).
+	  Msg("Circular indexes moving.")
 
 	if step > 1 {
 		return fmt.Errorf("Steps of length larger than 1 are not supported.")
@@ -79,14 +83,12 @@ func (buffer *CircularBuffer) StepIndex(step uint32, marker string, positive_ste
 
 	// Update values
 	if marker == "start" {
-
 		if buffer.NumSamples == step && positive_step {
 			// Cannot reduce the buffer anymore, just invalidate last sample
 			buffer.Times[buffer.Indexes.End] = EpochStart
 		} else {
 			buffer.Indexes.Start = nextVal
 		}
-
 	} else {
 		if buffer.Indexes.Start == nextVal && positive_step {
 			// This means that the end of the buffer advanced into the start of
@@ -94,7 +96,6 @@ func (buffer *CircularBuffer) StepIndex(step uint32, marker string, positive_ste
 			// in the positive direction (otherwise we run into the past)
 			if positive_step {
 				buffer.StepIndex(1, "start", true, l)
-
 			}
 			buffer.Indexes.End = nextVal
 		} else if buffer.NumSamples == step && !positive_step {
@@ -103,7 +104,6 @@ func (buffer *CircularBuffer) StepIndex(step uint32, marker string, positive_ste
 		} else {
 			buffer.Indexes.End = nextVal
 		}
-
 	}
 
 	// Calculate number of valid samples
@@ -120,9 +120,7 @@ func (buffer *CircularBuffer) StepIndex(step uint32, marker string, positive_ste
 		}
 	} else {
 		buffer.NumSamples = buffer.CircBufferLen - (buffer.Indexes.Start - buffer.Indexes.End) + 1
-		// if buffer.Times[buffer.Indexes.Start] != EpochStart {
-		// 	buffer.NumSamples += 1
-		// }
+		
 	}
 
 	return nil
