@@ -324,9 +324,9 @@ class TTFT(BaseModel):
 
 
 class LLMTimeouts(BaseModel):
-    TTFT: TTFT
-    TPOT: int
-    QUEUE: int
+    ttft: TTFT
+    tpot: int
+    queue: int
 
 
 class TimeoutHandler(BaseModel):
@@ -335,12 +335,12 @@ class TimeoutHandler(BaseModel):
 
     # Define the functions for each chain
     def timeouts_a100(self, prefill: int, decode: int) -> float:
-        x = self.timeouts.TTFT.x
-        y = self.timeouts.TTFT.y
-        queue = self.timeouts.QUEUE
+        x = self.timeouts.ttft.x
+        y = self.timeouts.ttft.y
+        queue = self.timeouts.queue
         z = np.polyfit(x, y, 2)
         ttft = np.poly1d(z)
-        tpot = self.timeouts.TPOT
+        tpot = self.timeouts.tpot
         timeout = ttft(prefill) + (tpot * decode) + queue
         return float(timeout)
 
