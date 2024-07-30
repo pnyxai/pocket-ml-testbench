@@ -2,6 +2,7 @@ package types
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"time"
 
@@ -27,7 +28,34 @@ type CircularBuffer struct {
 // Gets the sample index given a step direction (positive: 1 or negative: -1) and for a given marker (start or end of buffer)
 func (buffer *CircularBuffer) StepIndex(step uint32, marker string, positive_step bool, l *zerolog.Logger) error {
 
-	l.Debug().Int("buffer.Indexes.End", int(buffer.Indexes.Start)).Int("buffer.Indexes.End", int(buffer.Indexes.End)).Msg("Circular indexes.")
+	l.Debug().
+	  Int("buffer.Indexes.Start", int(buffer.Indexes.Start)).
+	  Int("buffer.Indexes.End", int(buffer.Indexes.End)).
+	  Int("step", int(step)).
+	  Msg("Circular indexes moving.")
+
+	if step > 1 {
+		return fmt.Errorf("Steps of length larger than 1 are not supported.")
+	}
+
+	// Check step feasibility
+	if marker == "start" {
+		if !positive_step {
+			// Cannot go back in time
+			l.Debug().Msg("Cannot move start index back.")
+			return nil
+		} else if buffer.NumSamples == 0 && positive_step {
+			// Cannot move this index
+			l.Debug().Msg("Cannot step over end index.")
+			return nil
+		}
+	} else {
+		if buffer.NumSamples == 0 && !positive_step {
+			// Cannot move this index
+			l.Debug().Msg("Cannot step over start index.")
+			return nil
+		}
+	}
 
 	// Get values
 	var currValue uint32
@@ -47,30 +75,53 @@ func (buffer *CircularBuffer) StepIndex(step uint32, marker string, positive_ste
 		nextVal = currValue - step
 	}
 
-	// Check limits and assign value
-	currValue, err := buffer.BufferLimitCheck(nextVal, l)
+	// Check buffer limits
+	nextVal, err := buffer.BufferLimitCheck(nextVal, l)
 	if err != nil {
 		return err
 	}
 
 	// Update values
 	if marker == "start" {
-		buffer.Indexes.Start = currValue
-	} else {
-		if (buffer.Indexes.Start == currValue) && (step > 0) {
-			// This means that the end of the buffer advanced into the start of
-			// the buffer, we must movethe buffer one position
-			buffer.StepIndex(1, "start", true, l)
+		if buffer.NumSamples == step && positive_step {
+			// Cannot reduce the buffer anymore, just invalidate last sample
+			buffer.Times[buffer.Indexes.End] = EpochStart
+		} else {
+			buffer.Indexes.Start = nextVal
 		}
-		buffer.Indexes.End = currValue
+	} else {
+		if buffer.Indexes.Start == nextVal && positive_step {
+			// This means that the end of the buffer advanced into the start of
+			// the buffer, we must move the buffer one position only if we move
+			// in the positive direction (otherwise we run into the past)
+			if positive_step {
+				buffer.StepIndex(1, "start", true, l)
+			}
+			buffer.Indexes.End = nextVal
+		} else if buffer.NumSamples == step && !positive_step {
+			// Cannot reduce the buffer anymore, just invalidate last sample
+			buffer.Times[buffer.Indexes.Start] = EpochStart
+		} else {
+			buffer.Indexes.End = nextVal
+		}
 	}
 
 	// Calculate number of valid samples
-	validIdx, err := buffer.GetBufferValidIndexes(l)
-	if err != nil {
-		return err
+	if buffer.Indexes.Start == buffer.Indexes.End {
+		if buffer.Times[buffer.Indexes.Start] != EpochStart {
+			buffer.NumSamples = 1
+		} else {
+			buffer.NumSamples = 0
+		}
+	} else if buffer.Indexes.Start < buffer.Indexes.End {
+		buffer.NumSamples = buffer.Indexes.End - buffer.Indexes.Start
+		if buffer.Times[buffer.Indexes.Start] != EpochStart {
+			buffer.NumSamples += 1
+		}
+	} else {
+		buffer.NumSamples = buffer.CircBufferLen - (buffer.Indexes.Start - buffer.Indexes.End) + 1
+		
 	}
-	buffer.NumSamples = uint32(len(validIdx))
 
 	return nil
 }
@@ -101,15 +152,16 @@ func (buffer *CircularBuffer) CycleIndexes(sampleTTLDays uint32, l *zerolog.Logg
 }
 
 func (buffer *CircularBuffer) BufferLimitCheck(nextVal uint32, l *zerolog.Logger) (uint32, error) {
-	// Check for overflow
-	if nextVal >= buffer.CircBufferLen {
-		nextVal = 0
-	} else if nextVal == math.MaxInt32 {
+
+	if nextVal == math.MaxUint32 {
 		// Check for underflow
 		nextVal = buffer.CircBufferLen - 1
+	} else if nextVal >= buffer.CircBufferLen {
+		// Check for overflow
+		nextVal = 0
 	}
 
-	return uint32(nextVal), nil
+	return nextVal, nil
 }
 
 func (buffer *CircularBuffer) GetBufferValidIndexes(l *zerolog.Logger) (auxIdx []uint32, err error) {
@@ -130,7 +182,7 @@ func (buffer *CircularBuffer) GetBufferValidIndexes(l *zerolog.Logger) (auxIdx [
 		// Check limits and assign value
 		idxNow, err = buffer.BufferLimitCheck(nextVal, l)
 		if err != nil {
-			return auxIdx, err
+			return nil, err
 		}
 	}
 	return auxIdx, err
