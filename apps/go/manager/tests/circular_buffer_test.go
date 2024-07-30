@@ -14,7 +14,8 @@ type CircularBuffertUnitTestSuite struct {
 // Size of the buffer to test
 const testBufferLen uint32 = 50
 
-func (s *CircularBuffertUnitTestSuite) Test_CircularBuffer() {
+// Test the end pointer moving forward. Basic test.
+func (s *CircularBuffertUnitTestSuite) Test_CircularBuffer_Step() {
 
 	// Create a test circular buffer
 	timeArray := make([]time.Time, testBufferLen)
@@ -30,12 +31,6 @@ func (s *CircularBuffertUnitTestSuite) Test_CircularBuffer() {
 			End:   0,
 		},
 	}
-
-	// // Create the data vector that will be governed by the buffer
-	// dataVector := make([]float64, testBufferLen)
-
-	// // Create a vector larger than the buffer length to keep as ground truth
-	// truthVector := make([]float64, testBufferLen*2)
 
 	// ---- Test buffer with unitary steps
 	// Check step function
@@ -62,8 +57,29 @@ func (s *CircularBuffertUnitTestSuite) Test_CircularBuffer() {
 	if uint32(len(validIdx)) != testCircularBuffer.NumSamples {
 		s.T().Error(fmt.Errorf("Number of valid elements in the buffer is not equal to the number of samples counted:  got = %v, want %v (Start Idx: %v - End Idx : %v)", testCircularBuffer.NumSamples, uint32(len(validIdx)), testCircularBuffer.Indexes.Start, testCircularBuffer.Indexes.End))
 	}
+
+}
+
+// Test the overwflow of the buffer and hence the rolling and pushing of the indexes
+func (s *CircularBuffertUnitTestSuite) Test_CircularBuffer_Overflow() {
+
+	// Create a test circular buffer
+	timeArray := make([]time.Time, testBufferLen)
+	for i := range timeArray {
+		timeArray[i] = types.EpochStart.UTC()
+	}
+	testCircularBuffer := types.CircularBuffer{
+		CircBufferLen: testBufferLen,
+		NumSamples:    0,
+		Times:         timeArray,
+		Indexes: types.CircularIndexes{
+			Start: 0,
+			End:   0,
+		},
+	}
+
 	// Make an overflow
-	stepsMove = int(testBufferLen)
+	stepsMove := int(testBufferLen) + int(testBufferLen/2)
 	for step := 0; step < stepsMove; step++ {
 		// Increment the end
 		err := testCircularBuffer.StepIndex(1, "end", true, s.app.Logger)
@@ -78,13 +94,46 @@ func (s *CircularBuffertUnitTestSuite) Test_CircularBuffer() {
 		s.T().Error(fmt.Errorf("Number of elements in the buffer not equal to the buffer length after an overflow:  got = %v, want %v (Start Idx: %v - End Idx : %v)", testCircularBuffer.NumSamples, stepsMove, testCircularBuffer.Indexes.Start, testCircularBuffer.Indexes.End))
 	}
 	// Check number of valid samples
-	validIdx, err = testCircularBuffer.GetBufferValidIndexes(s.app.Logger)
+	validIdx, err := testCircularBuffer.GetBufferValidIndexes(s.app.Logger)
 	if err != nil {
 		s.T().Error(err)
 		return
 	}
 	if uint32(len(validIdx)) != testCircularBuffer.NumSamples {
 		s.T().Error(fmt.Errorf("Number of valid elements in the buffer is not equal to the number of samples counted (after overflow):  got = %v, want %v (Start Idx: %v - End Idx : %v)", testCircularBuffer.NumSamples, uint32(len(validIdx)), testCircularBuffer.Indexes.Start, testCircularBuffer.Indexes.End))
+	}
+
+}
+
+// Test the end pointer moving backwards and rolling the indexes backward
+func (s *CircularBuffertUnitTestSuite) Test_CircularBuffer_BackStep() {
+
+	// Create a test circular buffer
+	timeArray := make([]time.Time, testBufferLen)
+	for i := range timeArray {
+		timeArray[i] = types.EpochStart.UTC()
+	}
+	testCircularBuffer := types.CircularBuffer{
+		CircBufferLen: testBufferLen,
+		NumSamples:    0,
+		Times:         timeArray,
+		Indexes: types.CircularIndexes{
+			Start: 0,
+			End:   0,
+		},
+	}
+
+	// Make an overflow
+	stepsMove := int(testBufferLen) + int(testBufferLen/2)
+	for step := 0; step < stepsMove; step++ {
+		// Increment the end
+		err := testCircularBuffer.StepIndex(1, "end", true, s.app.Logger)
+		if err != nil {
+			s.T().Error(err)
+			return
+		}
+		// Add time
+		testCircularBuffer.Times[testCircularBuffer.Indexes.End] = time.Now()
 	}
 
 	// Go back all samples
@@ -102,7 +151,7 @@ func (s *CircularBuffertUnitTestSuite) Test_CircularBuffer() {
 		s.T().Error(fmt.Errorf("Number of elements in the buffer is not equal to the number of steps taken (moving end backwards):  got = %v, want %v (Start Idx: %v - End Idx : %v)", testCircularBuffer.NumSamples, 0, testCircularBuffer.Indexes.Start, testCircularBuffer.Indexes.End))
 	}
 	// Check number of valid samples
-	validIdx, err = testCircularBuffer.GetBufferValidIndexes(s.app.Logger)
+	validIdx, err := testCircularBuffer.GetBufferValidIndexes(s.app.Logger)
 	if err != nil {
 		s.T().Error(err)
 		return
@@ -111,8 +160,28 @@ func (s *CircularBuffertUnitTestSuite) Test_CircularBuffer() {
 		s.T().Error(fmt.Errorf("Number of valid elements in the buffer is not equal to the number of samples counted (moving end backwards):  got = %v, want %v (Start Idx: %v - End Idx : %v)", testCircularBuffer.NumSamples, uint32(len(validIdx)), testCircularBuffer.Indexes.Start, testCircularBuffer.Indexes.End))
 	}
 
+}
+
+// Move end and then push start into end to force a collapse and result in zero samples
+func (s *CircularBuffertUnitTestSuite) Test_CircularBuffer_BackAndForwardStep() {
+
+	// Create a test circular buffer
+	timeArray := make([]time.Time, testBufferLen)
+	for i := range timeArray {
+		timeArray[i] = types.EpochStart.UTC()
+	}
+	testCircularBuffer := types.CircularBuffer{
+		CircBufferLen: testBufferLen,
+		NumSamples:    0,
+		Times:         timeArray,
+		Indexes: types.CircularIndexes{
+			Start: 0,
+			End:   0,
+		},
+	}
+
 	// move end 5 and then start 10
-	stepsMove = int(5)
+	stepsMove := int(5)
 	for step := 0; step < stepsMove; step++ {
 		// Increment the end
 		err := testCircularBuffer.StepIndex(1, "end", true, s.app.Logger)
@@ -127,7 +196,7 @@ func (s *CircularBuffertUnitTestSuite) Test_CircularBuffer() {
 		s.T().Error(fmt.Errorf("Number of elements in the buffer is not equal to the number of steps taken (moving end forward):  got = %v, want %v (Start Idx: %v - End Idx : %v)", testCircularBuffer.NumSamples, 5, testCircularBuffer.Indexes.Start, testCircularBuffer.Indexes.End))
 	}
 	// Check number of valid samples
-	validIdx, err = testCircularBuffer.GetBufferValidIndexes(s.app.Logger)
+	validIdx, err := testCircularBuffer.GetBufferValidIndexes(s.app.Logger)
 	if err != nil {
 		s.T().Error(err)
 		return
@@ -157,11 +226,29 @@ func (s *CircularBuffertUnitTestSuite) Test_CircularBuffer() {
 	if uint32(len(validIdx)) != testCircularBuffer.NumSamples {
 		s.T().Error(fmt.Errorf("Number of valid elements in the buffer is not equal to the number of samples counted (moving start forward):  got = %v, want %v (Start Idx: %v - End Idx : %v)", testCircularBuffer.NumSamples, uint32(len(validIdx)), testCircularBuffer.Indexes.Start, testCircularBuffer.Indexes.End))
 	}
+}
 
-	// Check  cycling
+// Test the cycling of samples, meaning dropping the old ones.
+// Here we force a sample to be old and check that it is eliminated.
+func (s *CircularBuffertUnitTestSuite) Test_CircularBuffer_Cycling() {
+
+	// Create a test circular buffer
+	timeArray := make([]time.Time, testBufferLen)
+	for i := range timeArray {
+		timeArray[i] = types.EpochStart.UTC()
+	}
+	testCircularBuffer := types.CircularBuffer{
+		CircBufferLen: testBufferLen,
+		NumSamples:    0,
+		Times:         timeArray,
+		Indexes: types.CircularIndexes{
+			Start: 0,
+			End:   0,
+		},
+	}
 
 	// move end 4
-	stepsMove = int(4)
+	stepsMove := int(4)
 	for step := 0; step < stepsMove; step++ {
 		// Increment the end
 		err := testCircularBuffer.StepIndex(1, "end", true, s.app.Logger)
@@ -173,7 +260,7 @@ func (s *CircularBuffertUnitTestSuite) Test_CircularBuffer() {
 		testCircularBuffer.Times[testCircularBuffer.Indexes.End] = time.Now()
 	}
 	// Change date of start sample to an old one
-	validIdx, err = testCircularBuffer.GetBufferValidIndexes(s.app.Logger)
+	validIdx, err := testCircularBuffer.GetBufferValidIndexes(s.app.Logger)
 	testCircularBuffer.Times[validIdx[0]] = types.EpochStart
 	// Cycle indexes
 	err = testCircularBuffer.CycleIndexes(5, s.app.Logger)
