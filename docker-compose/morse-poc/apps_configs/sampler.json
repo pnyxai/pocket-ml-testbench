@@ -12,5 +12,71 @@
     "max_concurrent_workflow_tasks": 4,
     "max_concurrent_workflow_task_polls": 4,
     "max_concurrent_activity_task_polls": 4
+  },
+  "timeouts": {
+    "A100": {
+      "TTFT": {
+        "x": [
+          0,
+          8192,
+          32768
+        ],
+        "y": [
+          0,
+          2,
+          10
+        ]
+      },
+      "TPOT": 0.336,
+      "QUEUE": 30
+    },
+    "A101": {
+      "TTFT": {
+        "x": [
+          0,
+          8192,
+          32768
+        ],
+        "y": [
+          0,
+          2,
+          10
+        ]
+      },
+      "TPOT": 0.336,
+      "QUEUE": 30
+    },
+    "A102": {
+      "TTFT": {
+        "x": [
+          0,
+          8192,
+          32768
+        ],
+        "y": [
+          0,
+          2,
+          10
+        ]
+      },
+      "TPOT": 0.336,
+      "QUEUE": 30
+    },
+    "A103": {
+      "TTFT": {
+        "x": [
+          0,
+          8192,
+          32768
+        ],
+        "y": [
+          0,
+          2,
+          10
+        ]
+      },
+      "TPOT": 0.336,
+      "QUEUE": 30
+    }        
   }
 }

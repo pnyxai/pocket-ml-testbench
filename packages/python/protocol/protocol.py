@@ -1,8 +1,9 @@
 import time
 import uuid
 from datetime import datetime
-from typing import Dict, List, Literal, Optional, Union
+from typing import Callable, Dict, List, Literal, Optional, Union
 
+import numpy as np
 from bson import ObjectId
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -310,3 +311,62 @@ class PocketNetworkMongoDBConfig(BaseModel):
 
     class Config:
         arbitrary_types_allowed = True
+
+
+######################
+# TIMEOUT HANDLER
+######################
+
+
+class TTFT(BaseModel):
+    x: List[int]
+    y: List[int]
+
+
+class LLMTimeouts(BaseModel):
+    TTFT: TTFT
+    TPOT: int
+    QUEUE: int
+
+
+class TimeoutHandler(BaseModel):
+    service: str
+    timeouts: LLMTimeouts
+
+    # Define the functions for each chain
+    def timeouts_a100(self, prefill: int, decode: int) -> float:
+        x = self.timeouts.TTFT.x
+        y = self.timeouts.TTFT.y
+        queue = self.timeouts.QUEUE
+        z = np.polyfit(x, y, 2)
+        ttft = np.poly1d(z)
+        tpot = self.timeouts.TPOT
+        timeout = ttft(prefill) + (tpot * decode) + queue
+        return float(timeout)
+
+    # In case of new chains redefine the functions below
+    def timeouts_a101(self, prefill: int, decode: int) -> float:
+        return self.timeouts_a100(prefill, decode)
+
+    def timeouts_a102(self, prefill: int, decode: int) -> float:
+        return self.timeouts_a100(prefill, decode)
+
+    def timeouts_a103(self, prefill: int, decode: int) -> float:
+        return self.timeouts_a100(prefill, decode)
+
+    def chain_default(self, prefill: int, decode: int) -> float:
+        return 60
+
+    @model_validator(mode="after")
+    def map_timeouts(self):
+        chain_timeouts: Dict[str, Callable[[], str]] = {
+            "A100": self.timeouts_a100,
+            "A101": self.timeouts_a101,
+            "A102": self.timeouts_a102,
+            "A103": self.timeouts_a103,
+        }
+        self._timeout_fn = chain_timeouts.get(self.service, self.chain_default)
+        return
+
+    def get_timeout(self, prefill: int, decode: int) -> float:
+        return self._timeout_fn(prefill, decode)

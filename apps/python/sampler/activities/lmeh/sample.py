@@ -9,7 +9,11 @@ from packages.python.lmeh.utils import generator as lmeh_generator
 from packages.python.lmeh.utils import sql as lmeh_sql
 from packages.python.lmeh.utils import task_config as open_llm_config
 from packages.python.lmeh.utils.common import get_task_manager
-from packages.python.protocol.protocol import PocketNetworkTaskRequest
+from packages.python.protocol.protocol import (
+    LLMTimeouts,
+    PocketNetworkTaskRequest,
+    TimeoutHandler,
+)
 
 
 @activity.defn
@@ -19,7 +23,10 @@ async def lmeh_sample(args: PocketNetworkTaskRequest) -> bool:
     eval_logger = get_app_logger("sample")
     config = get_app_config()["config"]
     wf_id = activity.info().workflow_id
-
+    timeouts = LLMTimeouts(config["timeouts"][args.requester_args.service])
+    timeout_handler = TimeoutHandler(
+        service=args.requester_args.service, timeouts=timeouts
+    )
     eval_logger.info(
         "Starting activity lmeh_sample",
         task_name=args.tasks,
@@ -139,6 +146,7 @@ async def lmeh_sample(args: PocketNetworkTaskRequest) -> bool:
                     mongo_client=mongo_client,
                     args=args,
                     eval_logger=eval_logger,
+                    timeout_handler=timeout_handler,
                 )
                 eval_logger.info("LM generated successfully.")
 
