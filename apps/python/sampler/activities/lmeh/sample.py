@@ -23,7 +23,7 @@ async def lmeh_sample(args: PocketNetworkTaskRequest) -> bool:
     eval_logger = get_app_logger("sample")
     config = get_app_config()["config"]
     wf_id = activity.info().workflow_id
-    timeouts = LLMTimeouts(config["timeouts"][args.requester_args.service])
+    timeouts = LLMTimeouts(**config["timeouts"][args.requester_args.service])
     timeout_handler = TimeoutHandler(
         service=args.requester_args.service, timeouts=timeouts
     )

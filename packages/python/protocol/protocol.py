@@ -325,8 +325,8 @@ class TTFT(BaseModel):
 
 class LLMTimeouts(BaseModel):
     ttft: TTFT
-    tpot: int
-    queue: int
+    tpot: float
+    queue: float
 
 
 class TimeoutHandler(BaseModel):
