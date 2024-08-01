@@ -1,5 +1,7 @@
 package types
 
+import "go.mongodb.org/mongo-driver/bson/primitive"
+
 //------------------------------------------------------------------------------
 // Get Staked Nodes
 //------------------------------------------------------------------------------
@@ -58,4 +60,16 @@ type TriggerSamplerParams struct {
 
 type TriggerSamplerResults struct {
 	Success bool
+}
+
+//------------------------------------------------------------------------------
+// Analyze Results
+//------------------------------------------------------------------------------
+
+type AnalyzeResultParams struct {
+	TaskID primitive.ObjectID `json:"task_id"`
+}
+
+type AnalyzeResultResults struct {
+	Success bool `json:"success"`
 }

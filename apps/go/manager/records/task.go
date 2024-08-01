@@ -72,7 +72,7 @@ const TaskTTLDays uint32 = 32
 type TaskInterface interface {
 	ProcessData(l *zerolog.Logger) error
 	StepIndex(step uint32, marker string, positive_step bool, l *zerolog.Logger) error
-	CycleIndexes(l *zerolog.Logger) error
+	CycleIndexes(l *zerolog.Logger) (bool, error)
 	InsertSample(timeSample time.Time, data interface{}, l *zerolog.Logger) (err error)
 	GetNumSamples() uint32
 	GetFramework() string
@@ -550,7 +550,7 @@ func (record *NumericalTaskRecord) StepIndex(step uint32, marker string, positiv
 }
 
 // Updates the indexes making them point to the initial and final samples in a given time window.
-func (record *NumericalTaskRecord) CycleIndexes(l *zerolog.Logger) error {
+func (record *NumericalTaskRecord) CycleIndexes(l *zerolog.Logger) (bool, error) {
 	return record.CircBuffer.CycleIndexes(NumericalSampleTTLDays, l)
 }
 func (record *NumericalTaskRecord) InsertSample(timeSample time.Time, data interface{}, l *zerolog.Logger) (err error) {
@@ -738,7 +738,7 @@ func (record *SignatureTaskRecord) StepIndex(step uint32, marker string, positiv
 }
 
 // Updates the indexes making them point to the initial and final samples in a given time window.
-func (record *SignatureTaskRecord) CycleIndexes(l *zerolog.Logger) error {
+func (record *SignatureTaskRecord) CycleIndexes(l *zerolog.Logger) (bool, error) {
 	return record.CircBuffer.CycleIndexes(NumericalSampleTTLDays, l)
 }
 
