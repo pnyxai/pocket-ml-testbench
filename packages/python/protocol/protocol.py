@@ -1,9 +1,8 @@
 import time
 import uuid
 from datetime import datetime
-from typing import Callable, Dict, List, Literal, Optional, Union
+from typing import Any, Callable, Dict, List, Literal, Optional, Union
 
-import numpy as np
 from bson import ObjectId
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -319,54 +318,63 @@ class PocketNetworkMongoDBConfig(BaseModel):
 
 
 class TTFT(BaseModel):
-    x: List[int]
-    y: List[int]
+    prompt_lenght: List[int]
+    sla_time: List[int]
 
 
 class LLMTimeouts(BaseModel):
     ttft: TTFT
     tpot: float
     queue: float
+    type: str = "llm"
 
 
 class TimeoutHandler(BaseModel):
-    service: str
-    timeouts: LLMTimeouts
+    model_config = ConfigDict(extra="allow")
+    timeouts: Optional[LLMTimeouts] = None
 
-    # Define the functions for each chain
-    def timeouts_a100(self, prefill: int, decode: int) -> float:
-        x = self.timeouts.ttft.x
-        y = self.timeouts.ttft.y
-        queue = self.timeouts.queue
-        z = np.polyfit(x, y, 2)
-        ttft = np.poly1d(z)
-        tpot = self.timeouts.tpot
-        timeout = ttft(prefill) + (tpot * decode) + queue
+    def llm_timeout(self, prefill: int, decode: int) -> float:
+        timeout = self.ttft(prefill) + (self.tpot * decode) + self.queue
         return float(timeout)
 
-    # In case of new chains redefine the functions below
-    def timeouts_a101(self, prefill: int, decode: int) -> float:
-        return self.timeouts_a100(prefill, decode)
-
-    def timeouts_a102(self, prefill: int, decode: int) -> float:
-        return self.timeouts_a100(prefill, decode)
-
-    def timeouts_a103(self, prefill: int, decode: int) -> float:
-        return self.timeouts_a100(prefill, decode)
+    # whenever a new timeout type is added, add a new function here
 
     def chain_default(self, prefill: int, decode: int) -> float:
         return 60
 
     @model_validator(mode="after")
     def map_timeouts(self):
-        chain_timeouts: Dict[str, Callable[[], str]] = {
-            "A100": self.timeouts_a100,
-            "A101": self.timeouts_a101,
-            "A102": self.timeouts_a102,
-            "A103": self.timeouts_a103,
-        }
-        self._timeout_fn = chain_timeouts.get(self.service, self.chain_default)
+        if self.timeouts:
+            chain_timeouts: Dict[str, Callable[[], str]] = {
+                "llm": self.llm_timeout,
+            }
+            self._timeout_fn = chain_timeouts.get(
+                self.timeouts.type, self.chain_default
+            )
+        else:
+            # if timeouts are not defined, means default
+            self._timeout_fn = self.chain_default
         return
 
-    def get_timeout(self, prefill: int, decode: int) -> float:
-        return self._timeout_fn(prefill, decode)
+    def model_post_init(self, __context: Any) -> None:
+        if self.timeouts is None:
+            # if timeouts are not defined, means default
+            return
+        if self.timeouts.type == "llm":
+            try:
+                import numpy as np
+
+                x = self.timeouts.ttft.prompt_lenght
+                y = self.timeouts.ttft.sla_time
+                self.queue = self.timeouts.queue
+                z = np.polyfit(x, y, 2)
+                self.ttft = np.poly1d(z)
+                self.tpot = self.timeouts.tpot
+            except Exception as e:
+                raise ValueError(f"Error creating timeout function: {e}")
+        # whenever a new timeout type is added, add new post init here
+        # to define attributes.
+        return
+
+    def get_timeout(self, **kwargs) -> float:
+        return self._timeout_fn(**kwargs)

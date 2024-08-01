@@ -23,10 +23,27 @@ async def lmeh_sample(args: PocketNetworkTaskRequest) -> bool:
     eval_logger = get_app_logger("sample")
     config = get_app_config()["config"]
     wf_id = activity.info().workflow_id
-    timeouts = LLMTimeouts(**config["timeouts"][args.requester_args.service])
-    timeout_handler = TimeoutHandler(
-        service=args.requester_args.service, timeouts=timeouts
-    )
+    # check if config has timeouts
+    if "timeouts" in config:
+        try:
+            timeouts = LLMTimeouts(**config["timeouts"][args.requester_args.service])
+            timeout_handler = TimeoutHandler(timeouts=timeouts)
+        except Exception as e:
+            eval_logger.error(
+                "Error creating TimeoutHandler",
+                error=e,
+                timeouts=config["timeouts"],
+                service=args.requester_args.service,
+            )
+            raise ApplicationError(
+                "Error creating TimeoutHandler",
+                str(e),
+                type="TimeoutHandler",
+                non_retryable=True,
+            )
+    else:
+        timeout_handler = TimeoutHandler()
+
     eval_logger.info(
         "Starting activity lmeh_sample",
         task_name=args.tasks,
