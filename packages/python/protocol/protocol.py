@@ -1,7 +1,7 @@
 import time
 import uuid
 from datetime import datetime
-from typing import Dict, List, Literal, Optional, Union
+from typing import Any, Callable, Dict, List, Literal, Optional, Union
 
 from bson import ObjectId
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -310,3 +310,71 @@ class PocketNetworkMongoDBConfig(BaseModel):
 
     class Config:
         arbitrary_types_allowed = True
+
+
+######################
+# TIMEOUT HANDLER
+######################
+
+
+class TTFT(BaseModel):
+    prompt_lenght: List[int]
+    sla_time: List[int]
+
+
+class LLMTimeouts(BaseModel):
+    ttft: TTFT
+    tpot: float
+    queue: float
+    type: str = "llm"
+
+
+class TimeoutHandler(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    timeouts: Optional[LLMTimeouts] = None
+
+    def llm_timeout(self, prefill: int, decode: int) -> float:
+        timeout = self.ttft(prefill) + (self.tpot * decode) + self.queue
+        return float(timeout)
+
+    # whenever a new timeout type is added, add a new function here
+
+    def chain_default(self, prefill: int, decode: int) -> float:
+        return 60
+
+    @model_validator(mode="after")
+    def map_timeouts(self):
+        if self.timeouts:
+            chain_timeouts: Dict[str, Callable[[], str]] = {
+                "llm": self.llm_timeout,
+            }
+            self._timeout_fn = chain_timeouts.get(
+                self.timeouts.type, self.chain_default
+            )
+        else:
+            # if timeouts are not defined, means default
+            self._timeout_fn = self.chain_default
+        return
+
+    def model_post_init(self, __context: Any) -> None:
+        if self.timeouts is None:
+            # if timeouts are not defined, means default
+            return
+        if self.timeouts.type == "llm":
+            try:
+                import numpy as np
+
+                x = self.timeouts.ttft.prompt_lenght
+                y = self.timeouts.ttft.sla_time
+                self.queue = self.timeouts.queue
+                z = np.polyfit(x, y, 2)
+                self.ttft = np.poly1d(z)
+                self.tpot = self.timeouts.tpot
+            except Exception as e:
+                raise ValueError(f"Error creating timeout function: {e}")
+        # whenever a new timeout type is added, add new post init here
+        # to define attributes.
+        return
+
+    def get_timeout(self, **kwargs) -> float:
+        return self._timeout_fn(**kwargs)

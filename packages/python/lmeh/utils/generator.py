@@ -37,6 +37,7 @@ from packages.python.protocol.protocol import (
     PocketNetworkMongoDBResultNumerical,
     PocketNetworkMongoDBTask,
     PocketNetworkTaskRequest,
+    TimeoutHandler,
 )
 
 
@@ -162,6 +163,7 @@ async def generate_requests(
     apply_chat_template: bool = False,
     fewshot_as_multiturn: bool = False,
     eval_logger: Optional[logging.Logger] = None,
+    timeout_handler=TimeoutHandler,
 ):
     """Generate and save in mongoDB: Task->Instances->Prompts
 
@@ -309,6 +311,22 @@ async def generate_requests(
                     exclude_defaults=True,
                     exclude={"ctxlen", "context_enc", "continuation_enc"},
                 )
+                # Timeout
+                prefill = pocket_req.ctxlen
+                decode = (
+                    lm.max_gen_toks if instance.request_type == "generate_until" else 2
+                )
+                timeout = int(
+                    timeout_handler.get_timeout(prefill=prefill, decode=decode)
+                )
+                eval_logger.debug(
+                    "Timeout:",
+                    timeout=timeout,
+                    prefill=pocket_req.ctxlen,
+                    decode=decode,
+                    request_type=instance.request_type,
+                )
+                # Prompt
                 prompt_mongo = PocketNetworkMongoDBPrompt(
                     data=data,
                     task_id=task_mongodb.id,
@@ -316,6 +334,7 @@ async def generate_requests(
                     ctxlen=pocket_req.ctxlen,
                     context_enc=pocket_req.context_enc,
                     continuation_enc=pocket_req.continuation_enc,
+                    timeout=timeout,
                 )
                 insert_mongo_prompts.append(prompt_mongo.model_dump(by_alias=True))
     try:

@@ -7,5 +7,23 @@
     "port": 7233,
     "namespace": "pocket-ml-testbench",
     "task_queue": "sampler"
-  }
+  },
+  "timeouts": {
+    "random": {
+      "ttft": {
+        "x": [
+          0,
+          8192,
+          32768
+        ],
+        "y": [
+          0,
+          2,
+          10
+        ]
+      },
+      "tpot": 0.336,
+      "queue": 30
+    }
+  }  
 }
