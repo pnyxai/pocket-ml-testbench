@@ -6,6 +6,7 @@ from packages.python.protocol.protocol import PocketNetworkEvaluationTaskRequest
 from app.app import get_app_logger
 from activities.lmeh.evaluate import lmeh_evaluate
 from activities.get_task_data import get_task_data
+from activities.trigger_manager_analysis import trigger_manager_analysis
 from activities.signatures.tokenizer_evaluate import tokenizer_evaluate
 
 
@@ -13,7 +14,7 @@ from activities.signatures.tokenizer_evaluate import tokenizer_evaluate
 class Evaluator:
     @workflow.run
     async def run(self, args: PocketNetworkEvaluationTaskRequest) -> bool:
-        eval_logger = get_app_logger("Register")
+        eval_logger = get_app_logger("Evaluator")
         eval_logger.info("Starting Workflow Evaluator")
         # Extract framework and task to evaluate
         framework, task = await workflow.execute_activity(
@@ -23,6 +24,7 @@ class Evaluator:
             retry_policy=RetryPolicy(maximum_attempts=2),
         )
 
+        # Perform the corresponding evaluation
         if framework == "lmeh":
             _ = await workflow.execute_activity(
                 lmeh_evaluate,
@@ -54,6 +56,14 @@ class Evaluator:
                 type="BadParams",
                 non_retryable=True,
             )
+        
+        # Trigger the manager result processing workflow
+        status = await workflow.execute_activity(
+            trigger_manager_analysis,
+            args,
+            start_to_close_timeout=timedelta(seconds=10),
+            retry_policy=RetryPolicy(maximum_attempts=2),
+        )
 
         eval_logger.info("Workflow Evaluator done")
-        return True
+        return status
