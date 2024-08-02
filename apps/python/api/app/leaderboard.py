@@ -116,6 +116,7 @@ async def get_leaderboard_full(mongodb: PoktMongodb) -> Tuple[dict, bool]:
 
             # Prepare entry
             leaderboard_entry = dict()
+            leaderboard_entry["status"] = "OK"
 
             # Add QoS
             leaderboard_entry["qos"] = {
@@ -128,6 +129,7 @@ async def get_leaderboard_full(mongodb: PoktMongodb) -> Tuple[dict, bool]:
             running_mean_avg = 0
             weight_avg = 0
             std_err_avg = 0
+            incomplete = False
             for metric in LEADERBOARD_METRICS.keys():
                 metric_name = LEADERBOARD_METRICS[metric]
 
@@ -136,19 +138,29 @@ async def get_leaderboard_full(mongodb: PoktMongodb) -> Tuple[dict, bool]:
                     weight_mmlu = 0
                     std_err_mmlu = 0
                     # This requiere more steps yay!
+                    all_ok = True
+                    partial = False
                     for mmlu_metric in LEADERBOARD_MMLU_METRICS:
                         data_row = scores_df.loc[
                             (scores_df["framework"] == LEADERBOARD_FRAMEWORK)
                             * (scores_df["task"] == mmlu_metric)
                         ]
-                        assert len(data_row) == 1
-                        if data_row["num"].values[0] > 0:
+                        assert len(data_row) <= 1
+
+                        if len(data_row) == 0:
+                            # Cannot compute MMLU
+                            all_ok = False
+                            break
+                        elif data_row["num"].values[0] > 0:
                             metric_mean = (
                                 data_row["mean"].values[0] * data_row["num"].values[0]
                             )
                             metric_std_err = data_row["std"].values[0] / np.sqrt(
                                 data_row["num"].values[0]
                             )
+                            if data_row["num"].values[0] <= 50:
+                                # This is a partial metric
+                                partial = True
                         else:
                             metric_mean = 0
                             metric_std_err = 0
@@ -159,43 +171,65 @@ async def get_leaderboard_full(mongodb: PoktMongodb) -> Tuple[dict, bool]:
                         if this_w > 0:
                             std_err_mmlu += (metric_std_err / this_w) ** 2
 
-                    if weight_mmlu == 0:
-                        running_mean_mmlu = 0
-                    else:
-                        running_mean_mmlu = running_mean_mmlu / weight_mmlu
-                        if std_err_mmlu != 0:
-                            std_err_mmlu = np.sqrt(std_err_mmlu)
+                    if all_ok:
+                        if weight_mmlu == 0:
+                            running_mean_mmlu = 0
+                        else:
+                            running_mean_mmlu = running_mean_mmlu / weight_mmlu
+                            if std_err_mmlu != 0:
+                                std_err_mmlu = np.sqrt(std_err_mmlu)
 
-                    metric_mean = running_mean_mmlu
-                    metric_std_err = std_err_mmlu
-                    metric_weight = weight_mmlu / len(LEADERBOARD_MMLU_METRICS)
+                        metric_mean = running_mean_mmlu
+                        metric_std_err = std_err_mmlu
+                        metric_weight = weight_mmlu / len(LEADERBOARD_MMLU_METRICS)
+                    else:
+                        # No data
+                        metric_mean = np.nan
+                        metric_std_err = np.nan
+                        metric_weight = np.nan
 
                 else:
                     data_row = scores_df.loc[
                         (scores_df["framework"] == LEADERBOARD_FRAMEWORK)
                         * (scores_df["task"] == metric)
                     ]
-                    assert len(data_row) == 1
+                    assert len(data_row) <= 1
 
-                    if data_row["num"].values[0] > 0:
+                    if len(data_row) == 0:
+                        # No data
+                        metric_mean = np.nan
+                        metric_std_err = np.nan
+                        metric_weight = np.nan
+
+                    elif data_row["num"].values[0] > 0:
                         metric_mean = data_row["mean"].values[0]
                         metric_std_err = data_row["std"].values[0] / np.sqrt(
                             data_row["num"].values[0]
                         )
                         metric_weight = data_row["num"].values[0]
+                        if data_row["num"].values[0] <= 50:
+                            partial = True
                     else:
                         metric_mean = 0
                         metric_std_err = 0
                         metric_weight = 0
 
-                leaderboard_entry["metrics"][metric_name] = {
-                    "mean": metric_mean,
-                    "stderr": metric_std_err,
-                }
-
-                running_mean_avg += metric_mean * metric_weight
-                weight_avg += metric_weight
-                std_err_avg += metric_std_err**2
+                if np.isnan(metric_mean) or metric_weight == 0:
+                    leaderboard_entry["metrics"][metric_name] = {
+                        "mean": -1,
+                        "stderr": -1,
+                        "status": "MISSING",
+                    }
+                    incomplete = True  # The average will be incomplete
+                else:
+                    leaderboard_entry["metrics"][metric_name] = {
+                        "mean": metric_mean,
+                        "stderr": metric_std_err,
+                        "status": "OK" if not partial else "PARTIAL",
+                    }
+                    running_mean_avg += metric_mean * metric_weight
+                    weight_avg += metric_weight
+                    std_err_avg += metric_std_err**2
 
             if weight_avg == 0:
                 running_mean_avg = 0
@@ -207,6 +241,7 @@ async def get_leaderboard_full(mongodb: PoktMongodb) -> Tuple[dict, bool]:
             leaderboard_entry["metrics"]["average"] = {
                 "mean": running_mean_avg,
                 "stderr": std_err_avg,
+                "status": "OK" if not incomplete else "INCOMPLETE",
             }
 
             # Add Metadata

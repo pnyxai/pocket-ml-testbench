@@ -6,6 +6,10 @@
     "host": "temporal",
     "port": 7233,
     "namespace": "pocket-ml-testbench",
-    "task_queue": "evaluate"
+    "task_queue": "evaluate",
+    "manager-result-analyzer": {
+      "workflow_name": "Manager-ResultAnalyzer",
+      "task_queue": "manager"
+    }
   }
 }

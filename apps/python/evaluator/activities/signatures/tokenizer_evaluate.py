@@ -8,7 +8,12 @@ from temporalio.exceptions import ApplicationError
 
 from packages.python.common.auto_heartbeater import auto_heartbeater
 from packages.python.lmeh.utils.mongodb import MongoOperator
-from packages.python.lmeh.utils.tokenizers import load_tokenizer, prepare_tokenizer, load_config, prepare_config
+from packages.python.lmeh.utils.tokenizers import (
+    load_tokenizer,
+    prepare_tokenizer,
+    load_config,
+    prepare_config,
+)
 from packages.python.protocol.protocol import (
     PocketNetworkEvaluationTaskRequest,
     PocketNetworkMongoDBResultSignature,
@@ -17,8 +22,6 @@ from packages.python.protocol.protocol import (
     SignatureSample,
     PocketNetworkMongoDBResultBase,
 )
-
-
 
 
 @activity.defn
@@ -113,7 +116,7 @@ async def tokenizer_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
                 ### CONFIG
                 #####################
                 _config = load_config(
-                    config_objects = config_jsons,
+                    config_objects=config_jsons,
                     wf_id="",
                     config_ephimeral_path=temp_path,
                 )
@@ -122,7 +125,7 @@ async def tokenizer_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
                 config_jsons_loaded, config_hash_loaded = prepare_config(
                     _config, CONFIG_EPHIMERAL_PATH=temp_path
                 )
-                # TODO 
+                # TODO
                 # For instance, the tokenizer hash is used as the config hash
                 # in future versions, this should be changed
                 config_mongo_new = PocketNetworkMongoDBConfig(
@@ -172,9 +175,7 @@ async def tokenizer_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
             ######################
             ### CONFIG
             #####################
-            config_db = await mongo_operator.get_config_entry(
-                config_mongo_new.hash
-            )
+            config_db = await mongo_operator.get_config_entry(config_mongo_new.hash)
             if config_db is None:
                 eval_logger.debug("Config does not exists.")
                 # the config is not tracked, we need to create an entry

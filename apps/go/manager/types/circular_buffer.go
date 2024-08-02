@@ -28,11 +28,11 @@ type CircularBuffer struct {
 // Gets the sample index given a step direction (positive: 1 or negative: -1) and for a given marker (start or end of buffer)
 func (buffer *CircularBuffer) StepIndex(step uint32, marker string, positive_step bool, l *zerolog.Logger) error {
 
-	l.Debug().
-		Int("buffer.Indexes.Start", int(buffer.Indexes.Start)).
-		Int("buffer.Indexes.End", int(buffer.Indexes.End)).
-		Int("step", int(step)).
-		Msg("Circular indexes moving.")
+	// l.Debug().
+	// 	Int("buffer.Indexes.Start", int(buffer.Indexes.Start)).
+	// 	Int("buffer.Indexes.End", int(buffer.Indexes.End)).
+	// 	Int("step", int(step)).
+	// 	Msg("Circular indexes moving.")
 
 	if step > 1 {
 		return fmt.Errorf("Steps of length larger than 1 are not supported.")

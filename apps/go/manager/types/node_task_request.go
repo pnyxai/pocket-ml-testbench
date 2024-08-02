@@ -20,7 +20,7 @@ type TaskRequestRecord struct {
 	Id             primitive.ObjectID `bson:"_id"`
 	RequesterArgs  RequesterArgs      `bson:"requester_args"`
 	Framework      string             `bson:"framework"`
-	Task           string             `bson:"task"`
+	Task           string             `bson:"tasks"`
 	Blacklist      []int              `bson:"blacklist"`
 	Qty            int                `bson:"qty"`
 	TotalInstances int                `bson:"total_instances"`
