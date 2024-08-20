@@ -232,6 +232,7 @@ type Config struct {
 	Rpc        *RPCConfig                 `json:"rpc"`
 	LogLevel   string                     `json:"log_level"`
 	Temporal   *TemporalConfig            `json:"temporal"`
+	DevelopCfg *DevelopConfig             `json:"develop"`
 }
 
 type FrameworkConfig struct {
@@ -239,4 +240,8 @@ type FrameworkConfig struct {
 	TasksDependency map[string]string `json:"task_dependency"`
 	ScheduleLimits  map[string]string `json:"schedule_limits"`
 	TriggerMinimum  map[string]string `json:"trigger_minimum"`
+}
+
+type DevelopConfig struct {
+	DoNotRemoveTasksFromDB bool `json:"do_not_remove_tasks_from_db"`
 }

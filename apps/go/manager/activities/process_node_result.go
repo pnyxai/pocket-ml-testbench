@@ -143,12 +143,14 @@ func (aCtx *Ctx) AnalyzeResult(ctx context.Context, params types.AnalyzeResultPa
 	}
 
 	// Delete all MongoDB entries associated with this task ID
-	errDel := RemoveTaskID(params.TaskID, aCtx.App.Mongodb, l)
-	if errDel != nil {
-		l.Debug().
-			Str("delete_error", errDel.Error()).
-			Str("task_id", params.TaskID.String()).
-			Msg("Deletion error.")
+	if !aCtx.App.Config.DevelopCfg.DoNotRemoveTasksFromDB {
+		errDel := RemoveTaskID(params.TaskID, aCtx.App.Mongodb, l)
+		if errDel != nil {
+			l.Debug().
+				Str("delete_error", errDel.Error()).
+				Str("task_id", params.TaskID.String()).
+				Msg("Deletion error.")
+		}
 	}
 
 	//------------------------------------------------------------------
