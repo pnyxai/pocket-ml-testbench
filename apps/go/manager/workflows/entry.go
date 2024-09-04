@@ -38,4 +38,9 @@ func (wCtx *Ctx) Register(w worker.Worker) {
 	w.RegisterWorkflowWithOptions(wCtx.NodeManager, workflow.RegisterOptions{
 		Name: NodeManagerName,
 	})
+
+	// Secondary workflow used to update the results quickly
+	w.RegisterWorkflowWithOptions(wCtx.ResultAnalyzer, workflow.RegisterOptions{
+		Name: ResultAnalyzerName,
+	})
 }

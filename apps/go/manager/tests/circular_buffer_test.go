@@ -259,11 +259,16 @@ func (s *CircularBuffertUnitTestSuite) Test_CircularBuffer_Cycling() {
 		// Add time
 		testCircularBuffer.Times[testCircularBuffer.Indexes.End] = time.Now()
 	}
+	// Cycle indexes (nothing should happen)
+	cycled, err := testCircularBuffer.CycleIndexes(5, s.app.Logger)
+	if cycled {
+		s.T().Error(fmt.Errorf("Index cycling signaling sample drop when all samples are up-to-date"))
+	}
 	// Change date of start sample to an old one
 	validIdx, err := testCircularBuffer.GetBufferValidIndexes(s.app.Logger)
 	testCircularBuffer.Times[validIdx[0]] = types.EpochStart
 	// Cycle indexes
-	err = testCircularBuffer.CycleIndexes(5, s.app.Logger)
+	cycled, err = testCircularBuffer.CycleIndexes(5, s.app.Logger)
 	if err != nil {
 		s.T().Error(err)
 		return
@@ -271,6 +276,9 @@ func (s *CircularBuffertUnitTestSuite) Test_CircularBuffer_Cycling() {
 	// Valid samples must be 4
 	if uint32(stepsMove-1) != testCircularBuffer.NumSamples {
 		s.T().Error(fmt.Errorf("Index cycling not dropping old sample:  got = %v, want %v (Start Idx: %v - End Idx : %v)", testCircularBuffer.NumSamples, stepsMove-1, testCircularBuffer.Indexes.Start, testCircularBuffer.Indexes.End))
+	}
+	if !cycled {
+		s.T().Error(fmt.Errorf("Index cycling not signaling old sample drop"))
 	}
 	// Check number of valid samples
 	validIdx, err = testCircularBuffer.GetBufferValidIndexes(s.app.Logger)

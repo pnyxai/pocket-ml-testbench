@@ -94,6 +94,7 @@ func (s *BaseSuite) BeforeTest(_, _ string) {
 		aCtx.AnalyzeNode,
 		aCtx.GetStaked,
 		aCtx.TriggerSampler,
+		aCtx.AnalyzeResult,
 	}
 
 	// register the activities that will need to be mock up here
@@ -104,6 +105,7 @@ func (s *BaseSuite) BeforeTest(_, _ string) {
 
 	// register the workflows
 	s.workflowEnv.RegisterWorkflow(wCtx.NodeManager)
+	s.workflowEnv.RegisterWorkflow(wCtx.ResultAnalyzer)
 }
 
 func (s *BaseSuite) GetPocketRpcMock() *pocket_rpc.MockRpc {

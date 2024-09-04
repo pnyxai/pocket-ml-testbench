@@ -28,11 +28,11 @@ type CircularBuffer struct {
 // Gets the sample index given a step direction (positive: 1 or negative: -1) and for a given marker (start or end of buffer)
 func (buffer *CircularBuffer) StepIndex(step uint32, marker string, positive_step bool, l *zerolog.Logger) error {
 
-	l.Debug().
-	  Int("buffer.Indexes.Start", int(buffer.Indexes.Start)).
-	  Int("buffer.Indexes.End", int(buffer.Indexes.End)).
-	  Int("step", int(step)).
-	  Msg("Circular indexes moving.")
+	// l.Debug().
+	// 	Int("buffer.Indexes.Start", int(buffer.Indexes.Start)).
+	// 	Int("buffer.Indexes.End", int(buffer.Indexes.End)).
+	// 	Int("step", int(step)).
+	// 	Msg("Circular indexes moving.")
 
 	if step > 1 {
 		return fmt.Errorf("Steps of length larger than 1 are not supported.")
@@ -120,24 +120,28 @@ func (buffer *CircularBuffer) StepIndex(step uint32, marker string, positive_ste
 		}
 	} else {
 		buffer.NumSamples = buffer.CircBufferLen - (buffer.Indexes.Start - buffer.Indexes.End) + 1
-		
+
 	}
 
 	return nil
 }
 
-func (buffer *CircularBuffer) CycleIndexes(sampleTTLDays uint32, l *zerolog.Logger) error {
+func (buffer *CircularBuffer) CycleIndexes(sampleTTLDays uint32, l *zerolog.Logger) (bool, error) {
 
 	// Maximum age of a sample
 	maxAge := time.Duration(sampleTTLDays) * 24 * time.Hour
 	// Check the date of the index start
 	oldestAge := time.Since(buffer.Times[buffer.Indexes.Start])
 
+	if oldestAge < maxAge {
+		return false, nil
+	}
+
 	for oldestAge >= maxAge {
 		// Increment the start
 		err := buffer.StepIndex(1, "start", true, l)
 		if err != nil {
-			return err
+			return true, err
 		}
 		// Update the date
 		oldestAge = time.Since(buffer.Times[buffer.Indexes.Start])
@@ -148,7 +152,7 @@ func (buffer *CircularBuffer) CycleIndexes(sampleTTLDays uint32, l *zerolog.Logg
 		}
 	}
 
-	return nil
+	return true, nil
 }
 
 func (buffer *CircularBuffer) BufferLimitCheck(nextVal uint32, l *zerolog.Logger) (uint32, error) {

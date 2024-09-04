@@ -7,6 +7,10 @@
     "port": 7233,
     "namespace": "pocket-ml-testbench",
     "task_queue": "evaluate",
-    "max_workers": 10
+    "max_workers": 10,
+    "manager-result-analyzer": {
+      "workflow_name": "Manager-ResultAnalyzer",
+      "task_queue": "manager-local"
+    }
   }
 }

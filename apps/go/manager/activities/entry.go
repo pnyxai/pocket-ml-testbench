@@ -42,4 +42,9 @@ func (aCtx *Ctx) Register(w worker.Worker) {
 	w.RegisterActivityWithOptions(aCtx.TriggerSampler, activity.RegisterOptions{
 		Name: TriggerSamplerName,
 	})
+
+	w.RegisterActivityWithOptions(aCtx.AnalyzeResult, activity.RegisterOptions{
+		Name: AnalyzeResultName,
+	})
+
 }

@@ -1,5 +1,7 @@
 package types
 
+import "go.mongodb.org/mongo-driver/bson/primitive"
+
 type TestsData struct {
 	Framework string   `json:"framework"`
 	Tasks     []string `json:"tasks"`
@@ -29,4 +31,12 @@ type SamplerWorkflowParams struct {
 	RequesterArgs RequesterArgs `json:"requester_args"`
 	Blacklist     []int         `json:"blacklist"`
 	Qty           int           `json:"qty"`
+}
+
+type ResultAnalyzerParams struct {
+	TaskID primitive.ObjectID `json:"task_id"`
+}
+
+type ResultAnalyzerResults struct {
+	Success bool `json:"success"`
 }
