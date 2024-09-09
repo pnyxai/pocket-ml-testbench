@@ -27,7 +27,9 @@ TOKENIZER_JSON, TOKENIZER_HASH = prepare_tokenizer(
 )
 
 _config = AutoConfig.from_pretrained(config["tokenizer_path"])
-CONFIG_JSON, CONFIG_HASH = prepare_config(_config, CONFIG_EPHIMERAL_PATH=CONFIG_EPHIMERAL_PATH)
+CONFIG_JSON, CONFIG_HASH = prepare_config(
+    _config, CONFIG_EPHIMERAL_PATH=CONFIG_EPHIMERAL_PATH
+)
 
 # add config to tokenizer json
 TOKENIZER_JSON.update(CONFIG_JSON)
@@ -58,6 +60,7 @@ def get_tokenizer_hash():
     logger.debug("returning tokenizer hash")
     return JSONResponse({"hash": TOKENIZER_HASH})
 
+
 # -----------------------------------------------
 # Get Full Config
 # -----------------------------------------------
@@ -74,6 +77,3 @@ def get_config():
 def get_config_hash():
     logger.debug("returning config hash")
     return JSONResponse({"hash": CONFIG_HASH})
-
-
-

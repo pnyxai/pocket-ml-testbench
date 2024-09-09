@@ -106,7 +106,7 @@ async def tokenizer_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
                     tokenizer=tokenizer_jsons_loaded, hash=tokenizer_hash_loaded
                 )
                 eval_logger.debug("Tokenizer processed.")
-                
+
                 tokenizer_ok = True
             except Exception as e:
                 # This is not an error is just a failure in retrieval of tokenizer
@@ -147,7 +147,7 @@ async def tokenizer_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
                     signature=str(tokenizer_mongo_new.hash), id=0
                 )  # This task has a single sample id
             ]
-            
+
         # Save to results db (a failure is also an answer)
         try:
             async with mongo_client.start_transaction() as session:

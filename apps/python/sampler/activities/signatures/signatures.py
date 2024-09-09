@@ -47,7 +47,6 @@ async def sign_sample(args: PocketNetworkTaskRequest) -> bool:
         logger.debug("starting config task sample")
         task, instances, prompts = get_config_task(args.requester_args)
 
-
     else:
         logger.error(f"requested task {args.tasks} is not supported")
         return False

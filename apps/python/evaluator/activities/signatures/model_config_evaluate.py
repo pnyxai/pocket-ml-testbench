@@ -15,7 +15,6 @@ from packages.python.lmeh.utils.tokenizers import (
 from packages.python.protocol.protocol import (
     PocketNetworkEvaluationTaskRequest,
     PocketNetworkMongoDBResultSignature,
-    PocketNetworkMongoDBTokenizer,
     PocketNetworkMongoDBConfig,
     SignatureSample,
     PocketNetworkMongoDBResultBase,
@@ -107,7 +106,7 @@ async def model_config_evaluate(args: PocketNetworkEvaluationTaskRequest) -> boo
                     config=config_jsons_loaded, hash=config_hash_loaded
                 )
                 eval_logger.debug("Config processed.")
-                
+
                 model_config_ok = True
             except Exception as e:
                 # This is not an error is just a failure in retrieval of the model config
@@ -148,7 +147,6 @@ async def model_config_evaluate(args: PocketNetworkEvaluationTaskRequest) -> boo
                     signature=str(model_config_mongo_new.hash), id=0
                 )  # This task has a single sample id
             ]
-            
 
         # Save to results db (a failure is also an answer)
         try:
