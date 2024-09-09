@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from transformers import AutoConfig, AutoTokenizer
 
-from packages.python.lmeh.utils.tokenizers import _get_config_jsons, prepare_tokenizer
+from packages.python.lmeh.utils.tokenizers import prepare_config, prepare_tokenizer
 
 ###################################################
 # SET UP SIDECAR
@@ -27,7 +27,7 @@ TOKENIZER_JSON, TOKENIZER_HASH = prepare_tokenizer(
 )
 
 _config = AutoConfig.from_pretrained(config["tokenizer_path"])
-CONFIG_JSON = _get_config_jsons(_config, CONFIG_EPHIMERAL_PATH=CONFIG_EPHIMERAL_PATH)
+CONFIG_JSON, CONFIG_HASH = prepare_config(_config, CONFIG_EPHIMERAL_PATH=CONFIG_EPHIMERAL_PATH)
 
 # add config to tokenizer json
 TOKENIZER_JSON.update(CONFIG_JSON)
@@ -57,3 +57,23 @@ def get_tokenizer():
 def get_tokenizer_hash():
     logger.debug("returning tokenizer hash")
     return JSONResponse({"hash": TOKENIZER_HASH})
+
+# -----------------------------------------------
+# Get Full Config
+# -----------------------------------------------
+@app.get("/pokt/config")
+def get_config():
+    logger.debug("returning config data")
+    return JSONResponse(content=CONFIG_JSON)
+
+
+# -----------------------------------------------
+# Get Config Hash
+# -----------------------------------------------
+@app.get("/pokt/config-hash")
+def get_config_hash():
+    logger.debug("returning config hash")
+    return JSONResponse({"hash": CONFIG_HASH})
+
+
+

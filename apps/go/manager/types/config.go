@@ -236,10 +236,10 @@ type Config struct {
 }
 
 type FrameworkConfig struct {
-	TasksTypes      map[string]string `json:"task_types"`
-	TasksDependency map[string]string `json:"task_dependency"`
-	ScheduleLimits  map[string]string `json:"schedule_limits"`
-	TriggerMinimum  map[string]string `json:"trigger_minimum"`
+	TasksTypes      map[string]string   `json:"task_types"`
+	TasksDependency map[string][]string `json:"task_dependency"`
+	ScheduleLimits  map[string]string   `json:"schedule_limits"`
+	TriggerMinimum  map[string]string   `json:"trigger_minimum"`
 }
 
 type DevelopConfig struct {

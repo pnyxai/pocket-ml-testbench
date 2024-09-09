@@ -8,6 +8,7 @@ from temporalio.exceptions import ApplicationError
 # add file path to sys.path
 sys.path.append(os.path.dirname(os.path.realpath(__file__)))
 from activities.signatures.tokenizer.tokenizer import get_tokenizer_task
+from activities.signatures.config.config import get_config_task
 from packages.python.common.auto_heartbeater import auto_heartbeater
 
 # Custom modules
@@ -41,6 +42,11 @@ async def sign_sample(args: PocketNetworkTaskRequest) -> bool:
     if args.tasks == "tokenizer":
         logger.debug("starting tokenizer task sample")
         task, instances, prompts = get_tokenizer_task(args.requester_args)
+
+    elif args.tasks == "config":
+        logger.debug("starting config task sample")
+        task, instances, prompts = get_config_task(args.requester_args)
+
 
     else:
         logger.error(f"requested task {args.tasks} is not supported")

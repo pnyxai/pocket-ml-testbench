@@ -181,47 +181,54 @@ func CheckTaskDependency(nodeData *NodeRecord, framework string, task string, co
 	}
 
 	// Check dependency
-	frameworkTaskandStatus := strings.Split(taskDep, ":")
-	if len(frameworkTaskandStatus) != 3 {
-		l.Error().Str("framework", framework).Str("task", task).Msg("malformed dependency configuration, expected three elements separated by \":\" ")
-		return false, nil
-	}
-	if frameworkTaskandStatus[0] == "none" {
-		// No dependencies
-		l.Debug().Str("address", nodeData.Address).Str("service", nodeData.Service).Str("framework", framework).Str("task", task).Msg("No dependency: Dependecy OK")
-		return true, nil
-	}
-	taskType, err := GetTaskType(frameworkTaskandStatus[0], frameworkTaskandStatus[1], configMap, l)
-	if err != nil {
-		l.Error().Str("framework", framework).Str("task", task).Str("task type", taskType).Msg("Error getting task type")
-		return false, err
-	}
-	thisTaskRecord, found := GetTaskData(nodeData.ID, taskType, frameworkTaskandStatus[0], frameworkTaskandStatus[1], mongoDB, l)
-	if !found {
-		// The task is not even created, we must fail
-		return false, nil
-	} else {
-		// Check the condition
-		if frameworkTaskandStatus[2] == "present" {
-			// Task is present, so OK
-			l.Debug().Str("address", nodeData.Address).Str("service", nodeData.Service).Str("framework", framework).Str("task", task).Msg("Present: Dependecy OK")
-			return true, nil
-		} else if frameworkTaskandStatus[2] == "ok" {
-			// Check for it having a correct value
-			if thisTaskRecord.IsOK() {
-				l.Debug().Str("address", nodeData.Address).Str("service", nodeData.Service).Str("framework", framework).Str("task", task).Msg("OK: Dependecy OK")
-				return true, nil
-			}
+	depOK := true
+	for idxDep := 0; idxDep < len(taskDep); idxDep++ {
+		// get data from entry
+		frameworkTaskandStatus := strings.Split(taskDep[idxDep], ":")
+		if len(frameworkTaskandStatus) != 3 {
+			l.Error().Str("framework", framework).Str("task", task).Msg("malformed dependency configuration, expected three elements separated by \":\" ")
+			depOK = false
+			break
+		}
+		if frameworkTaskandStatus[0] == "none" {
+			// No dependencies
+			l.Debug().Str("address", nodeData.Address).Str("service", nodeData.Service).Str("framework", framework).Str("task", task).Msg("No dependency: Dependecy OK")
+			continue
+		}
+		taskType, err := GetTaskType(frameworkTaskandStatus[0], frameworkTaskandStatus[1], configMap, l)
+		if err != nil {
+			l.Error().Str("framework", framework).Str("task", task).Str("task type", taskType).Msg("Error getting task type")
+			return false, err
+		}
+		thisTaskRecord, found := GetTaskData(nodeData.ID, taskType, frameworkTaskandStatus[0], frameworkTaskandStatus[1], mongoDB, l)
+		if !found {
+			// The task is not even created, we must fail
+			depOK = false
+			break
 		} else {
-			l.Error().Str("framework", framework).Str("task", task).Msg("dependency configuration cannot be processed (status type unknown)")
-			return false, nil
+			// Check the condition
+			if frameworkTaskandStatus[2] == "present" {
+				// Task is present, so OK
+				l.Debug().Str("address", nodeData.Address).Str("service", nodeData.Service).Str("framework", framework).Str("task", task).Msg("Present: Dependecy OK")
+				continue
+			} else if frameworkTaskandStatus[2] == "ok" {
+				// Check for it having a correct value
+				if thisTaskRecord.IsOK() {
+					l.Debug().Str("address", nodeData.Address).Str("service", nodeData.Service).Str("framework", framework).Str("task", task).Msg("OK: Dependecy OK")
+					continue
+				}
+			} else {
+				l.Error().Str("framework", framework).Str("task", task).Msg("dependency configuration cannot be processed (status type unknown)")
+				depOK = false
+				break
+			}
 		}
 	}
 
-	return false, nil
+	return depOK, nil
 }
 
-// Analyzes the configuration and checks wheter the triggering the task will
+// Analyzes the configuration and checks whether the triggering the task will
 // break the schedule limits or not (i.e. trigger twice in the same session)
 func CheckTaskSchedule(taskData TaskInterface, block types.BlockData, configMap map[string]types.FrameworkConfig, l *zerolog.Logger) (bool, error) {
 
@@ -309,7 +316,7 @@ func CheckTaskTriggerMin(taskData TaskInterface, block types.BlockData, configMa
 		// Search for the "any" field
 		taskTriggerMin, ok = frameworkCfg.TriggerMinimum["any"]
 		if !ok {
-			l.Error().Str("framework", framework).Str("task", task).Msg("cannot find default (or specific) value for task trgger minimum")
+			l.Error().Str("framework", framework).Str("task", task).Msg("cannot find default (or specific) value for task trigger minimum")
 			err := fmt.Errorf("cannot find default (or specific) value for task trigger minimum")
 			return 0, err
 		}
