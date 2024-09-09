@@ -11,14 +11,11 @@ from packages.python.lmeh.utils.mongodb import MongoOperator
 from packages.python.lmeh.utils.tokenizers import (
     load_tokenizer,
     prepare_tokenizer,
-    load_config,
-    prepare_config,
 )
 from packages.python.protocol.protocol import (
     PocketNetworkEvaluationTaskRequest,
     PocketNetworkMongoDBResultSignature,
     PocketNetworkMongoDBTokenizer,
-    PocketNetworkMongoDBConfig,
     SignatureSample,
     PocketNetworkMongoDBResultBase,
 )
@@ -78,9 +75,6 @@ async def tokenizer_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
         tokenizer_decoded = False
         try:
             tokenizer_jsons = json.loads(responses[0]["response"]["response"])
-            # extrack config from tokenizer jsons
-            config_jsons = {"config": tokenizer_jsons.pop("config")}
-            eval_logger.debug("Config", config_jsons=config_jsons)
             tokenizer_decoded = True
         except Exception as e:
             eval_logger.debug("Exeption:", Exeption=str(e))
@@ -112,26 +106,7 @@ async def tokenizer_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
                     tokenizer=tokenizer_jsons_loaded, hash=tokenizer_hash_loaded
                 )
                 eval_logger.debug("Tokenizer processed.")
-                ######################
-                ### CONFIG
-                #####################
-                _config = load_config(
-                    config_objects=config_jsons,
-                    wf_id="",
-                    config_ephimeral_path=temp_path,
-                )
-                eval_logger.debug("Config loaded.")
-                # This creates the structure used in the database, containing the hash
-                config_jsons_loaded, config_hash_loaded = prepare_config(
-                    _config, CONFIG_EPHIMERAL_PATH=temp_path
-                )
-                # TODO
-                # For instance, the tokenizer hash is used as the config hash
-                # in future versions, this should be changed
-                config_mongo_new = PocketNetworkMongoDBConfig(
-                    config=config_jsons_loaded, hash=tokenizer_hash_loaded
-                )
-                eval_logger.debug("Config processed.")
+                
                 tokenizer_ok = True
             except Exception as e:
                 # This is not an error is just a failure in retrieval of tokenizer
@@ -172,28 +147,7 @@ async def tokenizer_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
                     signature=str(tokenizer_mongo_new.hash), id=0
                 )  # This task has a single sample id
             ]
-            ######################
-            ### CONFIG
-            #####################
-            config_db = await mongo_operator.get_config_entry(config_mongo_new.hash)
-            if config_db is None:
-                eval_logger.debug("Config does not exists.")
-                # the config is not tracked, we need to create an entry
-                try:
-                    async with mongo_client.start_transaction() as session:
-                        await mongo_client.db["configs"].insert_many(
-                            [config_mongo_new.model_dump(by_alias=True)],
-                            ordered=False,
-                            session=session,
-                        )
-                    eval_logger.debug("Saved new config to DB.")
-                except Exception as e:
-                    eval_logger.error("Failed to save Config to MongoDB.")
-                    eval_logger.error("Exeption:", Exeption=str(e))
-                    raise ApplicationError(
-                        "Failed to save config to MongoDB.", non_retryable=True
-                    )
-
+            
         # Save to results db (a failure is also an answer)
         try:
             async with mongo_client.start_transaction() as session:
