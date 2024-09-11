@@ -330,6 +330,7 @@ class MongoOperator:
                 try:
                     # handle the exception to bring a light on production debugging if needed.
                     r = json.loads(doc["response"]["response"])
+                    ms = int(doc["response"]["ms"])
                 except Exception as e:
                     remove_doc_ids.add(i["doc_id"])
                     eval_logger.error(
@@ -360,6 +361,7 @@ class MongoOperator:
             instance.prompt.data = CompletionRequest(**request_data)
 
             try:
+                r['response_time'] = ms
                 instance.resp = CompletionResponse(**r)
             except Exception as e:
                 remove_doc_ids.add(i["doc_id"])
@@ -397,6 +399,7 @@ class MongoOperator:
                 result_time=datetime.today().isoformat(),
             ),
             scores=[],
+            times=[]
         ).model_dump(by_alias=True)
 
         async with self.client.start_transaction() as session:

@@ -663,6 +663,11 @@ class EvaluatorLM(TemplateLM):
             )
 
         return self._loglikelihood_tokens(new_reqs, disable_tqdm=disable_tqdm)
+    
+    def response_times(
+        self, requests, disable_tqdm: bool = True
+    ) -> List[int]:
+        return [req.resp.response_time for req in requests]
 
     def _encode_pair(self, context_enc, continuation_enc):
         return context_enc, continuation_enc

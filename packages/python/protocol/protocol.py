@@ -242,6 +242,7 @@ class CompletionResponse(OpenAIBaseModel):
     model: str
     choices: List[CompletionResponseChoice]
     usage: UsageInfo
+    response_time: int # Total time to complete request (POKT Network)
 
 
 ###########
@@ -284,6 +285,7 @@ class PocketNetworkMongoDBResultNumerical(BaseModel):
     id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
     result_data: PocketNetworkMongoDBResultBase
     scores: List[NumericSample]
+    times: List[float]
 
     class Config:
         arbitrary_types_allowed = True

@@ -18,6 +18,8 @@ from lm_eval.utils import (
     simple_parse_args_string,
 )
 
+import numpy as np
+
 if TYPE_CHECKING:
     from lm_eval.api.model import LM
     from lm_eval.tasks import Task
@@ -491,7 +493,7 @@ async def evaluate(
                 result_time=datetime.today().isoformat(),
             )
             num_result = PocketNetworkMongoDBResultNumerical(
-                result_data=base_result, scores=[]
+                result_data=base_result, scores=[], times=[]
             )
             insert_mongo_results.append(num_result.model_dump(by_alias=True))
             await save_results(
@@ -510,13 +512,16 @@ async def evaluate(
         cloned_reqs = []
         for req in reqs:
             cloned_reqs.extend([req] * req.repeats)
-
+            req.times = []
         # run requests through model
         resps = getattr(lm, reqtype)(cloned_reqs)
+        # Get times POKT Network
+        times = getattr(lm, "response_times")(cloned_reqs)
 
         # put responses from model into a list of length K for each request.
-        for x, req in zip(resps, cloned_reqs):
+        for x, t, req in zip(resps, times, cloned_reqs):
             req.resps.append(x)
+            req.times.append(t)
 
     RANK = lm.rank
     WORLD_SIZE = lm.world_size
@@ -539,6 +544,7 @@ async def evaluate(
             instances.sort(key=lambda x: x.idx)
         # iterate over different filters used
         scores = []
+        times = []
         result_num_samples = set()
         for filter_key in task.instances[0].filtered_resps.keys():
             if filter_key not in selected_filters:
@@ -555,6 +561,7 @@ async def evaluate(
                 metrics = task.process_results(
                     doc, [req.filtered_resps[filter_key] for req in requests]
                 )
+                response_times = [np.mean(req.times).astype(float) for req in requests]
                 if log_samples:
                     target = task.doc_to_target(doc)
                     example = {
@@ -579,11 +586,12 @@ async def evaluate(
                     }
                     example.update(metrics)
                     task_output.logged_samples.append(example)
-                for metric, value in metrics.items():
+                for (metric, value), ms in zip(metrics.items(), response_times):
                     task_output.sample_metrics[(metric, filter_key)].append(value)
                     if metric in selected_metrics:
                         numericSample = NumericSample(score=example[metric], id=doc_id)
                         scores.append(numericSample)
+                        times.append(ms)
 
         base_result = PocketNetworkMongoDBResultBase(
             task_id=task_id,
@@ -593,7 +601,7 @@ async def evaluate(
             result_time=datetime.today().isoformat(),
         )
         num_result = PocketNetworkMongoDBResultNumerical(
-            result_data=base_result, scores=scores
+            result_data=base_result, scores=scores, times=times
         )
         insert_mongo_results.append(num_result.model_dump(by_alias=True))
     eval_logger.debug("Mongo Result:", mongo_result=insert_mongo_results)

@@ -28,9 +28,9 @@ Files that follow the structure of `lm-eval-harness`. The intention, for instanc
 * `PocketNetworkTaskManager`: A class based on `TaskManager`,  that is used to inject `pocket_args` into the `task.config.metadata`. 
 
 **api**
-* `PocketNetworkConfigurableTask`: A class based on `ConfigurableTask`, that retrieve samples from the sql database, based on `blacklist` id's & `uri` previously defined in `pocket_args`. In `PocketNetworkConfigurableTask.download` validations reagrding `training_split`, `validation_split`, `test_split` and `fewshot_split` are followed as pointed in the `lm-eval-harness- documentation. 
+* `PocketNetworkConfigurableTask`: A class based on `ConfigurableTask`, that retrieve samples from the sql database, based on `blacklist` id's & `uri` previously defined in `pocket_args`. In `PocketNetworkConfigurableTask.download` validations regarding `training_split`, `validation_split`, `test_split` and `fewshot_split` are followed as pointed in the `lm-eval-harness- documentation. 
 
-    * `def build_all_requests` was modified in order to inyecet the postgres document id into the `Instance.doc_id`.
+    * `def build_all_requests` was modified in order to inject the Postgres document id into the `Instance.doc_id`.
 
 **models**
 * `PocketNetworkLM`:  A class that mimic partially `OpenaiChatCompletionsLM` from `lm-eval-harness`. Instead on generate request and take respobnses, both `loglikelihood` and `generate_until` methods instantiate `CompletionRequest`. The last is a class used as a proxy to generate the `data` field of a RPC request that is saved in Mongo.
@@ -39,7 +39,7 @@ Files that follow the structure of `lm-eval-harness`. The intention, for instanc
 * `get_configurable_task`: A function to return only `ConfigurableTask` based on the `task_manager`. 
     * If `task_manager` is `TaskManager`, then all samples from all splits are part of the dataset. 
     * If `task_manager` is `PocketNetworkTaskManager`, random samples are generated based on the configuration split and the blacklist provided in `pocket_args`.
-* `genererate_requests`: A functions that hierarchically save in MongoDB the strucutre of `Task`->`Instances`->`Prompts`.
+* `genererate_requests`: A functions that hierarchically save in MongoDB the structure of `Task`->`Instances`->`Prompts`.
 
 
 ### Accessing the DB with PG Admin
