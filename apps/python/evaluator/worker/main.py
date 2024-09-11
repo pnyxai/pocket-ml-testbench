@@ -20,6 +20,7 @@ from activities.lmeh.evaluate import lmeh_evaluate
 from activities.get_task_data import get_task_data
 from activities.lookup_tasks import lookup_tasks
 from activities.signatures.tokenizer_evaluate import tokenizer_evaluate
+from activities.signatures.model_config_evaluate import model_config_evaluate
 
 from workflows.evaluator import Evaluator
 from workflows.lookup_tasks import LookupTasks
@@ -104,6 +105,7 @@ async def main():
             get_task_data,
             lmeh_evaluate,
             tokenizer_evaluate,
+            model_config_evaluate,
         ],
     }
 
