@@ -87,8 +87,8 @@ class MongoOperator:
         instance_mongo["_id"] = ObjectId()
         instance_mongo["done"] = False
         return instance_mongo
-
-    async def get_tokenizer_hash(self, address: str, service: str) -> str:
+    
+    async def get_node_id(self, address: str, service: str) -> str:
         node = await self.client.db[self.nodes_collection].find_one(
             {"address": address, "service": service}
         )
@@ -109,28 +109,32 @@ class MongoOperator:
             raise ApplicationError(
                 f"Node address {address}, has no _id, cannot load tokenizer hash."
             )
+        
+        return node["_id"]
+    
+    async def get_signature_hash(self, address: str, node_id: str, signature_name: str) -> str:
 
         # Get the corresponding signature buffer
         buffer = await self.client.db[self.buffers_signatures_collection].find_one(
             {
-                "task_data.node_id": node["_id"],
+                "task_data.node_id": node_id,
                 "task_data.framework": "signatures",
-                "task_data.task": "tokenizer",
+                "task_data.task": signature_name,
             }
         )
 
         if buffer is None:
             eval_logger.error(
-                "Buffer for tokenizer signature not found.", adress=address
+                f"Buffer for {signature_name} signature not found.", adress=address
             )
             raise ApplicationError(
-                f"Node address {address} does not have a tokenizer signature buffer associated."
+                f"Node address {address} does not have a {signature_name} signature buffer associated."
             )
 
-        eval_logger.debug("Tokennizer signature buffer found.", buffer=buffer)
+        eval_logger.debug(f"{signature_name} signature buffer found.", buffer=buffer)
 
-        tokenizer_hash = buffer.get("last_signature", None)
-        if tokenizer_hash is None:
+        this_hash = buffer.get("last_signature", None)
+        if this_hash is None:
             eval_logger.error(
                 "Buffer has no last signature field, entry is malformed cannot procede.",
                 adress=address,
@@ -138,8 +142,25 @@ class MongoOperator:
             raise ApplicationError(
                 f"Node address {address} buffer has no last signature field, entry is malformed cannot procede."
             )
+        
+        return this_hash
+
+    async def get_tokenizer_hash(self, address: str, service: str) -> str:
+        
+        # Get node ID
+        node_id = await self.get_node_id(address, service)
+        # Get tokenizer signature hash
+        tokenizer_hash = await self.get_signature_hash(address, node_id, "tokenizer")
 
         return tokenizer_hash
+    
+    async def get_config_hash(self, address: str, service: str) -> str:
+        # Get node ID
+        node_id = await self.get_node_id(address, service)
+        # Get config signature hash
+        config_hash = await self.get_signature_hash(address, node_id, "config")
+
+        return config_hash
 
     async def get_tokenizer_entry(self, tokenizer_hash: str):
         return await self.client.db[self.tokenizers_collection].find_one(
@@ -186,7 +207,7 @@ class MongoOperator:
     async def get_config_objects(self, address: str, service: str) -> dict:
         # TODO
         # add get_config_hash method to
-        config_hash = await self.get_tokenizer_hash(address, service)
+        config_hash = await self.get_config_hash(address, service)
 
         if config_hash == "":
             eval_logger.error(

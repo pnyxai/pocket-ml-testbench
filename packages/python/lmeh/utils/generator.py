@@ -493,7 +493,7 @@ async def evaluate(
                 result_time=datetime.today().isoformat(),
             )
             num_result = PocketNetworkMongoDBResultNumerical(
-                result_data=base_result, scores=[], times=[]
+                result_data=base_result, scores=[]
             )
             insert_mongo_results.append(num_result.model_dump(by_alias=True))
             await save_results(
@@ -589,9 +589,8 @@ async def evaluate(
                 for (metric, value), ms in zip(metrics.items(), response_times):
                     task_output.sample_metrics[(metric, filter_key)].append(value)
                     if metric in selected_metrics:
-                        numericSample = NumericSample(score=example[metric], id=doc_id)
+                        numericSample = NumericSample(score=example[metric], run_time=ms, id=doc_id)
                         scores.append(numericSample)
-                        times.append(ms)
 
         base_result = PocketNetworkMongoDBResultBase(
             task_id=task_id,
@@ -601,7 +600,7 @@ async def evaluate(
             result_time=datetime.today().isoformat(),
         )
         num_result = PocketNetworkMongoDBResultNumerical(
-            result_data=base_result, scores=scores, times=times
+            result_data=base_result, scores=scores
         )
         insert_mongo_results.append(num_result.model_dump(by_alias=True))
     eval_logger.debug("Mongo Result:", mongo_result=insert_mongo_results)

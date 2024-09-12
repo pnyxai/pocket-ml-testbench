@@ -24,7 +24,7 @@ type TaskRequestRecord struct {
 	Blacklist      []int              `bson:"blacklist"`
 	Qty            int                `bson:"qty"`
 	TotalInstances int                `bson:"total_instances"`
-	RequestType    string             `bson:"string"`
+	RequestType    string             `bson:"request_type"`
 	Done           bool               `bson:"done"`
 }
 

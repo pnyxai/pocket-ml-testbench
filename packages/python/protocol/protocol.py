@@ -279,13 +279,13 @@ class PocketNetworkMongoDBResultSignature(BaseModel):
 class NumericSample(BaseModel):
     score: float
     id: int
+    run_time: float
 
 
 class PocketNetworkMongoDBResultNumerical(BaseModel):
     id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
     result_data: PocketNetworkMongoDBResultBase
     scores: List[NumericSample]
-    times: List[float]
 
     class Config:
         arbitrary_types_allowed = True

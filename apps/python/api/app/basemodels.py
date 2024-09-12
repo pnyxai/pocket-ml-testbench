@@ -31,8 +31,12 @@ agg_data_scores = [
             "last_seen": "$task_data.last_seen",
             "last_height": "$task_data.last_height",
             "mean": "$mean_scores",
+            "median": "$median_scores",
             "std": "$std_scores",
             "num": "$circ_buffer_control.num_samples",
+            "mean_times": "$mean_times",
+            "median_times": "$median_times",
+            "std_times": "$std_times",
         }
     },
 ]

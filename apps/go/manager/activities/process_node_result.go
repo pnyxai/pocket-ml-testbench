@@ -192,7 +192,7 @@ func retrieveTaskData(taskID primitive.ObjectID,
 	cursor := tasksCollection.FindOne(ctxM, task_request_filter, opts)
 	var taskReq types.TaskRequestRecord
 	if err := cursor.Decode(&taskReq); err != nil {
-		l.Error().Msg("Could not decode task request data from MongoDB.")
+		l.Error().Str("taskID", taskID.String()).Msg("Could not decode task request data from MongoDB.")
 		return taskReq, err
 	}
 
