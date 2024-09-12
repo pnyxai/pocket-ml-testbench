@@ -55,8 +55,9 @@ type ResultInterface interface {
 // Record written by the evaluator.
 // The NumericalResultRecord field indicates how many samples were actually calculated
 type NumericalResultRecord struct {
-	ResultData    BaseResultRecord `bson:"result_data"`
-	ScoresSamples []ScoresSample   `bson:"scores"`
+	ResultData          BaseResultRecord `bson:"result_data"`
+	ScoresSamples       []ScoresSample   `bson:"scores"`
+	ComputeTimesSamples []float32        `bson:"times"`
 }
 
 func (record *NumericalResultRecord) GetResultTime() time.Time {
