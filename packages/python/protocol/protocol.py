@@ -242,7 +242,7 @@ class CompletionResponse(OpenAIBaseModel):
     model: str
     choices: List[CompletionResponseChoice]
     usage: UsageInfo
-    response_time: int # Total time to complete request (POKT Network)
+    response_time: int  # Total time to complete request (POKT Network)
 
 
 ###########

@@ -589,7 +589,9 @@ async def evaluate(
                 for (metric, value), ms in zip(metrics.items(), response_times):
                     task_output.sample_metrics[(metric, filter_key)].append(value)
                     if metric in selected_metrics:
-                        numericSample = NumericSample(score=example[metric], run_time=ms, id=doc_id)
+                        numericSample = NumericSample(
+                            score=example[metric], run_time=ms, id=doc_id
+                        )
                         scores.append(numericSample)
 
         base_result = PocketNetworkMongoDBResultBase(

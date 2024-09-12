@@ -87,7 +87,7 @@ class MongoOperator:
         instance_mongo["_id"] = ObjectId()
         instance_mongo["done"] = False
         return instance_mongo
-    
+
     async def get_node_id(self, address: str, service: str) -> str:
         node = await self.client.db[self.nodes_collection].find_one(
             {"address": address, "service": service}
@@ -109,11 +109,12 @@ class MongoOperator:
             raise ApplicationError(
                 f"Node address {address}, has no _id, cannot load tokenizer hash."
             )
-        
-        return node["_id"]
-    
-    async def get_signature_hash(self, address: str, node_id: str, signature_name: str) -> str:
 
+        return node["_id"]
+
+    async def get_signature_hash(
+        self, address: str, node_id: str, signature_name: str
+    ) -> str:
         # Get the corresponding signature buffer
         buffer = await self.client.db[self.buffers_signatures_collection].find_one(
             {
@@ -142,18 +143,17 @@ class MongoOperator:
             raise ApplicationError(
                 f"Node address {address} buffer has no last signature field, entry is malformed cannot procede."
             )
-        
+
         return this_hash
 
     async def get_tokenizer_hash(self, address: str, service: str) -> str:
-        
         # Get node ID
         node_id = await self.get_node_id(address, service)
         # Get tokenizer signature hash
         tokenizer_hash = await self.get_signature_hash(address, node_id, "tokenizer")
 
         return tokenizer_hash
-    
+
     async def get_config_hash(self, address: str, service: str) -> str:
         # Get node ID
         node_id = await self.get_node_id(address, service)
@@ -382,7 +382,7 @@ class MongoOperator:
             instance.prompt.data = CompletionRequest(**request_data)
 
             try:
-                r['response_time'] = ms
+                r["response_time"] = ms
                 instance.resp = CompletionResponse(**r)
             except Exception as e:
                 remove_doc_ids.add(i["doc_id"])
@@ -420,7 +420,7 @@ class MongoOperator:
                 result_time=datetime.today().isoformat(),
             ),
             scores=[],
-            times=[]
+            times=[],
         ).model_dump(by_alias=True)
 
         async with self.client.start_transaction() as session:

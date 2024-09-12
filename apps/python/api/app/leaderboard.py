@@ -159,10 +159,13 @@ async def get_leaderboard_full(mongodb: PoktMongodb) -> Tuple[dict, bool]:
                             if data_row["num"].values[0] <= 50:
                                 # This is a partial metric
                                 partial = True
-                            metric_time_mean = data_row["mean_times"].values[0] * data_row["num"].values[0]
-                            metric_time_std_err = data_row["std_times"].values[0] / np.sqrt(
-                                data_row["num"].values[0]
+                            metric_time_mean = (
+                                data_row["mean_times"].values[0]
+                                * data_row["num"].values[0]
                             )
+                            metric_time_std_err = data_row["std_times"].values[
+                                0
+                            ] / np.sqrt(data_row["num"].values[0])
                         else:
                             metric_mean = 0
                             metric_std_err = 0
@@ -176,9 +179,6 @@ async def get_leaderboard_full(mongodb: PoktMongodb) -> Tuple[dict, bool]:
                         if this_w > 0:
                             std_err_mmlu += (metric_std_err / this_w) ** 2
                             std_err_time_mmlu += (metric_time_std_err / this_w) ** 2
-
-                        
-                        
 
                     if all_ok:
                         if weight_mmlu == 0:
