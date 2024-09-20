@@ -359,6 +359,10 @@ type NumericalTaskRecord struct {
 	MeanScore   float32 `bson:"mean_scores"`
 	MedianScore float32 `bson:"median_scores"`
 	StdScore    float32 `bson:"std_scores"`
+	// Times
+	MeanProcessTime   float32 `bson:"mean_times"`
+	MedianProcessTime float32 `bson:"median_times"`
+	StdProcessTime    float32 `bson:"std_times"`
 	// buffer
 	ScoresSamples []ScoresSample `bson:"scores"`
 	// circular buffer control
@@ -366,8 +370,9 @@ type NumericalTaskRecord struct {
 }
 
 type ScoresSample struct {
-	Score float64 `bson:"score"`
-	ID    int     `bson:"id"`
+	Score   float64 `bson:"score"`
+	ID      int     `bson:"id"`
+	RunTime float32 `bson:"run_time"`
 }
 
 func (record *NumericalTaskRecord) NewTask(nodeID primitive.ObjectID, framework string, task string, date time.Time, l *zerolog.Logger) {
@@ -384,8 +389,13 @@ func (record *NumericalTaskRecord) NewTask(nodeID primitive.ObjectID, framework 
 	record.TaskData.LastSeen = date
 
 	record.MeanScore = 0.0
+	record.MedianScore = 0.0
 	record.StdScore = 0.0
+	record.MeanProcessTime = 0.0
+	record.MedianProcessTime = 0.0
+	record.StdProcessTime = 0.0
 	record.ScoresSamples = make([]ScoresSample, bufferLen)
+
 	record.CircBuffer = types.CircularBuffer{
 		CircBufferLen: bufferLen,
 		NumSamples:    0,
@@ -520,32 +530,51 @@ func (record *NumericalTaskRecord) ProcessData(l *zerolog.Logger) (err error) {
 	}
 
 	// Slice the buffer and cast
-	var auxData []float64
+	var auxDataScores []float64
+	var auxDataTimes []float64
 	for _, sampleId := range validIdx {
 		// Add sample to data array
-		auxData = append(auxData, float64(record.ScoresSamples[sampleId].Score))
+		auxDataScores = append(auxDataScores, float64(record.ScoresSamples[sampleId].Score))
+		auxDataTimes = append(auxDataTimes, float64(record.ScoresSamples[sampleId].RunTime))
 	}
 
-	length := len(auxData)
+	length := len(auxDataScores)
 	if length == 0 {
 		record.MeanScore = 0
 		record.StdScore = 0
 		record.MedianScore = 0
+		record.MeanProcessTime = 0
+		record.StdProcessTime = 0
+		record.MedianProcessTime = 0
+
 	} else if length == 1 {
 		record.MeanScore = float32(record.ScoresSamples[record.CircBuffer.Indexes.Start].Score)
 		record.StdScore = 0
 		record.MedianScore = float32(record.ScoresSamples[record.CircBuffer.Indexes.Start].Score)
+		record.MeanProcessTime = float32(record.ScoresSamples[record.CircBuffer.Indexes.Start].RunTime)
+		record.StdProcessTime = 0
+		record.MedianProcessTime = float32(record.ScoresSamples[record.CircBuffer.Indexes.Start].RunTime)
 	} else {
 		// Calculate the mean
-		record.MeanScore = float32(stat.Mean(auxData, nil))
+		record.MeanScore = float32(stat.Mean(auxDataScores, nil))
 		// Calculate the standard deviation
-		record.StdScore = float32(stat.StdDev(auxData, nil))
+		record.StdScore = float32(stat.StdDev(auxDataScores, nil))
 		// Calculate the median
-		sort.Float64s(auxData)
+		sort.Float64s(auxDataScores)
 		if length%2 == 0 {
-			record.MedianScore = float32((auxData[length/2-1] + auxData[length/2]) / 2)
+			record.MedianScore = float32((auxDataScores[length/2-1] + auxDataScores[length/2]) / 2)
 		} else {
-			record.MedianScore = float32(auxData[length/2])
+			record.MedianScore = float32(auxDataScores[length/2])
+		}
+
+		// Same for times
+		record.MeanProcessTime = float32(stat.Mean(auxDataTimes, nil))
+		record.StdProcessTime = float32(stat.StdDev(auxDataTimes, nil))
+		sort.Float64s(auxDataTimes)
+		if length%2 == 0 {
+			record.MedianProcessTime = float32((auxDataTimes[length/2-1] + auxDataTimes[length/2]) / 2)
+		} else {
+			record.MedianProcessTime = float32(auxDataTimes[length/2])
 		}
 	}
 	return err
@@ -572,6 +601,7 @@ func (record *NumericalTaskRecord) InsertSample(timeSample time.Time, data inter
 	// Save sample
 	record.ScoresSamples[record.CircBuffer.Indexes.End].Score = dataOk.Score
 	record.ScoresSamples[record.CircBuffer.Indexes.End].ID = dataOk.ID
+	record.ScoresSamples[record.CircBuffer.Indexes.End].RunTime = dataOk.RunTime
 	record.CircBuffer.Times[record.CircBuffer.Indexes.End] = timeSample
 
 	return nil
