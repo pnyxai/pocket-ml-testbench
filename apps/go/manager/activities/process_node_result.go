@@ -36,6 +36,7 @@ func (aCtx *Ctx) AnalyzeResult(ctx context.Context, params types.AnalyzeResultPa
 	//------------------------------------------------------------------
 	taskData, err := retrieveTaskData(params.TaskID, aCtx.App.Mongodb, l)
 	if err != nil {
+		err = temporal.NewNonRetryableApplicationError("unable to get task data", "retrieveTaskData", fmt.Errorf("Task %s not found", params.TaskID.String()))
 		return nil, err
 	}
 	// Extract data
@@ -192,7 +193,7 @@ func retrieveTaskData(taskID primitive.ObjectID,
 	cursor := tasksCollection.FindOne(ctxM, task_request_filter, opts)
 	var taskReq types.TaskRequestRecord
 	if err := cursor.Decode(&taskReq); err != nil {
-		l.Error().Str("taskID", taskID.String()).Msg("Could not decode task request data from MongoDB.")
+		l.Info().Str("taskID", taskID.String()).Msg("Could not decode task request data from MongoDB.")
 		return taskReq, err
 	}
 

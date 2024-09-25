@@ -178,6 +178,11 @@ func CheckTaskDependency(nodeData *NodeRecord, framework string, task string, co
 			err := fmt.Errorf("cannot find default (or specific) value for task type")
 			return false, err
 		}
+		if len(taskDep) == 0 {
+			l.Error().Str("framework", framework).Str("task", task).Msg("malformed dependency array for task type")
+			err := fmt.Errorf("malformed dependency array for task type")
+			return false, err
+		}
 	}
 
 	// Check dependency
@@ -216,6 +221,10 @@ func CheckTaskDependency(nodeData *NodeRecord, framework string, task string, co
 				if thisTaskRecord.IsOK() {
 					l.Debug().Str("address", nodeData.Address).Str("service", nodeData.Service).Str("framework", framework).Str("task", task).Msg("OK: Dependecy OK")
 					continue
+				} else {
+					l.Debug().Str("address", nodeData.Address).Str("service", nodeData.Service).Str("framework", framework).Str("task", task).Msg("OK: Dependecy NOT OK")
+					depOK = false
+					break
 				}
 			} else {
 				l.Error().Str("framework", framework).Str("task", task).Msg("dependency configuration cannot be processed (status type unknown)")
@@ -363,6 +372,9 @@ type NumericalTaskRecord struct {
 	MeanProcessTime   float32 `bson:"mean_times"`
 	MedianProcessTime float32 `bson:"median_times"`
 	StdProcessTime    float32 `bson:"std_times"`
+	// Errors
+	ErrorRate  float32     `bson:"error_rate"`
+	ErrorCodes map[int]int `bson:"error_codes"`
 	// buffer
 	ScoresSamples []ScoresSample `bson:"scores"`
 	// circular buffer control
@@ -370,9 +382,10 @@ type NumericalTaskRecord struct {
 }
 
 type ScoresSample struct {
-	Score   float64 `bson:"score"`
-	ID      int     `bson:"id"`
-	RunTime float32 `bson:"run_time"`
+	Score      float64 `bson:"score"`
+	ID         int     `bson:"id"`
+	RunTime    float32 `bson:"run_time"`
+	StatusCode int     `bson:"status_code"`
 }
 
 func (record *NumericalTaskRecord) NewTask(nodeID primitive.ObjectID, framework string, task string, date time.Time, l *zerolog.Logger) {
@@ -394,6 +407,8 @@ func (record *NumericalTaskRecord) NewTask(nodeID primitive.ObjectID, framework 
 	record.MeanProcessTime = 0.0
 	record.MedianProcessTime = 0.0
 	record.StdProcessTime = 0.0
+	record.ErrorRate = 0.0
+	record.ErrorCodes = make(map[int]int, 0)
 	record.ScoresSamples = make([]ScoresSample, bufferLen)
 
 	record.CircBuffer = types.CircularBuffer{
@@ -532,13 +547,29 @@ func (record *NumericalTaskRecord) ProcessData(l *zerolog.Logger) (err error) {
 	// Slice the buffer and cast
 	var auxDataScores []float64
 	var auxDataTimes []float64
+	totalPunibleErrors := 0
+	punibleErrorsCodes := make(map[int]int)
 	for _, sampleId := range validIdx {
-		// Add sample to data array
-		auxDataScores = append(auxDataScores, float64(record.ScoresSamples[sampleId].Score))
-		auxDataTimes = append(auxDataTimes, float64(record.ScoresSamples[sampleId].RunTime))
+		sampleStatus := record.ScoresSamples[sampleId].StatusCode
+		if sampleStatus == 0 {
+			// Add sample to data array
+			auxDataScores = append(auxDataScores, float64(record.ScoresSamples[sampleId].Score))
+			auxDataTimes = append(auxDataTimes, float64(record.ScoresSamples[sampleId].RunTime))
+		} else if sampleStatus == 2 || sampleStatus == 11 {
+			// This is a Node or Evaluation (response) error, we should punish the node
+			totalPunibleErrors += 1
+			punibleErrorsCodes[sampleStatus] += 1
+		}
 	}
 
+	// Total valid samples
 	length := len(auxDataScores)
+
+	// Set errors
+	record.ErrorCodes = punibleErrorsCodes
+	record.ErrorRate = float32(totalPunibleErrors) / float32(length+totalPunibleErrors)
+
+	// Calculate the scores and times
 	if length == 0 {
 		record.MeanScore = 0
 		record.StdScore = 0
@@ -602,6 +633,7 @@ func (record *NumericalTaskRecord) InsertSample(timeSample time.Time, data inter
 	record.ScoresSamples[record.CircBuffer.Indexes.End].Score = dataOk.Score
 	record.ScoresSamples[record.CircBuffer.Indexes.End].ID = dataOk.ID
 	record.ScoresSamples[record.CircBuffer.Indexes.End].RunTime = dataOk.RunTime
+	record.ScoresSamples[record.CircBuffer.Indexes.End].StatusCode = dataOk.StatusCode
 	record.CircBuffer.Times[record.CircBuffer.Indexes.End] = timeSample
 
 	return nil
@@ -635,6 +667,8 @@ type SignatureTaskRecord struct {
 	TaskData BaseTaskRecord `bson:"task_data"`
 	// Specific fields
 	LastSignature string `bson:"last_signature"`
+	// Errors
+	ErrorCode int `bson:"error_code"`
 	// buffers
 	Signatures []SignatureSample `bson:"signatures"`
 	// circular buffer control
@@ -642,8 +676,9 @@ type SignatureTaskRecord struct {
 }
 
 type SignatureSample struct {
-	Signature string `bson:"signature"`
-	ID        int    `bson:"id"`
+	Signature  string `bson:"signature"`
+	ID         int    `bson:"id"`
+	StatusCode int    `bson:"status_code"`
 }
 
 func (record *SignatureTaskRecord) NewTask(nodeID primitive.ObjectID, framework string, task string, date time.Time, l *zerolog.Logger) {
@@ -660,6 +695,7 @@ func (record *SignatureTaskRecord) NewTask(nodeID primitive.ObjectID, framework 
 	record.TaskData.LastSeen = date
 
 	record.LastSignature = ""
+	record.ErrorCode = 0
 	record.Signatures = make([]SignatureSample, bufferLen)
 	record.CircBuffer = types.CircularBuffer{
 		CircBufferLen: bufferLen,
@@ -799,6 +835,7 @@ func (record *SignatureTaskRecord) InsertSample(timeSample time.Time, data inter
 	// Save sample
 	record.Signatures[record.CircBuffer.Indexes.End].Signature = dataOk.Signature
 	record.Signatures[record.CircBuffer.Indexes.End].ID = dataOk.ID
+	record.Signatures[record.CircBuffer.Indexes.End].StatusCode = dataOk.StatusCode
 	record.CircBuffer.Times[record.CircBuffer.Indexes.End] = timeSample
 
 	return nil
@@ -806,7 +843,7 @@ func (record *SignatureTaskRecord) InsertSample(timeSample time.Time, data inter
 
 // Returns True if the task is ok, meaning that their values are updated and correct
 func (record *SignatureTaskRecord) IsOK() bool {
-	if record.LastSignature != "" {
+	if record.LastSignature != "" && record.ErrorCode == 0 {
 		// there is a signature available, so it is OK
 		return true
 	} else {
@@ -817,7 +854,15 @@ func (record *SignatureTaskRecord) IsOK() bool {
 // Process the buffer data to produce the signature metrics
 func (record *SignatureTaskRecord) ProcessData(l *zerolog.Logger) (err error) {
 	// Just update the last signature
-	record.LastSignature = record.Signatures[record.CircBuffer.Indexes.End].Signature
+	lastSampleStatus := record.Signatures[record.CircBuffer.Indexes.End].StatusCode
+	if lastSampleStatus == 0 {
+		record.LastSignature = record.Signatures[record.CircBuffer.Indexes.End].Signature
+		record.ErrorCode = 0
+	} else {
+		record.LastSignature = ""
+		record.ErrorCode = lastSampleStatus
+	}
+
 	return nil
 }
 

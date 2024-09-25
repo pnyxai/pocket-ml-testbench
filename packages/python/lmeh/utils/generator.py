@@ -481,21 +481,49 @@ async def evaluate(
             raise e
 
         if len(task.instances) == 0:
-            insert_mongo_results = []
-            eval_logger.debug(
-                "No instances/doc_id generated for task.", task_id=str(task_id)
-            )
-            base_result = PocketNetworkMongoDBResultBase(
-                task_id=task_id,
-                status=1,
-                num_samples=0,
-                result_height=task.result_height,
-                result_time=datetime.today().isoformat(),
-            )
-            num_result = PocketNetworkMongoDBResultNumerical(
-                result_data=base_result, scores=[]
-            )
+            if len(task.failed_instances) == 0:
+                # Nothing to do, not sure this state is reachable
+                insert_mongo_results = []
+                eval_logger.debug(
+                    "No instances/doc_id generated for task.", task_id=str(task_id)
+                )
+                base_result = PocketNetworkMongoDBResultBase(
+                    task_id=task_id,
+                    status=1,
+                    num_samples=0,
+                    result_height=task.result_height,
+                    result_time=datetime.today().isoformat(),
+                )
+                num_result = PocketNetworkMongoDBResultNumerical(
+                    result_data=base_result, scores=[]
+                )
+            else:
+                # Just add all failed instances
+                scores = []
+                for instance in task.failed_instances:
+                    numericSample = NumericSample(
+                        score=0.0,
+                        run_time=0.0,
+                        id=instance["id"],
+                        status_code=instance["code"],
+                    )
+                    scores.append(numericSample)
+
+                base_result = PocketNetworkMongoDBResultBase(
+                    task_id=task_id,
+                    status=0,
+                    num_samples=len(task.failed_instances),
+                    result_height=task.result_height,
+                    result_time=datetime.today().isoformat(),
+                )
+                num_result = PocketNetworkMongoDBResultNumerical(
+                    result_data=base_result, scores=scores
+                )
+
+            # Save to DB and return
             insert_mongo_results.append(num_result.model_dump(by_alias=True))
+            eval_logger.debug("Mongo Result:", mongo_result=insert_mongo_results)
+
             await save_results(
                 mongo_client=mongo_client,
                 insert_mongo_results=insert_mongo_results,
@@ -544,7 +572,6 @@ async def evaluate(
             instances.sort(key=lambda x: x.idx)
         # iterate over different filters used
         scores = []
-        times = []
         result_num_samples = set()
         for filter_key in task.instances[0].filtered_resps.keys():
             if filter_key not in selected_filters:
@@ -590,14 +617,26 @@ async def evaluate(
                     task_output.sample_metrics[(metric, filter_key)].append(value)
                     if metric in selected_metrics:
                         numericSample = NumericSample(
-                            score=example[metric], run_time=ms, id=doc_id
+                            score=example[metric],
+                            run_time=ms,
+                            id=doc_id,
+                            status_code=0,
                         )
                         scores.append(numericSample)
+        # If there are failed samples, add them here to the scores list
+        for instance in task.failed_instances:
+            numericSample = NumericSample(
+                score=0.0,
+                run_time=0.0,
+                id=instance["id"],
+                status_code=instance["code"],
+            )
+            scores.append(numericSample)
 
         base_result = PocketNetworkMongoDBResultBase(
             task_id=task_id,
             status=0,
-            num_samples=len(result_num_samples),
+            num_samples=len(result_num_samples) + len(task.failed_instances),
             result_height=task.result_height,
             result_time=datetime.today().isoformat(),
         )
