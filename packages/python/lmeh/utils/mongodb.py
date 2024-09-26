@@ -338,6 +338,7 @@ class MongoOperator:
 
         valid_fields = {field.name for field in Instance.__dataclass_fields__.values()}
         instances = []
+        failed_instances = []
         remove_doc_ids = set()
         kept_doc_ids = set()
         list_result_height = []
@@ -346,6 +347,13 @@ class MongoOperator:
             list_result_height.append(doc["response"]["session_height"])
             if not doc["response"]["ok"]:
                 remove_doc_ids.add(i["doc_id"])
+                failed_instances.append(
+                    {
+                        "id": i["doc_id"],
+                        "code": doc["response"]["error_code"],
+                        "error": doc["response"]["error"],
+                    }
+                )
                 continue
             else:
                 try:
@@ -354,10 +362,14 @@ class MongoOperator:
                     ms = int(doc["response"]["ms"])
                 except Exception as e:
                     remove_doc_ids.add(i["doc_id"])
+                    error_str = "Bad JSON data format (response)"
                     eval_logger.error(
-                        "Bad JSON data format",
-                        response=doc["response"]["response"],
+                        error_str,
+                        # response=doc["response"]["response"], # Spams log
                         errpr=str(e),
+                    )
+                    failed_instances.append(
+                        {"id": i["doc_id"], "code": 11, "error": error_str}
                     )
                     continue
             instance_dict = {
@@ -373,10 +385,14 @@ class MongoOperator:
                 request_data = json.loads(instance.prompt.data)
             except Exception as e:
                 remove_doc_ids.add(i["doc_id"])
+                error_str = "Bad JSON data format (prompt)"
                 eval_logger.error(
-                    "Bad JSON data format",
+                    error_str,
                     prompt_data=instance.prompt.data,
                     error=str(e),
+                )
+                failed_instances.append(
+                    {"id": i["doc_id"], "code": 11, "error": error_str}
                 )
                 continue
             instance.prompt.data = CompletionRequest(**request_data)
@@ -386,10 +402,14 @@ class MongoOperator:
                 instance.resp = CompletionResponse(**r)
             except Exception as e:
                 remove_doc_ids.add(i["doc_id"])
+                error_str = "Bad JSON CompletionResponse format"
                 eval_logger.error(
-                    "Bad JSON CompletionResponse format",
+                    error_str,
                     response=r,
                     error=str(e),
+                )
+                failed_instances.append(
+                    {"id": i["doc_id"], "code": 11, "error": error_str}
                 )
                 continue
 
@@ -408,7 +428,7 @@ class MongoOperator:
 
         instances = sorted(instances, key=lambda x: (x.doc_id, x.idx))
 
-        return instances, sorted(list(kept_doc_ids)), result_height
+        return instances, sorted(list(kept_doc_ids)), result_height, failed_instances
 
     async def mark_task_to_drop(self, task_id: ObjectId):
         empty_result = PocketNetworkMongoDBResultNumerical(
@@ -420,7 +440,6 @@ class MongoOperator:
                 result_time=datetime.today().isoformat(),
             ),
             scores=[],
-            times=[],
         ).model_dump(by_alias=True)
 
         async with self.client.start_transaction() as session:

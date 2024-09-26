@@ -985,9 +985,14 @@ class EvaluatePocketNetworkConfigurableTask(PocketNetworkConfigurableTask):
         tokenizer_name: str = "",
     ) -> None:
         """Build a set of Instances for a task, and store them in task.instances"""
-        self._instances, kept_doc_ids, self.result_height = await MongoOperator(
-            client=mongo_client
-        ).reconstruct_instances(task_id=task_id, eval_logger=self.eval_logger)
+        (
+            self._instances,
+            kept_doc_ids,
+            self.result_height,
+            self.failed_instances,
+        ) = await MongoOperator(client=mongo_client).reconstruct_instances(
+            task_id=task_id, eval_logger=self.eval_logger
+        )
         # Kept only those docs_ids filled by all its instances/responses
         if kept_doc_ids:
             b_dict = {}

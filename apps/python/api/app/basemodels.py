@@ -37,6 +37,7 @@ agg_data_scores = [
             "mean_times": "$mean_times",
             "median_times": "$median_times",
             "std_times": "$std_times",
+            "error_rate": "$error_rate",
         }
     },
 ]

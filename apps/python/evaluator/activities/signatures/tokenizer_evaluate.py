@@ -78,6 +78,18 @@ async def tokenizer_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
             tokenizer_decoded = True
         except Exception as e:
             eval_logger.debug("Exeption:", Exeption=str(e))
+            # Update the result with errored data
+            result.result_data.num_samples = 1  # Always one
+            result.result_data.status = (
+                0  # OK, proceed to add to signatures buffer (by manager)
+            )
+            result.signatures = [
+                SignatureSample(
+                    signature="Cannot decode tokenizer",
+                    id=0,
+                    status_code=11,  # Error at evaluation
+                )  # This task has a single sample id
+            ]
 
         tokenizer_ok = False
         if tokenizer_decoded:
@@ -113,6 +125,18 @@ async def tokenizer_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
                 eval_logger.info("Cannot load tokenizer from response.")
                 eval_logger.debug("Exeption:", Exeption=str(e))
                 tokenizer_ok = False
+                # Update the result with errored data
+                result.result_data.num_samples = 1  # Always one
+                result.result_data.status = (
+                    0  # OK, proceed to add to signatures buffer (by manager)
+                )
+                result.signatures = [
+                    SignatureSample(
+                        signature="Cannot load tokenizer from decoded data",
+                        id=0,
+                        status_code=11,  # Error at evaluation
+                    )  # This task has a single sample id
+                ]
 
         tokenizer_new = False
         if tokenizer_ok:
@@ -144,7 +168,7 @@ async def tokenizer_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
             result.result_data.status = 0  # OK
             result.signatures = [
                 SignatureSample(
-                    signature=str(tokenizer_mongo_new.hash), id=0
+                    signature=str(tokenizer_mongo_new.hash), id=0, status_code=0
                 )  # This task has a single sample id
             ]
 
@@ -177,8 +201,38 @@ async def tokenizer_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
             tokenizer_is_new=tokenizer_new,
         )
     except Exception as e:
-        # TODO: enhance drop task logic
-        await mongo_operator.mark_task_to_drop(args.task_id)
+        # Create a failed result
+        result = PocketNetworkMongoDBResultSignature(
+            result_data=PocketNetworkMongoDBResultBase(
+                task_id=args.task_id,
+                status=11,  # We failed to process
+                num_samples=0,
+                result_height=-1,
+                result_time=datetime.today().isoformat(),
+            ),
+            signatures=[],
+        )
+        # Save to results db (a failure is also an answer)
+        try:
+            async with mongo_client.start_transaction() as session:
+                await mongo_client.db["results"].find_one_and_update(
+                    {"result_data.task_id": args.task_id},
+                    {"$set": result.model_dump(by_alias=True)},
+                    upsert=True,
+                    session=session,
+                )
+                await mongo_client.db["tasks"].update_one(
+                    {"_id": args.task_id},
+                    {"$set": {"evaluated": True}},
+                    session=session,
+                )
+            eval_logger.debug("Saved result to DB.")
+        except Exception as e:
+            eval_logger.error("Failed to save Result to MongoDB.")
+            eval_logger.error("Exception:", Exeption=str(e))
+            raise ApplicationError(
+                "Failed to save result to MongoDB.", non_retryable=True
+            )
         raise e
 
     return True

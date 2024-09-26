@@ -265,6 +265,7 @@ class PocketNetworkMongoDBResultBase(BaseModel):
 class SignatureSample(BaseModel):
     signature: str
     id: int
+    status_code: int
 
 
 class PocketNetworkMongoDBResultSignature(BaseModel):
@@ -280,6 +281,7 @@ class NumericSample(BaseModel):
     score: float
     id: int
     run_time: float
+    status_code: int
 
 
 class PocketNetworkMongoDBResultNumerical(BaseModel):
