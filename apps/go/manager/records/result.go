@@ -33,6 +33,36 @@ func (record *BaseResultRecord) GetResultHeight() int64 {
 	return record.ResultHeight
 }
 
+type RelayResponseCodesEnum struct {
+	Ok             int
+	Relay          int
+	Node           int
+	OutOfSession   int
+	BadParams      int
+	PromptNotFound int
+	DatabaseRead   int
+	PocketRpc      int
+	SignerNotFound int
+	SignerError    int
+	AATSignature   int
+	Evaluation     int
+}
+
+var RelayResponseCodes = RelayResponseCodesEnum{
+	Ok:             0,
+	Relay:          1,
+	Node:           2,
+	OutOfSession:   3,
+	BadParams:      4,
+	PromptNotFound: 5,
+	DatabaseRead:   6,
+	PocketRpc:      7,
+	SignerNotFound: 8,
+	SignerError:    9,
+	AATSignature:   10,
+	Evaluation:     11,
+}
+
 // ------------------------------------------------------------------------------
 // ResultInterface all results structs will respond to this, for ease of processing
 // ------------------------------------------------------------------------------

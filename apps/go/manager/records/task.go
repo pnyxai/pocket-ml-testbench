@@ -555,7 +555,7 @@ func (record *NumericalTaskRecord) ProcessData(l *zerolog.Logger) (err error) {
 			// Add sample to data array
 			auxDataScores = append(auxDataScores, float64(record.ScoresSamples[sampleId].Score))
 			auxDataTimes = append(auxDataTimes, float64(record.ScoresSamples[sampleId].RunTime))
-		} else if sampleStatus == 2 || sampleStatus == 11 {
+		} else if sampleStatus == RelayResponseCodes.Node || sampleStatus == RelayResponseCodes.Evaluation {
 			// This is a Node or Evaluation (response) error, we should punish the node
 			totalPunibleErrors += 1
 			punibleErrorsCodes[sampleStatus] += 1
@@ -629,12 +629,18 @@ func (record *NumericalTaskRecord) InsertSample(timeSample time.Time, data inter
 
 	// Increment the end
 	err = record.StepIndex(1, "end", true, l)
-	// Save sample
-	record.ScoresSamples[record.CircBuffer.Indexes.End].Score = dataOk.Score
-	record.ScoresSamples[record.CircBuffer.Indexes.End].ID = dataOk.ID
-	record.ScoresSamples[record.CircBuffer.Indexes.End].RunTime = dataOk.RunTime
-	record.ScoresSamples[record.CircBuffer.Indexes.End].StatusCode = dataOk.StatusCode
-	record.CircBuffer.Times[record.CircBuffer.Indexes.End] = timeSample
+	// Save sample if it is OK or it is an error imputable to the node
+	// the rest are ignored on purpose to avoid polluting the buffer with information
+	// that is not important to the servicer node. To debug other errors, check the logs...
+	if dataOk.StatusCode == RelayResponseCodes.Ok ||
+		dataOk.StatusCode == RelayResponseCodes.Node ||
+		dataOk.StatusCode == RelayResponseCodes.Evaluation {
+		record.ScoresSamples[record.CircBuffer.Indexes.End].Score = dataOk.Score
+		record.ScoresSamples[record.CircBuffer.Indexes.End].ID = dataOk.ID
+		record.ScoresSamples[record.CircBuffer.Indexes.End].RunTime = dataOk.RunTime
+		record.ScoresSamples[record.CircBuffer.Indexes.End].StatusCode = dataOk.StatusCode
+		record.CircBuffer.Times[record.CircBuffer.Indexes.End] = timeSample
+	}
 
 	return nil
 }
@@ -832,11 +838,17 @@ func (record *SignatureTaskRecord) InsertSample(timeSample time.Time, data inter
 
 	// Increment the end
 	err = record.StepIndex(1, "end", true, l)
-	// Save sample
-	record.Signatures[record.CircBuffer.Indexes.End].Signature = dataOk.Signature
-	record.Signatures[record.CircBuffer.Indexes.End].ID = dataOk.ID
-	record.Signatures[record.CircBuffer.Indexes.End].StatusCode = dataOk.StatusCode
-	record.CircBuffer.Times[record.CircBuffer.Indexes.End] = timeSample
+	// Save sample if it is OK or it is an error imputable to the node
+	if dataOk.StatusCode == RelayResponseCodes.Ok ||
+		dataOk.StatusCode == RelayResponseCodes.Node ||
+		dataOk.StatusCode == RelayResponseCodes.Evaluation {
+
+		record.Signatures[record.CircBuffer.Indexes.End].Signature = dataOk.Signature
+		record.Signatures[record.CircBuffer.Indexes.End].ID = dataOk.ID
+		record.Signatures[record.CircBuffer.Indexes.End].StatusCode = dataOk.StatusCode
+		record.CircBuffer.Times[record.CircBuffer.Indexes.End] = timeSample
+
+	}
 
 	return nil
 }
