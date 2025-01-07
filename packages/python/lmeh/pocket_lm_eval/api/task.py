@@ -77,7 +77,7 @@ class SqlDatasetSaver:
     DATA_TYPE_MAPPING = {
         int: "INTEGER",
         bool: "BOOLEAN",
-        float: "REAL",
+        float: "REAL", 
         str: "TEXT",
         datetime.datetime: "TIMESTAMP",
         datetime.date: "DATE",
