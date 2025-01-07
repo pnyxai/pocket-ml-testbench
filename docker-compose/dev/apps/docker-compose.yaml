@@ -86,6 +86,8 @@ services:
       context: ../../../
       dockerfile: apps/python/api/Dockerfile
     image: pocket_ml_testbench_test_api:dev
+    environment:
+      MONGODB_URI: $MONGODB_URI
     extra_hosts:
       host.docker.internal: host-gateway
     ports:

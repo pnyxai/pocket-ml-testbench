@@ -219,8 +219,18 @@ class SqlDatasetSaver:
             row_to_insert = list()
             for key in self.columns.keys():
                 val = current_row.get(key)
+                # Convert dict (JSON) to strings
                 if isinstance(val, dict):
                     val = json.dumps(val)
+                # Also check if the instance is not a list of dicts!
+                if isinstance(val, list):
+                    n_val = list()
+                    for t_val in val:
+                        if isinstance(t_val, dict):
+                            n_val.append(json.dumps(t_val))
+                        else:
+                            n_val.append(t_val)
+                    val = n_val
                 row_to_insert.append(val)
 
             self._id += 1

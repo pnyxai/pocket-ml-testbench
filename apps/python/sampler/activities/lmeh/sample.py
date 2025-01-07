@@ -82,7 +82,7 @@ async def lmeh_sample(args: PocketNetworkTaskRequest) -> bool:
 
                 # generate configurable tasks
                 try:
-                    open_llm_cfg = open_llm_config.get_task_config(task_names[0])
+                    open_llm_cfg = open_llm_config.get_task_config(task_name)
                     args.num_fewshot = open_llm_cfg["num_fewshot"]
                     task_dict = lmeh_generator.get_configurable_task(
                         tasks=[task_name],

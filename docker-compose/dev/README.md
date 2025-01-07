@@ -24,7 +24,7 @@ To shut them down just do (omit the `-v` if you want to keep the DBs and Tempora
 cd dependencies && docker compose down -v
 ```
 
-Once all services are healthy you can access the PGadmin on [http://localhost:5050/](http://localhost:5050/l) using:
+Once all services are healthy you can access the PGadmin on [http://localhost:5050/](http://localhost:5050/) using:
 - User: `admin@local.dev`
 - Password: `admin`
 
@@ -39,7 +39,7 @@ In order to have quicker access to the Temporal client, create an alias:
 alias temporal_docker="docker exec temporal-admin-tools temporal"
 ```
 
-Then create the namespace for the test-bench:
+Then create the namespace for the test-bench (this is not necessary, it is already created):
 ```bash
 temporal_docker operator namespace create pocket-ml-testbench
 ```
