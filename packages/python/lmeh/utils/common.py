@@ -25,6 +25,7 @@ def get_task_manager(
     random_seed: Optional[int] = None,
     numpy_random_seed: Optional[int] = None,
     torch_random_seed: Optional[int] = None,
+    hf_token: Optional[str] = None,
 ):
     """
     :param stage:
@@ -72,6 +73,7 @@ def get_task_manager(
         pocket_args=pocket_args,
         stage=stage,
         logger=logger,
+        hf_token=hf_token,
     )
 
     if tasks is None:

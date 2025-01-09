@@ -20,8 +20,17 @@ async def register_task(args: PocketNetworkRegisterTaskRequest) -> bool:
     """
     eval_logger = get_app_logger("register_task")
     app_config = get_app_config()
+    config = get_app_config()["config"]
 
     eval_logger.info("Starting activity register task", tasks=args.tasks)
+
+    # Check for HuggingFace Token, used to download some datasets
+    hf_token = None
+    if "hf_token" in config:
+        hf_token = config["hf_token"]
+        eval_logger.info(
+            f"Using provided HF token: ...{hf_token[-5:]}",
+        )
 
     # retrieve database connection
     eval_logger.debug("Acquiring Postgres Connection from pool")
@@ -37,6 +46,7 @@ async def register_task(args: PocketNetworkRegisterTaskRequest) -> bool:
                 logger=eval_logger,
                 postgres_conn=conn,
                 stage=TASK_MANAGER_REGISTER_STAGE,
+                hf_token=hf_token
             )
             eval_logger.debug("Read task names", task_names=task_names)
             # sending many task names to the same activity is slower than send a single task to many register workflows

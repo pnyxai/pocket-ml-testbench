@@ -88,7 +88,7 @@ class SqlDatasetSaver:
         bytes: "BYTEA",
     }
 
-    def __init__(self, table_name, dataset_path, dataset_name, connection, logger):
+    def __init__(self, table_name, dataset_path, dataset_name, connection, logger, hf_token=None):
         self.table_name = table_name
         self.dataset_path = dataset_path
         self.dataset_name = dataset_name
@@ -101,6 +101,8 @@ class SqlDatasetSaver:
         self.dataset_iterator = None
         self.first_record = None
         self.first_record_consumed = None
+        # HuggingFace Token (some datasets might need it)
+        self.hf_token = hf_token
 
     def _calculate_columns_def(self):
         self.columns = {}
@@ -149,6 +151,7 @@ class SqlDatasetSaver:
         self.dataset = load_dataset(
             path=self.dataset_path,
             name=self.dataset_name,
+            token=self.hf_token,
             **dataset_kwargs if dataset_kwargs is not None else {},
         ).flatten_indices()
         for split in self.dataset:
@@ -248,7 +251,9 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
         config: Optional[dict] = None,
         postgres_conn: Optional[asyncpg.Connection] = None,
         eval_logger: Any = get_app_logger("sampler"),
+        hf_token: Optional[str] = None,
     ) -> None:  # TODO no super() call here
+        self.hf_token=hf_token
         # Get pre-configured attributes
         self._config = self.CONFIG
         self.postgres_conn = postgres_conn
@@ -380,6 +385,7 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
             dataset_path=self._config["dataset_path"],
             dataset_name=self._config["dataset_name"],
             connection=self.postgres_conn,
+            hf_token=self.hf_token,
             logger=self.eval_logger,
         )
 
