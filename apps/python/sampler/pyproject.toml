@@ -20,6 +20,7 @@ langdetect = "^1.0.9"
 immutabledict = "^4.2.1"
 torch = {version = "^2.5.1+cpu", source = "pytorch_cpu"}
 torchvision = {version = "^0.20.1+cpu", source = "pytorch_cpu"}
+transformers = "^4.48.0"
 
 
 [tool.poetry.group.dev.dependencies]

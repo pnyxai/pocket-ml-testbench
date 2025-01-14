@@ -26,8 +26,30 @@ async def lmeh_sample(args: PocketNetworkTaskRequest) -> bool:
     # check if config has timeouts
     if "timeouts" in config:
         try:
-            timeouts = LLMTimeouts(**config["timeouts"][args.requester_args.service])
-            timeout_handler = TimeoutHandler(timeouts=timeouts)
+            # Try to get this service timeouts
+            timeout_cfg = config["timeouts"].get(args.requester_args.service, None)
+            # Check if not there
+            if timeout_cfg == None:
+                # Check for default
+                config["timeouts"].get("default", None)
+                if timeout_cfg == None:
+                    # Initialize as empy
+                    timeout_handler = TimeoutHandler()
+                    eval_logger.warn(
+                            "TimeoutHandler config not found and no default timeout is defined, using EMPTY TIMEOUT",
+                            service=args.requester_args.service,
+                        )
+                else:
+                    # Initialize as default
+                    eval_logger.info(
+                            "TimeoutHandler config not found, using DEFAULT TIMEOUT",
+                            service=args.requester_args.service,
+                        )
+                    timeouts = LLMTimeouts(**timeout_cfg)
+                    timeout_handler = TimeoutHandler(timeouts=timeouts)
+            else:
+                timeouts = LLMTimeouts(**timeout_cfg)
+                timeout_handler = TimeoutHandler(timeouts=timeouts)
         except Exception as e:
             eval_logger.error(
                 "Error creating TimeoutHandler",

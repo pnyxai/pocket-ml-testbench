@@ -197,7 +197,10 @@ class PocketNetworkLM(TemplateLM):
                 non_retryable=True,
             )
         try:
-            self._config = load_config(config_objects=config_objects, wf_id=self.wf_id)
+            self._config = load_config(config_objects=config_objects, 
+                                       wf_id=self.wf_id, 
+                                       trust_remote_code=False # We dont want to download and execute anything
+                                       )
         except Exception as e:
             eval_logger.error(
                 "Error loading config from database",
