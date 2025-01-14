@@ -1,0 +1,983 @@
+{
+  "genesis_time": "2020-08-11T02:23:11.749242Z",
+  "chain_id": "localnet",
+  "consensus_params": {
+    "block": {
+      "max_bytes": "200000",
+      "max_gas": "-1",
+      "time_iota_ms": "1"
+    },
+    "evidence": {
+      "max_age": "60000000000"
+    },
+    "validator": {
+      "pub_key_types": [
+        "ed25519"
+      ]
+    }
+  },
+  "app_hash": "",
+  "app_state": {
+    "pocketcore": {
+      "params": {
+        "session_node_count": "1",
+        "proof_waiting_period": "2",
+        "supported_blockchains": [
+          "A100",
+          "A101",
+          "A102",
+          "A103",
+          "A1FF"
+        ],
+        "claim_expiration": "12",
+        "replay_attack_burn_multiplier": "3",
+        "minimum_number_of_proofs": "1"
+      },
+      "receipts": null,
+      "claims": null
+    },
+    "application": {
+      "params": {
+        "unstaking_time": "1814400000000000",
+        "max_applications": "9223372036854775807",
+        "app_stake_minimum": "1000000",
+        "base_relays_per_pokt": "100",
+        "stability_adjustment": "0",
+        "participation_rate_on": false,
+        "maximum_chains": "15"
+      },
+      "applications": [
+        {
+          "address": "f3abbe313689a603a1a6d6a43330d0440a552288",
+          "chains": [
+            "A100",
+            "A101",
+            "A102",
+            "A103",
+            "A1FF"
+          ],
+          "jailed": false,
+          "max_relays": "10000000",
+          "public_key": "1802f4116b9d3798e2766a2452fbeb4d280fa99e77e61193df146ca4d88b38af",
+          "staked_tokens": "25000000000",
+          "status": 2,
+          "unstaking_time": "0001-01-01T00:00:00Z"
+        }
+      ],
+      "exported": false
+    },
+    "auth": {
+      "params": {
+        "max_memo_characters": "256",
+        "tx_sig_limit": "7",
+        "fee_multipliers": {
+          "fee_multiplier": null,
+          "default": "1"
+        }
+      },
+      "accounts": [
+        {
+          "type": "posmint/Account",
+          "value": {
+            "address": "f3abbe313689a603a1a6d6a43330d0440a552288",
+            "coins": [
+              {
+                "denom": "upokt",
+                "amount": "600000000000000000000"
+              }
+            ],
+            "public_key": {
+              "type": "crypto/ed25519_public_key",
+              "value": "1802f4116b9d3798e2766a2452fbeb4d280fa99e77e61193df146ca4d88b38af"
+            }
+          }
+        },
+        {
+          "type": "posmint/Account",
+          "value": {
+            "address": "b12d6b666d5bd08cd446c70f6624626ada012bac",
+            "coins": [
+              {
+                "denom": "upokt",
+                "amount": "600000000000000000000"
+              }
+            ],
+            "public_key": {
+              "type": "crypto/ed25519_public_key",
+              "value": "df6794398b185cddd077059d989576313e10fdc3a763dd06237c455a7dcd4a23"
+            }
+          }
+        },
+        {
+          "type": "posmint/Account",
+          "value": {
+            "address": "5e0439066e01b375e005f38b41e35cec52d57cd6",
+            "coins": [
+              {
+                "denom": "upokt",
+                "amount": "600000000000000000000"
+              }
+            ],
+            "public_key": {
+              "type": "crypto/ed25519_public_key",
+              "value": "a0db9dc6da9e8d5806a9c3484f9d2d1c0c739bf4aa11863301b465539364b9c9"
+            }
+          }
+        },
+        {
+          "type": "posmint/Account",
+          "value": {
+            "address": "7c08e2e1265246a66d7d022b163970114dda124e",
+            "coins": [
+              {
+                "denom": "upokt",
+                "amount": "600000000000000000000"
+              }
+            ],
+            "public_key": {
+              "type": "crypto/ed25519_public_key",
+              "value": "33e1eac17dfce97abaa1387db52cea318edce277bfe5c790448f8ba22f602800"
+            }
+          }
+        },
+        {
+          "type": "posmint/Account",
+          "value": {
+            "address": "9ab105b900c4633657f60974ad0e243c8f50ae1e",
+            "coins": [
+              {
+                "denom": "upokt",
+                "amount": "600000000000000000000"
+              }
+            ],
+            "public_key": {
+              "type": "crypto/ed25519_public_key",
+              "value": "7bdc0d52b37654e88273d3db2e5a8e5366d58ddc21b9b3dbb3263528812d9bb7"
+            }
+          }
+        },
+        {
+          "type": "posmint/Account",
+          "value": {
+            "address": "5e6949faf0a176fd0f3a0e2ef948d7a70ee2867b",
+            "coins": [
+              {
+                "denom": "upokt",
+                "amount": "600000000000000000000"
+              }
+            ],
+            "public_key": {
+              "type": "crypto/ed25519_public_key",
+              "value": "b2ef60d9f83d4250adca27aaa26a234502e009167bbf29328871c0f7dacc19a6"
+            }
+          }
+        },
+        {
+          "type": "posmint/Account",
+          "value": {
+            "address": "4202057f345d63b0af02f76dcb42aa46bf9b6d43",
+            "coins": [
+              {
+                "denom": "upokt",
+                "amount": "600000000000000000000"
+              }
+            ],
+            "public_key": {
+              "type": "crypto/ed25519_public_key",
+              "value": "70097e844b9293521daa60d5ba4a6cc2fb20906c41c18a7c001e44d5255a4c46"
+            }
+          }
+        },
+        {
+          "type": "posmint/Account",
+          "value": {
+            "address": "a31eba7042bd2c87c5dc0462d92dd1c961c81249",
+            "coins": [
+              {
+                "denom": "upokt",
+                "amount": "600000000000000000000"
+              }
+            ],
+            "public_key": {
+              "type": "crypto/ed25519_public_key",
+              "value": "e4835ae186d6be6d7bafe0c5c2e42458660b07f2edf1f1f128bebacc7030d19d"
+            }
+          }
+        },
+        {
+          "type": "posmint/Account",
+          "value": {
+            "address": "d1dd513de5a3c1f05b6c534c840f76e60caf3662",
+            "coins": [
+              {
+                "denom": "upokt",
+                "amount": "600000000000000000000"
+              }
+            ],
+            "public_key": {
+              "type": "crypto/ed25519_public_key",
+              "value": "da8835e6b9acfd3bdef9b144b5e6f9db75f79799c8b14bdc48cbb544dc016e9e"
+            }
+          }
+        },
+        {
+          "type": "posmint/Account",
+          "value": {
+            "address": "a4357688f25b1daa3270c287c0fbb75bb020c1ce",
+            "coins": [
+              {
+                "denom": "upokt",
+                "amount": "600000000000000000000"
+              }
+            ],
+            "public_key": {
+              "type": "crypto/ed25519_public_key",
+              "value": "c9eb4144d2dc6e77f309eac25c19d6334fd757d09c8ff1aea8cafbfa0962ee55"
+            }
+          }
+        },
+        {
+          "type": "posmint/Account",
+          "value": {
+            "address": "b0c626b04d5f0ab76e764409fc9bafb6cab2c1b1",
+            "coins": [
+              {
+                "denom": "upokt",
+                "amount": "600000000000000000000"
+              }
+            ],
+            "public_key": {
+              "type": "crypto/ed25519_public_key",
+              "value": "78fdc091999d4a833b8729eefd42d24a907e75c3d23690273c5216256fc48c1c"
+            }
+          }
+        },
+        {
+          "type": "posmint/Account",
+          "value": {
+            "address": "b3f65b5c8da10132b107aaa1c38542ffb73dea35",
+            "coins": [
+              {
+                "denom": "upokt",
+                "amount": "600000000000000000000"
+              }
+            ],
+            "public_key": {
+              "type": "crypto/ed25519_public_key",
+              "value": "9ceb629971855d0fb87f84c4e1bcdf7483f2f805c73330bbed281ceb6e8ead58"
+            }
+          }
+        },
+        {
+          "type": "posmint/Account",
+          "value": {
+            "address": "e441b6024deb682291abff461bf9cc855f5ae659",
+            "coins": [
+              {
+                "denom": "upokt",
+                "amount": "600000000000000000000"
+              }
+            ],
+            "public_key": {
+              "type": "crypto/ed25519_public_key",
+              "value": "a3746486657c714af14021bf23154be29ec5dcc2959e51d40b46948cb373de0f"
+            }
+          }
+        },
+        {
+          "type": "posmint/Account",
+          "value": {
+            "address": "d8f7226ec86e62739b84aaa8898d8b7b8c2e3025",
+            "coins": [
+              {
+                "denom": "upokt",
+                "amount": "600000000000000000000"
+              }
+            ],
+            "public_key": {
+              "type": "crypto/ed25519_public_key",
+              "value": "0c98997bcf5bcc391de92d6e1f324055a1c7464940d178d3d497da0621f07540"
+            }
+          }
+        },
+        {
+          "type": "posmint/Account",
+          "value": {
+            "address": "f89f49b6a978ddfc7402b7bd0efca8715c1d7d5e",
+            "coins": [
+              {
+                "denom": "upokt",
+                "amount": "600000000000000000000"
+              }
+            ],
+            "public_key": {
+              "type": "crypto/ed25519_public_key",
+              "value": "d5feffcb271eb5713196a5c998ff6375e4eb8d3e39f51c0453ad4d4dbe16083b"
+            }
+          }
+        },
+        {
+          "type": "posmint/Account",
+          "value": {
+            "address": "6fa859c95b450a589d1a837338c0b7ffbde6872b",
+            "coins": [
+              {
+                "denom": "upokt",
+                "amount": "600000000000000000000"
+              }
+            ],
+            "public_key": {
+              "type": "crypto/ed25519_public_key",
+              "value": "9dbcd3ec6851698f046a29127d7dbc85dea8f1fe914508f21c981a4a756bc08b"
+            }
+          }
+        },
+        {
+          "type": "posmint/Account",
+          "value": {
+            "address": "3c107bcbd07db3a43882fa20c41bae5904aa0677",
+            "coins": [
+              {
+                "denom": "upokt",
+                "amount": "600000000000000000000"
+              }
+            ],
+            "public_key": {
+              "type": "crypto/ed25519_public_key",
+              "value": "231366b46c2ac820bbf70d3bac1840f0a3df750bfddb5b27031e6d64857eb3b3"
+            }
+          }
+        },
+        {
+          "type": "posmint/Account",
+          "value": {
+            "address": "580751119d154cb508ac024bcab772e04c4714e2",
+            "coins": [
+              {
+                "denom": "upokt",
+                "amount": "600000000000000000000"
+              }
+            ],
+            "public_key": {
+              "type": "crypto/ed25519_public_key",
+              "value": "4f6fa71c108a01db853b3b27c791de595507b538a2741746e61cc0f5c39e1ad2"
+            }
+          }
+        },
+        {
+          "type": "posmint/Account",
+          "value": {
+            "address": "56f4af690d1ac39b8f4c4fb9892ede2757e94624",
+            "coins": [
+              {
+                "denom": "upokt",
+                "amount": "600000000000000000000"
+              }
+            ],
+            "public_key": {
+              "type": "crypto/ed25519_public_key",
+              "value": "e2c2e21bed1ab291e02d1d78d906616e6d259ec3cac0497562507de810081560"
+            }
+          }
+        },
+        {
+          "type": "posmint/Account",
+          "value": {
+            "address": "34755f065d73a7743bf3f149660e0392b878317b",
+            "coins": [
+              {
+                "denom": "upokt",
+                "amount": "600000000000000000000"
+              }
+            ],
+            "public_key": {
+              "type": "crypto/ed25519_public_key",
+              "value": "2265832e7b05565cea10c98754026843560be7bacef5370a7b45f92e67bbdbe2"
+            }
+          }
+        },
+        {
+          "type": "posmint/Account",
+          "value": {
+            "address": "621993ee115ad88682ed401e213e7b389e296832",
+            "coins": [
+              {
+                "denom": "upokt",
+                "amount": "600000000000000000000"
+              }
+            ],
+            "public_key": {
+              "type": "crypto/ed25519_public_key",
+              "value": "29c37f09eff5d6a543af0c6db0cf2a00c0e11ef4758437418866a42b9ab89713"
+            }
+          }
+        },
+        {
+          "type": "posmint/Account",
+          "value": {
+            "address": "cb85946c8171e3bbe78f5dbc01469053419b7be1",
+            "coins": [
+              {
+                "denom": "upokt",
+                "amount": "600000000000000000000"
+              }
+            ],
+            "public_key": {
+              "type": "crypto/ed25519_public_key",
+              "value": "b02f4a2d8c887a24a7172fa9ce982d0c0825d35fab37816101ff5ab8a6272dc0"
+            }
+          }
+        },
+        {
+          "type": "posmint/Account",
+          "value": {
+            "address": "80f930617802d4496376b1663e91cafb515e21ad",
+            "coins": [
+              {
+                "denom": "upokt",
+                "amount": "600000000000000000000"
+              }
+            ],
+            "public_key": {
+              "type": "crypto/ed25519_public_key",
+              "value": "531e425edb27bf27d445dfef6f24843d7c95c0af37b2511a751b48e6f66e6dbc"
+            }
+          }
+        },
+        {
+          "type": "posmint/Account",
+          "value": {
+            "address": "9c3e3919baa75d8ea4d11989f6ffc25e4190d5ce",
+            "coins": [
+              {
+                "denom": "upokt",
+                "amount": "600000000000000000000"
+              }
+            ],
+            "public_key": {
+              "type": "crypto/ed25519_public_key",
+              "value": "a8f29a29fa0691429cc1601be06684824796f6205767de81af206801331980c8"
+            }
+          }
+        },
+        {
+          "type": "posmint/Account",
+          "value": {
+            "address": "7853706d177a233401065eb09d849a77f61f153e",
+            "coins": [
+              {
+                "denom": "upokt",
+                "amount": "600000000000000000000"
+              }
+            ],
+            "public_key": {
+              "type": "crypto/ed25519_public_key",
+              "value": "5ccd940dfce7c5a6d497d67fa65c7554a81b5048543c08eb5bf5e30fd9668b1b"
+            }
+          }
+        },
+        {
+          "type": "posmint/Account",
+          "value": {
+            "address": "6260f3c4306dcf88668ceb4108621459f36f0798",
+            "coins": [
+              {
+                "denom": "upokt",
+                "amount": "600000000000000000000"
+              }
+            ],
+            "public_key": {
+              "type": "crypto/ed25519_public_key",
+              "value": "8be8819ea59a25a69f4df30d26e6f27f9a961d4fa943acedc5254078f78c18a6"
+            }
+          }
+        },
+        {
+          "type": "posmint/Account",
+          "value": {
+            "address": "111675de8e13fde1ce4da5fc236ab98ed478cc20",
+            "coins": [
+              {
+                "denom": "upokt",
+                "amount": "600000000000000000000"
+              }
+            ],
+            "public_key": {
+              "type": "crypto/ed25519_public_key",
+              "value": "d70b69a81cb9d80f8e04e6158bc40c301acd81b45addd052657ff8e5040b5350"
+            }
+          }
+        }
+      ],
+      "supply": []
+    },
+    "pos": {
+      "params": {
+        "relays_to_tokens_multiplier": "1000",
+        "unstaking_time": "1814400000000000",
+        "max_validators": "50",
+        "stake_denom": "upokt",
+        "stake_minimum": "1000000",
+        "session_block_frequency": "4",
+        "dao_allocation": "10",
+        "proposer_allocation": "5",
+        "maximum_chains": "15",
+        "max_jailed_blocks": "1000",
+        "max_evidence_age": "60000000000",
+        "signed_blocks_window": "100",
+        "min_signed_per_window": "0.500000000000000000",
+        "downtime_jail_duration": "600000000000",
+        "slash_fraction_double_sign": "0.050000000000000000",
+        "slash_fraction_downtime": "0.010000000000000000"
+      },
+      "prevState_total_power": "0",
+      "prevState_validator_powers": null,
+      "validators": [
+        {
+          "address": "7c08e2e1265246a66d7d022b163970114dda124e",
+          "public_key": "33e1eac17dfce97abaa1387db52cea318edce277bfe5c790448f8ba22f602800",
+          "jailed": false,
+          "status": 2,
+          "tokens": "60000000000",
+          "service_url": "http://host.docker.internal:9081",
+          "chains": [
+            "A100"
+          ],
+          "unstaking_time": "0001-01-01T00:00:00Z"
+        },
+        {
+          "address": "9ab105b900c4633657f60974ad0e243c8f50ae1e",
+          "public_key": "7bdc0d52b37654e88273d3db2e5a8e5366d58ddc21b9b3dbb3263528812d9bb7",
+          "jailed": false,
+          "status": 2,
+          "tokens": "60000000000",
+          "service_url": "http://host.docker.internal:9081",
+          "chains": [
+            "A101"
+          ],
+          "unstaking_time": "0001-01-01T00:00:00Z"
+        },
+        {
+          "address": "cb85946c8171e3bbe78f5dbc01469053419b7be1",
+          "public_key": "b02f4a2d8c887a24a7172fa9ce982d0c0825d35fab37816101ff5ab8a6272dc0",
+          "jailed": false,
+          "status": 2,
+          "tokens": "60000000000",
+          "service_url": "http://host.docker.internal:9081",
+          "chains": [
+            "A103"
+          ],
+          "unstaking_time": "0001-01-01T00:00:00Z"
+        },
+        {
+          "address": "5e6949faf0a176fd0f3a0e2ef948d7a70ee2867b",
+          "public_key": "b2ef60d9f83d4250adca27aaa26a234502e009167bbf29328871c0f7dacc19a6",
+          "jailed": false,
+          "status": 2,
+          "tokens": "60000000000",
+          "service_url": "http://host.docker.internal:9081",
+          "chains": [
+            "A1FF"
+          ],
+          "unstaking_time": "0001-01-01T00:00:00Z"
+        },
+        {
+          "address": "4202057f345d63b0af02f76dcb42aa46bf9b6d43",
+          "public_key": "70097e844b9293521daa60d5ba4a6cc2fb20906c41c18a7c001e44d5255a4c46",
+          "jailed": false,
+          "status": 2,
+          "tokens": "60000000000",
+          "service_url": "http://host.docker.internal:9081",
+          "chains": [
+            "A1FF"
+          ],
+          "unstaking_time": "0001-01-01T00:00:00Z"
+        },
+        {
+          "address": "a31eba7042bd2c87c5dc0462d92dd1c961c81249",
+          "public_key": "e4835ae186d6be6d7bafe0c5c2e42458660b07f2edf1f1f128bebacc7030d19d",
+          "jailed": false,
+          "status": 2,
+          "tokens": "60000000000",
+          "service_url": "http://host.docker.internal:9081",
+          "chains": [
+            "A1FF"
+          ],
+          "unstaking_time": "0001-01-01T00:00:00Z"
+        },
+        {
+          "address": "d1dd513de5a3c1f05b6c534c840f76e60caf3662",
+          "public_key": "da8835e6b9acfd3bdef9b144b5e6f9db75f79799c8b14bdc48cbb544dc016e9e",
+          "jailed": false,
+          "status": 2,
+          "tokens": "60000000000",
+          "service_url": "http://host.docker.internal:9081",
+          "chains": [
+            "A1FF"
+          ],
+          "unstaking_time": "0001-01-01T00:00:00Z"
+        },
+        {
+          "address": "a4357688f25b1daa3270c287c0fbb75bb020c1ce",
+          "public_key": "c9eb4144d2dc6e77f309eac25c19d6334fd757d09c8ff1aea8cafbfa0962ee55",
+          "jailed": false,
+          "status": 2,
+          "tokens": "60000000000",
+          "service_url": "http://host.docker.internal:9081",
+          "chains": [
+            "A1FF"
+          ],
+          "unstaking_time": "0001-01-01T00:00:00Z"
+        },
+        {
+          "address": "b0c626b04d5f0ab76e764409fc9bafb6cab2c1b1",
+          "public_key": "78fdc091999d4a833b8729eefd42d24a907e75c3d23690273c5216256fc48c1c",
+          "jailed": false,
+          "status": 2,
+          "tokens": "60000000000",
+          "service_url": "http://host.docker.internal:9081",
+          "chains": [
+            "A1FF"
+          ],
+          "unstaking_time": "0001-01-01T00:00:00Z"
+        },
+        {
+          "address": "b3f65b5c8da10132b107aaa1c38542ffb73dea35",
+          "public_key": "9ceb629971855d0fb87f84c4e1bcdf7483f2f805c73330bbed281ceb6e8ead58",
+          "jailed": false,
+          "status": 2,
+          "tokens": "60000000000",
+          "service_url": "http://host.docker.internal:9081",
+          "chains": [
+            "A1FF"
+          ],
+          "unstaking_time": "0001-01-01T00:00:00Z"
+        },
+        {
+          "address": "e441b6024deb682291abff461bf9cc855f5ae659",
+          "public_key": "a3746486657c714af14021bf23154be29ec5dcc2959e51d40b46948cb373de0f",
+          "jailed": false,
+          "status": 2,
+          "tokens": "60000000000",
+          "service_url": "http://host.docker.internal:9081",
+          "chains": [
+            "A102"
+          ],
+          "unstaking_time": "0001-01-01T00:00:00Z"
+        },
+        {
+          "address": "d8f7226ec86e62739b84aaa8898d8b7b8c2e3025",
+          "public_key": "0c98997bcf5bcc391de92d6e1f324055a1c7464940d178d3d497da0621f07540",
+          "jailed": false,
+          "status": 2,
+          "tokens": "60000000000",
+          "service_url": "http://host.docker.internal:9081",
+          "chains": [
+            "A1FF"
+          ],
+          "unstaking_time": "0001-01-01T00:00:00Z"
+        },
+        {
+          "address": "f89f49b6a978ddfc7402b7bd0efca8715c1d7d5e",
+          "public_key": "d5feffcb271eb5713196a5c998ff6375e4eb8d3e39f51c0453ad4d4dbe16083b",
+          "jailed": false,
+          "status": 2,
+          "tokens": "60000000000",
+          "service_url": "http://host.docker.internal:9081",
+          "chains": [
+            "A1FF"
+          ],
+          "unstaking_time": "0001-01-01T00:00:00Z"
+        },
+        {
+          "address": "6fa859c95b450a589d1a837338c0b7ffbde6872b",
+          "public_key": "9dbcd3ec6851698f046a29127d7dbc85dea8f1fe914508f21c981a4a756bc08b",
+          "jailed": false,
+          "status": 2,
+          "tokens": "60000000000",
+          "service_url": "http://host.docker.internal:9081",
+          "chains": [
+            "A1FF"
+          ],
+          "unstaking_time": "0001-01-01T00:00:00Z"
+        },
+        {
+          "address": "3c107bcbd07db3a43882fa20c41bae5904aa0677",
+          "public_key": "231366b46c2ac820bbf70d3bac1840f0a3df750bfddb5b27031e6d64857eb3b3",
+          "jailed": false,
+          "status": 2,
+          "tokens": "60000000000",
+          "service_url": "http://host.docker.internal:9081",
+          "chains": [
+            "A1FF"
+          ],
+          "unstaking_time": "0001-01-01T00:00:00Z"
+        },
+        {
+          "address": "580751119d154cb508ac024bcab772e04c4714e2",
+          "public_key": "4f6fa71c108a01db853b3b27c791de595507b538a2741746e61cc0f5c39e1ad2",
+          "jailed": false,
+          "status": 2,
+          "tokens": "60000000000",
+          "service_url": "http://host.docker.internal:9081",
+          "chains": [
+            "A1FF"
+          ],
+          "unstaking_time": "0001-01-01T00:00:00Z"
+        },
+        {
+          "address": "56f4af690d1ac39b8f4c4fb9892ede2757e94624",
+          "public_key": "e2c2e21bed1ab291e02d1d78d906616e6d259ec3cac0497562507de810081560",
+          "jailed": false,
+          "status": 2,
+          "tokens": "60000000000",
+          "service_url": "http://host.docker.internal:9081",
+          "chains": [
+            "A1FF"
+          ],
+          "unstaking_time": "0001-01-01T00:00:00Z"
+        },
+        {
+          "address": "34755f065d73a7743bf3f149660e0392b878317b",
+          "public_key": "2265832e7b05565cea10c98754026843560be7bacef5370a7b45f92e67bbdbe2",
+          "jailed": false,
+          "status": 2,
+          "tokens": "60000000000",
+          "service_url": "http://host.docker.internal:9081",
+          "chains": [
+            "A1FF"
+          ],
+          "unstaking_time": "0001-01-01T00:00:00Z"
+        },
+        {
+          "address": "621993ee115ad88682ed401e213e7b389e296832",
+          "public_key": "29c37f09eff5d6a543af0c6db0cf2a00c0e11ef4758437418866a42b9ab89713",
+          "jailed": false,
+          "status": 2,
+          "tokens": "60000000000",
+          "service_url": "http://host.docker.internal:9081",
+          "chains": [
+            "A1FF"
+          ],
+          "unstaking_time": "0001-01-01T00:00:00Z"
+        },
+        {
+          "address": "80f930617802d4496376b1663e91cafb515e21ad",
+          "public_key": "531e425edb27bf27d445dfef6f24843d7c95c0af37b2511a751b48e6f66e6dbc",
+          "jailed": false,
+          "status": 2,
+          "tokens": "60000000000",
+          "service_url": "http://host.docker.internal:9081",
+          "chains": [
+            "A1FF"
+          ],
+          "unstaking_time": "0001-01-01T00:00:00Z"
+        },
+        {
+          "address": "9c3e3919baa75d8ea4d11989f6ffc25e4190d5ce",
+          "public_key": "a8f29a29fa0691429cc1601be06684824796f6205767de81af206801331980c8",
+          "jailed": false,
+          "status": 2,
+          "tokens": "60000000000",
+          "service_url": "http://host.docker.internal:9081",
+          "chains": [
+            "A1FF"
+          ],
+          "unstaking_time": "0001-01-01T00:00:00Z"
+        },
+        {
+          "address": "7853706d177a233401065eb09d849a77f61f153e",
+          "public_key": "5ccd940dfce7c5a6d497d67fa65c7554a81b5048543c08eb5bf5e30fd9668b1b",
+          "jailed": false,
+          "status": 2,
+          "tokens": "60000000000",
+          "service_url": "http://host.docker.internal:9081",
+          "chains": [
+            "A1FF"
+          ],
+          "unstaking_time": "0001-01-01T00:00:00Z"
+        },
+        {
+          "address": "6260f3c4306dcf88668ceb4108621459f36f0798",
+          "public_key": "8be8819ea59a25a69f4df30d26e6f27f9a961d4fa943acedc5254078f78c18a6",
+          "jailed": false,
+          "status": 2,
+          "tokens": "60000000000",
+          "service_url": "http://host.docker.internal:9081",
+          "chains": [
+            "A1FF"
+          ],
+          "unstaking_time": "0001-01-01T00:00:00Z"
+        },
+        {
+          "address": "111675de8e13fde1ce4da5fc236ab98ed478cc20",
+          "public_key": "d70b69a81cb9d80f8e04e6158bc40c301acd81b45addd052657ff8e5040b5350",
+          "jailed": false,
+          "status": 2,
+          "tokens": "60000000000",
+          "service_url": "http://host.docker.internal:9081",
+          "chains": [
+            "A1FF"
+          ],
+          "unstaking_time": "0001-01-01T00:00:00Z"
+        }
+      ],
+      "exported": false,
+      "signing_infos": {},
+      "missed_blocks": {},
+      "previous_proposer": ""
+    },
+    "gov": {
+      "params": {
+        "acl": [
+          {
+            "acl_key": "application/ApplicationStakeMinimum",
+            "address": "fcf719ca739dccbc281b12bc0d671aaa7a015848"
+          },
+          {
+            "acl_key": "application/AppUnstakingTime",
+            "address": "fcf719ca739dccbc281b12bc0d671aaa7a015848"
+          },
+          {
+            "acl_key": "application/BaseRelaysPerPOKT",
+            "address": "fcf719ca739dccbc281b12bc0d671aaa7a015848"
+          },
+          {
+            "acl_key": "application/MaxApplications",
+            "address": "fcf719ca739dccbc281b12bc0d671aaa7a015848"
+          },
+          {
+            "acl_key": "application/MaximumChains",
+            "address": "fcf719ca739dccbc281b12bc0d671aaa7a015848"
+          },
+          {
+            "acl_key": "application/ParticipationRateOn",
+            "address": "fcf719ca739dccbc281b12bc0d671aaa7a015848"
+          },
+          {
+            "acl_key": "application/StabilityAdjustment",
+            "address": "fcf719ca739dccbc281b12bc0d671aaa7a015848"
+          },
+          {
+            "acl_key": "auth/MaxMemoCharacters",
+            "address": "fcf719ca739dccbc281b12bc0d671aaa7a015848"
+          },
+          {
+            "acl_key": "auth/TxSigLimit",
+            "address": "fcf719ca739dccbc281b12bc0d671aaa7a015848"
+          },
+          {
+            "acl_key": "gov/acl",
+            "address": "fcf719ca739dccbc281b12bc0d671aaa7a015848"
+          },
+          {
+            "acl_key": "gov/daoOwner",
+            "address": "fcf719ca739dccbc281b12bc0d671aaa7a015848"
+          },
+          {
+            "acl_key": "gov/upgrade",
+            "address": "fcf719ca739dccbc281b12bc0d671aaa7a015848"
+          },
+          {
+            "acl_key": "pocketcore/ClaimExpiration",
+            "address": "fcf719ca739dccbc281b12bc0d671aaa7a015848"
+          },
+          {
+            "acl_key": "auth/FeeMultipliers",
+            "address": "fcf719ca739dccbc281b12bc0d671aaa7a015848"
+          },
+          {
+            "acl_key": "pocketcore/ReplayAttackBurnMultiplier",
+            "address": "fcf719ca739dccbc281b12bc0d671aaa7a015848"
+          },
+          {
+            "acl_key": "pos/ProposerPercentage",
+            "address": "fcf719ca739dccbc281b12bc0d671aaa7a015848"
+          },
+          {
+            "acl_key": "pocketcore/ClaimSubmissionWindow",
+            "address": "fcf719ca739dccbc281b12bc0d671aaa7a015848"
+          },
+          {
+            "acl_key": "pocketcore/MinimumNumberOfProofs",
+            "address": "fcf719ca739dccbc281b12bc0d671aaa7a015848"
+          },
+          {
+            "acl_key": "pocketcore/SessionNodeCount",
+            "address": "fcf719ca739dccbc281b12bc0d671aaa7a015848"
+          },
+          {
+            "acl_key": "pocketcore/SupportedBlockchains",
+            "address": "fcf719ca739dccbc281b12bc0d671aaa7a015848"
+          },
+          {
+            "acl_key": "pos/BlocksPerSession",
+            "address": "fcf719ca739dccbc281b12bc0d671aaa7a015848"
+          },
+          {
+            "acl_key": "pos/DAOAllocation",
+            "address": "fcf719ca739dccbc281b12bc0d671aaa7a015848"
+          },
+          {
+            "acl_key": "pos/DowntimeJailDuration",
+            "address": "fcf719ca739dccbc281b12bc0d671aaa7a015848"
+          },
+          {
+            "acl_key": "pos/MaxEvidenceAge",
+            "address": "fcf719ca739dccbc281b12bc0d671aaa7a015848"
+          },
+          {
+            "acl_key": "pos/MaximumChains",
+            "address": "fcf719ca739dccbc281b12bc0d671aaa7a015848"
+          },
+          {
+            "acl_key": "pos/MaxJailedBlocks",
+            "address": "fcf719ca739dccbc281b12bc0d671aaa7a015848"
+          },
+          {
+            "acl_key": "pos/MaxValidators",
+            "address": "fcf719ca739dccbc281b12bc0d671aaa7a015848"
+          },
+          {
+            "acl_key": "pos/MinSignedPerWindow",
+            "address": "fcf719ca739dccbc281b12bc0d671aaa7a015848"
+          },
+          {
+            "acl_key": "pos/RelaysToTokensMultiplier",
+            "address": "fcf719ca739dccbc281b12bc0d671aaa7a015848"
+          },
+          {
+            "acl_key": "pos/SignedBlocksWindow",
+            "address": "fcf719ca739dccbc281b12bc0d671aaa7a015848"
+          },
+          {
+            "acl_key": "pos/SlashFractionDoubleSign",
+            "address": "fcf719ca739dccbc281b12bc0d671aaa7a015848"
+          },
+          {
+            "acl_key": "pos/SlashFractionDowntime",
+            "address": "fcf719ca739dccbc281b12bc0d671aaa7a015848"
+          },
+          {
+            "acl_key": "pos/StakeDenom",
+            "address": "fcf719ca739dccbc281b12bc0d671aaa7a015848"
+          },
+          {
+            "acl_key": "pos/StakeMinimum",
+            "address": "fcf719ca739dccbc281b12bc0d671aaa7a015848"
+          },
+          {
+            "acl_key": "pos/UnstakingTime",
+            "address": "fcf719ca739dccbc281b12bc0d671aaa7a015848"
+          }
+        ],
+        "dao_owner": "b12d6b666d5bd08cd446c70f6624626ada012bac",
+        "upgrade": {
+          "Height": "0",
+          "Version": "0.0.0"
+        }
+      },
+      "DAO_Tokens": "0"
+    }
+  }
+}

@@ -105,6 +105,7 @@ async def model_config_evaluate(args: PocketNetworkEvaluationTaskRequest) -> boo
                     config_objects=model_config_jsons,
                     wf_id="",
                     config_ephimeral_path=temp_path,
+                    trust_remote_code = False,
                 )
                 eval_logger.debug("Config loaded.")
                 # This creates the structure used in the database, containing the hash

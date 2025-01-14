@@ -1,12 +1,12 @@
 {
-  "postgres_uri": "postgresql://admin:admin@postgresql:5432/pocket-ml-testbench",
-  "mongodb_uri": "mongodb://mongodb:27017/pocket-ml-testbench",
+  "postgres_uri": "postgresql://admin:admin@host.docker.internal:5432/pocket-ml-testbench",
+  "mongodb_uri": "mongodb://host.docker.internal:27017/pocket-ml-testbench",
   "log_level": "DEBUG",
   "temporal": {
     "host": "temporal",
     "port": 7233,
     "namespace": "pocket-ml-testbench",
-    "task_queue": "evaluate",
+    "task_queue": "evaluator",
     "manager-result-analyzer": {
       "workflow_name": "Manager-ResultAnalyzer",
       "task_queue": "manager"

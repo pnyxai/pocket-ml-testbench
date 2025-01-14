@@ -58,6 +58,7 @@ func (aCtx *Ctx) AnalyzeNode(ctx context.Context, params types.AnalyzeNodeParams
 	// TODO : Do general update of node entry if needed (for instance to track last values of buffers)
 
 	// Push to DB the node data
+	l.Debug().Msg("Uploading node changes to DB.")
 	thisNodeData.UpdateNode(aCtx.App.Mongodb, l)
 
 	//--------------------------------------------------------------------------
@@ -225,6 +226,12 @@ func updateTasksNode(nodeData *records.NodeRecord,
 			// Drop old samples (move indices).
 			//------------------------------------------------------------------
 
+			l.Debug().
+				Str("address", nodeData.Address).
+				Str("service", nodeData.Service).
+				Str("framework", test.Framework).
+				Str("task", task).
+				Msg("Cycling indexes.")
 			cycled, err := thisTaskRecord.CycleIndexes(l)
 			if err != nil {
 				return err
@@ -234,6 +241,12 @@ func updateTasksNode(nodeData *records.NodeRecord,
 			// Update task in DB
 			//------------------------------------------------------------------
 			if cycled || found {
+				l.Debug().
+					Str("address", nodeData.Address).
+					Str("service", nodeData.Service).
+					Str("framework", test.Framework).
+					Str("task", task).
+					Msg("Updating task entry.")
 				_, err = thisTaskRecord.UpdateTask(nodeData.ID, test.Framework, task, mongoDB, l)
 				if err != nil {
 					return err

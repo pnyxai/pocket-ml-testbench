@@ -18,10 +18,18 @@ datasets = "^3.2.0"
 huggingface-hub = "^0.27.1"
 langdetect = "^1.0.9"
 immutabledict = "^4.2.1"
+torch = {version = "^2.5.1+cpu", source = "pytorch_cpu"}
+torchvision = {version = "^0.20.1+cpu", source = "pytorch_cpu"}
 
 
 [tool.poetry.group.dev.dependencies]
 ipykernel = "^6.29.4"
+
+
+[[tool.poetry.source]]
+name = "pytorch_cpu"
+url = "https://download.pytorch.org/whl/cpu"
+priority = "explicit"
 
 [build-system]
 requires = ["poetry-core"]

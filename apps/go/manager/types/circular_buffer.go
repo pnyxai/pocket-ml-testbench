@@ -78,12 +78,12 @@ func (buffer *CircularBuffer) StepIndex(step uint32, marker string, positive_ste
 	// Check buffer limits
 	nextVal, err := buffer.BufferLimitCheck(nextVal, l)
 	if err != nil {
-		return err
+		return errors.New("buffer: error in buffer limit check")
 	}
 
 	// Update values
 	if marker == "start" {
-		if buffer.NumSamples == step && positive_step {
+		if buffer.NumSamples == step && positive_step && buffer.Times[buffer.Indexes.Start] != EpochStart {
 			// Cannot reduce the buffer anymore, just invalidate last sample
 			buffer.Times[buffer.Indexes.End] = EpochStart
 		} else {
@@ -132,6 +132,8 @@ func (buffer *CircularBuffer) CycleIndexes(sampleTTLDays uint32, l *zerolog.Logg
 	maxAge := time.Duration(sampleTTLDays) * 24 * time.Hour
 	// Check the date of the index start
 	oldestAge := time.Since(buffer.Times[buffer.Indexes.Start])
+
+	l.Debug().Str("maxAge", maxAge.String()).Str("oldestAge", oldestAge.String()).Msg("Circular buffer status.")
 
 	if oldestAge < maxAge {
 		return false, nil
