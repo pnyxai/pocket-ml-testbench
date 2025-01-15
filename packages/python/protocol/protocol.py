@@ -224,6 +224,7 @@ class CompletionResponseChoice(OpenAIBaseModel):
     index: int
     text: str
     logprobs: Optional[CompletionLogProbs] = None
+    prompt_logprobs: Optional[Any] = None # TODO : Set correct class
     finish_reason: Optional[str] = None
     stop_reason: Optional[Union[int, str]] = Field(
         default=None,

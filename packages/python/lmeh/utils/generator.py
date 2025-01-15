@@ -588,9 +588,25 @@ async def evaluate(
                 doc_id = list_doc_id[i]
                 result_num_samples.add(doc_id)
                 requests = instances_by_doc_id[doc_id]
-                metrics = task.process_results(
-                    doc, [req.filtered_resps[filter_key] for req in requests]
-                )
+                try:
+                    
+                    if "kwargs" in doc.keys():
+                        # Make sure the kwargs are a dict not a string
+                        doc["kwargs"] = [json.loads(a) for a in doc["kwargs"]]
+
+                    metrics = task.process_results(
+                        doc, [req.filtered_resps[filter_key] for req in requests]
+                    )
+                except Exception as e:
+                    eval_logger.debug("task.process_results inputs", doc=doc, responses=[req.filtered_resps[filter_key] for req in requests])
+                    eval_logger.error("Failed to process results in LMEH.", error=e)
+                    raise ApplicationError(
+                        "Failed process results.",
+                        str(e),
+                        type="LMEH",
+                        non_retryable=True,
+                    )
+                    
                 response_times = [np.mean(req.times).astype(float) for req in requests]
                 if log_samples:
                     target = task.doc_to_target(doc)
