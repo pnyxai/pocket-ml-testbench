@@ -78,12 +78,21 @@ async def lmeh_sample(args: PocketNetworkTaskRequest) -> bool:
     if args.llm_args is None:
         args.llm_args = {}
 
+    # Check include path and override with config
+    # TODO : This should not be an argument from the request
+    include_path = args.include_path
+    if "include_path" in config:
+        include_path = config["include_path"]
+        eval_logger.info(
+            f"Using additional tasks from : {include_path}",
+        )
+
     eval_logger.debug("Acquiring Postgres Connection from pool")
     async with app_config["postgres"].acquire() as conn:
         async with conn.transaction():
             task_manager, task_names = get_task_manager(
                 tasks=args.tasks,
-                include_path=args.include_path,
+                include_path=include_path,
                 verbosity=str(args.verbosity),
                 logger=eval_logger,
                 postgres_conn=conn,

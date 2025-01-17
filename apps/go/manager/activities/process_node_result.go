@@ -117,17 +117,27 @@ func (aCtx *Ctx) AnalyzeResult(ctx context.Context, params types.AnalyzeResultPa
 
 	// If nothing is wrong with the result calculation
 	if thisTaskResults.GetStatus() == 0 {
-		l.Debug().
-			Int("NumSamples", int(thisTaskResults.GetNumSamples())).
-			Str("address", nodeData.Address).
-			Str("service", nodeData.Service).
-			Str("framework", taskData.Framework).
-			Str("task", taskData.Task).
-			Str("task_id", params.TaskID.String()).
-			Msg("Inserting results into buffers.")
-		// Add results to current task record
-		for i := 0; i < int(thisTaskResults.GetNumSamples()); i++ {
-			thisTaskRecord.InsertSample(time.Now(), thisTaskResults.GetSample(i), l)
+		if thisTaskResults.GetNumSamples() == 0 {
+			l.Warn().
+				Str("address", nodeData.Address).
+				Str("service", nodeData.Service).
+				Str("framework", taskData.Framework).
+				Str("task", taskData.Task).
+				Str("task_id", params.TaskID.String()).
+				Msg("Has status 0 but no samples/results to insert, the tasks will be consumed with no effect on the score.")
+		} else {
+			l.Debug().
+				Int("NumSamples", int(thisTaskResults.GetNumSamples())).
+				Str("address", nodeData.Address).
+				Str("service", nodeData.Service).
+				Str("framework", taskData.Framework).
+				Str("task", taskData.Task).
+				Str("task_id", params.TaskID.String()).
+				Msg("Inserting results into buffers.")
+			// Add results to current task record
+			for i := 0; i < int(thisTaskResults.GetNumSamples()); i++ {
+				thisTaskRecord.InsertSample(time.Now(), thisTaskResults.GetSample(i), l)
+			}
 		}
 		// Update the last seen fields
 		thisTaskRecord.UpdateLastHeight(thisTaskResults.GetResultHeight())

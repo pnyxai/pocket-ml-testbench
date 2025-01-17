@@ -578,7 +578,7 @@ async def evaluate(
         result_num_samples = set()
         for filter_key in task.instances[0].filtered_resps.keys():
             if filter_key not in selected_filters:
-                eval_logger.debug("Skipping Filter Key:", filter_key=filter_key)
+                eval_logger.warning("Skipping Filter Key. This can signal misconfiguration of task in `task_config.py`", filter_key=filter_key)
                 continue
             eval_logger.debug("Entering Filter Key:", filter_key=filter_key)
             doc_iterator = task.doc_iterator(

@@ -11,5 +11,6 @@
       "workflow_name": "Manager-ResultAnalyzer",
       "task_queue": "manager"
     }
-  }
+  },
+  "include_path": "/home/app/code/packages/python/lmeh/custom_tasks"
 }

@@ -60,6 +60,7 @@ task_cnfg = {
     "babi": {
         "metrics": ["exact_match"],
         "num_fewshot": 3,
+        "filters": ["get_response"],
     },
     # "mmlu_generative": {
     #     "metrics": ["exact_match"],

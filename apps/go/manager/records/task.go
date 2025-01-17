@@ -567,7 +567,10 @@ func (record *NumericalTaskRecord) ProcessData(l *zerolog.Logger) (err error) {
 
 	// Set errors
 	record.ErrorCodes = punibleErrorsCodes
-	record.ErrorRate = float32(totalPunibleErrors) / float32(length+totalPunibleErrors)
+	record.ErrorRate = 0.0
+	if float32(length+totalPunibleErrors) > 0 {
+		record.ErrorRate = float32(totalPunibleErrors) / float32(length+totalPunibleErrors)
+	}
 
 	// Calculate the scores and times
 	if length == 0 {

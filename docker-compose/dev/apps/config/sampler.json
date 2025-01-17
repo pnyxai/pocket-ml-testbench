@@ -13,7 +13,7 @@
     }
   },
   "timeouts": {
-    "random": {
+    "default": {
       "ttft": {
         "x": [
           0,
@@ -30,5 +30,6 @@
       "queue": 30
     }
   },
+  "include_path": "/home/app/code/packages/python/lmeh/custom_tasks",
   "hf_token": "lalala"  
 }
