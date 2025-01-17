@@ -50,7 +50,7 @@ task_cnfg = {
     "mmlu_pro": {
         "metrics": ["exact_match"],
         "num_fewshot": 3,
-        "filters": ["custom-extract"],
+        "filters": ["custom-extract", "get_response"],
     },
     "ifeval": {
         "metrics": ["prompt_level_strict_acc", "inst_level_strict_acc", "prompt_level_loose_acc", "inst_level_loose_acc"],
