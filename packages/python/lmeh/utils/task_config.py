@@ -42,11 +42,11 @@ task_cnfg = {
         "filters": ["strict-match", "flexible-extract"],
     },
     # Uses: HF leaderboard / Taxonomy [Alpha]
-    # "bbh_fewshot_fix": {
-    #     "metrics": ["exact_match"],
-    #     "num_fewshot": 3,
-    #     "filters": ["remove_whitespace"],
-    # },
+    "bbh_fix_fewshot": {
+        "metrics": ["exact_match"],
+        "num_fewshot": 3,
+        "filters": ["remove_whitespace"],
+    },
     "mmlu_pro": {
         "metrics": ["exact_match"],
         "num_fewshot": 3,
@@ -85,4 +85,7 @@ def get_task_config(task_name: str):
             return task_cnfg["mmlu"]
     if "babi" in task_name:
         return task_cnfg["babi"]
+    if "bbh_fix_fewshot" in task_name:
+        return task_cnfg["bbh_fix_fewshot"]
+
     return task_cnfg[task_name]
