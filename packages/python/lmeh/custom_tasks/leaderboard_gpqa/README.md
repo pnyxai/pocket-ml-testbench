@@ -1,5 +1,7 @@
 # GPQA
 
+- GPQA (0-shot, multichoice)
+
 ### Paper
 
 Title: GPQA: A Graduate-Level Google-Proof Q&A Benchmark
