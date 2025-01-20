@@ -30,7 +30,7 @@ services:
       EVALUATE_VERBOSITY: "error"
       DATASETS_VERBOSITY: "error"
     deploy:
-      replicas: 5
+      replicas: 3
     extra_hosts:
       host.docker.internal: host-gateway
     volumes:

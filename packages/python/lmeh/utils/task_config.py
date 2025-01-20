@@ -27,10 +27,9 @@ task_cnfg = {
     },
 
     # Uses: HF leaderboard
-    "gpqa_main_generative_n_shot": {
-        "metrics": ["exact_match"],
+    "leaderboard_gpqa": {
+        "metrics": ["acc_norm"],
         "num_fewshot": 0,
-        "filters": ["flexible-extract"],
     },
     "leaderboard_musr": {
         "metrics": ["acc_norm"],
@@ -87,5 +86,7 @@ def get_task_config(task_name: str):
         return task_cnfg["babi"]
     if "bbh_fix_fewshot" in task_name:
         return task_cnfg["bbh_fix_fewshot"]
+    if "leaderboard_gpqa" in task_name:
+        return task_cnfg["leaderboard_gpqa"]
 
     return task_cnfg[task_name]

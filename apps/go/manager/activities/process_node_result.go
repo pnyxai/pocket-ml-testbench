@@ -116,6 +116,9 @@ func (aCtx *Ctx) AnalyzeResult(ctx context.Context, params types.AnalyzeResultPa
 		Msg("Processing found results.")
 
 	// If nothing is wrong with the result calculation
+	// (this does not mean that the RPC error codes were checked or not,
+	// only that the calculation was successful, even when the calculation
+	// itself used no sample )
 	if thisTaskResults.GetStatus() == 0 {
 		if thisTaskResults.GetNumSamples() == 0 {
 			l.Warn().
@@ -135,6 +138,7 @@ func (aCtx *Ctx) AnalyzeResult(ctx context.Context, params types.AnalyzeResultPa
 				Str("task_id", params.TaskID.String()).
 				Msg("Inserting results into buffers.")
 			// Add results to current task record
+			// This inclusion is conditional on the status of the RPC.
 			for i := 0; i < int(thisTaskResults.GetNumSamples()); i++ {
 				thisTaskRecord.InsertSample(time.Now(), thisTaskResults.GetSample(i), l)
 			}

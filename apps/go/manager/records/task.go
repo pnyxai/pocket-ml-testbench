@@ -303,7 +303,7 @@ func CheckTaskSchedule(taskData TaskInterface, block types.BlockData, configMap 
 	return true, nil
 }
 
-// Analyzes the configuration and checks wheter the task should be triggered
+// Analyzes the configuration and checks whether the task should be triggered
 // despite having its buffers filled and up to date. This is useful for tasks
 // that require scheduled updates, like signatures (i.e getting tokenizers every session)
 func CheckTaskTriggerMin(taskData TaskInterface, block types.BlockData, configMap map[string]types.FrameworkConfig, l *zerolog.Logger) (uint32, error) {
@@ -630,14 +630,17 @@ func (record *NumericalTaskRecord) InsertSample(timeSample time.Time, data inter
 		return fmt.Errorf("invalid sample data type")
 	}
 
-	// Increment the end
-	err = record.StepIndex(1, "end", true, l)
 	// Save sample if it is OK or it is an error imputable to the node
 	// the rest are ignored on purpose to avoid polluting the buffer with information
 	// that is not important to the servicer node. To debug other errors, check the logs...
 	if dataOk.StatusCode == RelayResponseCodes.Ok ||
 		dataOk.StatusCode == RelayResponseCodes.Node ||
 		dataOk.StatusCode == RelayResponseCodes.Evaluation {
+
+		// Increment the end (only on valid data)
+		err = record.StepIndex(1, "end", true, l)
+
+		// Update the buffer
 		record.ScoresSamples[record.CircBuffer.Indexes.End].Score = dataOk.Score
 		record.ScoresSamples[record.CircBuffer.Indexes.End].ID = dataOk.ID
 		record.ScoresSamples[record.CircBuffer.Indexes.End].RunTime = dataOk.RunTime

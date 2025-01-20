@@ -4,11 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/alitto/pond"
-	"github.com/puzpuzpuz/xsync"
-	"github.com/rs/zerolog"
-	"github.com/stretchr/testify/mock"
-	"golang.org/x/time/rate"
 	"math"
 	"net/http"
 	"net/url"
@@ -16,6 +11,12 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/alitto/pond"
+	"github.com/puzpuzpuz/xsync"
+	"github.com/rs/zerolog"
+	"github.com/stretchr/testify/mock"
+	"golang.org/x/time/rate"
 )
 
 type ReplicatedResponse struct {
@@ -315,6 +316,7 @@ func (cp *ClientPool) ReplicateRequest(r *http.Request, ctx context.Context, max
 }
 
 func (cp *ClientPool) do(client *Client, req *http.Request, ctx context.Context) (*http.Response, error) {
+	// TODO : Test this rate limiter
 	lim := rate.NewLimiter(rate.Every(time.Second/time.Duration(cp.opts.ReqPerSec)), 1)
 
 	// Wait for the rate limiter

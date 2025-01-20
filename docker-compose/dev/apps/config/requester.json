@@ -10,7 +10,7 @@
     "retries": 1,
     "min_backoff": 10,
     "max_backoff": 60,
-    "req_per_sec": 10,
+    "req_per_sec": 3,
     "session_tolerance": 1
   },
   "log_level": "info",
@@ -24,7 +24,7 @@
       "enable_logging_in_replay": false,
       "max_concurrent_activity_task_pollers": 50,
       "deadlock_detection_timeout": 120,
-      "worker_activities_per_second": 10
+      "worker_activities_per_second": 3
     },
     "evaluator": {
       "workflow_name": "Evaluator",
