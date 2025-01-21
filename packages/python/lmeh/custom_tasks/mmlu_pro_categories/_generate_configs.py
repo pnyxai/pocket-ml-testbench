@@ -13,20 +13,22 @@ from tqdm import tqdm
 eval_logger = logging.getLogger("lm-eval")
 
 
-CATEGORIES = ['biology',
- 'business',
- 'chemistry',
- 'computer science',
- 'economics',
- 'engineering',
- 'health',
- 'history',
- 'law',
- 'math',
- 'other',
- 'philosophy',
- 'physics',
- 'psychology']
+CATEGORIES = [
+    "biology",
+    "business",
+    "chemistry",
+    "computer science",
+    "economics",
+    "engineering",
+    "health",
+    "history",
+    "law",
+    "math",
+    "other",
+    "philosophy",
+    "physics",
+    "psychology",
+]
 
 
 def parse_args():
@@ -52,7 +54,9 @@ if __name__ == "__main__":
         if task_name_use not in ALL_TASKS:
             ALL_TASKS.append(task_name_use)
 
-        description = f"The following are questions on the subject of : {category_name}.\n\n"
+        description = (
+            f"The following are questions on the subject of : {category_name}.\n\n"
+        )
 
         yaml_dict = {
             "include": base_yaml_name,
@@ -71,7 +75,7 @@ if __name__ == "__main__":
                 allow_unicode=True,
                 default_style='"',
             )
-    
+
     file_save_path = args.save_prefix_path + ".yaml"
 
     eval_logger.info(f"Saving benchmark config to {file_save_path}")

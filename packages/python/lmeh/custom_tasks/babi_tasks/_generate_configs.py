@@ -33,7 +33,7 @@ TASKS = {
     "17": "positional_reasoning",
     "18": "size_reasoning",
     "19": "path_finding",
-    "20": "agents_motivations"
+    "20": "agents_motivations",
 }
 
 
@@ -56,7 +56,7 @@ if __name__ == "__main__":
     for task_id, task_name in tqdm(TASKS.items()):
         split_name = f"task_{task_id}-{task_name}"
         task_name_use = split_name
-        if int(task_id)<10:
+        if int(task_id) < 10:
             # To keep order correctly on display screen
             task_name_use = f"task_0{task_id}-{task_name}"
         if split_name not in ALL_TASKS:
@@ -82,10 +82,8 @@ if __name__ == "__main__":
                 default_style='"',
             )
 
-
     babi_subcategories = [f"babi-{task}" for task in ALL_TASKS]
 
-    
     file_save_path = args.save_prefix_path + ".yaml"
 
     eval_logger.info(f"Saving benchmark config to {file_save_path}")

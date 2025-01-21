@@ -90,7 +90,7 @@ class PocketNetworkTaskManager(TaskManager):
                         config=config,
                         postgres_conn=self.postgres_conn,
                         eval_logger=self.logger,
-                        hf_token=self.hf_token
+                        hf_token=self.hf_token,
                     )
                 elif self.stage == TASK_MANAGER_EVALUATE_STAGE:
                     task_object = EvaluatePocketNetworkConfigurableTask(

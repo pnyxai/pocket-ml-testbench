@@ -1,6 +1,6 @@
-task_cnfg = {   
+task_cnfg = {
     # Uses: Legacy HF leaderboard
-    "arc_challenge": { 
+    "arc_challenge": {
         "metrics": ["acc_norm"],
         "num_fewshot": 25,
     },
@@ -25,7 +25,6 @@ task_cnfg = {
         "num_fewshot": 5,
         "filters": ["flexible-extract"],
     },
-
     # Uses: HF leaderboard
     "leaderboard_gpqa": {
         "metrics": ["acc_norm"],
@@ -49,7 +48,12 @@ task_cnfg = {
     },
     # Uses: HF leaderboard / Taxonomy [Alpha]
     "ifeval": {
-        "metrics": ["prompt_level_strict_acc", "inst_level_strict_acc", "prompt_level_loose_acc", "inst_level_loose_acc"],
+        "metrics": [
+            "prompt_level_strict_acc",
+            "inst_level_strict_acc",
+            "prompt_level_loose_acc",
+            "inst_level_loose_acc",
+        ],
         "num_fewshot": 0,
     },
     # Uses: Taxonomy [Alpha]
@@ -77,7 +81,6 @@ task_cnfg = {
     #     "metrics": ["!function utils.pass_at_1"],
     #     "num_fewshot": 0,
     # },
-
 }
 
 
@@ -92,7 +95,7 @@ def get_task_config(task_name: str):
             if "generative" in task_name:
                 return task_cnfg["mmlu_generative"]
             elif "pro" in task_name:
-                return task_cnfg["mmlu_pro"]    
+                return task_cnfg["mmlu_pro"]
             else:
                 return task_cnfg["mmlu"]
         if "babi" in task_name:

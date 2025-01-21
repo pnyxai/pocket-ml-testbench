@@ -80,7 +80,7 @@ def load_tokenizer(
     tokenizer_objects: dict,
     wf_id: str,
     tokenizer_ephimeral_path: str = None,
-    trust_remote_code: bool = True, # TODO : Check if we can default this to false for security
+    trust_remote_code: bool = True,  # TODO : Check if we can default this to false for security
 ) -> Union[PreTrainedTokenizer, PreTrainedTokenizerFast]:
     if tokenizer_ephimeral_path is None:
         tokenizer_ephimeral_path = Path(
@@ -163,7 +163,7 @@ def load_config(
     config_objects: dict,
     wf_id: str,
     config_ephimeral_path: str = None,
-    trust_remote_code: bool = False
+    trust_remote_code: bool = False,
 ) -> PretrainedConfig:
     if config_ephimeral_path is None:
         config_ephimeral_path = Path(os.path.join(home, "config_ephimeral", wf_id))

@@ -412,10 +412,14 @@ async def evaluate(
 
                 for result in insert_mongo_results:
                     if "_id" in result.keys():
-                        result.pop("_id") # TODO: Findout how this arrives here on ocations... This should not be here I think...
+                        result.pop(
+                            "_id"
+                        )  # TODO: Findout how this arrives here on ocations... This should not be here I think...
                     bulk_op.append(
                         UpdateOne(
-                            filter={"result_data.task_id": result["result_data"]["task_id"]},
+                            filter={
+                                "result_data.task_id": result["result_data"]["task_id"]
+                            },
                             update={"$set": result},
                             upsert=True,
                         )
@@ -438,7 +442,10 @@ async def evaluate(
                     session=session,
                 )
         except Exception as e:
-            eval_logger.debug("Documents that failed to insert:", insert_mongo_results=insert_mongo_results)
+            eval_logger.debug(
+                "Documents that failed to insert:",
+                insert_mongo_results=insert_mongo_results,
+            )
             eval_logger.error("Failed to save documents (results) to MongoDB.", error=e)
             raise ApplicationError(
                 "Failed to save documents (results) to MongoDB.",
@@ -578,7 +585,10 @@ async def evaluate(
         result_num_samples = set()
         for filter_key in task.instances[0].filtered_resps.keys():
             if filter_key not in selected_filters:
-                eval_logger.warning("Skipping Filter Key. This can signal misconfiguration of task in `task_config.py`", filter_key=filter_key)
+                eval_logger.warning(
+                    "Skipping Filter Key. This can signal misconfiguration of task in `task_config.py`",
+                    filter_key=filter_key,
+                )
                 continue
             eval_logger.debug("Entering Filter Key:", filter_key=filter_key)
             doc_iterator = task.doc_iterator(
@@ -589,7 +599,6 @@ async def evaluate(
                 result_num_samples.add(doc_id)
                 requests = instances_by_doc_id[doc_id]
                 try:
-                    
                     if "kwargs" in doc.keys():
                         # Make sure the kwargs are a dict not a string
                         doc["kwargs"] = [json.loads(a) for a in doc["kwargs"]]
@@ -598,7 +607,11 @@ async def evaluate(
                         doc, [req.filtered_resps[filter_key] for req in requests]
                     )
                 except Exception as e:
-                    eval_logger.debug("task.process_results inputs", doc=doc, responses=[req.filtered_resps[filter_key] for req in requests])
+                    eval_logger.debug(
+                        "task.process_results inputs",
+                        doc=doc,
+                        responses=[req.filtered_resps[filter_key] for req in requests],
+                    )
                     eval_logger.error("Failed to process results in LMEH.", error=e)
                     raise ApplicationError(
                         "Failed process results.",
@@ -606,7 +619,7 @@ async def evaluate(
                         type="LMEH",
                         non_retryable=True,
                     )
-                    
+
                 response_times = [np.mean(req.times).astype(float) for req in requests]
                 if log_samples:
                     target = task.doc_to_target(doc)

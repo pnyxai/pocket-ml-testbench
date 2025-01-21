@@ -55,7 +55,7 @@ async def register_task(args: PocketNetworkRegisterTaskRequest) -> bool:
                 logger=eval_logger,
                 postgres_conn=conn,
                 stage=TASK_MANAGER_REGISTER_STAGE,
-                hf_token=hf_token
+                hf_token=hf_token,
             )
             eval_logger.debug("Read task names", task_names=task_names)
             # sending many task names to the same activity is slower than send a single task to many register workflows

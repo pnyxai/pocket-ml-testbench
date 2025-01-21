@@ -102,7 +102,6 @@ async def lmeh_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
                 f"Using additional tasks from : {include_path}",
             )
 
-
         # retrieve database connection
         eval_logger.debug("Acquiring Postgres Connection from pool")
         async with app_config["postgres"].acquire() as conn:

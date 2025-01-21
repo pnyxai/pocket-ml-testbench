@@ -77,7 +77,7 @@ class SqlDatasetSaver:
     DATA_TYPE_MAPPING = {
         int: "INTEGER",
         bool: "BOOLEAN",
-        float: "REAL", 
+        float: "REAL",
         str: "TEXT",
         datetime.datetime: "TIMESTAMP",
         datetime.date: "DATE",
@@ -88,7 +88,9 @@ class SqlDatasetSaver:
         bytes: "BYTEA",
     }
 
-    def __init__(self, table_name, dataset_path, dataset_name, connection, logger, hf_token=None):
+    def __init__(
+        self, table_name, dataset_path, dataset_name, connection, logger, hf_token=None
+    ):
         self.table_name = table_name
         self.dataset_path = dataset_path
         self.dataset_name = dataset_name
@@ -253,7 +255,7 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
         eval_logger: Any = get_app_logger("sampler"),
         hf_token: Optional[str] = None,
     ) -> None:  # TODO no super() call here
-        self.hf_token=hf_token
+        self.hf_token = hf_token
         # Get pre-configured attributes
         self._config = self.CONFIG
         self.postgres_conn = postgres_conn
@@ -870,7 +872,7 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
                 non_retryable=True,
             )
 
-        where_clause = " AND ".join(conditions) # TODO : Shouldn't this be AND ??
+        where_clause = " AND ".join(conditions)  # TODO : Shouldn't this be AND ??
         return where_clause
 
     async def get_max_min_ids(self, postgres_conn: asyncpg.Connection, table_name: str):
