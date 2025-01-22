@@ -403,7 +403,7 @@ class MongoOperator:
             except Exception as e:
                 remove_doc_ids.add(i["doc_id"])
                 error_str = "Bad JSON CompletionResponse format"
-                eval_logger.error(
+                eval_logger.debug(  # This is rather common if we cannot control the supply.
                     error_str,
                     response=r,
                     error=str(e),
@@ -418,7 +418,7 @@ class MongoOperator:
         result_height = max(list_result_height)
 
         if len(instances) == 0 and len(remove_doc_ids) > 0:
-            return [], [], result_height
+            return [], [], result_height, failed_instances
 
         # Remove uncompleted docs_ids
         if len(remove_doc_ids) > 0:

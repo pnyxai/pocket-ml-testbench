@@ -2,6 +2,7 @@ package pocket_rpc
 
 import (
 	"errors"
+
 	poktGoSdk "github.com/pokt-foundation/pocket-go/provider"
 )
 
@@ -12,9 +13,9 @@ const (
 	ClientChallengeRoute = "/v1/client/challenge"
 	// ClientDispatchRoute represents client dispatch route
 	ClientDispatchRoute = "/v1/client/dispatch"
-	// ClientRawTXRoute represents cliente raw TX route
+	// ClientRawTXRoute represents client raw TX route
 	ClientRawTXRoute = "/v1/client/rawtx"
-	// ClientRelayRoute represents client realy route
+	// ClientRelayRoute represents client relay route
 	ClientRelayRoute = "/v1/client/relay"
 	// QueryAccountRoute represents query account route
 	QueryAccountRoute = "/v1/query/account"

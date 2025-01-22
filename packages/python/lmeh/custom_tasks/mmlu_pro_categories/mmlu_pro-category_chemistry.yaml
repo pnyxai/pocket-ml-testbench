@@ -1,0 +1,5 @@
+"dataset_name": "category_chemistry"
+"description": "The following are questions on the subject of : chemistry.\n\n"
+"include": "_default_template_yaml"
+"task": "mmlu_pro-category_chemistry"
+"task_alias": "MMLU Pro category chemistry"

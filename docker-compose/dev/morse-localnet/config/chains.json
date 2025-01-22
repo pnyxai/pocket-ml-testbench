@@ -1,0 +1,22 @@
+[
+  {
+    "id": "A100",
+    "url": "http://host.docker.internal:9087"
+  },
+  {
+    "id": "A101",
+    "url": "http://host.docker.internal:9087"
+  },
+  {
+    "id": "A102",
+    "url": "http://host.docker.internal:9087"
+  },
+  {
+    "id": "A103",
+    "url": "http://host.docker.internal:9087"
+  },
+  {
+    "id": "A1FF",
+    "url": "http://host.docker.internal:9087"
+  }
+]

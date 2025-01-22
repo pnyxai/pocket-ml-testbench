@@ -33,6 +33,7 @@ class PocketNetworkTaskManager(TaskManager):
         include_defaults: bool = True,
         pocket_args: PocketNetworkTaskRequest = None,
         logger: Optional[logging.Logger] = None,
+        hf_token: Optional[str] = None,
     ) -> None:
         self.verbosity = verbosity
         self.include_path = include_path
@@ -49,6 +50,7 @@ class PocketNetworkTaskManager(TaskManager):
         self.injected_metadata = {
             "pocket_args": self.pocket_args,
         }
+        self.hf_token = hf_token
 
     """PocketNetworkTaskManager indexes all tasks from the default `lm_eval/tasks/`
     and an optional directory if provided.
@@ -88,6 +90,7 @@ class PocketNetworkTaskManager(TaskManager):
                         config=config,
                         postgres_conn=self.postgres_conn,
                         eval_logger=self.logger,
+                        hf_token=self.hf_token,
                     )
                 elif self.stage == TASK_MANAGER_EVALUATE_STAGE:
                     task_object = EvaluatePocketNetworkConfigurableTask(

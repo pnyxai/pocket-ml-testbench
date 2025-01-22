@@ -1,6 +1,0 @@
-lm_eval[dev]==0.4.2
-temporalio==1.5.1
-structlog==24.1.0
-pydantic==2.7.0
-asyncpg==0.29.0
-motor==3.4.0

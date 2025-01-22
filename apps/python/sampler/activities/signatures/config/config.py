@@ -34,7 +34,7 @@ def get_config_task(
     instance = PocketNetworkMongoDBInstance(task_id=task.id)
     # Create the void prompt
     prompt = PocketNetworkMongoDBPrompt(
-        model_config={}, data="", task_id=task.id, instance_id=instance.id, timeout=10
+        model_config={}, data="", task_id=task.id, instance_id=instance.id, timeout=60
     )
 
     return task, [instance], [prompt]

@@ -20,8 +20,26 @@ async def register_task(args: PocketNetworkRegisterTaskRequest) -> bool:
     """
     eval_logger = get_app_logger("register_task")
     app_config = get_app_config()
+    config = get_app_config()["config"]
 
     eval_logger.info("Starting activity register task", tasks=args.tasks)
+
+    # Check for HuggingFace Token, used to download some datasets
+    hf_token = None
+    if "hf_token" in config:
+        hf_token = config["hf_token"]
+        eval_logger.info(
+            f"Using provided HF token: ...{hf_token[-5:]}",
+        )
+
+    # Check include path and override with config
+    # TODO : This should not be an argument from the request
+    include_path = args.include_path
+    if "include_path" in config:
+        include_path = config["include_path"]
+        eval_logger.info(
+            f"Using additional tasks from : {include_path}",
+        )
 
     # retrieve database connection
     eval_logger.debug("Acquiring Postgres Connection from pool")
@@ -32,11 +50,12 @@ async def register_task(args: PocketNetworkRegisterTaskRequest) -> bool:
             # always sent one task at a time
             task_manager, task_names = get_task_manager(
                 tasks=args.tasks,
-                include_path=args.include_path,
+                include_path=include_path,
                 verbosity=str(args.verbosity),
                 logger=eval_logger,
                 postgres_conn=conn,
                 stage=TASK_MANAGER_REGISTER_STAGE,
+                hf_token=hf_token,
             )
             eval_logger.debug("Read task names", task_names=task_names)
             # sending many task names to the same activity is slower than send a single task to many register workflows

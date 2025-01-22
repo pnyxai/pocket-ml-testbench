@@ -12,5 +12,6 @@
     "max_concurrent_workflow_tasks": 8,
     "max_concurrent_workflow_task_polls": 8,
     "max_concurrent_activity_task_polls": 8
-  }
+  },
+  "hf_token": "replace with your token"
 }

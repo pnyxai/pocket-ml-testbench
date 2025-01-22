@@ -1,0 +1,5 @@
+"dataset_name": "task_11-basic_coreference"
+"description": "The following are basic taks on the subject of : basic coreference.\n\n"
+"include": "_default_template_yaml"
+"task": "babi-task_11-basic_coreference"
+"task_alias": "babi task 11 - basic coreference"

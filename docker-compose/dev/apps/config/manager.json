@@ -1,5 +1,5 @@
 {
-  "mongodb_uri": "mongodb://mongodb:27017/pocket-ml-testbench?replicaSet=devRs",
+  "mongodb_uri": "mongodb://host.docker.internal:27017/pocket-ml-testbench?replicaSet=devRs",
   "rpc": {
     "urls": [
       "http://host.docker.internal:9081"
@@ -9,7 +9,7 @@
     "max_backoff": 60,
     "req_per_sec": 10
   },
-  "log_level": "info",
+  "log_level": "debug",
   "develop": {
     "do_not_remove_tasks_from_db" : false
   },

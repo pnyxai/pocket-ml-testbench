@@ -1,7 +1,7 @@
 {
-  "postgres_uri": "postgresql://admin:admin@postgresql:5432/pocket-ml-testbench",
-  "mongodb_uri": "mongodb://mongodb:27017/pocket-ml-testbench",
-  "log_level": "INFO",
+  "postgres_uri": "postgresql://admin:admin@host.docker.internal:5432/pocket-ml-testbench",
+  "mongodb_uri": "mongodb://host.docker.internal:27017/pocket-ml-testbench",
+  "log_level": "DEBUG",
   "temporal": {
     "host": "temporal",
     "port": 7233,
@@ -13,7 +13,7 @@
     }
   },
   "timeouts": {
-    "random": {
+    "default": {
       "ttft": {
         "x": [
           0,
@@ -29,5 +29,7 @@
       "tpot": 0.336,
       "queue": 30
     }
-  }  
+  },
+  "include_path": "/home/app/code/packages/python/lmeh/custom_tasks",
+  "hf_token": "lala"  
 }

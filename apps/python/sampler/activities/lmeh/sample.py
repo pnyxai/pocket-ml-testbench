@@ -26,8 +26,30 @@ async def lmeh_sample(args: PocketNetworkTaskRequest) -> bool:
     # check if config has timeouts
     if "timeouts" in config:
         try:
-            timeouts = LLMTimeouts(**config["timeouts"][args.requester_args.service])
-            timeout_handler = TimeoutHandler(timeouts=timeouts)
+            # Try to get this service timeouts
+            timeout_cfg = config["timeouts"].get(args.requester_args.service, None)
+            # Check if not there
+            if timeout_cfg is None:
+                # Check for default
+                timeout_cfg = config["timeouts"].get("default", None)
+                if timeout_cfg is None:
+                    # Initialize as empy
+                    timeout_handler = TimeoutHandler()
+                    eval_logger.warn(
+                        "TimeoutHandler config not found and no default timeout is defined, using EMPTY TIMEOUT",
+                        service=args.requester_args.service,
+                    )
+                else:
+                    # Initialize as default
+                    eval_logger.info(
+                        "TimeoutHandler config not found, using DEFAULT TIMEOUT",
+                        service=args.requester_args.service,
+                    )
+                    timeouts = LLMTimeouts(**timeout_cfg)
+                    timeout_handler = TimeoutHandler(timeouts=timeouts)
+            else:
+                timeouts = LLMTimeouts(**timeout_cfg)
+                timeout_handler = TimeoutHandler(timeouts=timeouts)
         except Exception as e:
             eval_logger.error(
                 "Error creating TimeoutHandler",
@@ -56,12 +78,21 @@ async def lmeh_sample(args: PocketNetworkTaskRequest) -> bool:
     if args.llm_args is None:
         args.llm_args = {}
 
+    # Check include path and override with config
+    # TODO : This should not be an argument from the request
+    include_path = args.include_path
+    if "include_path" in config:
+        include_path = config["include_path"]
+        eval_logger.info(
+            f"Using additional tasks from : {include_path}",
+        )
+
     eval_logger.debug("Acquiring Postgres Connection from pool")
     async with app_config["postgres"].acquire() as conn:
         async with conn.transaction():
             task_manager, task_names = get_task_manager(
                 tasks=args.tasks,
-                include_path=args.include_path,
+                include_path=include_path,
                 verbosity=str(args.verbosity),
                 logger=eval_logger,
                 postgres_conn=conn,
@@ -82,7 +113,7 @@ async def lmeh_sample(args: PocketNetworkTaskRequest) -> bool:
 
                 # generate configurable tasks
                 try:
-                    open_llm_cfg = open_llm_config.get_task_config(task_names[0])
+                    open_llm_cfg = open_llm_config.get_task_config(task_name)
                     args.num_fewshot = open_llm_cfg["num_fewshot"]
                     task_dict = lmeh_generator.get_configurable_task(
                         tasks=[task_name],
