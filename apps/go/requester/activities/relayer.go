@@ -28,8 +28,9 @@ type RelayerParams struct {
 	BlocksPerSession int64  `json:"blocks_per_session"`
 
 	// requester data related
-	PromptId     string  `json:"prompt_id"`
-	RelayTimeout float64 `json:"relay_timeout"`
+	PromptId          string  `json:"prompt_id"`
+	RelayTimeout      float64 `json:"relay_timeout"`
+	RelayTriggerDelay float64 `json:"relay_trigger_delay"`
 }
 
 type RelayerResponse struct {
@@ -139,7 +140,7 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 		if err := response.Save(ctx, collection); err != nil {
 			data, err2 := bson.MarshalExtJSON(response, true, false)
 			if err2 != nil {
-				l.Error("Error marshalling relayer response using bson", "error", err2)
+				l.Error("Error marshaling relayer response using bson", "error", err2)
 			} else {
 				l.Error("Error saving relayer response", "error", err, "response", data)
 			}
@@ -239,6 +240,7 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 
 	relayerCtx, cancelRelayerFn := context.WithTimeout(ctx, prompt.GetTimeoutDuration()*time.Duration(RelayRetries+1))
 	defer cancelRelayerFn()
+	// Relay to service node is sent here
 	relay, relayErr := relayer.RelayWithCtx(relayerCtx, &relayInput, relayOpts)
 	response.Ms = time.Since(startTime).Milliseconds()
 	if relayErr != nil {

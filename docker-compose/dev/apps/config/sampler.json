@@ -15,12 +15,12 @@
   "timeouts": {
     "default": {
       "ttft": {
-        "x": [
+        "prompt_lenght": [
           0,
           8192,
           32768
         ],
-        "y": [
+        "sla_time": [
           0,
           2,
           10

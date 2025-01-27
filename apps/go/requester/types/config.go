@@ -2,8 +2,9 @@ package types
 
 import (
 	"encoding/json"
-	"go.temporal.io/sdk/worker"
 	"time"
+
+	"go.temporal.io/sdk/worker"
 )
 
 type TemporalWorkerOptions struct {
@@ -264,10 +265,16 @@ type RPCConfig struct {
 	SessionTolerance int64    `json:"session_tolerance"`
 }
 
+type RelayConfig struct {
+	TimeBetweenRelays float64 `json:"time_between_relays"`
+	TimeDispersion    float64 `json:"time_dispersion"`
+}
+
 type Config struct {
 	MongodbUri string          `json:"mongodb_uri"`
 	Apps       []string        `json:"apps"`
 	Rpc        *RPCConfig      `json:"rpc"`
+	Relay      *RelayConfig    `json:"relay"`
 	LogLevel   string          `json:"log_level"`
 	Temporal   *TemporalConfig `json:"temporal"`
 }

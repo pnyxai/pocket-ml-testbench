@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"requester/types"
+	"time"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"requester/types"
-	"time"
 )
 
 type GetTasksParams struct {
@@ -147,4 +148,25 @@ func (aCtx *Ctx) GetTasks(ctx context.Context, params GetTasksParams) (result *G
 		return nil, aggErr
 	}
 	return
+}
+
+func SplitByUniqueAddress(input []TaskRequest) [][]TaskRequest {
+	// Create a map to store requests with the same address
+	nameToStructs := make(map[string][]TaskRequest)
+
+	// Iterate through the input list
+	for _, s := range input {
+		// Add the request to the corresponding slice in the map
+		nameToStructs[s.Node] = append(nameToStructs[s.Node], s)
+	}
+
+	// Create a slice to store the resulting lists
+	var result [][]TaskRequest
+
+	// Iterate through the map and append each slice to the result
+	for _, structs := range nameToStructs {
+		result = append(result, structs)
+	}
+
+	return result
 }

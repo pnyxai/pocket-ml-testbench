@@ -25,6 +25,11 @@ var RelayerName = "Relayer"
 func (wCtx *Ctx) Relayer(ctx workflow.Context, params activities.RelayerParams) (results *RelayerResults, e error) {
 	results = &RelayerResults{}
 
+	// Use workflow.Sleep to make the workflow sleep before actually executing the task.
+	// This is to avoid clogging the node with tests
+	workflow.Sleep(ctx, time.Duration(params.RelayTriggerDelay*1000)*time.Millisecond)
+	// Now process and send the relay
+
 	if params.RelayTimeout == 0 {
 		params.RelayTimeout = (time.Duration(120) * time.Second).Seconds()
 	}
@@ -45,6 +50,7 @@ func (wCtx *Ctx) Relayer(ctx workflow.Context, params activities.RelayerParams) 
 		return
 	}
 
+	// Now we will execute the activity that makes the relay to the servicer node
 	relayerResponse := types.RelayResponse{}
 	relayerErr := workflow.ExecuteActivity(relayerCtx, activities.Activities.Relayer, params).Get(relayerCtx, &relayerResponse)
 	if relayerErr != nil {

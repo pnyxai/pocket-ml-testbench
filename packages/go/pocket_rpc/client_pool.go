@@ -316,7 +316,6 @@ func (cp *ClientPool) ReplicateRequest(r *http.Request, ctx context.Context, max
 }
 
 func (cp *ClientPool) do(client *Client, req *http.Request, ctx context.Context) (*http.Response, error) {
-	// TODO : Test this rate limiter
 	lim := rate.NewLimiter(rate.Every(time.Second/time.Duration(cp.opts.ReqPerSec)), 1)
 
 	// Wait for the rate limiter
