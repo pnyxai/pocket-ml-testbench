@@ -872,7 +872,7 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
                 non_retryable=True,
             )
 
-        where_clause = " AND ".join(conditions)  # TODO : Shouldn't this be AND ??
+        where_clause = " AND ".join(conditions)
         return where_clause
 
     async def get_max_min_ids(self, postgres_conn: asyncpg.Connection, table_name: str):

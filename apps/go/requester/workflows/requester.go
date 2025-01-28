@@ -3,6 +3,7 @@ package workflows
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"packages/logger"
 	"requester/activities"
 	"requester/common"
@@ -153,62 +154,77 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 	triggeredWorkflows := make([]string, 0)
 	l.Debug("GetTasks activity ends", "tasks_found", len(ltr.TaskRequests))
 
-	for _, tr := range ltr.TaskRequests {
-		node := nodesMap[tr.Node]
-		if node == nil {
-			l.Error("missing node on Map from TaskRequest response", "node", tr.Node, "nodes", request.Nodes)
-			continue
-		}
-		// add only those nodes that get pending tasks
-		triggeredNodeAddresses = append(triggeredNodeAddresses, tr.Node)
-		// You can access desired attributes here.
-		relayerRequest := activities.RelayerParams{
-			App:              getAppResults,
-			Node:             node,
-			Session:          sessionResult.Session,
-			Service:          request.Service,
-			SessionHeight:    sessionHeight,
-			BlocksPerSession: blocksPerSession,
-			PromptId:         tr.PromptId,
-			RelayTimeout:     tr.RelayTimeout,
-		}
+	// Now we must divide tasks into groups of tasks with the same ADDRESS
+	reqMap := activities.SplitByUniqueAddress(ltr.TaskRequests)
 
-		workflowOptions := client.StartWorkflowOptions{
-			// with this format: "app-node-service-taskId-instanceId-promptId-sessionHeight"
-			// we are sure that when its workflow runs again inside the same session and the task is still not done,
-			// we will not get the same relayer workflow executed twice
-			ID: fmt.Sprintf(
-				"%s-%s-%s-%s-%d",
-				params.App, tr.Node, request.Service,
-				tr.PromptId, sessionHeight,
-			),
-			TaskQueue:                                wCtx.App.Config.Temporal.TaskQueue,
-			WorkflowExecutionErrorWhenAlreadyStarted: true,
-			WorkflowIDReusePolicy:                    enums.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE_FAILED_ONLY,
-			WorkflowTaskTimeout:                      time.Duration(tr.RelayTimeout) * time.Second,
-			RetryPolicy: &temporal.RetryPolicy{
-				MaximumAttempts: 3,
-			},
-		}
+	// For each group of tasks:
+	for _, theseNodeReq := range reqMap {
+		l.Debug("Processing group.", "node", theseNodeReq[0].Node, "number of elements", len(theseNodeReq))
 
-		// Do not wait for a result by not Calling .Get() on the returned future
-		wf, err := wCtx.App.TemporalClient.ExecuteWorkflow(
-			context.Background(),
-			workflowOptions,
-			wCtx.Relayer,
-			relayerRequest,
-		)
-
-		if err != nil {
-			// check if error is because workflow is already in queue/failed
-			// OTHERWISE fail the workflow
-			if wf != nil {
-				skippedWorkflows = append(skippedWorkflows, fmt.Sprintf("ID:%s/RUN_ID:%s", wf.GetID(), wf.GetRunID()))
+		// For each address
+		for reqIdx, tr := range theseNodeReq {
+			// Create a random timeout with a fixed time that marks the rate: 0+1 sec; 2 +- 1 sec ; 4 +- 1 sec ; etc...
+			randomDelay := (rand.Float64() * wCtx.App.Config.Relay.TimeDispersion) + (float64(reqIdx) * wCtx.App.Config.Relay.TimeBetweenRelays)
+			// Track node address
+			node := nodesMap[tr.Node]
+			if node == nil {
+				l.Error("missing node on Map from TaskRequest response", "node", tr.Node, "nodes", request.Nodes)
+				continue
 			}
-			continue
+			// add only those nodes that get pending tasks
+			triggeredNodeAddresses = append(triggeredNodeAddresses, tr.Node)
+			// You can access desired attributes here.
+			relayerRequest := activities.RelayerParams{
+				App:               getAppResults,
+				Node:              node,
+				Session:           sessionResult.Session,
+				Service:           request.Service,
+				SessionHeight:     sessionHeight,
+				BlocksPerSession:  blocksPerSession,
+				PromptId:          tr.PromptId,
+				RelayTimeout:      tr.RelayTimeout,
+				RelayTriggerDelay: randomDelay,
+			}
+
+			//  Here we start the workflow that will ultimately dispatch the relays to the servicer nodes
+			workflowOptions := client.StartWorkflowOptions{
+				// with this format: "app-node-service-taskId-instanceId-promptId-sessionHeight"
+				// we are sure that when its workflow runs again inside the same session and the task is still not done,
+				// we will not get the same relayer workflow executed twice
+				ID: fmt.Sprintf(
+					"%s-%s-%s-%s-%d",
+					params.App, tr.Node, request.Service,
+					tr.PromptId, sessionHeight,
+				),
+				TaskQueue:                                wCtx.App.Config.Temporal.TaskQueue,
+				WorkflowExecutionErrorWhenAlreadyStarted: true,
+				WorkflowIDReusePolicy:                    enums.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE_FAILED_ONLY,
+				WorkflowTaskTimeout:                      time.Duration(tr.RelayTimeout) * time.Second,
+				RetryPolicy: &temporal.RetryPolicy{
+					MaximumAttempts: 3,
+				},
+			}
+
+			// Do not wait for a result by not Calling .Get() on the returned future
+			wf, err := wCtx.App.TemporalClient.ExecuteWorkflow(
+				context.Background(),
+				workflowOptions,
+				wCtx.Relayer,
+				relayerRequest,
+			)
+
+			if err != nil {
+				// check if error is because workflow is already in queue/failed
+				// OTHERWISE fail the workflow
+				if wf != nil {
+					skippedWorkflows = append(skippedWorkflows, fmt.Sprintf("ID:%s/RUN_ID:%s", wf.GetID(), wf.GetRunID()))
+				}
+				continue
+			}
+
+			triggeredWorkflows = append(triggeredWorkflows, fmt.Sprintf("ID:%s/RUN_ID:%s", wf.GetID(), wf.GetRunID()))
 		}
 
-		triggeredWorkflows = append(triggeredWorkflows, fmt.Sprintf("ID:%s/RUN_ID:%s", wf.GetID(), wf.GetRunID()))
 	}
 
 	result := RequesterResults{
