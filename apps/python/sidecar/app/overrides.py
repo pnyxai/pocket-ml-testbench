@@ -18,6 +18,8 @@ async def do_request(
     payload: Dict[str, Any],
     headers: Dict[str, str] = None,
     timeout: int = 600,
+    error_on_not_OK: bool = False,
+    logger: Any = None,
 ) -> Dict[str, Any]:
     # Default headers
     default_headers = {"Content-Type": "application/json", "Accept": "application/json"}
@@ -42,10 +44,15 @@ async def do_request(
                 # Raise an exception for bad status codes
                 if not response.ok:
                     error_text = await response.text()
-                    print(f"\nError {response.status}")
-                    print(f"URL: {url}")
-                    print(f"Response body: {error_text}")
-                    response.raise_for_status()
+                    if logger is not None:
+                        logger.debug(
+                            "Request NOT OK",
+                            status=response.status,
+                            url=url,
+                            error_text=error_text,
+                        )
+                    if error_on_not_OK:
+                        response.raise_for_status()
                 return await response.json()
 
         except aiohttp.ClientError as e:

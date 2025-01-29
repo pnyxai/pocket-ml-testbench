@@ -1,9 +1,8 @@
 from transformers import AutoConfig, AutoTokenizer, PretrainedConfig
 
 from packages.python.lmeh.utils.tokenizers import prepare_config, prepare_tokenizer
-import requests
-import json
 import os
+from app.overrides import do_request
 
 TOKENIZER_EPHIMERAL_PATH = "/tmp/tokenizer_aux"
 CONFIG_EPHIMERAL_PATH = "/tmp/config_aux"
@@ -66,7 +65,7 @@ def setup_model_config_data(config_path, config_data):
     return CONFIG_JSON, CONFIG_HASH
 
 
-def setup_llm_backend_override(endpoint_override_data):
+async def setup_llm_backend_override(endpoint_override_data, logger):
     """
     Reads the backend endpoint data, sets-up the URI and checks the health.
     """
@@ -75,30 +74,34 @@ def setup_llm_backend_override(endpoint_override_data):
     LLM_BACKEND_MODEL_NAME = None
 
     if endpoint_override_data is None:
-        print("LLM backend overriding not configured.")
+        logger.info("LLM backend overriding not configured.")
     else:
         LLM_BACKEND_ENDPOINT = endpoint_override_data["backend_path"]
         LLM_BACKEND_MODEL_NAME = endpoint_override_data["backend_model_name"]
 
-        # Check LLM backend health, should get a 200
-        default_headers = {
-            "Content-Type": "application/json",
-            "Authorization": os.getenv("BACKEND_TOKEN"),  # In case backend is gated
-        }
-        req = requests.post(
-            f"{LLM_BACKEND_ENDPOINT}/v1/completions",
-            headers=default_headers,
-            # auth=auth, TODO : Implement auths, for openAI and such
-            data=json.dumps(
-                {"prompt": "123456", "max_tokens": 2, "model": LLM_BACKEND_MODEL_NAME}
-            ),
+        # Test both endpoints
+        _ = await do_request(
+            LLM_BACKEND_ENDPOINT,
+            "/v1/completions",
+            {"prompt": "123456", "max_tokens": 2, "model": LLM_BACKEND_MODEL_NAME},
+            error_on_not_OK=True,
+            logger=logger,
+        )
+        _ = await do_request(
+            LLM_BACKEND_ENDPOINT,
+            "/v1/chat/completions",
+            {
+                "messages": [
+                    {"role": "system", "content": "You are prime number 7."},
+                    {"role": "user", "content": "who is your next relative?"},
+                ],
+                "max_tokens": 2,
+                "model": LLM_BACKEND_MODEL_NAME,
+            },
+            error_on_not_OK=True,
+            logger=logger,
         )
 
-        if req.status_code == 200:
-            print("Backend healthy!")
-        else:
-            raise ValueError(
-                f'Testing the "/v1/completions" endpoint resulted in a non 200 status code:\nstatus: {req.status_code}\nresponse: {req.json}'
-            )
+        logger.info("Backend healthy!")
 
     return LLM_BACKEND_ENDPOINT, LLM_BACKEND_MODEL_NAME
