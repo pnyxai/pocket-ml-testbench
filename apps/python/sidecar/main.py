@@ -1,7 +1,11 @@
 from app.app import get_app_logger, setup_app
 from app.config import read_config
 from app.overrides import replace_model_name, do_request
-from app.initialization import setup_tokenizer_data, setup_model_config_data, setup_llm_backend_override
+from app.initialization import (
+    setup_tokenizer_data,
+    setup_model_config_data,
+    setup_llm_backend_override,
+)
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse
 
@@ -19,12 +23,15 @@ logger.info("starting sidecar")
 
 
 # Load tokenizer data
-TOKENIZER_JSON, TOKENIZER_HASH = setup_tokenizer_data(config['tokenizer_path_or_name'])
+TOKENIZER_JSON, TOKENIZER_HASH = setup_tokenizer_data(config["tokenizer_path_or_name"])
 # Load or create model config data
-CONFIG_JSON, CONFIG_HASH = setup_model_config_data(config.get("model_config_path", None), 
-                                                   config.get("model_config_data", None))
+CONFIG_JSON, CONFIG_HASH = setup_model_config_data(
+    config.get("model_config_path", None), config.get("model_config_data", None)
+)
 # Get overriding name, the actual name of the deployed model
-LLM_BACKEND_ENDPOINT, LLM_BACKEND_MODEL_NAME = setup_llm_backend_override(config.get("llm_endpoint_override", None))
+LLM_BACKEND_ENDPOINT, LLM_BACKEND_MODEL_NAME = setup_llm_backend_override(
+    config.get("llm_endpoint_override", None)
+)
 
 # Create serving app
 app = FastAPI()
@@ -70,7 +77,6 @@ def get_config_hash():
     return JSONResponse({"hash": CONFIG_HASH})
 
 
-
 ###################################################
 # OVERRIDING ENDPOINTS
 ###################################################
@@ -78,37 +84,37 @@ def get_config_hash():
 async def override_v1_completitions(request: Request):
     logger.debug("overriding /v1/completions")
     if LLM_BACKEND_ENDPOINT is None:
-        raise HTTPException(status_code=501, detail="Backend LLM overriding is not configured.")
+        raise HTTPException(
+            status_code=501, detail="Backend LLM overriding is not configured."
+        )
 
-    # load 
+    # load
     data = await request.json()
 
     # replace model name
     data = replace_model_name(data, LLM_BACKEND_MODEL_NAME)
 
     # call model endpoint
-    response = await do_request(LLM_BACKEND_ENDPOINT, 
-                                "/v1/completions", 
-                                data)
+    response = await do_request(LLM_BACKEND_ENDPOINT, "/v1/completions", data)
     # return
     return JSONResponse(response)
+
 
 @app.post("/v1/chat/completions")
-async def override_v1_completitions(request: Request):
+async def override_v1_chat_completitions(request: Request):
     logger.debug("overriding /v1/chat/completions")
     if LLM_BACKEND_ENDPOINT is None:
-        raise HTTPException(status_code=501, detail="Backend LLM overriding is not configured.")
+        raise HTTPException(
+            status_code=501, detail="Backend LLM overriding is not configured."
+        )
 
-    # load 
+    # load
     data = await request.json()
 
     # replace model name
     data = replace_model_name(data, LLM_BACKEND_MODEL_NAME)
 
     # call model endpoint
-    response = await do_request(LLM_BACKEND_ENDPOINT, 
-                                "/v1/chat/completions", 
-                                data)
+    response = await do_request(LLM_BACKEND_ENDPOINT, "/v1/chat/completions", data)
     # return
     return JSONResponse(response)
-

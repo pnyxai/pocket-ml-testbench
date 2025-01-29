@@ -873,8 +873,8 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
             )
 
         # This is OR because this function is used to retrieve all the samples
-        # to test and all samples from the other splits. So, the result is a 
-        # query with the samples to tests and the other splits (probably used 
+        # to test and all samples from the other splits. So, the result is a
+        # query with the samples to tests and the other splits (probably used
         # for fewshots)
         where_clause = " OR ".join(conditions)
         return where_clause
