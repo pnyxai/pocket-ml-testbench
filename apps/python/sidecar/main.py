@@ -1,10 +1,9 @@
 from app.app import get_app_logger, setup_app
 from app.config import read_config
-from fastapi import FastAPI
+from app.overrides import replace_model_name, do_request
+from app.initialization import setup_tokenizer_data, setup_model_config_data, setup_llm_backend_override
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse
-from transformers import AutoConfig, AutoTokenizer
-
-from packages.python.lmeh.utils.tokenizers import prepare_config, prepare_tokenizer
 
 ###################################################
 # SET UP SIDECAR
@@ -17,29 +16,21 @@ config = app_config["config"]
 
 logger = get_app_logger("sidecar")
 logger.info("starting sidecar")
-TOKENIZER_EPHIMERAL_PATH = "/tmp/tokenizer_aux"
-CONFIG_EPHIMERAL_PATH = "/tmp/config_aux"
-# Read tokenizer data
-tokenizer = AutoTokenizer.from_pretrained(config["tokenizer_path"])
-# Process it using the MLTB library (functions are reused by the MLTB)
-TOKENIZER_JSON, TOKENIZER_HASH = prepare_tokenizer(
-    tokenizer, TOKENIZER_EPHIMERAL_PATH=TOKENIZER_EPHIMERAL_PATH
-)
 
-_config = AutoConfig.from_pretrained(config["tokenizer_path"])
-CONFIG_JSON, CONFIG_HASH = prepare_config(
-    _config, CONFIG_EPHIMERAL_PATH=CONFIG_EPHIMERAL_PATH
-)
 
-# add config to tokenizer json
-TOKENIZER_JSON.update(CONFIG_JSON)
-
+# Load tokenizer data
+TOKENIZER_JSON, TOKENIZER_HASH = setup_tokenizer_data(config['tokenizer_path_or_name'])
+# Load or create model config data
+CONFIG_JSON, CONFIG_HASH = setup_model_config_data(config.get("model_config_path", None), 
+                                                   config.get("model_config_data", None))
+# Get overriding name, the actual name of the deployed model
+LLM_BACKEND_ENDPOINT, LLM_BACKEND_MODEL_NAME = setup_llm_backend_override(config.get("llm_endpoint_override", None))
 
 # Create serving app
 app = FastAPI()
 
 ###################################################
-# ENDPOINTS
+# DATA ENDPOINTS
 ###################################################
 
 
@@ -77,3 +68,47 @@ def get_config():
 def get_config_hash():
     logger.debug("returning config hash")
     return JSONResponse({"hash": CONFIG_HASH})
+
+
+
+###################################################
+# OVERRIDING ENDPOINTS
+###################################################
+@app.post("/v1/completions")
+async def override_v1_completitions(request: Request):
+    logger.debug("overriding /v1/completions")
+    if LLM_BACKEND_ENDPOINT is None:
+        raise HTTPException(status_code=501, detail="Backend LLM overriding is not configured.")
+
+    # load 
+    data = await request.json()
+
+    # replace model name
+    data = replace_model_name(data, LLM_BACKEND_MODEL_NAME)
+
+    # call model endpoint
+    response = await do_request(LLM_BACKEND_ENDPOINT, 
+                                "/v1/completions", 
+                                data)
+    # return
+    return JSONResponse(response)
+
+@app.post("/v1/chat/completions")
+async def override_v1_completitions(request: Request):
+    logger.debug("overriding /v1/chat/completions")
+    if LLM_BACKEND_ENDPOINT is None:
+        raise HTTPException(status_code=501, detail="Backend LLM overriding is not configured.")
+
+    # load 
+    data = await request.json()
+
+    # replace model name
+    data = replace_model_name(data, LLM_BACKEND_MODEL_NAME)
+
+    # call model endpoint
+    response = await do_request(LLM_BACKEND_ENDPOINT, 
+                                "/v1/chat/completions", 
+                                data)
+    # return
+    return JSONResponse(response)
+

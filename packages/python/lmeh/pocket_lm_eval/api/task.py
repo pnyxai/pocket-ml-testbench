@@ -872,7 +872,11 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
                 non_retryable=True,
             )
 
-        where_clause = " AND ".join(conditions)
+        # This is OR because this function is used to retrieve all the samples
+        # to test and all samples from the other splits. So, the result is a 
+        # query with the samples to tests and the other splits (probably used 
+        # for fewshots)
+        where_clause = " OR ".join(conditions)
         return where_clause
 
     async def get_max_min_ids(self, postgres_conn: asyncpg.Connection, table_name: str):

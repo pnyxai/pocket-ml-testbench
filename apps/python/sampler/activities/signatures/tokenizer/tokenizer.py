@@ -34,7 +34,7 @@ def get_tokenizer_task(
     instance = PocketNetworkMongoDBInstance(task_id=task.id)
     # Create the void prompt
     prompt = PocketNetworkMongoDBPrompt(
-        model_config={}, data="", task_id=task.id, instance_id=instance.id, timeout=60
+        model_config={}, data="", task_id=task.id, instance_id=instance.id, timeout=300
     )
 
     return task, [instance], [prompt]
