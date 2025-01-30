@@ -180,9 +180,14 @@ def load_config(
             json.dump(value, f)
             f.close()
 
-    _config = AutoConfig.from_pretrained(
-        config_ephimeral_path, trust_remote_code=trust_remote_code
-    )
+    if config_objects["config"].get("pokt_network_custom", None) is not None:
+        _config = PretrainedConfig.from_json_file(
+            os.path.join(config_ephimeral_path, "config.json")
+        )
+    else:
+        _config = AutoConfig.from_pretrained(
+            config_ephimeral_path, trust_remote_code=trust_remote_code
+        )
     try:
         shutil.rmtree(config_ephimeral_path)
         if eval_logger is not None:
