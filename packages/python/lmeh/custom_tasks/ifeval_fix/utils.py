@@ -2,7 +2,6 @@ import dataclasses
 from typing import Dict, Optional, Union
 
 from lm_eval.tasks.ifeval import instructions_registry
-from lm_eval.utils import eval_logger
 
 
 @dataclasses.dataclass
@@ -118,7 +117,9 @@ def process_results(doc, results):
     )
     response = results[0]
 
-    response = response.split('</think>')[-1] # Remove anything before the CoT end (if any)
+    response = response.split("</think>")[
+        -1
+    ]  # Remove anything before the CoT end (if any)
 
     out_strict = test_instruction_following_strict(inp, response)
     out_loose = test_instruction_following_loose(inp, response)

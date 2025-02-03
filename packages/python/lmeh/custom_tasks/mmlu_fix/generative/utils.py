@@ -1,6 +1,7 @@
 from lm_eval.filters.extraction import Filter
 import re
 
+
 class GetResponse(Filter):
     """ """
 
@@ -10,14 +11,14 @@ class GetResponse(Filter):
         for r, doc in zip(resps, docs):
             filtered = []
             for resp in r:
-                if '</think>' in resp:
+                if "</think>" in resp:
                     # Remove CoT content
-                    resp = resp.split('</think>')[-1]
+                    resp = resp.split("</think>")[-1]
                 else:
                     # Remove everything after double line jump
-                    resp = resp.split('\n\n')[0]
+                    resp = resp.split("\n\n")[0]
                 # Remove leading white spaces
-                resp=resp.lstrip()
+                resp = resp.lstrip()
                 # function to ignore right white spaces or line breaks
                 resp = re.sub(r"\s+$", "", resp)
                 # If there are things  between brackets, match those
