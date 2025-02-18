@@ -47,7 +47,7 @@ task_cnfg = {
         "num_fewshot": 3,
     },
     # Uses: HF leaderboard / Taxonomy [Alpha]
-    "ifeval": {
+    "ifeval_fix": {
         "metrics": [
             "prompt_level_strict_acc",
             "inst_level_strict_acc",
