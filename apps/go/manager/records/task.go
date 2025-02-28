@@ -430,7 +430,7 @@ func (record *NumericalTaskRecord) LoadTask(nodeID primitive.ObjectID, framework
 	opts := options.FindOne()
 
 	// Set mongo context
-	ctxM, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctxM, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
 	// Retrieve this node entry
@@ -457,7 +457,7 @@ func (record *NumericalTaskRecord) UpdateTask(nodeID primitive.ObjectID, framewo
 
 	opts := options.FindOneAndUpdate().SetUpsert(true)
 	task_filter := bson.D{{Key: "task_data.node_id", Value: nodeID}, {Key: "task_data.framework", Value: framework}, {Key: "task_data.task", Value: task}}
-	ctxM, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctxM, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
 	// Update given struct
@@ -727,7 +727,7 @@ func (record *SignatureTaskRecord) LoadTask(nodeID primitive.ObjectID, framework
 	opts := options.FindOne()
 
 	// Set mongo context
-	ctxM, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctxM, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
 	// Retrieve this node entry
@@ -754,7 +754,7 @@ func (record *SignatureTaskRecord) UpdateTask(nodeID primitive.ObjectID, framewo
 
 	opts := options.FindOneAndUpdate().SetUpsert(true)
 	task_filter := bson.D{{Key: "task_data.node_id", Value: nodeID}, {Key: "task_data.framework", Value: framework}, {Key: "task_data.task", Value: task}}
-	ctxM, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctxM, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
 	// Update given struct

@@ -83,7 +83,7 @@ class PyObjectId(ObjectId):
 # From vllm/entrypoints/openai/protocol.py
 class OpenAIBaseModel(BaseModel):
     # OpenAI API does not allow extra fields
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="allow")
 
 
 class CompletionRequest(BaseModel):

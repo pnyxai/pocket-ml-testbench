@@ -27,7 +27,10 @@ func (wCtx *Ctx) Relayer(ctx workflow.Context, params activities.RelayerParams) 
 
 	// Use workflow.Sleep to make the workflow sleep before actually executing the task.
 	// This is to avoid clogging the node with tests
-	workflow.Sleep(ctx, time.Duration(params.RelayTriggerDelay*1000)*time.Millisecond)
+	e = workflow.Sleep(ctx, time.Duration(params.RelayTriggerDelay*1000)*time.Millisecond)
+	if e != nil {
+		return
+	}
 	// Now process and send the relay
 
 	if params.RelayTimeout == 0 {
@@ -38,7 +41,7 @@ func (wCtx *Ctx) Relayer(ctx workflow.Context, params activities.RelayerParams) 
 		TaskQueue: wCtx.App.Config.Temporal.TaskQueue,
 		// we need to give it more time than the relay one because it does other things.
 		StartToCloseTimeout: time.Duration(params.RelayTimeout*(float64(activities.RelayRetries+1))) * time.Second,
-		WaitForCancellation: false,
+		WaitForCancellation: true,
 		RetryPolicy: &temporal.RetryPolicy{
 			BackoffCoefficient: 1,
 			MaximumAttempts:    int32(activities.RelayRetries),
@@ -61,8 +64,8 @@ func (wCtx *Ctx) Relayer(ctx workflow.Context, params activities.RelayerParams) 
 	// trigger UpdateTaskTree activity and pass the results
 	updateTaskTreeCtx := workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
 		TaskQueue:           wCtx.App.Config.Temporal.TaskQueue,
-		StartToCloseTimeout: 10 * time.Second,
-		WaitForCancellation: false,
+		StartToCloseTimeout: 60 * time.Second, // TODO : This was 10, find out why this takes so long, maybe make it configurable?
+		WaitForCancellation: true,
 		RetryPolicy: &temporal.RetryPolicy{
 			BackoffCoefficient: 1,
 			MaximumAttempts:    3,

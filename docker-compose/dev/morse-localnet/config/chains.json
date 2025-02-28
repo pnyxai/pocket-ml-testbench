@@ -1,22 +1,22 @@
 [
   {
     "id": "A100",
-    "url": "http://host.docker.internal:9087"
+    "url": "http://pocket-localnet.backend.1:9087"
   },
   {
     "id": "A101",
-    "url": "http://host.docker.internal:9087"
+    "url": "http://pocket-localnet.backend.2:9187"
   },
   {
     "id": "A102",
-    "url": "http://host.docker.internal:9087"
+    "url": "http://pocket-localnet.backend.3:9287"
   },
   {
     "id": "A103",
-    "url": "http://host.docker.internal:9087"
+    "url": "http://pocket-localnet.backend.4:9387"
   },
   {
     "id": "A1FF",
-    "url": "http://host.docker.internal:9087"
+    "url": "http://pocket-localnet.backend.5:9087"
   }
 ]

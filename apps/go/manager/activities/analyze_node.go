@@ -33,6 +33,7 @@ func (aCtx *Ctx) AnalyzeNode(ctx context.Context, params types.AnalyzeNodeParams
 	var thisNodeData records.NodeRecord
 	found, err := thisNodeData.FindAndLoadNode(params.Node, aCtx.App.Mongodb, l)
 	if err != nil {
+		l.Error().Err(err).Str("address", params.Node.Address).Str("service", params.Node.Service).Msg("Failed to load node data.")
 		return nil, err
 	}
 
@@ -43,13 +44,18 @@ func (aCtx *Ctx) AnalyzeNode(ctx context.Context, params types.AnalyzeNodeParams
 	if !found {
 		// Create entry in MongoDB
 		l.Debug().Bool("found", found).Msg("Creating empty node entry.")
-		thisNodeData.Init(params, aCtx.App.Config.Frameworks, aCtx.App.Mongodb, l)
+		err = thisNodeData.Init(params, aCtx.App.Config.Frameworks, aCtx.App.Mongodb, l)
+		if err != nil {
+			l.Error().Err(err).Str("address", params.Node.Address).Str("service", params.Node.Service).Msg("Failed to create node entry.")
+			return nil, err
+		}
 		result.IsNew = true
 
 	} else {
 		// If the node entry exist we must cycle and check for pending results
 		err = updateTasksNode(&thisNodeData, params.Tests, aCtx.App.Config.Frameworks, aCtx.App.Mongodb, l)
 		if err != nil {
+			l.Error().Err(err).Str("address", params.Node.Address).Str("service", params.Node.Service).Msg("Failed to create update node.")
 			return nil, err
 		}
 
@@ -59,7 +65,11 @@ func (aCtx *Ctx) AnalyzeNode(ctx context.Context, params types.AnalyzeNodeParams
 
 	// Push to DB the node data
 	l.Debug().Msg("Uploading node changes to DB.")
-	thisNodeData.UpdateNode(aCtx.App.Mongodb, l)
+	_, err = thisNodeData.UpdateNode(aCtx.App.Mongodb, l)
+	if err != nil {
+		l.Error().Err(err).Str("address", params.Node.Address).Str("service", params.Node.Service).Msg("Failed upload node to MongoDB.")
+		return nil, err
+	}
 
 	//--------------------------------------------------------------------------
 	// Trigger incomplete tasks
@@ -79,12 +89,12 @@ func (aCtx *Ctx) AnalyzeNode(ctx context.Context, params types.AnalyzeNodeParams
 			// Check task dependencies
 			depStatus, err := records.CheckTaskDependency(&thisNodeData, test.Framework, task, aCtx.App.Config.Frameworks, aCtx.App.Mongodb, l)
 			if err != nil {
-				l.Error().
+				l.Error().Err(err).
 					Msg("Could not check task dependencies.")
 				return nil, err
 			}
 			if !depStatus {
-				l.Info().
+				l.Debug().
 					Str("address", thisNodeData.Address).
 					Str("service", thisNodeData.Service).
 					Str("framework", test.Framework).
@@ -96,6 +106,7 @@ func (aCtx *Ctx) AnalyzeNode(ctx context.Context, params types.AnalyzeNodeParams
 			// Get task record
 			taskType, err := records.GetTaskType(test.Framework, task, aCtx.App.Config.Frameworks, l)
 			if err != nil {
+				l.Error().Err(err).Msg("cannot retrieve task type")
 				return nil, fmt.Errorf("cannot retrieve task type")
 			}
 			thisTaskRecord, found := records.GetTaskData(thisNodeData.ID, taskType, test.Framework, task, aCtx.App.Mongodb, l)
@@ -112,18 +123,18 @@ func (aCtx *Ctx) AnalyzeNode(ctx context.Context, params types.AnalyzeNodeParams
 			// Check schedule restrictions
 			schdStatus, err := records.CheckTaskSchedule(thisTaskRecord, params.Block, aCtx.App.Config.Frameworks, l)
 			if err != nil {
-				l.Error().Msg("Could not check task schedule.")
+				l.Error().Err(err).Msg("Could not check task schedule.")
 				return nil, err
 			}
 			if !schdStatus {
-				l.Info().Str("address", thisNodeData.Address).Str("service", thisNodeData.Service).Str("framework", test.Framework).Str("task", task).Msg("Does not meet task schedule, ignoring for now.")
+				l.Debug().Str("address", thisNodeData.Address).Str("service", thisNodeData.Service).Str("framework", test.Framework).Str("task", task).Msg("Does not meet task schedule, ignoring for now.")
 				continue
 			}
 
 			// The schedule is OK, now check minimum tasks to trigger
 			minTrigger, err := records.CheckTaskTriggerMin(thisTaskRecord, params.Block, aCtx.App.Config.Frameworks, l)
 			if err != nil {
-				l.Error().Msg("Could not check task minimum trigger value.")
+				l.Error().Err(err).Msg("Could not check task minimum trigger value.")
 				return nil, err
 			}
 
@@ -167,11 +178,11 @@ func (aCtx *Ctx) AnalyzeNode(ctx context.Context, params types.AnalyzeNodeParams
 						result.Triggers = append(result.Triggers, thisTrigger)
 					}
 				} else {
-					l.Info().Str("address", thisNodeData.Address).Str("service", thisNodeData.Service).Str("framework", test.Framework).Str("task", task).Msg("Pending requests capped.")
+					l.Debug().Str("address", thisNodeData.Address).Str("service", thisNodeData.Service).Str("framework", test.Framework).Str("task", task).Msg("Pending requests capped.")
 				}
 
 			} else {
-				l.Info().Str("address", thisNodeData.Address).Str("service", thisNodeData.Service).Str("framework", test.Framework).Str("task", task).Msg("Buffer filled and up to date.")
+				l.Debug().Str("address", thisNodeData.Address).Str("service", thisNodeData.Service).Str("framework", test.Framework).Str("task", task).Msg("Buffer filled and up to date.")
 			}
 		}
 	}
@@ -286,7 +297,7 @@ func checkTaskDatabase(address string,
 		{Key: "tasks", Value: task}}
 
 	// Set mongo context
-	ctxM, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctxM, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
 	// Now retrieve all node task requests entries

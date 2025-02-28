@@ -149,7 +149,7 @@ func (buffer *CircularBuffer) CycleIndexes(sampleTTLDays uint32, l *zerolog.Logg
 		oldestAge = time.Since(buffer.Times[buffer.Indexes.Start])
 		// Break if met the limit
 		if buffer.Indexes.Start == buffer.Indexes.End {
-			l.Info().Msg("Circular buffer collapsed.")
+			l.Debug().Msg("Circular buffer collapsed.")
 			break
 		}
 	}

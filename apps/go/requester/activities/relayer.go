@@ -135,6 +135,11 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 	response := types.RelayResponse{Id: primitive.NewObjectID(), SessionHeight: params.SessionHeight}
 	result.ResponseId = response.Id.Hex()
 	defer func() {
+		if response.TaskId.IsZero() {
+			// we do not have to save the record here because this is before we are able to read the task id
+			// so this will be created with a garbage taskId which leads to orphan response records.
+			return
+		}
 		// persist response
 		collection := aCtx.App.Mongodb.GetCollection(types.ResponseCollection)
 		if err := response.Save(ctx, collection); err != nil {
@@ -151,7 +156,7 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 	var e error
 
 	if promptId, e = primitive.ObjectIDFromHex(params.PromptId); e != nil {
-		err := temporal.NewNonRetryableApplicationError("prompt_id must be a valid ObjectId", "BadParams", nil)
+		err := temporal.NewNonRetryableApplicationError("prompt_id must be a valid ObjectId", "BadParams", nil, params.PromptId)
 		response.SetError(RelayResponseCodes.BadParams, err)
 		return
 	}
@@ -159,7 +164,7 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 	response.PromptId = promptId
 
 	if params.SessionHeight <= 0 {
-		err := temporal.NewNonRetryableApplicationError("session height <= 0", "BadParams", nil)
+		err := temporal.NewNonRetryableApplicationError("session height <= 0", "BadParams", nil, params.SessionHeight)
 		response.SetError(RelayResponseCodes.BadParams, err)
 		return
 	}
@@ -167,7 +172,7 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 	// load prompt+task before call node
 	promptCollection := aCtx.App.Mongodb.GetCollection(types.PromptsCollection)
 	taskCollection := aCtx.App.Mongodb.GetCollection(types.TaskCollection)
-	getPromptCtx, cancelFn := context.WithTimeout(ctx, 10*time.Second)
+	getPromptCtx, cancelFn := context.WithTimeout(ctx, 20*time.Second)
 	defer cancelFn()
 	prompt, getPromptError := GetPromptWithRequesterArgs(getPromptCtx, promptCollection, taskCollection, &promptId)
 	if getPromptError != nil {
@@ -176,7 +181,7 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 			response.SetError(RelayResponseCodes.PromptNotFound, err)
 			return
 		}
-		err := temporal.NewApplicationErrorWithCause("unexpected error reading prompt", "GetPromptWithRequesterArgs", getPromptError)
+		err := temporal.NewApplicationErrorWithCause("unexpected error reading prompt", "GetPromptWithRequesterArgs", getPromptError, params.PromptId)
 		response.SetError(RelayResponseCodes.DatabaseRead, err)
 		return
 	}

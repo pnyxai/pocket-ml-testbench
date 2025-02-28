@@ -2,15 +2,16 @@ package main
 
 import (
 	"context"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 	"os"
 	"packages/mongodb"
 	"packages/utils"
 	"requester/types"
 	"requester/x"
 	"time"
+
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func GetTask(node string) *types.Task {
@@ -146,7 +147,7 @@ func main() {
 		panic(sessionErr)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	_, transactionErr := session.WithTransaction(ctx, func(sessCtx mongo.SessionContext) (interface{}, error) {
 		tasksCollection := m.GetCollection(types.TaskCollection)

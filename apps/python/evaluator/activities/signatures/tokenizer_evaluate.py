@@ -51,13 +51,14 @@ async def tokenizer_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
         # Retrieve all responses
         responses = await mongo_operator.retrieve_responses(args.task_id)
         if len(responses) != 1:
-            eval_logger.error(f"Found {len(responses)} responses, only 1 is expected.")
-            raise ApplicationError(
-                f"Task ID {args.task_id}: Found {len(responses)} responses, only 1 is expected.",
-                str(args.task_id),
-                type="ResponseError",
-                non_retryable=False,
-            )
+            # This should not be fatal
+            eval_logger.warn(f"Task ID {args.task_id}: Found {len(responses)} responses, only 1 is expected.")
+            # raise ApplicationError(
+            #     f"Task ID {args.task_id}: Found {len(responses)} responses, only 1 is expected.",
+            #     str(args.task_id),
+            #     type="ResponseError",
+            #     non_retryable=False,
+            # )
 
         # Create the result, empty for now
         result = PocketNetworkMongoDBResultSignature(

@@ -54,7 +54,7 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 	ao := workflow.ActivityOptions{
 		TaskQueue:           wCtx.App.Config.Temporal.TaskQueue,
 		StartToCloseTimeout: 300 * time.Second,
-		WaitForCancellation: false,
+		WaitForCancellation: true,
 		RetryPolicy: &temporal.RetryPolicy{
 			BackoffCoefficient: 1,
 			MaximumAttempts:    3,
@@ -199,7 +199,7 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 				TaskQueue:                                wCtx.App.Config.Temporal.TaskQueue,
 				WorkflowExecutionErrorWhenAlreadyStarted: true,
 				WorkflowIDReusePolicy:                    enums.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE_FAILED_ONLY,
-				WorkflowTaskTimeout:                      time.Duration(tr.RelayTimeout) * time.Second,
+				WorkflowTaskTimeout:                      (time.Duration(tr.RelayTimeout) * time.Second) + time.Duration(randomDelay*1000)*time.Millisecond + (time.Duration(30) * time.Second),
 				RetryPolicy: &temporal.RetryPolicy{
 					MaximumAttempts: 3,
 				},

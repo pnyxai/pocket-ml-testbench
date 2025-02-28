@@ -51,13 +51,14 @@ async def model_config_evaluate(args: PocketNetworkEvaluationTaskRequest) -> boo
         # Retrieve all responses
         responses = await mongo_operator.retrieve_responses(args.task_id)
         if len(responses) != 1:
-            eval_logger.error(f"Found {len(responses)} responses, only 1 is expected.")
-            raise ApplicationError(
-                f"Task ID {args.task_id}: Found {len(responses)} responses, only 1 is expected.",
-                str(args.task_id),
-                type="ResponseError",
-                non_retryable=False,
-            )
+            # This should not be fatal
+            eval_logger.warn(f"Task ID {args.task_id}: Found {len(responses)} responses, only 1 is expected.")
+            # raise ApplicationError(
+            #     f"Task ID {args.task_id}: Found {len(responses)} responses, only 1 is expected.",
+            #     str(args.task_id),
+            #     type="ResponseError",
+            #     non_retryable=False,
+            # )
 
         # Create the result, empty for now
         result = PocketNetworkMongoDBResultSignature(
@@ -112,9 +113,6 @@ async def model_config_evaluate(args: PocketNetworkEvaluationTaskRequest) -> boo
                 config_jsons_loaded, config_hash_loaded = prepare_config(
                     _config, CONFIG_EPHIMERAL_PATH=temp_path
                 )
-                # TODO
-                # For instance, the tokenizer hash is used as the config hash
-                # in future versions, this should be changed
                 model_config_mongo_new = PocketNetworkMongoDBConfig(
                     config=config_jsons_loaded, hash=config_hash_loaded
                 )
@@ -213,6 +211,8 @@ async def model_config_evaluate(args: PocketNetworkEvaluationTaskRequest) -> boo
             ),
             signatures=[],
         )
+        # This should not be part of the "find_one_and_update"
+        result.pop("_id", None)
         # Save to results db (a failure is also an answer)
         try:
             async with mongo_client.start_transaction() as session:

@@ -2,12 +2,13 @@ package mongodb
 
 import (
 	"context"
+	"net/url"
+	"time"
+
 	"github.com/puzpuzpuz/xsync/v3"
 	"github.com/rs/zerolog"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"net/url"
-	"time"
 )
 
 type MongoDb interface {
@@ -53,7 +54,7 @@ func (m *Client) StartSession(opts ...*options.SessionOptions) (mongo.Session, e
 }
 
 func (m *Client) CloseConnection() {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	defer func() {
 		if err := m.Client.Disconnect(ctx); err != nil {
@@ -73,7 +74,7 @@ func NewClient(uri string, collections []string, l *zerolog.Logger) MongoDb {
 	// Set client options
 	clientOptions := options.Client().ApplyURI(uri)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
 	// Connect to MongoDB
