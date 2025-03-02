@@ -9,22 +9,19 @@ services:
       timeout: 3s
       retries: 3
     environment:
-      POSTGRES_PASSWORD: ${POSTGRES_USER}
-      POSTGRES_USER: ${POSTGRES_PASSWORD}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     networks:
-      - temporal
-      - postgresql
-    ports:
-      - 5432:5432
+      - testbench
+    expose:
+      - 5432
     volumes:
       - postgresql:/var/lib/postgresql/data
       - ./postgresql/postgresql.conf:/etc/postgresql/postgresql.conf
-      - ./postgresql/init.sql:/docker-entrypoint-initdb.d/init.sql
-  
+
   pgadmin:
     image: dpage/pgadmin4:${PGADMIN_VERSION}
-    container_name: pgadmin
     restart: always
     environment:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
@@ -32,20 +29,19 @@ services:
       PGADMIN_LISTEN_PORT: 5050
     volumes:
       - ./postgresql/servers.json:/pgadmin4/servers.json
-      - ./postgresql/pgpass:/pgadmin4/pgpass
     depends_on:
       postgresql:
         condition: service_healthy
     ports:
-      - 5050:5050
+      - "127.0.0.1:5050:5050"
     networks:
-      - postgresql
+      - testbench
 
   temporal:
     image: temporalio/auto-setup:${TEMPORAL_VERSION}
     container_name: temporal
     healthcheck:
-      test: [ "CMD", "tctl", "--address", "temporal:7233", "workflow", "list" ]
+      test: [ "CMD", "tctl", "--address", "temporal:7233", "--namespace", "${TEMPORAL_NAMESPACE}", "workflow", "list" ]
       interval: 10s
       timeout: 2s
       retries: 5
@@ -53,20 +49,21 @@ services:
       postgresql:
         condition: service_healthy
     environment:
-      - DB=postgresql
-      - DB_PORT=5432
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PWD=${POSTGRES_PASSWORD}
-      - POSTGRES_SEEDS=postgresql
-      - DYNAMIC_CONFIG_FILE_PATH=config/dynamicconfig/development-sql.yaml
+      DB: postgres12
+      DB_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PWD: ${POSTGRES_PASSWORD}
+      POSTGRES_SEEDS: postgresql
+      DYNAMIC_CONFIG_FILE_PATH: "config/dynamicconfig/testbench.yaml"
+      SKIP_DEFAULT_NAMESPACE_CREATION: "false"
+      DEFAULT_NAMESPACE: ${TEMPORAL_NAMESPACE}
+      DEFAULT_NAMESPACE_RETENTION: 7d
     networks:
-      - temporal
-    ports:
-      - 7233:7233
+      - testbench
+    expose:
+      - 7233
     volumes:
       - ./temporal/dynamicconfig:/etc/temporal/config/dynamicconfig
-    labels:
-      kompose.volume.type: configMap
 
   temporal-admin-tools:
     image: temporalio/admin-tools:${TEMPORAL_TOOLS_VERSION}
@@ -75,12 +72,30 @@ services:
       temporal:
         condition: service_healthy
     environment:
-      - TEMPORAL_ADDRESS=temporal:7233
-      - TEMPORAL_CLI_ADDRESS=temporal:7233
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_CLI_ADDRESS: temporal:7233
+      TEMPORAL_CLI_NAMESPACE: ${TEMPORAL_NAMESPACE}
     networks:
-      - temporal
+      - testbench
     stdin_open: true
     tty: true
+
+  temporal-tuneup:
+    image: temporalio/admin-tools:${TEMPORAL_TOOLS_VERSION}
+    container_name: temporal-tuneup
+    restart: on-failure
+    entrypoint: [ "/home/temporal/initialize.sh" ]
+    networks:
+      - testbench
+    volumes:
+      - ./temporal/initialize.sh:/home/temporal/initialize.sh
+    depends_on:
+      temporal:
+        condition: service_healthy
+    environment:
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_CLI_ADDRESS: temporal:7233
+      TEMPORAL_CLI_NAMESPACE: ${TEMPORAL_NAMESPACE}
 
   temporal-ui:
     image: temporalio/ui:${TEMPORAL_UI_VERSION}
@@ -89,28 +104,13 @@ services:
       temporal:
         condition: service_healthy
     environment:
-      - TEMPORAL_ADDRESS=temporal:7233
-      - TEMPORAL_CORS_ORIGINS=http://localhost:3000
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_CORS_ORIGINS: http://localhost:8000
+      TEMPORAL_DEFAULT_NAMESPACE: ${TEMPORAL_NAMESPACE}
     networks:
-      - temporal
+      - testbench
     ports:
-      - 8080:8080
-  
-  wf-setup:
-    image: temporalio/admin-tools:${TEMPORAL_VERSION}
-    container_name: wf-setup
-    restart: on-failure
-    entrypoint: [ "/home/temporal/initialize.sh" ]
-    networks:
-      - temporal
-    volumes:
-      - ./temporal/initialize.sh:/home/temporal/initialize.sh
-    depends_on:
-      temporal:
-        condition: service_healthy
-    environment:
-      - TEMPORAL_ADDRESS=temporal:7233
-      - TEMPORAL_CLI_ADDRESS=temporal:7233
+      - "127.0.0.1:8080:8080"
 
   mongodb:
     image: mongo:${MONGODB_VERSION}
@@ -123,12 +123,12 @@ services:
       timeout: 3s
       retries: 3
     ports:
-      - 27017:27017
+      - "127.0.0.1:27017:27017"
     volumes:
       - mongodb:/data/db
     networks:
-      - mongodb
-  
+      - testbench
+
   mongodb-init-replica:
     image: mongo:${MONGODB_VERSION}
     container_name: mongodb-init-replica
@@ -140,7 +140,7 @@ services:
       mongodb:
         condition: service_healthy
     networks:
-      - mongodb
+      - testbench
 
   mongodb-init-db:
     image: mongo:${MONGODB_VERSION}
@@ -153,23 +153,16 @@ services:
       mongodb-init-replica:
         condition: service_completed_successfully
     networks:
-      - mongodb
+      - testbench
 
 volumes:
   mongodb:
     name: mongodb
+
   postgresql:
     name: postgresql
 
 networks:
-  temporal:
+  testbench:
     driver: bridge
-    name: temporal
-    
-  postgresql:
-    driver: bridge
-    name: postgresql
-
-  mongodb:
-    driver: bridge
-    name: mongodb
+    name: testbench

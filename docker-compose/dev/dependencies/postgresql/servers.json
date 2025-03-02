@@ -1,13 +1,12 @@
 {
   "Servers": {
     "1": {
-      "Name": "admin@local.dev",
+      "Name": "Testbench",
       "Group": "Servers",
       "Host": "postgresql",
       "Port": 5432,
-      "MaintenanceDB": "pocket-ml-testbench",
-      "Username": "admin",
-      "PassFile": "/pgadmin4/pgpass",
+      "MaintenanceDB": "postgres",
+      "Username": "testbench",
       "SSLMode": "prefer"
     }
   }
