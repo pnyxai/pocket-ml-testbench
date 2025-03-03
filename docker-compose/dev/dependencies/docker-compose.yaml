@@ -19,6 +19,7 @@ services:
     volumes:
       - postgresql:/var/lib/postgresql/data
       - ./postgresql/postgresql.conf:/etc/postgresql/postgresql.conf
+      - ./postgresql/init.sql:/docker-entrypoint-initdb.d/init.sql
 
   pgadmin:
     image: dpage/pgadmin4:${PGADMIN_VERSION}

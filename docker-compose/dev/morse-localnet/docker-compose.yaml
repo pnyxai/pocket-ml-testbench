@@ -7,6 +7,7 @@ x-base: &base
     host.docker.internal: host-gateway
   networks:
     - morse-localnet
+    - llm-engine-net
   logging:
     options:
       mode: non-blocking
@@ -129,7 +130,7 @@ services:
       test: [ "CMD-SHELL", "wget --server-response --spider http://mesh.dev:9081/v1/health || exit 1" ]
     ports:
       - "9081:9081" # pokt rpc
-      - "9084:9084" # prometheus
+#      - "9084:9084" # prometheus
     volumes:
       # Data
       - mesh:/home/app/.pocket
@@ -157,6 +158,9 @@ networks:
   morse-localnet:
     name: morse-localnet
     driver: bridge
+  llm-engine-net:
+    name: llm-engine-net
+    external: true
 
 volumes:
   lean1:

@@ -1,15 +1,15 @@
 {
-  "mongodb_uri": "mongodb://host.docker.internal:27017/pocket-ml-testbench?replicaSet=devRs",
+  "mongodb_uri": "mongodb://mongodb:27017/pocket-ml-testbench?replicaSet=devRs&maxPoolSize=500&minPoolSize=50&w=1&readConcern=available&retryWrites=false&journal=false&connectTimeoutMS=5000&socketTimeoutMS=30000",
   "rpc": {
     "urls": [
-      "http://host.docker.internal:9081"
+      "http://mesh:9081"
     ],
     "retries": 3,
     "min_backoff": 10,
     "max_backoff": 60,
     "req_per_sec": 10
   },
-  "log_level": "debug",
+  "log_level": "info",
   "develop": {
     "do_not_remove_tasks_from_db" : false
   },
@@ -21,9 +21,9 @@
     "worker": {
       "identity": "manager",
       "enable_logging_in_replay": false,
-      "max_concurrent_activity_task_pollers": 40,
-      "max_concurrent_workflow_task_pollers": 10,
-      "deadlock_detection_timeout": 120
+      "max_concurrent_activity_task_pollers": 80,
+      "max_concurrent_workflow_task_pollers": 20,
+      "deadlock_detection_timeout": 240
     },
     "sampler": {
       "workflow_name": "Sampler",

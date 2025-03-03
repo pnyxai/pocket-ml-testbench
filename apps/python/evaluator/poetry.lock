@@ -3524,17 +3524,17 @@ test = ["pytest (>=6.0.1)", "pytest-md-report (>=0.5)"]
 
 [[package]]
 name = "temporalio"
-version = "1.6.0"
+version = "1.10.0"
 description = "Temporal.io Python SDK"
 optional = false
-python-versions = "<4.0,>=3.8"
+python-versions = "<4.0,>=3.9"
 files = [
-    {file = "temporalio-1.6.0-cp38-abi3-macosx_10_9_x86_64.whl", hash = "sha256:50207806c5b9d701226ed2aed1fce44c688225ab9a370b014b06e51872b98ea7"},
-    {file = "temporalio-1.6.0-cp38-abi3-macosx_11_0_arm64.whl", hash = "sha256:499253385dd3ca1827d34a05ae61350d54040e0d6a11502f04cbafa7b35be114"},
-    {file = "temporalio-1.6.0-cp38-abi3-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:8fb097b97f833483cd500af2460a0996f812e8019327d893844a21b1c7cd9868"},
-    {file = "temporalio-1.6.0-cp38-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:6b25d451170ecdf8443f1ed09f75ea708e8679c26636e7aa326bc89bd6bd0c84"},
-    {file = "temporalio-1.6.0-cp38-abi3-win_amd64.whl", hash = "sha256:b5ae0bea0665a0bc87d80e7d18870b32eec631694abc0610ee39235e99cc304b"},
-    {file = "temporalio-1.6.0.tar.gz", hash = "sha256:a6f24ea91eb1dd1345c68f4ceb21dd2a11a84cda0d6d963d6e570a0c156a80f0"},
+    {file = "temporalio-1.10.0-cp39-abi3-macosx_10_9_x86_64.whl", hash = "sha256:81fd40eeeba0396a7193ab5b45877301234b983aa38e444dfceecad2b3224398"},
+    {file = "temporalio-1.10.0-cp39-abi3-macosx_11_0_arm64.whl", hash = "sha256:2f7bff9ac1fc832655342e9677bbee1b413b97857d1f2265f018ce72fb7758f8"},
+    {file = "temporalio-1.10.0-cp39-abi3-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:c3ee8416d1cab04036e03e39a4db4cf4a9a799750b8da20022e0d719da9c9371"},
+    {file = "temporalio-1.10.0-cp39-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:4f5805e0d33ba525ccea01e3cd9d3eca313e0c66c6b86e6cb0f15ef004c0acc0"},
+    {file = "temporalio-1.10.0-cp39-abi3-win_amd64.whl", hash = "sha256:81cb8bef8aef6d3cc130c7cecf008cf529177a2f9cb206cfba2897db7df9d093"},
+    {file = "temporalio-1.10.0.tar.gz", hash = "sha256:688400e4ca7f6b47c0ade3ebb6549e4d79b0762430ea735a0d8ff83b1ab8b8ba"},
 ]
 
 [package.dependencies]
@@ -3543,8 +3543,9 @@ types-protobuf = ">=3.20"
 typing-extensions = ">=4.2.0,<5.0.0"
 
 [package.extras]
-grpc = ["grpcio (>=1.59.0,<2.0.0)"]
+grpc = ["grpcio (>=1.48.2,<2.0.0)"]
 opentelemetry = ["opentelemetry-api (>=1.11.1,<2.0.0)", "opentelemetry-sdk (>=1.11.1,<2.0.0)"]
+pydantic = ["pydantic (>=2.0.0,<3.0.0)"]
 
 [[package]]
 name = "threadpoolctl"
@@ -4246,4 +4247,4 @@ cffi = ["cffi (>=1.11)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "ff5d6a2ef97d69db355ff38f6012f0126f8eb6498fd78c4334527b974e4828ac"
+content-hash = "a566246ccc23dec0de625775a997bdbe2f64628685ce22fe11a3e6292ef81750"

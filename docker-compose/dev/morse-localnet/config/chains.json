@@ -1,22 +1,22 @@
 [
   {
     "id": "A100",
-    "url": "http://pocket-localnet.backend.1:9087"
+    "url": "http://nginx-sidecar:9087"
   },
   {
     "id": "A101",
-    "url": "http://pocket-localnet.backend.2:9187"
+    "url": "http://nginx-sidecar:9187"
   },
   {
     "id": "A102",
-    "url": "http://pocket-localnet.backend.3:9287"
+    "url": "http://nginx-sidecar:9287"
   },
   {
     "id": "A103",
-    "url": "http://pocket-localnet.backend.4:9387"
+    "url": "http://nginx-sidecar:9387"
   },
   {
     "id": "A1FF",
-    "url": "http://pocket-localnet.backend.5:9087"
+    "url": "http://nginx-sidecar:9087"
   }
 ]

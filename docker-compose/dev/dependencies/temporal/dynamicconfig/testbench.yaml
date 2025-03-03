@@ -94,19 +94,19 @@ namespaceConfig.web.ui.enable:
 
 # Persistence QPS limit for 'your_high_priority_task_queue' within 'pocket-ml-testbench'.
 taskQueueConfig.persistenceMaxQPS:
-  - value: 1000
+  - value: 10000
     constraints:
       namespace: 'pocket-ml-testbench'
       taskQueueName: 'your_high_priority_task_queue'
 
 # Maximum concurrent Activities for workers in 'pocket-ml-testbench'.
 workerConfig.activity_worker_max_concurrent_activities:
-  - value: 100
+  - value: 1000
     constraints:
       namespace: "pocket-ml-testbench"
 
 # Maximum concurrent Workflows for workers in 'pocket-ml-testbench'.
 workerConfig.workflow_worker_max_concurrent_workflows:
-  - value: 50
+  - value: 500
     constraints:
       namespace: "pocket-ml-testbench"

@@ -188,17 +188,17 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 
 			//  Here we start the workflow that will ultimately dispatch the relays to the servicer nodes
 			workflowOptions := client.StartWorkflowOptions{
-				// with this format: "app-node-service-taskId-instanceId-promptId-sessionHeight"
+				// with this format: "app-node-service-taskId-instanceId-promptId"
 				// we are sure that when its workflow runs again inside the same session and the task is still not done,
 				// we will not get the same relayer workflow executed twice
 				ID: fmt.Sprintf(
-					"%s-%s-%s-%s-%d",
-					params.App, tr.Node, request.Service,
-					tr.PromptId, sessionHeight,
+					"%s-%s-%s-%s",
+					request.Service, tr.Node, params.App,
+					tr.PromptId,
 				),
 				TaskQueue:                                wCtx.App.Config.Temporal.TaskQueue,
 				WorkflowExecutionErrorWhenAlreadyStarted: true,
-				WorkflowIDReusePolicy:                    enums.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE_FAILED_ONLY,
+				WorkflowIDReusePolicy:                    enums.WORKFLOW_ID_REUSE_POLICY_TERMINATE_IF_RUNNING,
 				WorkflowTaskTimeout:                      (time.Duration(tr.RelayTimeout) * time.Second) + time.Duration(randomDelay*1000)*time.Millisecond + (time.Duration(30) * time.Second),
 				RetryPolicy: &temporal.RetryPolicy{
 					MaximumAttempts: 3,

@@ -539,7 +539,7 @@
           "jailed": false,
           "status": 2,
           "tokens": "60000000000",
-          "service_url": "http://pocket-localnet.backend.1:9081",
+          "service_url": "http://host.docker.internal:9081",
           "chains": [
             "A100"
           ],
@@ -551,7 +551,7 @@
           "jailed": false,
           "status": 2,
           "tokens": "60000000000",
-          "service_url": "http://pocket-localnet.backend.2:9081",
+          "service_url": "http://host.docker.internal:9081",
           "chains": [
             "A101"
           ],
@@ -563,7 +563,7 @@
           "jailed": false,
           "status": 2,
           "tokens": "60000000000",
-          "service_url": "http://pocket-localnet.backend.4:9081",
+          "service_url": "http://host.docker.internal:9081",
           "chains": [
             "A103"
           ],
@@ -659,7 +659,7 @@
           "jailed": false,
           "status": 2,
           "tokens": "60000000000",
-          "service_url": "http://pocket-localnet.backend.3:9081",
+          "service_url": "http://host.docker.internal:9081",
           "chains": [
             "A102"
           ],

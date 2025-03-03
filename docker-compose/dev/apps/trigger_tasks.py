@@ -147,8 +147,8 @@ all_leaderboard_tasks = [
 # "leaderboard_math_prealgebra_hard",
 # "leaderboard_math_precalculus_hard",
 # GPQA TODO : Checkear abuso aca tambien
-"leaderboard_gpqa_main",
-"leaderboard_gpqa_extended",
+# "leaderboard_gpqa_main",
+# "leaderboard_gpqa_extended",
 # "leaderboard_gpqa_diamond", # TODO : Check why this particular task cannot be processed
 # # MUSR TODO : Split into proper datasets, do not abuse split
 # "leaderboard_musr_team_allocation",
