@@ -2,6 +2,10 @@ import collections
 import logging
 from functools import partial
 from typing import List, Mapping, Optional, Union
+from lm_eval.filters.extraction import Filter
+from lm_eval.api.registry import register_filter
+
+import re
 
 import asyncpg
 from lm_eval import utils
@@ -228,11 +232,6 @@ class PocketNetworkTaskManager(TaskManager):
         }
         return all_subtasks
 
-
-from lm_eval.filters.extraction import Filter
-from lm_eval.api.registry import register_filter
-
-import re
 
 @register_filter("GetResponse")
 class GetResponse(Filter):
