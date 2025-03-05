@@ -3,6 +3,7 @@ from lm_eval.api.registry import register_filter
 
 import re
 
+
 @register_filter("GetResponse")
 class GetResponse(Filter):
     """ """

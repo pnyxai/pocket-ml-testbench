@@ -3,184 +3,184 @@ import time
 import argparse
 
 
-NAMESPACE = 'pocket-ml-testbench'
+NAMESPACE = "pocket-ml-testbench"
 APPS_PER_SERVICE = {
-    'A100' : ["f3abbe313689a603a1a6d6a43330d0440a552288"],
-    'A101' : ["f3abbe313689a603a1a6d6a43330d0440a552288"],
-    'A102' : ["f3abbe313689a603a1a6d6a43330d0440a552288"],
-    'A103' : ["f3abbe313689a603a1a6d6a43330d0440a552288"],
+    "A100": ["f3abbe313689a603a1a6d6a43330d0440a552288"],
+    "A101": ["f3abbe313689a603a1a6d6a43330d0440a552288"],
+    "A102": ["f3abbe313689a603a1a6d6a43330d0440a552288"],
+    "A103": ["f3abbe313689a603a1a6d6a43330d0440a552288"],
 }
 
 all_taxonomy_tasks = [
-"mmlu_fix_anatomy_generative",
-"mmlu_fix_medical_genetics_generative",
-"mmlu_fix_human_aging_generative",
-"mmlu_fix_nutrition_generative",
-"mmlu_fix_human_sexuality_generative",
-"mmlu_fix_sociology_generative",
-"mmlu_fix_clinical_knowledge_generative",
-"mmlu_fix_professional_psychology_generative",
-"mmlu_fix_professional_medicine_generative",
-"mmlu_fix_public_relations_generative",
-"mmlu_fix_marketing_generative",
-"mmlu_fix_management_generative",
-"mmlu_fix_jurisprudence_generative",
-"mmlu_fix_professional_law_generative",
-"mmlu_fix_high_school_government_and_politics_generative",
-"mmlu_fix_professional_accounting_generative",
-"mmlu_fix_us_foreign_policy_generative",
-"mmlu_fix_philosophy_generative",
-"mmlu_fix_world_religions_generative",
-"mmlu_fix_econometrics_generative",
-"mmlu_fix_global_facts_generative",
-"mmlu_fix_high_school_geography_generative",
-"mmlu_fix_high_school_statistics_generative",
-"mmlu_fix_high_school_us_history_generative",
-"mmlu_fix_high_school_european_history_generative",
-"mmlu_fix_high_school_world_history_generative",
-"mmlu_fix_high_school_macroeconomics_generative",
-"mmlu_fix_high_school_microeconomics_generative",
-"mmlu_fix_high_school_psychology_generative",
-"mmlu_fix_high_school_mathematics_generative",
-"mmlu_fix_high_school_physics_generative",
-"mmlu_fix_business_ethics_generative",
-"mmlu_fix_moral_disputes_generative",
-"mmlu_fix_moral_scenarios_generative",
-"mmlu_fix_college_mathematics_generative",
-"mmlu_fix_elementary_mathematics_generative",
-"mmlu_fix_formal_logic_generative",
-"mmlu_fix_abstract_algebra_generative",
-"mmlu_fix_high_school_biology_generative",
-"mmlu_fix_high_school_chemistry_generative",
-"mmlu_fix_electrical_engineering_generative",
-"mmlu_fix_college_chemistry_generative",
-"mmlu_fix_college_physics_generative",
-"mmlu_fix_college_biology_generative",
-"mmlu_fix_college_medicine_generative",
-"mmlu_fix_virology_generative",
-"mmlu_fix_high_school_computer_science_generative",
-"mmlu_fix_machine_learning_generative",
-"mmlu_fix_computer_security_generative",
-"mmlu_fix_college_computer_science_generative",
-"mmlu_fix_miscellaneous_generative",
-"mmlu_fix_conceptual_physics_generative",
-"mmlu_fix_prehistory_generative",
-"mmlu_fix_international_law_generative",
-"mmlu_fix_human_aging_generative",
-"mmlu_fix_security_studies_generative",
-"mmlu_fix_astronomy_generative",
-"mmlu_fix_logical_fallacies_generative",
-# MMLU PRO
-"mmlu_pro-category_other",
-"mmlu_pro-category_physics",
-"mmlu_pro-category_chemistry",
-"mmlu_pro-category_biology",
-"mmlu_pro-category_psychology",
-"mmlu_pro-category_health",
-"mmlu_pro-category_business",
-"mmlu_pro-category_law",
-"mmlu_pro-category_history",
-"mmlu_pro-category_philosophy",
-"mmlu_pro-category_economics",
-"mmlu_pro-category_math",
-"mmlu_pro-category_engineering",
-"mmlu_pro-category_computer-science",
-# IFEVAL
-"ifeval_fix",
-# BBH
-"bbh_fix_fewshot_tracking_shuffled_objects_three_objects",
-"bbh_fix_fewshot_tracking_shuffled_objects_five_objects",
-"bbh_fix_fewshot_tracking_shuffled_objects_seven_objects",
-"bbh_fix_fewshot_dyck_languages",
-"bbh_fix_fewshot_word_sorting",
-"bbh_fix_fewshot_object_counting",
-"bbh_fix_fewshot_reasoning_about_colored_objects",
-"bbh_fix_fewshot_multistep_arithmetic_two",
-"bbh_fix_fewshot_penguins_in_a_table",
-"bbh_fix_fewshot_movie_recommendation",
-"bbh_fix_fewshot_navigate",
-"bbh_fix_fewshot_logical_deduction_three_objects",
-"bbh_fix_fewshot_logical_deduction_five_objects",
-"bbh_fix_fewshot_logical_deduction_seven_objects",
-"bbh_fix_fewshot_causal_judgement",
-"bbh_fix_fewshot_date_understanding",
-"bbh_fix_fewshot_temporal_sequences",
-"bbh_fix_fewshot_formal_fallacies",
-"bbh_fix_fewshot_boolean_expressions",
-"bbh_fix_fewshot_sports_understanding",
-"bbh_fix_fewshot_disambiguation_qa",
-"bbh_fix_fewshot_hyperbaton",
-"bbh_fix_fewshot_salient_translation_error_detection",
-"bbh_fix_fewshot_snarks",
-"bbh_fix_fewshot_web_of_lies",
-"bbh_fix_fewshot_ruin_names",
-# bAbI
-"babi-task_01-single_supporting_fact",
-"babi-task_02-two_supporting_facts",
-"babi-task_03-three_supporting_facts",
-"babi-task_04-two_argument_relations",
-"babi-task_05-three_argument_relations",
-"babi-task_06-yes_no_questions",
-"babi-task_07-counting",
-"babi-task_08-lists_sets",
-"babi-task_09-simple_negation",
-"babi-task_10-indefinite_knowledge",
-"babi-task_11-basic_coreference",
-"babi-task_12-conjunction",
-"babi-task_13-compound_coreference",
-"babi-task_14-time_reasoning",
-"babi-task_15-basic_deduction",
-"babi-task_16-basic_induction",
-"babi-task_17-positional_reasoning",
-"babi-task_18-size_reasoning",
-"babi-task_19-path_finding",
-"babi-task_20-agents_motivations",
+    "mmlu_fix_anatomy_generative",
+    "mmlu_fix_medical_genetics_generative",
+    "mmlu_fix_human_aging_generative",
+    "mmlu_fix_nutrition_generative",
+    "mmlu_fix_human_sexuality_generative",
+    "mmlu_fix_sociology_generative",
+    "mmlu_fix_clinical_knowledge_generative",
+    "mmlu_fix_professional_psychology_generative",
+    "mmlu_fix_professional_medicine_generative",
+    "mmlu_fix_public_relations_generative",
+    "mmlu_fix_marketing_generative",
+    "mmlu_fix_management_generative",
+    "mmlu_fix_jurisprudence_generative",
+    "mmlu_fix_professional_law_generative",
+    "mmlu_fix_high_school_government_and_politics_generative",
+    "mmlu_fix_professional_accounting_generative",
+    "mmlu_fix_us_foreign_policy_generative",
+    "mmlu_fix_philosophy_generative",
+    "mmlu_fix_world_religions_generative",
+    "mmlu_fix_econometrics_generative",
+    "mmlu_fix_global_facts_generative",
+    "mmlu_fix_high_school_geography_generative",
+    "mmlu_fix_high_school_statistics_generative",
+    "mmlu_fix_high_school_us_history_generative",
+    "mmlu_fix_high_school_european_history_generative",
+    "mmlu_fix_high_school_world_history_generative",
+    "mmlu_fix_high_school_macroeconomics_generative",
+    "mmlu_fix_high_school_microeconomics_generative",
+    "mmlu_fix_high_school_psychology_generative",
+    "mmlu_fix_high_school_mathematics_generative",
+    "mmlu_fix_high_school_physics_generative",
+    "mmlu_fix_business_ethics_generative",
+    "mmlu_fix_moral_disputes_generative",
+    "mmlu_fix_moral_scenarios_generative",
+    "mmlu_fix_college_mathematics_generative",
+    "mmlu_fix_elementary_mathematics_generative",
+    "mmlu_fix_formal_logic_generative",
+    "mmlu_fix_abstract_algebra_generative",
+    "mmlu_fix_high_school_biology_generative",
+    "mmlu_fix_high_school_chemistry_generative",
+    "mmlu_fix_electrical_engineering_generative",
+    "mmlu_fix_college_chemistry_generative",
+    "mmlu_fix_college_physics_generative",
+    "mmlu_fix_college_biology_generative",
+    "mmlu_fix_college_medicine_generative",
+    "mmlu_fix_virology_generative",
+    "mmlu_fix_high_school_computer_science_generative",
+    "mmlu_fix_machine_learning_generative",
+    "mmlu_fix_computer_security_generative",
+    "mmlu_fix_college_computer_science_generative",
+    "mmlu_fix_miscellaneous_generative",
+    "mmlu_fix_conceptual_physics_generative",
+    "mmlu_fix_prehistory_generative",
+    "mmlu_fix_international_law_generative",
+    "mmlu_fix_human_aging_generative",
+    "mmlu_fix_security_studies_generative",
+    "mmlu_fix_astronomy_generative",
+    "mmlu_fix_logical_fallacies_generative",
+    # MMLU PRO
+    "mmlu_pro-category_other",
+    "mmlu_pro-category_physics",
+    "mmlu_pro-category_chemistry",
+    "mmlu_pro-category_biology",
+    "mmlu_pro-category_psychology",
+    "mmlu_pro-category_health",
+    "mmlu_pro-category_business",
+    "mmlu_pro-category_law",
+    "mmlu_pro-category_history",
+    "mmlu_pro-category_philosophy",
+    "mmlu_pro-category_economics",
+    "mmlu_pro-category_math",
+    "mmlu_pro-category_engineering",
+    "mmlu_pro-category_computer-science",
+    # IFEVAL
+    "ifeval_fix",
+    # BBH
+    "bbh_fix_fewshot_tracking_shuffled_objects_three_objects",
+    "bbh_fix_fewshot_tracking_shuffled_objects_five_objects",
+    "bbh_fix_fewshot_tracking_shuffled_objects_seven_objects",
+    "bbh_fix_fewshot_dyck_languages",
+    "bbh_fix_fewshot_word_sorting",
+    "bbh_fix_fewshot_object_counting",
+    "bbh_fix_fewshot_reasoning_about_colored_objects",
+    "bbh_fix_fewshot_multistep_arithmetic_two",
+    "bbh_fix_fewshot_penguins_in_a_table",
+    "bbh_fix_fewshot_movie_recommendation",
+    "bbh_fix_fewshot_navigate",
+    "bbh_fix_fewshot_logical_deduction_three_objects",
+    "bbh_fix_fewshot_logical_deduction_five_objects",
+    "bbh_fix_fewshot_logical_deduction_seven_objects",
+    "bbh_fix_fewshot_causal_judgement",
+    "bbh_fix_fewshot_date_understanding",
+    "bbh_fix_fewshot_temporal_sequences",
+    "bbh_fix_fewshot_formal_fallacies",
+    "bbh_fix_fewshot_boolean_expressions",
+    "bbh_fix_fewshot_sports_understanding",
+    "bbh_fix_fewshot_disambiguation_qa",
+    "bbh_fix_fewshot_hyperbaton",
+    "bbh_fix_fewshot_salient_translation_error_detection",
+    "bbh_fix_fewshot_snarks",
+    "bbh_fix_fewshot_web_of_lies",
+    "bbh_fix_fewshot_ruin_names",
+    # bAbI
+    "babi-task_01-single_supporting_fact",
+    "babi-task_02-two_supporting_facts",
+    "babi-task_03-three_supporting_facts",
+    "babi-task_04-two_argument_relations",
+    "babi-task_05-three_argument_relations",
+    "babi-task_06-yes_no_questions",
+    "babi-task_07-counting",
+    "babi-task_08-lists_sets",
+    "babi-task_09-simple_negation",
+    "babi-task_10-indefinite_knowledge",
+    "babi-task_11-basic_coreference",
+    "babi-task_12-conjunction",
+    "babi-task_13-compound_coreference",
+    "babi-task_14-time_reasoning",
+    "babi-task_15-basic_deduction",
+    "babi-task_16-basic_induction",
+    "babi-task_17-positional_reasoning",
+    "babi-task_18-size_reasoning",
+    "babi-task_19-path_finding",
+    "babi-task_20-agents_motivations",
 ]
 
 all_leaderboard_tasks = [
-# # MATH TODO : Abuse of splits probably...
-# "leaderboard_math_algebra_hard",
-# "leaderboard_math_counting_and_prob_hard",
-# "leaderboard_math_geometry_hard",
-# "leaderboard_math_intermediate_algebra_hard",
-# "leaderboard_math_num_theory_hard",
-# "leaderboard_math_prealgebra_hard",
-# "leaderboard_math_precalculus_hard",
-# GPQA TODO : Checkear abuso aca tambien
-# "leaderboard_gpqa_main",
-# "leaderboard_gpqa_extended",
-# "leaderboard_gpqa_diamond", # TODO : Check why this particular task cannot be processed
-# # MUSR TODO : Split into proper datasets, do not abuse split
-# "leaderboard_musr_team_allocation",
-# "leaderboard_musr_murder_mysteries",
-# "leaderboard_musr_object_placements",
-# # MMLU-Pro (Covered by taxonomy and made by task as it should)
-# "leaderboard_mmlu_pro",
-# # BBH (covered by taxonomy)
-# "leaderboard_bbh_formal_fallacies",
-# "leaderboard_bbh_navigate",
-# "leaderboard_bbh_sports_understanding",
-# "leaderboard_bbh_object_counting",
-# "leaderboard_bbh_temporal_sequences",
-# "leaderboard_bbh_penguins_in_a_table",
-# "leaderboard_bbh_tracking_shuffled_objects_five_objects",
-# "leaderboard_bbh_geometric_shapes",
-# "leaderboard_bbh_hyperbaton",
-# "leaderboard_bbh_boolean_expressions",
-# "leaderboard_bbh_logical_deduction_five_objects",
-# "leaderboard_bbh_ruin_names",
-# "leaderboard_bbh_tracking_shuffled_objects_seven_objects",
-# "leaderboard_bbh_reasoning_about_colored_objects",
-# "leaderboard_bbh_tracking_shuffled_objects_three_objects",
-# "leaderboard_bbh_salient_translation_error_detection",
-# "leaderboard_bbh_web_of_lies",
-# "leaderboard_bbh_logical_deduction_seven_objects",
-# "leaderboard_bbh_logical_deduction_three_objects",
-# "leaderboard_bbh_snarks",
-# "leaderboard_bbh_movie_recommendation",
-# "leaderboard_bbh_date_understanding",
-# "leaderboard_bbh_causal_judgement",
-# "leaderboard_bbh_disambiguation_qa",
+    # # MATH TODO : Abuse of splits probably...
+    # "leaderboard_math_algebra_hard",
+    # "leaderboard_math_counting_and_prob_hard",
+    # "leaderboard_math_geometry_hard",
+    # "leaderboard_math_intermediate_algebra_hard",
+    # "leaderboard_math_num_theory_hard",
+    # "leaderboard_math_prealgebra_hard",
+    # "leaderboard_math_precalculus_hard",
+    # GPQA TODO : Checkear abuso aca tambien
+    # "leaderboard_gpqa_main",
+    # "leaderboard_gpqa_extended",
+    # "leaderboard_gpqa_diamond", # TODO : Check why this particular task cannot be processed
+    # # MUSR TODO : Split into proper datasets, do not abuse split
+    # "leaderboard_musr_team_allocation",
+    # "leaderboard_musr_murder_mysteries",
+    # "leaderboard_musr_object_placements",
+    # # MMLU-Pro (Covered by taxonomy and made by task as it should)
+    # "leaderboard_mmlu_pro",
+    # # BBH (covered by taxonomy)
+    # "leaderboard_bbh_formal_fallacies",
+    # "leaderboard_bbh_navigate",
+    # "leaderboard_bbh_sports_understanding",
+    # "leaderboard_bbh_object_counting",
+    # "leaderboard_bbh_temporal_sequences",
+    # "leaderboard_bbh_penguins_in_a_table",
+    # "leaderboard_bbh_tracking_shuffled_objects_five_objects",
+    # "leaderboard_bbh_geometric_shapes",
+    # "leaderboard_bbh_hyperbaton",
+    # "leaderboard_bbh_boolean_expressions",
+    # "leaderboard_bbh_logical_deduction_five_objects",
+    # "leaderboard_bbh_ruin_names",
+    # "leaderboard_bbh_tracking_shuffled_objects_seven_objects",
+    # "leaderboard_bbh_reasoning_about_colored_objects",
+    # "leaderboard_bbh_tracking_shuffled_objects_three_objects",
+    # "leaderboard_bbh_salient_translation_error_detection",
+    # "leaderboard_bbh_web_of_lies",
+    # "leaderboard_bbh_logical_deduction_seven_objects",
+    # "leaderboard_bbh_logical_deduction_three_objects",
+    # "leaderboard_bbh_snarks",
+    # "leaderboard_bbh_movie_recommendation",
+    # "leaderboard_bbh_date_understanding",
+    # "leaderboard_bbh_causal_judgement",
+    # "leaderboard_bbh_disambiguation_qa",
 ]
 
 
@@ -191,6 +191,7 @@ def run_command(command):
     except subprocess.CalledProcessError as e:
         print(f"Error executing command: {e}")
         return False
+
 
 def schedule_lookup_task(interval="1m", execution_timeout=350, task_timeout=175):
     command = [
@@ -222,7 +223,9 @@ def schedule_lookup_task(interval="1m", execution_timeout=350, task_timeout=175)
     return run_command(command)
 
 
-def schedule_requester_task(app_address, chain_id, interval="1m", execution_timeout=350, task_timeout=175):
+def schedule_requester_task(
+    app_address, chain_id, interval="1m", execution_timeout=350, task_timeout=175
+):
     command = [
         "docker",
         "exec",
@@ -249,13 +252,14 @@ def schedule_requester_task(app_address, chain_id, interval="1m", execution_time
         "--namespace",
         f"{NAMESPACE}",
         "--input",
-        f'{{"app":"{app_address}","service":"{chain_id}"}}'
+        f'{{"app":"{app_address}","service":"{chain_id}"}}',
     ]
     return run_command(command)
 
 
-
-def schedule_tokenizer_task(chain_id, interval="2m", execution_timeout=120, task_timeout=120):
+def schedule_tokenizer_task(
+    chain_id, interval="2m", execution_timeout=120, task_timeout=120
+):
     command = [
         "docker",
         "exec",
@@ -282,13 +286,14 @@ def schedule_tokenizer_task(chain_id, interval="2m", execution_timeout=120, task
         "--namespace",
         f"{NAMESPACE}",
         "--input",
-        f'{{"service":"{chain_id}","tests":[{{"framework" : "signatures", "tasks": ["tokenizer"]}}]}}'
+        f'{{"service":"{chain_id}","tests":[{{"framework" : "signatures", "tasks": ["tokenizer"]}}]}}',
     ]
     return run_command(command)
 
 
-
-def schedule_config_task(chain_id, interval="2m", execution_timeout=120, task_timeout=120):
+def schedule_config_task(
+    chain_id, interval="2m", execution_timeout=120, task_timeout=120
+):
     command = [
         "docker",
         "exec",
@@ -315,13 +320,14 @@ def schedule_config_task(chain_id, interval="2m", execution_timeout=120, task_ti
         "--namespace",
         f"{NAMESPACE}",
         "--input",
-        f'{{"service":"{chain_id}","tests":[{{"framework" : "signatures", "tasks": ["config"]}}]}}'
+        f'{{"service":"{chain_id}","tests":[{{"framework" : "signatures", "tasks": ["config"]}}]}}',
     ]
     return run_command(command)
 
 
-
-def schedule_benchmark_task(benchmark, chain_id, interval="2m", execution_timeout=120, task_timeout=120):
+def schedule_benchmark_task(
+    benchmark, chain_id, interval="2m", execution_timeout=120, task_timeout=120
+):
     command = [
         "docker",
         "exec",
@@ -348,16 +354,15 @@ def schedule_benchmark_task(benchmark, chain_id, interval="2m", execution_timeou
         "--namespace",
         f"{NAMESPACE}",
         "--input",
-        f'{{"service":"{chain_id}","tests":[{{"framework" : "lmeh", "tasks": ["{benchmark}"]}}]}}'
+        f'{{"service":"{chain_id}","tests":[{{"framework" : "lmeh", "tasks": ["{benchmark}"]}}]}}',
     ]
     return run_command(command)
-
 
 
 def execute_register_task(task, execution_timeout=7200, task_timeout=3600):
     """
     Execute the Docker command to start a Temporal workflow.
-    
+
     Args:
         key (str): The task key to be passed as input to the workflow.
     """
@@ -383,10 +388,12 @@ def execute_register_task(task, execution_timeout=7200, task_timeout=3600):
     ]
     return run_command(command)
 
- 
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--only-registers', action='store_true', help='Only trigger register tasks')
+    parser.add_argument(
+        "--only-registers", action="store_true", help="Only trigger register tasks"
+    )
     args = parser.parse_args()
 
     total_registers = 0
@@ -396,9 +403,9 @@ def main():
     total_benchmarks = 0
 
     all_tasks = all_taxonomy_tasks + all_leaderboard_tasks
-        
+
     if args.only_registers:
-        print(f"Setting-up registers only:")
+        print("Setting-up registers only:")
         for task in all_tasks:
             # Register dataset
             print(f"\t{task}")
@@ -407,7 +414,6 @@ def main():
             total_registers += ok
 
     else:
-
         # Start the base task lookup
         schedule_lookup_task(interval="1m", execution_timeout=350, task_timeout=175)
         print("Lookup scheduled.")
@@ -416,25 +422,35 @@ def main():
         for chain_id in APPS_PER_SERVICE.keys():
             print(f"Setting-up chain: {chain_id}")
             # Schedule the tokenizer in this service ID
-            ok = schedule_tokenizer_task(chain_id, interval="2m", execution_timeout=120, task_timeout=120)
+            ok = schedule_tokenizer_task(
+                chain_id, interval="2m", execution_timeout=120, task_timeout=120
+            )
             print("\tTokenizer triggered.")
             time.sleep(0.25)
             total_tokenizers += ok
             # Schedule the config task in this Service ID
-            ok = schedule_config_task(chain_id, interval="2m", execution_timeout=120, task_timeout=120)
+            ok = schedule_config_task(
+                chain_id, interval="2m", execution_timeout=120, task_timeout=120
+            )
             print("\tConfiguration triggered.")
             time.sleep(0.25)
             total_configs += ok
-            # Schedule a requester for each app in this service ID 
+            # Schedule a requester for each app in this service ID
             print("\tTriggering requesters for apps:")
             for app in APPS_PER_SERVICE[chain_id]:
                 # Schedule the requester using this app
-                ok = schedule_requester_task(app, chain_id, interval="1m", execution_timeout=350, task_timeout=175)
+                ok = schedule_requester_task(
+                    app,
+                    chain_id,
+                    interval="1m",
+                    execution_timeout=350,
+                    task_timeout=175,
+                )
                 total_requesters += ok
                 print(f"\t\t{app}")
                 time.sleep(0.25)
         print("Signatures scheduled.")
-        
+
         # Create all tasks for all chains
         for task in all_tasks:
             print(f"Setting-up task: {task}")
@@ -446,18 +462,23 @@ def main():
 
             # Finally schedule the benchmark
             for chain_id in APPS_PER_SERVICE.keys():
-                ok = schedule_benchmark_task(task, chain_id, interval="2m", execution_timeout=120, task_timeout=120)
+                ok = schedule_benchmark_task(
+                    task,
+                    chain_id,
+                    interval="2m",
+                    execution_timeout=120,
+                    task_timeout=120,
+                )
                 print("\tTask triggered.")
                 time.sleep(0.25)
                 total_benchmarks += ok
-
 
     total_tasks = {
         "Registers": total_registers,
         "Tokenizers": total_tokenizers,
         "Configs": total_configs,
         "Requesters": total_requesters,
-        "Benchmarks": total_benchmarks
+        "Benchmarks": total_benchmarks,
     }
 
     # Calculate total triggered tasks

@@ -34,10 +34,12 @@ async def lookup_tasks() -> List[str]:
             mongo_operator.set_task_as_done(id)
             old_ids_ok.append(id)
         except Exception as e:
-            eval_logger.error(f"Unable to mark task as done. If this persist, the task will stay in the database and prevent further task triggers.",
-                              task_id = id,
-                              error = str(e))
+            eval_logger.error(
+                "Unable to mark task as done. If this persist, the task will stay in the database and prevent further task triggers.",
+                task_id=id,
+                error=str(e),
+            )
 
     eval_logger.debug(f"Lookup tasks found {len(ids + old_ids_ok)} old/skipped tasks")
 
-    return ids+old_ids_ok
+    return ids + old_ids_ok

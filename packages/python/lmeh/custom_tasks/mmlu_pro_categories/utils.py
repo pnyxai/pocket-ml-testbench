@@ -20,7 +20,7 @@ choices = [
     "M",
     "N",
     "O",
-    "P"
+    "P",
 ]
 
 
@@ -42,8 +42,10 @@ def format_cot_example(example, including_answer=True):
         prompt += "Answer: Let's think step by step."
     return prompt
 
+
 doc_to_text_CoT = partial(format_cot_example, including_answer=False)
 fewshot_to_text_CoT = partial(format_cot_example, including_answer=True)
+
 
 def format_example(example, including_answer=True):
     prompt = "Question:\n"
@@ -54,7 +56,9 @@ def format_example(example, including_answer=True):
     for i, opt in enumerate(options):
         prompt += "{}. {}\n".format(choices[i], opt)
     if including_answer:
-        prompt += f"Answer: The answer is ({choices[example['answer_index']]})." + "\n\n"
+        prompt += (
+            f"Answer: The answer is ({choices[example['answer_index']]})." + "\n\n"
+        )
     else:
         prompt += "Answer: "
     return prompt

@@ -4,7 +4,6 @@ from typing import Tuple
 from app.app import get_app_config, get_app_logger
 from bson import ObjectId
 from temporalio import activity
-from temporalio.exceptions import ApplicationError
 
 from packages.python.common.auto_heartbeater import auto_heartbeater
 from packages.python.lmeh.utils.mongodb import MongoOperator
@@ -23,7 +22,9 @@ from packages.python.protocol.protocol import (
 
 @activity.defn
 @auto_heartbeater
-async def tokenizer_evaluate(args: PocketNetworkEvaluationTaskRequest) -> Tuple[bool, str]:
+async def tokenizer_evaluate(
+    args: PocketNetworkEvaluationTaskRequest,
+) -> Tuple[bool, str]:
     """
     Returns a dict where each key is a task name with the evaluation result.
     :param args:
@@ -40,11 +41,7 @@ async def tokenizer_evaluate(args: PocketNetworkEvaluationTaskRequest) -> Tuple[
             task_id_str = args.task_id
             args.task_id = ObjectId(args.task_id)
         except Exception as e:
-            eval_logger.error(
-                "bad Task ID format",
-                error=str(e),
-                task=args.task_id
-            )
+            eval_logger.error("bad Task ID format", error=str(e), task=args.task_id)
             return False, f"Bad Task ID format: {str(e)}"
             # raise ApplicationError(
             #     "Bad Task ID format",
@@ -58,7 +55,9 @@ async def tokenizer_evaluate(args: PocketNetworkEvaluationTaskRequest) -> Tuple[
         responses = await mongo_operator.retrieve_responses(args.task_id)
         if len(responses) != 1:
             # This should not be fatal
-            eval_logger.warn(f"Task ID {args.task_id}: Found {len(responses)} responses, only 1 is expected. Using the first one and proceeding.")
+            eval_logger.warn(
+                f"Task ID {args.task_id}: Found {len(responses)} responses, only 1 is expected. Using the first one and proceeding."
+            )
             # raise ApplicationError(
             #     f"Task ID {args.task_id}: Found {len(responses)} responses, only 1 is expected.",
             #     str(args.task_id),
@@ -167,7 +166,7 @@ async def tokenizer_evaluate(args: PocketNetworkEvaluationTaskRequest) -> Tuple[
                     error_msg = "Failed to save model Tokenizer to MongoDB."
                     eval_logger.error(
                         error_msg,
-                        task=args.task_id, 
+                        task=args.task_id,
                         error=str(e),
                     )
                     return False, f"{error_msg}: {str(e)}"
@@ -205,7 +204,7 @@ async def tokenizer_evaluate(args: PocketNetworkEvaluationTaskRequest) -> Tuple[
             error_msg = "Failed to save Result to MongoDB. (correct evaluation path)"
             eval_logger.error(
                 error_msg,
-                task=args.task_id, 
+                task=args.task_id,
                 error=str(e),
             )
             return False, f"{error_msg}: {str(e)}"
@@ -252,7 +251,7 @@ async def tokenizer_evaluate(args: PocketNetworkEvaluationTaskRequest) -> Tuple[
             error_msg = "Failed to save Result to MongoDB. (failed evaluation path)"
             eval_logger.error(
                 error_msg,
-                task=args.task_id, 
+                task=args.task_id,
                 error=str(e),
             )
             return False, f"{error_msg}: {str(e)}"
@@ -265,7 +264,7 @@ async def tokenizer_evaluate(args: PocketNetworkEvaluationTaskRequest) -> Tuple[
         error_msg = "Failed to process evaluation."
         eval_logger.error(
             error_msg,
-            task=args.task_id, 
+            task=args.task_id,
             error=str(e),
         )
         return False, f"{error_msg}: {str(e)}"

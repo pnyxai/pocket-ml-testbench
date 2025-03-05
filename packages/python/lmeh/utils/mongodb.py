@@ -8,13 +8,12 @@ from typing import List
 from app.app import get_app_logger
 from bson.objectid import ObjectId
 from lm_eval.api.instance import Instance
-from temporalio.exceptions import ApplicationError
 
 from packages.python.common.mongodb import MongoClient
 from packages.python.lmeh.utils.mongo_aggrs import (
     aggregate_doc_ids,
     aggregate_response_tree,
-    aggregate_old_tasks
+    aggregate_old_tasks,
 )
 from packages.python.protocol.protocol import (
     CompletionRequest,
@@ -249,10 +248,7 @@ class MongoOperator:
             # handle the exception to bring a light on production debugging if needed.
             data = json.loads(data)
         except Exception as e:
-            eval_logger.error("Bad JSON data format", 
-                              data=data, 
-                              error=str(e)
-                              )
+            eval_logger.error("Bad JSON data format", data=data, error=str(e))
             raise RuntimeError("Bad JSON data format")
 
         request = CompletionRequest(**data)
@@ -272,8 +268,7 @@ class MongoOperator:
         result = await cursor.to_list(length=None)
 
         if len(result) == 0:
-            evaluation_logger.error("Task ID not found.", 
-                                    task_id=task_id)
+            evaluation_logger.error("Task ID not found.", task_id=task_id)
             raise RuntimeError(f"Task ID {task_id} does not exist in the database.")
 
         # Convert the result to a list and return it
@@ -300,31 +295,26 @@ class MongoOperator:
         )
         tasks = await cursor.to_list(length=None)
         return tasks
-    
+
     async def get_old_tasks(self, blocks_ago=40):
         # Get latest response height
         # TODO : Change this with a parameter, that must come from the activity making query to the network
-        cursor = self.client.db[self.responses_collection].aggregate([
-            {
-                '$group': {
-                    '_id': None, 
-                    'latest_height': {
-                        '$max': '$height'
-                    }
-                }
-            }
-        ])
+        cursor = self.client.db[self.responses_collection].aggregate(
+            [{"$group": {"_id": None, "latest_height": {"$max": "$height"}}}]
+        )
         latest_height = await cursor.to_list(length=None)
-        # Now get all tasks that have all prompts resolved since a while but 
-        # somehow the evaluation was not correctly triggered 
+        # Now get all tasks that have all prompts resolved since a while but
+        # somehow the evaluation was not correctly triggered
         # (this can happen due to sessions changing and tasks being terminated)
-        cursor = self.client.db[self.tasks_collection].aggregate(aggregate_old_tasks(latest_height[0]['latest_height'], blocks_ago))
+        cursor = self.client.db[self.tasks_collection].aggregate(
+            aggregate_old_tasks(latest_height[0]["latest_height"], blocks_ago)
+        )
         tasks = await cursor.to_list(length=None)
         return tasks
-    
+
     async def set_task_as_done(self, task_id):
         async with self.client.start_transaction() as session:
-            try: 
+            try:
                 await self.client.db[self.tasks_collection].find_one_and_update(
                     {"_id": task_id},
                     {"$set": {"done": True}},
@@ -332,7 +322,6 @@ class MongoOperator:
                 )
             except Exception as e:
                 raise f"Error marking task as done: {str(e)}"
-
 
     async def retrieve_responses(
         self,
@@ -461,7 +450,7 @@ class MongoOperator:
         ).model_dump(by_alias=True)
 
         async with self.client.start_transaction() as session:
-            try: 
+            try:
                 await self.client.db[self.tasks_collection].find_one_and_update(
                     {"_id": task_id},
                     {"$set": {"drop": True}},
