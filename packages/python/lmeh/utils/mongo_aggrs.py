@@ -50,3 +50,55 @@ def aggregate_response_tree(task_id: ObjectId):
         },
         {"$unwind": {"path": "$response"}},
     ]
+
+
+def aggregate_old_tasks(latest_height: int, blocks_ago: int):
+    return [
+        {
+            '$match': {
+                'done': False
+            }
+        }, {
+            '$project': {
+                'total_instances': 1
+            }
+        }, {
+            '$lookup': {
+                'from': 'responses', 
+                'localField': '_id', 
+                'foreignField': 'task_id', 
+                'as': 'responses'
+            }
+        }, {
+            '$project': {
+                '_id': 1, 
+                'total': '$total_instances', 
+                'done': {
+                    '$size': '$responses'
+                }, 
+                'last_seen': {
+                    '$max': '$responses.height'
+                }
+            }
+        }, {
+            '$match': {
+                '$expr': {
+                    '$and': [
+                        {
+                            '$gte': [
+                                '$done', '$total'
+                            ]
+                        }, {
+                            '$lte': [
+                                '$last_seen', latest_height-blocks_ago
+                            ]
+                        }
+                    ]
+                }
+            }
+        }, {
+        '$project': {
+            '_id': 1
+        }
+    }
+    ]

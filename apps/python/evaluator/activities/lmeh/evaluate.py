@@ -1,6 +1,7 @@
 from bson import ObjectId
 from temporalio import activity
 from temporalio.exceptions import ApplicationError
+from typing import Tuple
 
 from app.app import get_app_logger, get_app_config
 from packages.python.lmeh.pocket_lm_eval.models.pocket_network import EvaluatorLM
@@ -16,7 +17,7 @@ from packages.python.lmeh.utils import sql as lmeh_sql
 
 @activity.defn
 @auto_heartbeater
-async def lmeh_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
+async def lmeh_evaluate(args: PocketNetworkEvaluationTaskRequest) -> Tuple[bool, str]:
     """
     Returns a dict where each key is a task name with the evaluation result.
     :param args:
@@ -34,13 +35,19 @@ async def lmeh_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
     try:
         args.task_id = ObjectId(args.task_id)
     except Exception as e:
-        raise ApplicationError(
-            "Bad Task ID format",
-            str(e),
-            args.task_id,
-            type="BadParams",
-            non_retryable=True,
+        eval_logger.error(
+            "bad Task ID format",
+            error=str(e),
+            task=args.task_id
         )
+        return False, f"Bad Task ID format: {str(e)}"
+        # raise ApplicationError(
+        #     "Bad Task ID format",
+        #     str(e),
+        #     args.task_id,
+        #     type="BadParams",
+        #     non_retryable=True,
+        # )
 
     try:
         if args.llm_args is None:
@@ -66,21 +73,23 @@ async def lmeh_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
 
         args.requester_args = task_mongo.requester_args
         if args.tasks is None:
-            eval_logger.error("Need to specify task to evaluate.")
-            raise ApplicationError(
-                "Need to specify task to evaluate.",
-                args.tasks,
-                type="BadParams",
-                non_retryable=True,
-            )
+            eval_logger.error("Need to specify task to evaluate.", task=args.task_id)
+            return False, f"Need to specify task to evaluate."
+            # raise ApplicationError(
+            #     "Need to specify task to evaluate.",
+            #     args.tasks,
+            #     type="BadParams",
+            #     non_retryable=True,
+            # )
         if not task_mongo.done:
-            eval_logger.error("Task is not done.")
-            raise ApplicationError(
-                "Task is not done.",
-                args.task_id,
-                type="TaskNotDone",
-                non_retryable=False,
-            )
+            eval_logger.error("Task is not done.", task=args.task_id)
+            return False, f"Task is not done."
+            # raise ApplicationError(
+            #     "Task is not done.",
+            #     args.task_id,
+            #     type="TaskNotDone",
+            #     non_retryable=False,
+            # )
         ############################################################
         # END: POCKET NETWORK CODE
         ############################################################
@@ -120,12 +129,14 @@ async def lmeh_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
                 for task_name in task_names:
                     # lookup the task on task_registry before try to load it
                     if not await lmeh_sql.checked_task(task_name, connection=conn):
-                        raise ApplicationError(
-                            "Task not found on task_registry table",
-                            task_name,
-                            type="NotFound",
-                            non_retryable=True,
-                        )
+                        eval_logger.error("Task not found on task_registry table.", task=args.task_id)
+                        return False, f"Task not found on task_registry table."
+                        # raise ApplicationError(
+                        #     "Task not found on task_registry table",
+                        #     task_name,
+                        #     type="NotFound",
+                        #     non_retryable=True,
+                        # )
 
                     # generate configurable tasks
                     try:
@@ -143,28 +154,42 @@ async def lmeh_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
                             eval_logger=eval_logger,
                         )
                     except ApplicationError as e:
-                        raise e
+                        eval_logger.error("Error generating configurable task.", 
+                                          task=args.task_id, 
+                                          error=str(e),
+                                          task_name=task_name)
+                        return False, f"Error generating configurable task."
+                        # raise e
                     except Exception as error:
                         eval_logger.error(
                             "Generate Task raise an error",
                             task_name=task_name,
                             error=error,
                         )
-                        raise ApplicationError(
-                            "Generate TaskDict raise an error",
-                            str(error),
-                            type="LmehGenerator",
-                            non_retryable=True,
-                        )
+                        eval_logger.error("Error generating configurable task.", 
+                                          task=args.task_id, 
+                                          error=str(error),
+                                          task_name=task_name)
+                        return False, f"Error generating configurable task: {str(error)}"
+                        # raise ApplicationError(
+                        #     "Generate TaskDict raise an error",
+                        #     str(error),
+                        #     type="LmehGenerator",
+                        #     non_retryable=True,
+                        # )
 
                     # add another check just in case - does not hurt anybody
                     if not task_dict[task_name]:
-                        raise ApplicationError(
-                            "Missing Task name on TaskDict",
-                            task_name,
-                            type="LmehGenerator",
-                            non_retryable=False,
-                        )
+                        eval_logger.error("Missing Task name on TaskDict.", 
+                                          task=args.task_id, 
+                                          task_name=task_name)
+                        return False, f"Missing Task name on TaskDict"
+                        # raise ApplicationError(
+                        #     "Missing Task name on TaskDict",
+                        #     task_name,
+                        #     type="LmehGenerator",
+                        #     non_retryable=False,
+                        # )
 
                     # load dataset from database
                     try:
@@ -174,17 +199,24 @@ async def lmeh_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
                             "Task loaded successfully:", task_dict=task_dict
                         )
                     except ApplicationError as e:
-                        raise e
+                        eval_logger.error("Application error loading dataset from SQL.", 
+                                          task=args.task_id, 
+                                          error=str(e),
+                                          task_name=task_name)
+                        return False, f"Application error loading dataset from SQL: {str(e)}"
+                        # raise e
                     except Exception as error:
                         error_msg = "Load Dataset from SQL runs in errors"
                         eval_logger.error(
                             error_msg,
+                            task=args.task_id, 
                             task_name=task_name,
-                            error=error,
+                            error=str(error),
                         )
-                        raise ApplicationError(
-                            error_msg, str(error), type="SQLError", non_retryable=True
-                        )
+                        return False, f"{error_msg}: {str(error)}"
+                        # raise ApplicationError(
+                        #     error_msg, str(error), type="SQLError", non_retryable=True
+                        # )
 
                     try:
                         # Instance LM
@@ -206,10 +238,31 @@ async def lmeh_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
                         )
                     except ApplicationError as e:
                         # no mater what, mark the task as drop=True
-                        raise e
+                        error_msg = "Error during evaluation process"
+                        eval_logger.error(
+                            error_msg,
+                            task=args.task_id, 
+                            task_name=task_name,
+                            error=str(e),
+                        )
+                        return False, f"{error_msg}: {str(e)}"
+                        # raise e
     except Exception as e:
         # TODO: enhance drop task logic
-        await mongo_operator.mark_task_to_drop(args.task_id)
-        raise e
+        try:
+            await mongo_operator.mark_task_to_drop(args.task_id)
+            # Do not rise error, it prevents the manager from being executed, just return
+        except Exception as e:
+            error_msg = "Failed to mark task to drop."
+            eval_logger.error(
+                error_msg,
+                task=args.task_id, 
+                task_name=task_name,
+                error=str(e),
+            )
+            return False, f"{error_msg}: {str(e)}"
+        
+        # Original error that caused the drop
+        return False, f"{error_msg}: {str(e)}"
 
-    return result
+    return result, "OK"

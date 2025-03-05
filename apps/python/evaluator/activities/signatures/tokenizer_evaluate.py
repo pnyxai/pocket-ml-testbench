@@ -1,6 +1,6 @@
 import json
 from datetime import datetime
-
+from typing import Tuple
 from app.app import get_app_config, get_app_logger
 from bson import ObjectId
 from temporalio import activity
@@ -23,7 +23,7 @@ from packages.python.protocol.protocol import (
 
 @activity.defn
 @auto_heartbeater
-async def tokenizer_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
+async def tokenizer_evaluate(args: PocketNetworkEvaluationTaskRequest) -> Tuple[bool, str]:
     """
     Returns a dict where each key is a task name with the evaluation result.
     :param args:
@@ -40,19 +40,25 @@ async def tokenizer_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
             task_id_str = args.task_id
             args.task_id = ObjectId(args.task_id)
         except Exception as e:
-            raise ApplicationError(
-                "Bad Task ID format",
-                str(e),
-                args.task_id,
-                type="BadParams",
-                non_retryable=True,
+            eval_logger.error(
+                "bad Task ID format",
+                error=str(e),
+                task=args.task_id
             )
+            return False, f"Bad Task ID format: {str(e)}"
+            # raise ApplicationError(
+            #     "Bad Task ID format",
+            #     str(e),
+            #     args.task_id,
+            #     type="BadParams",
+            #     non_retryable=True,
+            # )
 
         # Retrieve all responses
         responses = await mongo_operator.retrieve_responses(args.task_id)
         if len(responses) != 1:
             # This should not be fatal
-            eval_logger.warn(f"Task ID {args.task_id}: Found {len(responses)} responses, only 1 is expected.")
+            eval_logger.warn(f"Task ID {args.task_id}: Found {len(responses)} responses, only 1 is expected. Using the first one and proceeding.")
             # raise ApplicationError(
             #     f"Task ID {args.task_id}: Found {len(responses)} responses, only 1 is expected.",
             #     str(args.task_id),
@@ -158,11 +164,18 @@ async def tokenizer_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
                         )
                     eval_logger.debug("Saved new tokenizer to DB.")
                 except Exception as e:
-                    eval_logger.error("Failed to save Tokenizer to MongoDB.")
-                    eval_logger.error("Exeption:", Exeption=str(e))
-                    raise ApplicationError(
-                        "Failed to save tokenizer to MongoDB.", non_retryable=True
+                    error_msg = "Failed to save model Tokenizer to MongoDB."
+                    eval_logger.error(
+                        error_msg,
+                        task=args.task_id, 
+                        error=str(e),
                     )
+                    return False, f"{error_msg}: {str(e)}"
+                    # eval_logger.error("Failed to save Tokenizer to MongoDB.")
+                    # eval_logger.error("Exeption:", Exeption=str(e))
+                    # raise ApplicationError(
+                    #     "Failed to save tokenizer to MongoDB.", non_retryable=True
+                    # )
 
             # Update the result with valid data
             result.result_data.num_samples = 1  # Always one
@@ -189,11 +202,18 @@ async def tokenizer_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
                 )
             eval_logger.debug("Saved result to DB.")
         except Exception as e:
-            eval_logger.error("Failed to save Result to MongoDB.")
-            eval_logger.error("Exception:", Exeption=str(e))
-            raise ApplicationError(
-                "Failed to save result to MongoDB.", non_retryable=True
+            error_msg = "Failed to save Result to MongoDB. (correct evaluation path)"
+            eval_logger.error(
+                error_msg,
+                task=args.task_id, 
+                error=str(e),
             )
+            return False, f"{error_msg}: {str(e)}"
+            # eval_logger.error("Failed to save Result to MongoDB.")
+            # eval_logger.error("Exception:", Exeption=str(e))
+            # raise ApplicationError(
+            #     "Failed to save result to MongoDB.", non_retryable=True
+            # )
 
         eval_logger.info(
             "Tokenizer Status:",
@@ -229,11 +249,25 @@ async def tokenizer_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
                 )
             eval_logger.debug("Saved result to DB.")
         except Exception as e:
-            eval_logger.error("Failed to save Result to MongoDB.")
-            eval_logger.error("Exception:", Exeption=str(e))
-            raise ApplicationError(
-                "Failed to save result to MongoDB.", non_retryable=True
+            error_msg = "Failed to save Result to MongoDB. (failed evaluation path)"
+            eval_logger.error(
+                error_msg,
+                task=args.task_id, 
+                error=str(e),
             )
-        raise e
+            return False, f"{error_msg}: {str(e)}"
+            # eval_logger.error("Failed to save Result to MongoDB.")
+            # eval_logger.error("Exception:", Exeption=str(e))
+            # raise ApplicationError(
+            #     "Failed to save result to MongoDB.", non_retryable=True
+            # )
+        # Original error
+        error_msg = "Failed to process evaluation."
+        eval_logger.error(
+            error_msg,
+            task=args.task_id, 
+            error=str(e),
+        )
+        return False, f"{error_msg}: {str(e)}"
 
-    return True
+    return True, "OK"

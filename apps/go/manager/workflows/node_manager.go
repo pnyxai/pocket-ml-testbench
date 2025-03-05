@@ -7,6 +7,7 @@ import (
 	"manager/activities"
 	"manager/types"
 
+	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 )
 
@@ -42,6 +43,12 @@ func (wCtx *Ctx) NodeManager(ctx workflow.Context, params types.NodeManagerParam
 	ctxTimeout := workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
 		ScheduleToStartTimeout: time.Minute * 5,
 		StartToCloseTimeout:    time.Minute * 5,
+		RetryPolicy: &temporal.RetryPolicy{
+			InitialInterval:    time.Second * 5,
+			BackoffCoefficient: 2,
+			MaximumInterval:    time.Second * 32,
+			MaximumAttempts:    5,
+		},
 	})
 	// Set activity input
 	getStakedInput := types.GetStakedParams{

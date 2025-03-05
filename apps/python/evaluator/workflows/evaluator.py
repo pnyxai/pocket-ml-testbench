@@ -30,7 +30,7 @@ class Evaluator:
 
         # Perform the corresponding evaluation
         if framework == "lmeh":
-            _ = await workflow.execute_activity(
+            eval_OK, msg_str = await workflow.execute_activity(
                 lmeh_evaluate,
                 args,
                 start_to_close_timeout=timedelta(seconds=300),
@@ -39,14 +39,14 @@ class Evaluator:
 
         elif framework == "signatures":
             if task == "tokenizer":
-                _ = await workflow.execute_activity(
+                eval_OK, msg_str = await workflow.execute_activity(
                     tokenizer_evaluate,
                     args,
                     start_to_close_timeout=timedelta(seconds=300),
                     retry_policy=RetryPolicy(maximum_attempts=2),
                 )
             elif task == "config":
-                _ = await workflow.execute_activity(
+                eval_OK, msg_str = await workflow.execute_activity(
                     model_config_evaluate,
                     args,
                     start_to_close_timeout=timedelta(seconds=300),
@@ -69,6 +69,8 @@ class Evaluator:
             )
 
         # Trigger the manager result processing workflow
+        # We must do this despite the evaluator success in order to allow the
+        # manager to drop records and clean failed tasks.
         app_config = get_app_config()
         config = app_config["config"]
         await workflow.start_child_workflow(
@@ -84,6 +86,14 @@ class Evaluator:
             retry_policy=RetryPolicy(maximum_attempts=1),
             parent_close_policy=ParentClosePolicy.ABANDON,
         )
+
+        if not eval_OK:
+            raise ApplicationError(
+                msg_str,
+                args,
+                type="EvalError",
+                non_retryable=True,
+            )
 
         eval_logger.info("Workflow Evaluator done")
         return True
