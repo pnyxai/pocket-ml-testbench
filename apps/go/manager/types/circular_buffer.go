@@ -25,6 +25,22 @@ type CircularBuffer struct {
 	Indexes       CircularIndexes `bson:"indexes"`
 }
 
+// IsIndexInRange checks if the given index is within the range defined by Indexes.Start and Indexes.End
+// in a circular buffer that overflows at CircBufferLen.
+func (buffer *CircularBuffer) IsIndexInRange(index uint32) bool {
+	readStart := buffer.Indexes.Start
+	readEnd := buffer.Indexes.End
+
+	if readStart <= readEnd {
+		// Normal range, without a wrap-around
+		return index >= readStart && index <= readEnd
+	} else {
+		// Wrap-around, check if index is in the first part (from start to end of buffer) or
+		// the second part (from start of buffer to end index)
+		return index >= readStart && index < buffer.CircBufferLen || index <= readEnd
+	}
+}
+
 // Gets the sample index given a step direction (positive: 1 or negative: -1) and for a given marker (start or end of buffer)
 func (buffer *CircularBuffer) StepIndex(step uint32, marker string, positive_step bool, l *zerolog.Logger) error {
 

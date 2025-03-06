@@ -138,8 +138,8 @@ func (aCtx *Ctx) AnalyzeNode(ctx context.Context, params types.AnalyzeNodeParams
 				return nil, err
 			}
 
-			// If the number of samples is less than the minimum or ther is a minimum value to trigger, proceed to request more
-			numberOfSamples := thisTaskRecord.GetNumSamples()
+			// If the number of samples is less than the minimum or there is a minimum value to trigger, proceed to request more
+			numberOfSamples := thisTaskRecord.GetNumOkSamples()
 			if numberOfSamples < thisTaskRecord.GetMinSamplesPerTask() || minTrigger > 0 {
 
 				// Calculate the total number of request needed

@@ -75,6 +75,7 @@ type TaskInterface interface {
 	CycleIndexes(l *zerolog.Logger) (bool, error)
 	InsertSample(timeSample time.Time, data interface{}, l *zerolog.Logger) (err error)
 	GetNumSamples() uint32
+	GetNumOkSamples() uint32
 	GetFramework() string
 	GetTask() string
 	GetMinSamplesPerTask() uint32
@@ -348,7 +349,7 @@ func CheckTaskTriggerMin(taskData TaskInterface, block types.BlockData, configMa
 const NumericalTaskTypeName string = "numerical"
 
 // The maximum age of a sample living in a buffer.
-const NumericalSampleTTLDays uint32 = 5
+const NumericalSampleTTLDays uint32 = 3
 
 // Minimum number of samples to have in a task to consider that it does not require more samples
 // According to "tinyBenchmarks: evaluating LLMs with fewer examples" 100 is enough, but also 50 seems adequate.
@@ -525,6 +526,22 @@ func (record *NumericalTaskRecord) GetNumSamples() uint32 {
 	return record.CircBuffer.NumSamples
 }
 
+// Returns the number of correct (not errored) samples in the circular buffer
+func (record *NumericalTaskRecord) GetNumOkSamples() uint32 {
+	// Initialize a counter for the number of OK samples
+	var okSamples uint32 = 0
+
+	// Loop through all the elements of `ScoresSamples` and count the number that have `StatusCode==0`
+	// and checking if the element index is within the valid range using the function "IsIndexInRange(uint32)"
+	for i, sample := range record.ScoresSamples {
+		if record.CircBuffer.IsIndexInRange(uint32(i)) && sample.StatusCode == 0 {
+			okSamples++
+		}
+	}
+
+	return okSamples
+}
+
 // Returns True if the task is ok, meaning that their values are updated and correct
 func (record *NumericalTaskRecord) IsOK() bool {
 	if record.MeanScore+record.MedianScore+record.StdScore != 0.0 {
@@ -663,7 +680,7 @@ func (record *NumericalTaskRecord) GetResultStruct() ResultInterface {
 const SignatureTaskTypeName string = "signature"
 
 // The maximum age of a sample living in a buffer.
-const SignatureSampleTTLDays uint32 = 5
+const SignatureSampleTTLDays uint32 = 3
 
 // Minimum number of samples to have in a task to consider that it does not require more samples
 const SignatureMinSamplesPerTask uint32 = 5
@@ -830,6 +847,22 @@ func (record *SignatureTaskRecord) CycleIndexes(l *zerolog.Logger) (bool, error)
 // Returns the number of valid samples in the circular buffer
 func (record *SignatureTaskRecord) GetNumSamples() uint32 {
 	return record.CircBuffer.NumSamples
+}
+
+// Returns the number of correct (not errored) samples in the circular buffer
+func (record *SignatureTaskRecord) GetNumOkSamples() uint32 {
+	// Initialize a counter for the number of OK samples
+	var okSamples uint32 = 0
+
+	// Loop through all the elements of `Signatures` and count the number that have `StatusCode==0`
+	// and checking if the element index is within the valid range using the function "IsIndexInRange(uint32)"
+	for i, sample := range record.Signatures {
+		if record.CircBuffer.IsIndexInRange(uint32(i)) && sample.StatusCode == 0 {
+			okSamples++
+		}
+	}
+
+	return okSamples
 }
 
 // insert a new signature into the circular buffer
