@@ -93,7 +93,6 @@ def load_tokenizer(
     for key, value in tokenizer_objects.items():
         filename = os.path.join(tokenizer_ephimeral_path, key + ".json")
         with open(filename, "w") as f:
-            # print(filename)
             if eval_logger is not None:
                 eval_logger.debug(f"Writing '{filename}'")
             json.dump(value, f)
@@ -124,13 +123,11 @@ def _get_config_jsons(_config: PretrainedConfig, CONFIG_EPHIMERAL_PATH=None):
     # save config files in ephimeral folder
     _config.save_pretrained(CONFIG_EPHIMERAL_PATH.absolute())
     tmp_list = [i for i in CONFIG_EPHIMERAL_PATH.glob("*.json")]
-    # print(tmp_list)
     # populate config json
     config_jsons = {}
     for json_path in tmp_list:
         with open(json_path) as json_file:
             filename = json_path.stem
-            # print(filename)
             config_jsons[filename] = json.load(json_file)
     try:
         shutil.rmtree(CONFIG_EPHIMERAL_PATH)
@@ -174,7 +171,6 @@ def load_config(
     for key, value in config_objects.items():
         filename = os.path.join(config_ephimeral_path, key + ".json")
         with open(filename, "w") as f:
-            # print(filename)
             if eval_logger is not None:
                 eval_logger.debug(f"Writing '{filename}'")
             json.dump(value, f)
