@@ -140,6 +140,7 @@ func (aCtx *Ctx) AnalyzeNode(ctx context.Context, params types.AnalyzeNodeParams
 
 			// If the number of samples is less than the minimum or there is a minimum value to trigger, proceed to request more
 			numberOfSamples := thisTaskRecord.GetNumOkSamples()
+			l.Debug().Str("address", thisNodeData.Address).Str("service", thisNodeData.Service).Str("framework", test.Framework).Str("task", task).Uint32("numberOfSamples", numberOfSamples).Msg("Ok sample count.")
 			if numberOfSamples < thisTaskRecord.GetMinSamplesPerTask() || minTrigger > 0 {
 
 				// Calculate the total number of request needed
