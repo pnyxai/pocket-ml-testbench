@@ -1,0 +1,112 @@
+# Postgresql ID max length for text
+limit.maxIDLength:
+  - value: 255
+    constraints: {}
+
+# TBD, came from temporal docker compose example tbh.
+system.forceSearchAttributesCacheRefreshOnRead:
+  - value: false # Dev setup only. Please don't turn this on in production.
+    constraints: {}
+
+# Cluster-wide persistence QPS limit. Adjust based on database capacity.
+clusterConfig.persistenceMaxQPS:
+  - value: 3000
+
+# Namespace-specific persistence QPS limit for 'pocket-ml-testbench'.
+namespaceConfig.persistenceMaxQPS:
+  - value: 2000
+    constraints:
+      namespace: 'pocket-ml-testbench'
+
+# Cluster-wide history QPS limit.
+clusterConfig.historyMaxQPS:
+  - value: 2500
+
+# Namespace-specific history QPS limit for 'pocket-ml-testbench'.
+namespaceConfig.historyMaxQPS:
+  - value: 1500
+    constraints:
+      namespace: 'pocket-ml-testbench'
+
+# Cluster-wide matching QPS limit.
+clusterConfig.matchingMaxQPS:
+  - value: 2000
+
+# Namespace-specific matching QPS limit for 'pocket-ml-testbench'.
+namespaceConfig.matchingMaxQPS:
+  - value: 1000
+    constraints:
+      namespace: 'pocket-ml-testbench'
+
+# Cluster-wide visibility QPS limit.
+clusterConfig.visibilityMaxQPS:
+  - value: 1000
+
+# Namespace-specific visibility QPS limit for 'pocket-ml-testbench'.
+namespaceConfig.visibilityMaxQPS:
+  - value: 500
+    constraints:
+      namespace: 'pocket-ml-testbench'
+
+# Default retry policy for Activities within 'pocket-ml-testbench'.
+namespaceConfig.activityDefaultRetryPolicy:
+  - value:
+      initialInterval: "10s" # Start with a 10-second delay.
+      backoffCoefficient: 2.0 # Double the delay on each retry.
+      maximumInterval: "5m" # Maximum retry delay of 5 minutes.
+      maximumAttempts: 10 # Retry up to 10 times.
+    constraints:
+      namespace: 'pocket-ml-testbench'
+
+# Default retry policy for Workflows within 'pocket-ml-testbench'.
+namespaceConfig.workflowDefaultRetryPolicy:
+  - value:
+      initialInterval: "30s" # Start with a 30-second delay.
+      backoffCoefficient: 1.5 # Increase delay by 1.5x on each retry.
+      maximumInterval: "10m" # Maximum retry delay of 10 minutes.
+      maximumAttempts: 5 # Retry up to 5 times.
+    constraints:
+      namespace: 'pocket-ml-testbench'
+
+# Enable archival of Workflow History for 'pocket-ml-testbench'.
+namespaceConfig.archival.history.state:
+  - value: "Enabled"
+    constraints:
+      namespace: 'pocket-ml-testbench'
+
+# Archival bucket name for 'pocket-ml-testbench'.
+namespaceConfig.archival.history.bucketName:
+  - value: "your-archival-bucket" # Replace with your bucket name.
+    constraints:
+      namespace: 'pocket-ml-testbench'
+
+# Archival URL for 'pocket-ml-testbench'.
+namespaceConfig.archival.history.url:
+  - value: "s3://your-archival-bucket/temporal-archives" # Replace with your archival URL.
+    constraints:
+      namespace: 'pocket-ml-testbench'
+
+# Enable the Web UI for 'pocket-ml-testbench'.
+namespaceConfig.web.ui.enable:
+  - value: true
+    constraints:
+      namespace: 'pocket-ml-testbench'
+
+# Persistence QPS limit for 'your_high_priority_task_queue' within 'pocket-ml-testbench'.
+taskQueueConfig.persistenceMaxQPS:
+  - value: 10000
+    constraints:
+      namespace: 'pocket-ml-testbench'
+      taskQueueName: 'your_high_priority_task_queue'
+
+# Maximum concurrent Activities for workers in 'pocket-ml-testbench'.
+workerConfig.activity_worker_max_concurrent_activities:
+  - value: 1000
+    constraints:
+      namespace: "pocket-ml-testbench"
+
+# Maximum concurrent Workflows for workers in 'pocket-ml-testbench'.
+workerConfig.workflow_worker_max_concurrent_workflows:
+  - value: 500
+    constraints:
+      namespace: "pocket-ml-testbench"

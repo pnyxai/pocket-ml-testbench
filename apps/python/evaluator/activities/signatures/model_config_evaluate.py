@@ -1,10 +1,9 @@
 import json
 from datetime import datetime
-
+from typing import Tuple
 from app.app import get_app_config, get_app_logger
 from bson import ObjectId
 from temporalio import activity
-from temporalio.exceptions import ApplicationError
 
 from packages.python.common.auto_heartbeater import auto_heartbeater
 from packages.python.lmeh.utils.mongodb import MongoOperator
@@ -23,7 +22,9 @@ from packages.python.protocol.protocol import (
 
 @activity.defn
 @auto_heartbeater
-async def model_config_evaluate(args: PocketNetworkEvaluationTaskRequest) -> bool:
+async def model_config_evaluate(
+    args: PocketNetworkEvaluationTaskRequest,
+) -> Tuple[bool, str]:
     """
     Returns a dict where each key is a task name with the evaluation result.
     :param args:
@@ -40,24 +41,29 @@ async def model_config_evaluate(args: PocketNetworkEvaluationTaskRequest) -> boo
             task_id_str = args.task_id
             args.task_id = ObjectId(args.task_id)
         except Exception as e:
-            raise ApplicationError(
-                "Bad Task ID format",
-                str(e),
-                args.task_id,
-                type="BadParams",
-                non_retryable=True,
-            )
+            eval_logger.error("bad Task ID format", error=str(e), task=args.task_id)
+            return False, f"Bad Task ID format: {str(e)}"
+            # raise ApplicationError(
+            #     "Bad Task ID format",
+            #     str(e),
+            #     args.task_id,
+            #     type="BadParams",
+            #     non_retryable=True,
+            # )
 
         # Retrieve all responses
         responses = await mongo_operator.retrieve_responses(args.task_id)
         if len(responses) != 1:
-            eval_logger.error(f"Found {len(responses)} responses, only 1 is expected.")
-            raise ApplicationError(
-                f"Task ID {args.task_id}: Found {len(responses)} responses, only 1 is expected.",
-                str(args.task_id),
-                type="ResponseError",
-                non_retryable=False,
+            # This should not be fatal
+            eval_logger.warn(
+                f"Task ID {args.task_id}: Found {len(responses)} responses, only 1 is expected. Using the first one and proceeding."
             )
+            # raise ApplicationError(
+            #     f"Task ID {args.task_id}: Found {len(responses)} responses, only 1 is expected.",
+            #     str(args.task_id),
+            #     type="ResponseError",
+            #     non_retryable=False,
+            # )
 
         # Create the result, empty for now
         result = PocketNetworkMongoDBResultSignature(
@@ -112,9 +118,6 @@ async def model_config_evaluate(args: PocketNetworkEvaluationTaskRequest) -> boo
                 config_jsons_loaded, config_hash_loaded = prepare_config(
                     _config, CONFIG_EPHIMERAL_PATH=temp_path
                 )
-                # TODO
-                # For instance, the tokenizer hash is used as the config hash
-                # in future versions, this should be changed
                 model_config_mongo_new = PocketNetworkMongoDBConfig(
                     config=config_jsons_loaded, hash=config_hash_loaded
                 )
@@ -158,11 +161,16 @@ async def model_config_evaluate(args: PocketNetworkEvaluationTaskRequest) -> boo
                         )
                     eval_logger.debug("Saved new config to DB.")
                 except Exception as e:
-                    eval_logger.error("Failed to save model cofig to MongoDB.")
-                    eval_logger.error("Exeption:", Exeption=str(e))
-                    raise ApplicationError(
-                        "Failed to save model config to MongoDB.", non_retryable=True
+                    error_msg = "Failed to save model config to MongoDB."
+                    eval_logger.error(
+                        error_msg,
+                        task=args.task_id,
+                        error=str(e),
                     )
+                    return False, f"{error_msg}: {str(e)}"
+                    # raise ApplicationError(
+                    #     "Failed to save model config to MongoDB.", non_retryable=True
+                    # )
 
             # Update the result with valid data
             result.result_data.num_samples = 1  # Always one
@@ -189,11 +197,19 @@ async def model_config_evaluate(args: PocketNetworkEvaluationTaskRequest) -> boo
                 )
             eval_logger.debug("Saved result to DB.")
         except Exception as e:
-            eval_logger.error("Failed to save Result to MongoDB.")
-            eval_logger.error("Exception:", Exeption=str(e))
-            raise ApplicationError(
-                "Failed to save result to MongoDB.", non_retryable=True
+            error_msg = "Failed to save Result to MongoDB. (correct evaluation path)"
+            eval_logger.error(
+                error_msg,
+                task=args.task_id,
+                error=str(e),
             )
+            return False, f"{error_msg}: {str(e)}"
+
+            # eval_logger.error("Failed to save Result to MongoDB.")
+            # eval_logger.error("Exception:", Exeption=str(e))
+            # raise ApplicationError(
+            #     "Failed to save result to MongoDB.", non_retryable=True
+            # )
 
         eval_logger.info(
             "Model Config Status:",
@@ -213,6 +229,16 @@ async def model_config_evaluate(args: PocketNetworkEvaluationTaskRequest) -> boo
             ),
             signatures=[],
         )
+        # TODO : This should not be part of the "find_one_and_update"
+        try:
+            result.pop("_id", None)
+        except Exception as e:
+            eval_logger.warn(
+                "Cannot pop _id from config",
+                task=args.task_id,
+                error=str(e),
+            )
+            pass
         # Save to results db (a failure is also an answer)
         try:
             async with mongo_client.start_transaction() as session:
@@ -229,11 +255,26 @@ async def model_config_evaluate(args: PocketNetworkEvaluationTaskRequest) -> boo
                 )
             eval_logger.debug("Saved result to DB.")
         except Exception as e:
-            eval_logger.error("Failed to save Result to MongoDB.")
-            eval_logger.error("Exception:", Exeption=str(e))
-            raise ApplicationError(
-                "Failed to save result to MongoDB.", non_retryable=True
+            error_msg = "Failed to save Result to MongoDB. (failed evaluation path)"
+            eval_logger.error(
+                error_msg,
+                task=args.task_id,
+                error=str(e),
             )
-        raise e
+            return False, f"{error_msg}: {str(e)}"
+            # eval_logger.error("Failed to save Result to MongoDB.")
+            # eval_logger.error("Exception:", Exeption=str(e))
+            # raise ApplicationError(
+            #     "Failed to save result to MongoDB.", non_retryable=True
+            # )
 
-    return True
+        # Original error
+        error_msg = "Failed to process evaluation."
+        eval_logger.error(
+            error_msg,
+            task=args.task_id,
+            error=str(e),
+        )
+        return False, f"{error_msg}: {str(e)}"
+
+    return True, "OK"

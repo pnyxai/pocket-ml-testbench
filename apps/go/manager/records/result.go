@@ -118,7 +118,7 @@ func (record *NumericalResultRecord) FindAndLoadResults(taskID primitive.ObjectI
 	opts := options.FindOne()
 
 	// Set mongo context
-	ctxM, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctxM, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
 	// Retrieve this node entry
@@ -179,7 +179,7 @@ func (record *SignatureResultRecord) FindAndLoadResults(taskID primitive.ObjectI
 	opts := options.FindOne()
 
 	// Set mongo context
-	ctxM, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctxM, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
 	// Retrieve this node entry

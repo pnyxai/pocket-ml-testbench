@@ -26,6 +26,7 @@ type TaskRequestRecord struct {
 	TotalInstances int                `bson:"total_instances"`
 	RequestType    string             `bson:"request_type"`
 	Done           bool               `bson:"done"`
+	Drop           bool               `bson:"drop"`
 }
 
 // ------------------------------------------------------------------------------

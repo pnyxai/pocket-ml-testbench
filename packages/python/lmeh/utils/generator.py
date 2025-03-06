@@ -129,7 +129,7 @@ def get_configurable_task(
                     f"num_fewshot has been set to 0 for {task_name} in its config. Manual configuration will be ignored."
                 )
             else:
-                eval_logger.warning(
+                eval_logger.info(
                     f"Overwriting default num_fewshot of {task_name} from {default_num_fewshot} to {num_fewshot}"
                 )
                 task_obj.set_config(key="num_fewshot", value=num_fewshot)
@@ -414,7 +414,7 @@ async def evaluate(
                     if "_id" in result.keys():
                         result.pop(
                             "_id"
-                        )  # TODO: Findout how this arrives here on ocations... This should not be here I think...
+                        )  # TODO: Find out how this arrives here on some occasions... This should not be here I think...
                     bulk_op.append(
                         UpdateOne(
                             filter={

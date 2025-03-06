@@ -12,8 +12,10 @@ services:
     volumes:
       - $MANAGER_CONFIG_FILE:/home/app/configs/config.json
     networks:
-      - temporal
-      - mongodb
+      - testbench
+      #- temporal
+      #- mongodb
+      - morse-localnet
 
   sampler:
     build:
@@ -30,16 +32,17 @@ services:
       EVALUATE_VERBOSITY: "error"
       DATASETS_VERBOSITY: "error"
     deploy:
-      replicas: 3
+      replicas: 1
     extra_hosts:
       host.docker.internal: host-gateway
     volumes:
       - $SAMPLER_CONFIG_FILE:/home/app/configs/config.json
     networks:
-     - postgresql
-     - temporal
-     - mongodb
-     
+     - testbench
+     #- postgresql
+     #- temporal
+     #- mongodb
+
   requester:
     build:
       context: ../../../
@@ -53,9 +56,11 @@ services:
     volumes:
       - $REQUESTER_CONFIG_FILE:/home/app/configs/config.json
     networks:
-      - temporal
-      - mongodb
-  
+      - testbench
+      #- temporal
+      #- mongodb
+      - morse-localnet
+
   evaluator:
     build:
       context: ../../../
@@ -77,45 +82,31 @@ services:
     volumes:
       - $EVALUATOR_CONFIG_FILE:/home/app/configs/config.json
     networks:
-      - postgresql
-      - temporal
-      - mongodb
-  
-  test-api:
-    build:
-      context: ../../../
-      dockerfile: apps/python/api/Dockerfile
-    image: pocket_ml_testbench_test_api:dev
-    environment:
-      MONGODB_URI: $MONGODB_URI
-    extra_hosts:
-      host.docker.internal: host-gateway
-    ports:
-      - 3001:3001
-  
-  web:
-    build:
-      context: ../../../
-      dockerfile: apps/nodejs/web/Dockerfile
-      args:
-        SHOW_STDERR: $SHOW_STDERR
-        API_ENDPOINT_URL: $API_ENDPOINT_URL
-    image: pocket_ml_testbench_web:dev
-    extra_hosts:
-      host.docker.internal: host-gateway
-    ports:
-      - 3000:3000
-    depends_on:
-      test-api:
-        condition: service_started
+      - testbench
+      #- postgresql
+      #- temporal
+      #- mongodb
+
+#  test-api:
+#    image: registry.digitalocean.com/poktscan/pocket_ml_api:dev
+#    pull_policy: always
+#    environment:
+#      MONGODB_URI: $MONGODB_URI
+#    extra_hosts:
+#      host.docker.internal: host-gateway
+#    ports:
+#      - 3001:3001
 
 networks:
-  temporal:
-    name: temporal
+  testbench:
+    name: testbench
     external: true
-  postgresql:
-    name: postgresql
-    external: true
-  mongodb:
-    name: mongodb
+  #postgresql:
+  #  name: postgresql
+  #  external: true
+  #mongodb:
+  #  name: mongodb
+  #  external: true
+  morse-localnet:
+    name: morse-localnet
     external: true

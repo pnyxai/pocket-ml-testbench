@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"go.temporal.io/api/enums/v1"
+	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/temporal"
 )
@@ -42,7 +43,7 @@ func (aCtx *Ctx) TriggerSampler(_ context.Context, params types.TriggerSamplerPa
 		),
 		TaskQueue:                                aCtx.App.Config.Temporal.Sampler.TaskQueue,
 		WorkflowExecutionErrorWhenAlreadyStarted: true,
-		WorkflowIDReusePolicy:                    enums.WORKFLOW_ID_REUSE_POLICY_TERMINATE_IF_RUNNING,
+		WorkflowIDReusePolicy:                    enums.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE, // This will trigger when no other is running: https://community.temporal.io/t/execute-a-workflow-multi-times-with-the-same-workflowid/6031/4
 		WorkflowTaskTimeout:                      120 * time.Second,
 		RetryPolicy: &temporal.RetryPolicy{
 			MaximumAttempts: 1,
@@ -56,8 +57,14 @@ func (aCtx *Ctx) TriggerSampler(_ context.Context, params types.TriggerSamplerPa
 		samplerParams,
 	)
 	if err != nil {
-		err = temporal.NewApplicationErrorWithCause("error triggering Sampler workflow", "WorkflowTrigger", err)
-		return &result, err
+		// Check if error is due to "Workflow Execution Already Started" and skip if so
+		if _, ok := err.(*serviceerror.WorkflowExecutionAlreadyStarted); ok {
+			l.Debug().Msg("Workflow is already running, ignoring duplicate start.")
+		} else {
+			err = temporal.NewApplicationErrorWithCause("error triggering Sampler workflow", "WorkflowTrigger", err)
+			return &result, err
+		}
+
 	}
 	result.Success = true
 	return &result, nil

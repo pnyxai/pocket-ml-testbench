@@ -17,11 +17,29 @@ async def lookup_tasks() -> List[str]:
     mongo_operator = MongoOperator(client=mongo_client)
 
     eval_logger.debug("Searching for tasks.")
-
     docs = await mongo_operator.get_tasks()
-
     ids = [str(doc["_id"]) for doc in docs]
+    eval_logger.debug(f"Lookup tasks found {len(ids)} done tasks")
 
-    eval_logger.debug(f"Lookup tasks found {len(ids)} tasks")
+    # Look for skipped/old tasks
+    eval_logger.debug("Searching for old/skipped tasks.")
+    docs = await mongo_operator.get_old_tasks(blocks_ago=40)
+    old_ids = [str(doc["_id"]) for doc in docs]
+    eval_logger.debug(f"Lookup tasks found {len(old_ids)} old/skipped tasks")
+    # Set them as done
+    eval_logger.debug("Setting skipped tasks as done.")
+    old_ids_ok = list()
+    for id in old_ids:
+        try:
+            mongo_operator.set_task_as_done(id)
+            old_ids_ok.append(id)
+        except Exception as e:
+            eval_logger.error(
+                "Unable to mark task as done. If this persist, the task will stay in the database and prevent further task triggers.",
+                task_id=id,
+                error=str(e),
+            )
 
-    return ids
+    eval_logger.debug(f"Lookup tasks found {len(ids + old_ids_ok)} old/skipped tasks")
+
+    return ids + old_ids_ok

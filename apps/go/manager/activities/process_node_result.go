@@ -39,6 +39,16 @@ func (aCtx *Ctx) AnalyzeResult(ctx context.Context, params types.AnalyzeResultPa
 		err = temporal.NewNonRetryableApplicationError("unable to get task data", "retrieveTaskData", fmt.Errorf("Task %s not found", params.TaskID.String()))
 		return nil, err
 	}
+	if taskData.Drop {
+		// The task has failed for some reason (result of mark_task_to_drop ),
+		// we cannot proceed and we must delete the task data
+		if !aCtx.App.Config.DevelopCfg.DoNotRemoveTasksFromDB {
+			RemoveTaskID(params.TaskID, aCtx.App.Mongodb, l)
+		}
+		// this was successfully analyzed
+		result.Success = true
+		return &result, nil
+	}
 	// Extract data
 	Node := types.NodeData{
 		Address: taskData.RequesterArgs.Address,
@@ -159,13 +169,7 @@ func (aCtx *Ctx) AnalyzeResult(ctx context.Context, params types.AnalyzeResultPa
 
 	// Delete all MongoDB entries associated with this task ID
 	if !aCtx.App.Config.DevelopCfg.DoNotRemoveTasksFromDB {
-		errDel := RemoveTaskID(params.TaskID, aCtx.App.Mongodb, l)
-		if errDel != nil {
-			l.Debug().
-				Str("delete_error", errDel.Error()).
-				Str("task_id", params.TaskID.String()).
-				Msg("Deletion error.")
-		}
+		RemoveTaskID(params.TaskID, aCtx.App.Mongodb, l)
 	}
 
 	//------------------------------------------------------------------
@@ -200,14 +204,14 @@ func retrieveTaskData(taskID primitive.ObjectID,
 	task_request_filter := bson.D{{Key: "_id", Value: taskID}}
 	opts := options.FindOne()
 	// Set mongo context
-	ctxM, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctxM, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
 	// Now retrieve all node task requests entries
 	cursor := tasksCollection.FindOne(ctxM, task_request_filter, opts)
 	var taskReq types.TaskRequestRecord
 	if err := cursor.Decode(&taskReq); err != nil {
-		l.Info().Str("taskID", taskID.String()).Msg("Could not decode task request data from MongoDB.")
+		l.Debug().Str("taskID", taskID.String()).Msg("Could not decode task request data from MongoDB.")
 		return taskReq, err
 	}
 
@@ -216,7 +220,7 @@ func retrieveTaskData(taskID primitive.ObjectID,
 }
 
 // Given a TaskID from MongoDB, deletes all associated entries from the "tasks", "instances", "prompts", "responses" and "results" collections.
-func RemoveTaskID(taskID primitive.ObjectID, mongoDB mongodb.MongoDb, l *zerolog.Logger) (err error) {
+func RemoveTaskID(taskID primitive.ObjectID, mongoDB mongodb.MongoDb, l *zerolog.Logger) {
 
 	//--------------------------------------------------------------------------
 	//-------------------------- Instances -------------------------------------
@@ -225,16 +229,15 @@ func RemoveTaskID(taskID primitive.ObjectID, mongoDB mongodb.MongoDb, l *zerolog
 	// Set filtering for this node-service pair data
 	task_request_filter := bson.D{{Key: "task_id", Value: taskID}}
 	// Set mongo context
-	ctxM, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctxM, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	// Now retrieve all node task requests entries
 	response, err := instancesCollection.DeleteMany(ctxM, task_request_filter)
 	if err != nil {
-		l.Warn().Msg("Could not delete instances data from MongoDB.")
-		return err
+		l.Warn().Err(err).Msg("Could not delete instances data from MongoDB.")
+	} else {
+		l.Debug().Int("deleted_count", int(response.DeletedCount)).Str("TaskID", taskID.String()).Msg("deleted instances data from MongoDB")
 	}
-
-	l.Debug().Int("deleted_count", int(response.DeletedCount)).Str("TaskID", taskID.String()).Msg("deleted instances data from MongoDB")
 
 	//--------------------------------------------------------------------------
 	//-------------------------- Prompts ---------------------------------------
@@ -243,16 +246,15 @@ func RemoveTaskID(taskID primitive.ObjectID, mongoDB mongodb.MongoDb, l *zerolog
 	// Set filtering for this node-service pair data
 	task_request_filter = bson.D{{Key: "task_id", Value: taskID}}
 	// Set mongo context
-	ctxM, cancel = context.WithTimeout(context.Background(), 10*time.Second)
+	ctxM, cancel = context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	// Now retrieve all node task requests entries
 	response, err = promptsCollection.DeleteMany(ctxM, task_request_filter)
 	if err != nil {
-		l.Warn().Msg("Could not delete prompts data from MongoDB.")
-		return err
+		l.Warn().Err(err).Msg("Could not delete prompts data from MongoDB.")
+	} else {
+		l.Debug().Int("deleted", int(response.DeletedCount)).Str("TaskID", taskID.String()).Msg("deleted prompts data from MongoDB")
 	}
-
-	l.Debug().Int("deleted", int(response.DeletedCount)).Str("TaskID", taskID.String()).Msg("deleted prompts data from MongoDB")
 
 	//--------------------------------------------------------------------------
 	//-------------------------- Responses -------------------------------------
@@ -261,16 +263,15 @@ func RemoveTaskID(taskID primitive.ObjectID, mongoDB mongodb.MongoDb, l *zerolog
 	// Set filtering for this node-service pair data
 	task_request_filter = bson.D{{Key: "task_id", Value: taskID}}
 	// Set mongo context
-	ctxM, cancel = context.WithTimeout(context.Background(), 10*time.Second)
+	ctxM, cancel = context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	// Now retrieve all node task requests entries
 	response, err = responsesCollection.DeleteMany(ctxM, task_request_filter)
 	if err != nil {
-		l.Warn().Msg("Could not delete responses data from MongoDB.")
-		return err
+		l.Warn().Err(err).Msg("Could not delete responses data from MongoDB.")
+	} else {
+		l.Debug().Int("deleted_count", int(response.DeletedCount)).Str("TaskID", taskID.String()).Msg("deleted responses data from MongoDB")
 	}
-
-	l.Debug().Int("deleted_count", int(response.DeletedCount)).Str("TaskID", taskID.String()).Msg("deleted responses data from MongoDB")
 
 	//--------------------------------------------------------------------------
 	//-------------------------- Results ---------------------------------------
@@ -279,16 +280,15 @@ func RemoveTaskID(taskID primitive.ObjectID, mongoDB mongodb.MongoDb, l *zerolog
 	// Set filtering for this node-service pair data
 	task_request_filter = bson.D{{Key: "result_data.task_id", Value: taskID}}
 	// Set mongo context
-	ctxM, cancel = context.WithTimeout(context.Background(), 10*time.Second)
+	ctxM, cancel = context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	// Now retrieve all node task requests entries
 	response, err = resultsCollection.DeleteMany(ctxM, task_request_filter)
 	if err != nil {
-		l.Warn().Msg("Could not delete results data from MongoDB.")
-		return err
+		l.Warn().Err(err).Msg("Could not delete results data from MongoDB.")
+	} else {
+		l.Debug().Int("deleted_count", int(response.DeletedCount)).Str("TaskID", taskID.String()).Msg("deleted results data from MongoDB")
 	}
-
-	l.Debug().Int("deleted_count", int(response.DeletedCount)).Str("TaskID", taskID.String()).Msg("deleted results data from MongoDB")
 
 	//--------------------------------------------------------------------------
 	//-------------------------- Task ------------------------------------------
@@ -297,17 +297,14 @@ func RemoveTaskID(taskID primitive.ObjectID, mongoDB mongodb.MongoDb, l *zerolog
 	// Set filtering for this node-service pair data
 	task_request_filter = bson.D{{Key: "_id", Value: taskID}}
 	// Set mongo context
-	ctxM, cancel = context.WithTimeout(context.Background(), 10*time.Second)
+	ctxM, cancel = context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	// Now retrieve all node task requests entries
 	response, err = tasksCollection.DeleteMany(ctxM, task_request_filter)
 	if err != nil {
-		l.Warn().Msg("Could not delete task data from MongoDB.")
-		return err
+		l.Warn().Err(err).Msg("Could not delete task data from MongoDB.")
+	} else {
+		l.Debug().Int("deleted_count", int(response.DeletedCount)).Str("TaskID", taskID.String()).Msg("deleted task data from MongoDB")
 	}
-
-	l.Debug().Int("deleted_count", int(response.DeletedCount)).Str("TaskID", taskID.String()).Msg("deleted task data from MongoDB")
-
-	return nil
 
 }

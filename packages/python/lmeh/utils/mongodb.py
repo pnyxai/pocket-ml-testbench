@@ -8,12 +8,12 @@ from typing import List
 from app.app import get_app_logger
 from bson.objectid import ObjectId
 from lm_eval.api.instance import Instance
-from temporalio.exceptions import ApplicationError
 
 from packages.python.common.mongodb import MongoClient
 from packages.python.lmeh.utils.mongo_aggrs import (
     aggregate_doc_ids,
     aggregate_response_tree,
+    aggregate_old_tasks,
 )
 from packages.python.protocol.protocol import (
     CompletionRequest,
@@ -95,7 +95,7 @@ class MongoOperator:
 
         if node is None:
             eval_logger.error("Node address not found.", adress=address)
-            raise ApplicationError(
+            raise RuntimeError(
                 f"Node address {address} does not exist in the database."
             )
 
@@ -106,7 +106,7 @@ class MongoOperator:
             eval_logger.error(
                 "Node address has no _id, cannot load tokenizer hash.", adress=address
             )
-            raise ApplicationError(
+            raise RuntimeError(
                 f"Node address {address}, has no _id, cannot load tokenizer hash."
             )
 
@@ -128,7 +128,7 @@ class MongoOperator:
             eval_logger.error(
                 f"Buffer for {signature_name} signature not found.", adress=address
             )
-            raise ApplicationError(
+            raise RuntimeError(
                 f"Node address {address} does not have a {signature_name} signature buffer associated."
             )
 
@@ -137,11 +137,11 @@ class MongoOperator:
         this_hash = buffer.get("last_signature", None)
         if this_hash is None:
             eval_logger.error(
-                "Buffer has no last signature field, entry is malformed cannot procede.",
+                "Buffer has no last signature field, entry is malformed cannot proceed.",
                 adress=address,
             )
-            raise ApplicationError(
-                f"Node address {address} buffer has no last signature field, entry is malformed cannot procede."
+            raise RuntimeError(
+                f"Node address {address} buffer has no last signature field, entry is malformed cannot proceed."
             )
 
         return this_hash
@@ -179,7 +179,7 @@ class MongoOperator:
             eval_logger.error(
                 "Node address does not have a valid tokenizer_hash.", adress=address
             )
-            raise ApplicationError(
+            raise RuntimeError(
                 f"Node address {address} does not have a valid tokenizer_hash."
             )
 
@@ -190,7 +190,7 @@ class MongoOperator:
             eval_logger.error(
                 "Tokenizer hash not found.", address=address, hash=tokenizer_hash
             )
-            raise ApplicationError(
+            raise RuntimeError(
                 f"Tokenizer with hash {tokenizer_hash} does not exist in the database."
             )
 
@@ -213,7 +213,7 @@ class MongoOperator:
             eval_logger.error(
                 "Node address does not have a valid config_hash.", adress=address
             )
-            raise ApplicationError(
+            raise RuntimeError(
                 f"Node address {address} does not have a valid config_hash."
             )
 
@@ -224,7 +224,7 @@ class MongoOperator:
             eval_logger.error(
                 "Config hash not found.", address=address, hash=config_hash
             )
-            raise ApplicationError(
+            raise RuntimeError(
                 f"Config with hash {config_hash} does not exist in the database."
             )
         eval_logger.debug("Config found.", config_keys=list(config_object.keys()))
@@ -239,7 +239,7 @@ class MongoOperator:
 
         if prompt_doc is None:
             eval_logger.error("Prompt request not found.", request_id=request_id)
-            raise ApplicationError(
+            raise RuntimeError(
                 f"Prompt request with ID {request_id} does not exist in the database."
             )
 
@@ -248,13 +248,8 @@ class MongoOperator:
             # handle the exception to bring a light on production debugging if needed.
             data = json.loads(data)
         except Exception as e:
-            raise ApplicationError(
-                "Bad JSON data format",
-                data,
-                str(e),
-                type="BadJSONFormat",
-                non_retryable=True,
-            )
+            eval_logger.error("Bad JSON data format", data=data, error=str(e))
+            raise RuntimeError("Bad JSON data format")
 
         request = CompletionRequest(**data)
         eval_logger.debug("Prompt request found.", request_id=request_id)
@@ -274,12 +269,7 @@ class MongoOperator:
 
         if len(result) == 0:
             evaluation_logger.error("Task ID not found.", task_id=task_id)
-            raise ApplicationError(
-                f"Task ID {task_id} does not exist in the database.",
-                str(task_id),
-                type="TaskNotFound",
-                non_retryable=False,
-            )
+            raise RuntimeError(f"Task ID {task_id} does not exist in the database.")
 
         # Convert the result to a list and return it
         doc_ids = result[0]["doc_ids"]
@@ -290,12 +280,7 @@ class MongoOperator:
 
         if task is None:
             evaluation_logger.error("Task ID not found.", task_id=task_id)
-            raise ApplicationError(
-                f"Task ID {task_id} does not exist in the database.",
-                str(task_id),
-                type="TaskNotFound",
-                non_retryable=False,
-            )
+            raise RuntimeError(f"Task ID {task_id} does not exist in the database.")
 
         task.pop("_id", None)
         evaluation_logger.debug("Task:", task=task)
@@ -311,6 +296,33 @@ class MongoOperator:
         tasks = await cursor.to_list(length=None)
         return tasks
 
+    async def get_old_tasks(self, blocks_ago=40):
+        # Get latest response height
+        # TODO : Change this with a parameter, that must come from the activity making query to the network
+        cursor = self.client.db[self.responses_collection].aggregate(
+            [{"$group": {"_id": None, "latest_height": {"$max": "$height"}}}]
+        )
+        latest_height = await cursor.to_list(length=None)
+        # Now get all tasks that have all prompts resolved since a while but
+        # somehow the evaluation was not correctly triggered
+        # (this can happen due to sessions changing and tasks being terminated)
+        cursor = self.client.db[self.tasks_collection].aggregate(
+            aggregate_old_tasks(latest_height[0]["latest_height"], blocks_ago)
+        )
+        tasks = await cursor.to_list(length=None)
+        return tasks
+
+    async def set_task_as_done(self, task_id):
+        async with self.client.start_transaction() as session:
+            try:
+                await self.client.db[self.tasks_collection].find_one_and_update(
+                    {"_id": task_id},
+                    {"$set": {"done": True}},
+                    session=session,
+                )
+            except Exception as e:
+                raise f"Error marking task as done: {str(e)}"
+
     async def retrieve_responses(
         self,
         task_id: ObjectId,
@@ -322,12 +334,7 @@ class MongoOperator:
 
         if len(result) == 0:
             evaluation_logger.error("Task ID not found.", task_id=task_id)
-            raise ApplicationError(
-                f"Task ID {task_id} does not exist in the database.",
-                str(task_id),
-                type="TaskNotFound",
-                non_retryable=False,
-            )
+            raise RuntimeError(f"Task ID {task_id} does not exist in the database.")
 
         return result
 
@@ -443,12 +450,19 @@ class MongoOperator:
         ).model_dump(by_alias=True)
 
         async with self.client.start_transaction() as session:
-            await self.client.db[self.tasks_collection].find_one_and_update(
-                {"_id": task_id},
-                {"$set": {"drop": True}},
-                session=session,
-            )
-            await self.client.db[self.results_collection].insert_one(
-                empty_result,
-                session=session,
-            )
+            try:
+                await self.client.db[self.tasks_collection].find_one_and_update(
+                    {"_id": task_id},
+                    {"$set": {"drop": True}},
+                    session=session,
+                )
+            except Exception as e:
+                raise f"Error marking task to drop: {str(e)}"
+
+            try:
+                await self.client.db[self.results_collection].insert_one(
+                    empty_result,
+                    session=session,
+                )
+            except Exception as e:
+                raise f"Error setting the result in drop procedure: {str(e)}"

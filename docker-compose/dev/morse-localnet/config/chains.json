@@ -1,22 +1,22 @@
 [
   {
     "id": "A100",
-    "url": "http://host.docker.internal:9087"
+    "url": "http://nginx-sidecar:9087"
   },
   {
     "id": "A101",
-    "url": "http://host.docker.internal:9087"
+    "url": "http://nginx-sidecar:9187"
   },
   {
     "id": "A102",
-    "url": "http://host.docker.internal:9087"
+    "url": "http://nginx-sidecar:9287"
   },
   {
     "id": "A103",
-    "url": "http://host.docker.internal:9087"
+    "url": "http://nginx-sidecar:9387"
   },
   {
     "id": "A1FF",
-    "url": "http://host.docker.internal:9087"
+    "url": "http://nginx-sidecar:9087"
   }
 ]

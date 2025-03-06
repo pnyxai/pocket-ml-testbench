@@ -1,6 +1,8 @@
 from functools import partial
 from lm_eval.filters.extraction import Filter
+from lm_eval.api.registry import register_filter
 import re
+
 
 choices = [
     "A",
@@ -66,6 +68,7 @@ doc_to_text = partial(format_example, including_answer=False)
 fewshot_to_text = partial(format_example, including_answer=True)
 
 
+@register_filter("GetResponse")
 class GetResponse(Filter):
     """ """
 

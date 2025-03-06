@@ -101,7 +101,7 @@ func (rpc *PocketRpc) GetHeight() (int64, error) {
 
 	req.Header.Set("Content-Type", "application/json")
 
-	reqCtx, cancelFunc := context.WithTimeout(req.Context(), 10*time.Second)
+	reqCtx, cancelFunc := context.WithTimeout(req.Context(), 20*time.Second)
 	defer cancelFunc()
 
 	responses, _errors, err := rpc.clientPool.ReplicateRequest(req, reqCtx, 3)
@@ -184,7 +184,7 @@ func (rpc *PocketRpc) GetApp(address string) (*poktGoSdk.App, error) {
 
 	req.Header.Set("Content-Type", "application/json")
 
-	reqCtx, cancelFunc := context.WithTimeout(req.Context(), 10*time.Second)
+	reqCtx, cancelFunc := context.WithTimeout(req.Context(), 20*time.Second)
 	defer cancelFunc()
 
 	resp, _, err := rpc.clientPool.DoRRLoadBalanced(req, reqCtx)
@@ -233,7 +233,7 @@ func (rpc *PocketRpc) getNodesByPage(service string, page int, pageSize int, ch 
 
 	req.Header.Set("Content-Type", "application/json")
 
-	reqCtx, cancelFunc := context.WithTimeout(req.Context(), 10*time.Second)
+	reqCtx, cancelFunc := context.WithTimeout(req.Context(), 20*time.Second)
 	defer cancelFunc()
 
 	resp, _, err := rpc.clientPool.DoRRLoadBalanced(req, reqCtx)
@@ -315,7 +315,7 @@ func (rpc *PocketRpc) GetBlock(height int64) (*poktGoSdk.GetBlockOutput, error) 
 
 	req.Header.Set("Content-Type", "application/json")
 
-	reqCtx, cancelFunc := context.WithTimeout(req.Context(), 10*time.Second)
+	reqCtx, cancelFunc := context.WithTimeout(req.Context(), 20*time.Second)
 	defer cancelFunc()
 
 	resp, _, err := rpc.clientPool.DoRRLoadBalanced(req, reqCtx)
@@ -356,7 +356,7 @@ func (rpc *PocketRpc) GetAllParams(height int64) (*poktGoSdk.AllParams, error) {
 
 	req.Header.Set("Content-Type", "application/json")
 
-	reqCtx, cancelFunc := context.WithTimeout(req.Context(), 10*time.Second)
+	reqCtx, cancelFunc := context.WithTimeout(req.Context(), 20*time.Second)
 	defer cancelFunc()
 
 	resp, _, err := rpc.clientPool.DoRRLoadBalanced(req, reqCtx)
@@ -403,7 +403,7 @@ func (rpc *PocketRpc) GetSession(application, service string) (*poktGoSdk.Dispat
 
 	req.Header.Set("Content-Type", "application/json")
 
-	reqCtx, cancelFunc := context.WithTimeout(req.Context(), 10*time.Second)
+	reqCtx, cancelFunc := context.WithTimeout(req.Context(), 20*time.Second)
 	defer cancelFunc()
 
 	resp, _, err := rpc.clientPool.DoRRLoadBalanced(req, reqCtx)

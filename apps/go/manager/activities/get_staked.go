@@ -38,7 +38,7 @@ func (aCtx *Ctx) GetStaked(ctx context.Context, params types.GetStakedParams) (*
 	if len(result.Nodes) == 0 {
 		l.Warn().Msg("No nodes were found on any of the given services")
 	} else {
-		l.Info().Int("nodes_staked", len(result.Nodes)).Msg("Successfully pulled staked node-services.")
+		l.Debug().Int("nodes_staked", len(result.Nodes)).Msg("Successfully pulled staked node-services.")
 	}
 
 	// Get block data

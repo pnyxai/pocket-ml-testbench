@@ -109,8 +109,6 @@ async def register_task(args: PocketNetworkRegisterTaskRequest) -> bool:
                         )
                         configurable_task = task_dict[task_name]
                         await configurable_task.save_to_sql()
-                        # todo: remove line below
-                        # await lmeh_sql.create_dataset_table(table_name=table_name, data=data, connection=conn)
                     except ApplicationError as e:
                         raise e
                     except Exception as error:

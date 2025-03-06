@@ -19,7 +19,7 @@ metric_list:
 filter_list:
   - name: get_response
     filter:
-      - function: !function utils.GetResponse
+      - function: GetResponse
       - function: take_first
 metadata:
   version: 4.0

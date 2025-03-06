@@ -2,8 +2,9 @@ package records
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
-	"fmt"
 	"manager/types"
 	"packages/mongodb"
 	"time"
@@ -39,7 +40,7 @@ func (record *NodeRecord) FindAndLoadNode(node types.NodeData, mongoDB mongodb.M
 	opts := options.FindOne()
 
 	// Set mongo context
-	ctxM, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctxM, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
 	// Retrieve this node entry
@@ -48,12 +49,12 @@ func (record *NodeRecord) FindAndLoadNode(node types.NodeData, mongoDB mongodb.M
 	err := cursor.Decode(record)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-			l.Warn().Str("address", node.Address).Str("service", node.Service).Msg("Node entry not found.")
+			l.Warn().Str("address", node.Address).Str("service", node.Service).Msg("Node entry not found (FindAndLoadNode).")
 			found = false
 			// }else if err == mongo. {
+			return found, nil
 		} else {
-			l.Error().Msg("Could not retrieve node data from MongoDB.")
-			fmt.Print(err)
+			l.Error().Err(err).Str("address", node.Address).Str("service", node.Service).Msg("Could not retrieve node data from MongoDB (FindAndLoadNode).")
 			return false, err
 		}
 	}
@@ -84,7 +85,23 @@ func (record *NodeRecord) Init(params types.AnalyzeNodeParams, frameworkConfigMa
 	record.Address = params.Node.Address
 	record.Service = params.Node.Service
 
-	record.ID = primitive.NewObjectID()
+	// Create a hash of the strings
+	hash := sha256.New()
+	hash.Write([]byte(record.Address))
+	hash.Write([]byte(record.Service))
+	hashBytes := hash.Sum(nil)
+
+	// Convert the hash to a hexadecimal string
+	hashHex := hex.EncodeToString(hashBytes)
+
+	// Convert the hexadecimal string to a primitive.ObjectID
+	// We'll only take the first 24 characters of the hash (which is 12 bytes)
+	hashObjectId, err := primitive.ObjectIDFromHex(hashHex[:24])
+	if err != nil {
+		return err
+	}
+
+	record.ID = hashObjectId
 	record.LastSeenHeight = 0
 	defaultDate := time.Date(2018, 1, 1, 00, 00, 00, 100, time.Local)
 	record.LastSeenTime = defaultDate
@@ -101,7 +118,7 @@ func (record *NodeRecord) Init(params types.AnalyzeNodeParams, frameworkConfigMa
 		}
 	}
 
-	_, err := record.UpdateNode(mongoDB, l)
+	_, err = record.UpdateNode(mongoDB, l)
 
 	return err
 
@@ -114,7 +131,7 @@ func (record *NodeRecord) UpdateNode(mongoDB mongodb.MongoDb, l *zerolog.Logger)
 
 	opts := options.FindOneAndUpdate().SetUpsert(true)
 	node_filter := bson.D{{Key: "address", Value: record.Address}, {Key: "service", Value: record.Service}}
-	ctxM, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctxM, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
 	// Update given struct
@@ -124,10 +141,10 @@ func (record *NodeRecord) UpdateNode(mongoDB mongodb.MongoDb, l *zerolog.Logger)
 	err := nodesCollection.FindOneAndUpdate(ctxM, node_filter, update, opts).Decode(record)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-			l.Warn().Str("address", record.Address).Str("service", record.Service).Msg("Node entry not found, a new one was created.")
+			l.Warn().Str("address", record.Address).Str("service", record.Service).Msg("Node entry not found (UpdateNode). New entry created.")
 			found = false
 		} else {
-			l.Error().Msg("Could not retrieve node data from MongoDB.")
+			l.Error().Err(err).Str("address", record.Address).Str("service", record.Service).Msg("Could not retrieve node data from MongoDB (UpdateNode).")
 			return false, err
 		}
 	}
