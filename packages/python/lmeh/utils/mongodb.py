@@ -321,7 +321,7 @@ class MongoOperator:
                     session=session,
                 )
             except Exception as e:
-                raise f"Error marking task as done: {str(e)}"
+                raise RuntimeError(f"Error marking task as done: {str(e)}")
 
     async def retrieve_responses(
         self,
@@ -457,7 +457,7 @@ class MongoOperator:
                     session=session,
                 )
             except Exception as e:
-                raise f"Error marking task to drop: {str(e)}"
+                raise RuntimeError(f"Error marking task to drop: {str(e)}")
 
             try:
                 await self.client.db[self.results_collection].insert_one(
@@ -465,4 +465,6 @@ class MongoOperator:
                     session=session,
                 )
             except Exception as e:
-                raise f"Error setting the result in drop procedure: {str(e)}"
+                raise RuntimeError(
+                    f"Error setting the result in drop procedure: {str(e)}"
+                )

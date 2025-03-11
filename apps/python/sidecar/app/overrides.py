@@ -30,8 +30,8 @@ async def do_request(
 
     # Merge default headers with custom headers
     request_headers = {**default_headers, **(headers or {})}
-
-    async with aiohttp.ClientSession() as session:
+    timeout = aiohttp.ClientTimeout(total=timeout, sock_read=timeout)
+    async with aiohttp.ClientSession(timeout=timeout) as session:
         try:
             async with session.post(
                 url + path,
