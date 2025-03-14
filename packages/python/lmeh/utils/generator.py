@@ -198,7 +198,7 @@ async def generate_requests(
     requests = defaultdict(list)
 
     # get lists of group hierarchy and each type of request
-    task_hierarchy, eval_tasks = get_task_list(task_dict)
+    eval_tasks = get_task_list(task_dict)
     if not log_samples:
         if not all(
             "bypass" not in getattr(task_output.task, "_metric_fn_list", {}).keys()
@@ -459,7 +459,7 @@ async def evaluate(
     requests = defaultdict(list)
 
     # get lists of group hierarchy and each type of request
-    task_hierarchy, eval_tasks = get_task_list(task_dict)
+    eval_tasks = get_task_list(task_dict)
     if not log_samples:
         if not all(
             "bypass" not in getattr(task_output.task, "_metric_fn_list", {}).keys()
@@ -516,6 +516,7 @@ async def evaluate(
                         run_time=0.0,
                         id=instance["id"],
                         status_code=instance["code"],
+                        error_str=instance["error"],
                     )
                     scores.append(numericSample)
 
@@ -653,6 +654,7 @@ async def evaluate(
                             run_time=ms,
                             id=doc_id,
                             status_code=0,
+                            error_str="",
                         )
                         scores.append(numericSample)
         # If there are failed samples, add them here to the scores list
@@ -662,6 +664,7 @@ async def evaluate(
                 run_time=0.0,
                 id=instance["id"],
                 status_code=instance["code"],
+                error_str=instance["error"],
             )
             scores.append(numericSample)
 

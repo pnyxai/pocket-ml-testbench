@@ -186,17 +186,22 @@ async def lmeh_sample(args: PocketNetworkTaskRequest) -> bool:
                 )
 
                 # first load tokenizer then pass it to be used
-                await lm.load_tokenizer()
+                ok = await lm.load_tokenizer()
 
-                _ = await lmeh_generator.generate_requests(
-                    lm=lm,
-                    task_dict=task_dict,
-                    mongo_client=mongo_client,
-                    args=args,
-                    eval_logger=eval_logger,
-                    timeout_handler=timeout_handler,
-                )
-                eval_logger.info("LM generated successfully.")
+                if ok:
+                    _ = await lmeh_generator.generate_requests(
+                        lm=lm,
+                        task_dict=task_dict,
+                        mongo_client=mongo_client,
+                        args=args,
+                        eval_logger=eval_logger,
+                        timeout_handler=timeout_handler,
+                    )
+                    eval_logger.info("LM generated successfully.")
+                if not ok:
+                    eval_logger.info(
+                        "Skipped LM generation, tokenizer and/or config not available."
+                    )
 
     eval_logger.info("Sample Activity done", task_names=task_names)
     return True

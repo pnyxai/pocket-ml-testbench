@@ -1,9 +1,10 @@
 package activities
 
 import (
+	"requester/types"
+
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/worker"
-	"requester/types"
 )
 
 // Ctx represents a context struct that holds an instance of `app.App`
@@ -47,6 +48,10 @@ func (aCtx *Ctx) Register(w worker.Worker) {
 
 	w.RegisterActivityWithOptions(aCtx.GetTasks, activity.RegisterOptions{
 		Name: GetTasksName,
+	})
+
+	w.RegisterActivityWithOptions(aCtx.SetPromptTriggerSession, activity.RegisterOptions{
+		Name: SetPromptTriggerSessionName,
 	})
 
 	w.RegisterActivityWithOptions(aCtx.Relayer, activity.RegisterOptions{

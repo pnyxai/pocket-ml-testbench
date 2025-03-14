@@ -112,8 +112,8 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 		int64(0),
 	).Get(getAllParamsActivityCtx, &allParams)
 	if getBlockErr != nil {
-		l.Error("GetBlockParams activity ends with error", "error", e)
 		e = temporal.NewApplicationErrorWithCause("unable to get block params", "GetBlockParams", getBlockErr)
+		l.Error("GetBlockParams activity ends with error", "error", e)
 		return
 	}
 	l.Debug("Calling GetBlockParams activity")
@@ -129,8 +129,9 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 
 	l.Debug("Calling GetTasks activity")
 	request := activities.GetTasksParams{
-		Nodes:   make([]string, len(nodes)),
-		Service: params.Service,
+		Nodes:          make([]string, len(nodes)),
+		Service:        params.Service,
+		CurrentSession: sessionHeight,
 	}
 	nodesMap := make(map[string]*poktGoSdk.Node, len(nodes))
 	for i, node := range nodes {
@@ -145,8 +146,8 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 		request,
 	).Get(getAllParamsActivityCtx, &ltr)
 	if getTasksErr != nil {
-		l.Error("GetTasks activity ends with error", "error", e)
 		e = temporal.NewApplicationErrorWithCause("unable to get tasks", "GetTasks", getTasksErr)
+		l.Error("GetTasks activity ends with error", "error", e)
 		return
 	}
 
@@ -223,6 +224,27 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 			}
 
 			triggeredWorkflows = append(triggeredWorkflows, fmt.Sprintf("ID:%s/RUN_ID:%s", wf.GetID(), wf.GetRunID()))
+
+			// Update the prompt entry
+			l.Debug("Calling SetPromptTriggerSession activity")
+			triggerUpdate := activities.SetPromptTriggerSessionParams{
+				PromptId:       tr.PromptId,
+				TriggerSession: sessionHeight,
+			}
+			setPromptTriggerSessionActivityCtx := workflow.WithActivityOptions(ctx, ao)
+			var errorSet error
+			getTasksErr := workflow.ExecuteActivity(
+				setPromptTriggerSessionActivityCtx,
+				activities.Activities.SetPromptTriggerSession,
+				triggerUpdate,
+			).Get(setPromptTriggerSessionActivityCtx, &errorSet)
+			if getTasksErr != nil {
+				l.Error("SetPromptTriggerSession activity ends with error", "error", getTasksErr)
+			}
+			if errorSet != nil {
+				l.Error("SetPromptTriggerSession mongo update ends with error", "error", errorSet)
+			}
+
 		}
 
 	}

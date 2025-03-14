@@ -147,6 +147,7 @@ class PocketNetworkMongoDBPrompt(BaseModel):
     instance_id: ObjectId
     timeout: int = 0
     done: bool = False
+    trigger_session: int = 0  # This is filled by the relayer when triggered
     # Fields to avoid futures tokenizer's call
     ctxlen: Optional[int] = None
     context_enc: Optional[List[int]] = None
@@ -267,6 +268,7 @@ class SignatureSample(BaseModel):
     signature: str
     id: int
     status_code: int
+    error_str: str
 
 
 class PocketNetworkMongoDBResultSignature(BaseModel):
@@ -283,6 +285,7 @@ class NumericSample(BaseModel):
     id: int
     run_time: float
     status_code: int
+    error_str: str
 
 
 class PocketNetworkMongoDBResultNumerical(BaseModel):

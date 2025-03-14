@@ -8,8 +8,10 @@ import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.temporal.io/sdk/temporal"
 )
 
 type GetTasksParams struct {
@@ -17,6 +19,13 @@ type GetTasksParams struct {
 	Nodes []string `json:"nodes"`
 	// chain (morse) service (shannon)
 	Service string `json:"service"`
+	// current session height
+	CurrentSession int64 `json:"current_session"`
+}
+
+type SetPromptTriggerSessionParams struct {
+	PromptId       string `json:"prompt_id" bson:"prompt_id"`
+	TriggerSession int64  `json:"trigger_session"`
 }
 
 type TaskRequest struct {
@@ -32,8 +41,9 @@ type GetTaskRequestResults struct {
 }
 
 var GetTasksName = "get_tasks"
+var SetPromptTriggerSessionName = "set_prompt_trigger_session"
 
-func getTaskRequestPipeline(nodes []string, service string) mongo.Pipeline {
+func getTaskRequestPipeline(nodes []string, service string, currentSession int64) mongo.Pipeline {
 	nodesFilter := make(bson.A, len(nodes))
 	for i, node := range nodes {
 		nodesFilter[i] = bson.M{"requester_args.address": node}
@@ -80,6 +90,7 @@ func getTaskRequestPipeline(nodes []string, service string) mongo.Pipeline {
 							bson.D{{"$eq", bson.A{"$task_id", "$$task"}}},
 							bson.D{{"$eq", bson.A{"$instance_id", "$$instance"}}},
 							bson.D{{"$eq", bson.A{"$done", false}}},
+							bson.D{{"$lt", bson.A{"$trigger_session", currentSession}}},
 						}},
 					}},
 				}}},
@@ -136,7 +147,7 @@ func (aCtx *Ctx) GetTasks(ctx context.Context, params GetTasksParams) (result *G
 	defer taskCancelFn()
 	// get tasks for the retrieved node and service that are not done yet
 	taskCollection := aCtx.App.Mongodb.GetCollection(types.TaskCollection)
-	pipeline := getTaskRequestPipeline(params.Nodes, params.Service)
+	pipeline := getTaskRequestPipeline(params.Nodes, params.Service, params.CurrentSession)
 	// PrintPipeline("tasksInstancePrompts", pipeline)
 	opts := options.Aggregate().SetAllowDiskUse(true)
 	cursor, aggErr := taskCollection.Aggregate(tasksCtx, pipeline, opts)
@@ -169,4 +180,32 @@ func SplitByUniqueAddress(input []TaskRequest) [][]TaskRequest {
 	}
 
 	return result
+}
+
+func (aCtx *Ctx) SetPromptTriggerSession(ctx context.Context, params SetPromptTriggerSessionParams) (err error) {
+	tasksCtx, taskCancelFn := context.WithTimeout(ctx, 5*time.Minute)
+	defer taskCancelFn()
+
+	// get prompts collection
+	promptsCollection := aCtx.App.Mongodb.GetCollection(types.PromptsCollection)
+	// Set the find options using the prompt id
+	promptId, objIdErr := primitive.ObjectIDFromHex(params.PromptId)
+	if objIdErr != nil {
+		err = temporal.NewApplicationErrorWithCause("invalid prompt id", "BadParams", objIdErr, params)
+		return
+	}
+	prompt_filter := bson.M{"_id": promptId}
+
+	// Update given struct
+	update := bson.M{"$set": bson.M{"trigger_session": params.TriggerSession}}
+
+	// Get collection and update
+	result, err := promptsCollection.UpdateOne(tasksCtx, prompt_filter, update)
+	// Check if any document was modified
+	if result.MatchedCount == 0 {
+		return mongo.ErrNoDocuments // No document found with this ID
+	}
+
+	return err
+
 }

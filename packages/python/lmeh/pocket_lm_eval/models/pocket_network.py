@@ -165,16 +165,51 @@ class PocketNetworkLM(TemplateLM):
         # Isn't used because we override _loglikelihood_tokens
         raise NotImplementedError()
 
-    async def load_tokenizer(self):
+    async def load_tokenizer(self) -> bool:
         # Load tokenizer
-        tokenizer_objects = await self.mongo_operator.get_tokenizer_objects(
-            address=self.requester_args.address,
-            service=self.requester_args.service,
-        )
-        config_objects = await self.mongo_operator.get_config_objects(
-            address=self.requester_args.address,
-            service=self.requester_args.service,
-        )
+        try:
+            ok, tokenizer_objects = await self.mongo_operator.get_tokenizer_objects(
+                address=self.requester_args.address,
+                service=self.requester_args.service,
+            )
+            if not ok:
+                return False
+
+        except Exception as e:
+            eval_logger.error(
+                "Error loading tokenizer objects",
+                error=str(e),
+                address=self.requester_args.address,
+                service=self.requester_args.service,
+            )
+            raise ApplicationError(
+                "Error loading tokenizer objects",
+                error=str(e),
+                address=self.requester_args.address,
+                service=self.requester_args.service,
+                non_retryable=True,
+            )
+        try:
+            ok, config_objects = await self.mongo_operator.get_config_objects(
+                address=self.requester_args.address,
+                service=self.requester_args.service,
+            )
+            if not ok:
+                return False
+        except Exception as e:
+            eval_logger.error(
+                "Error loading config objects",
+                error=str(e),
+                address=self.requester_args.address,
+                service=self.requester_args.service,
+            )
+            raise ApplicationError(
+                "Error loading config objects",
+                error=str(e),
+                address=self.requester_args.address,
+                service=self.requester_args.service,
+                non_retryable=True,
+            )
 
         try:
             self.tokenizer = load_tokenizer(
@@ -230,6 +265,8 @@ class PocketNetworkLM(TemplateLM):
             adress=self.requester_args.address,
             service=self.requester_args.service,
         )
+
+        return True
 
     def tok_encode(
         self,

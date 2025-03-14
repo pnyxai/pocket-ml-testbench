@@ -43,10 +43,11 @@ type Instance struct {
 }
 
 type Prompt struct {
-	Id      primitive.ObjectID `bson:"_id"`
-	Data    string             `bson:"data"`
-	Timeout int64              `bson:"timeout"`
-	Done    bool               `bson:"done"`
+	Id             primitive.ObjectID `bson:"_id"`
+	Data           string             `bson:"data"`
+	Timeout        int64              `bson:"timeout"`
+	Done           bool               `bson:"done"`
+	TriggerSession int64              `bson:"trigger_session"`
 	// -- Relations Below --
 	// id and/or entity if load with a $lookup
 	TaskId primitive.ObjectID `bson:"task_id"`
