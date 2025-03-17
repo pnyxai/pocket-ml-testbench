@@ -94,6 +94,7 @@ async def model_config_evaluate(
                     signature="Cannot decode configuration",
                     id=0,
                     status_code=11,  # Error at evaluation
+                    error_str=str(e),
                 )  # This task has a single sample id
             ]
 
@@ -139,6 +140,7 @@ async def model_config_evaluate(
                         signature="Cannot load model configuration",
                         id=0,
                         status_code=11,  # Error at evaluation
+                        error_str=str(e),
                     )  # This task has a single sample id
                 ]
 
@@ -177,7 +179,10 @@ async def model_config_evaluate(
             result.result_data.status = 0  # OK
             result.signatures = [
                 SignatureSample(
-                    signature=str(model_config_mongo_new.hash), id=0, status_code=0
+                    signature=str(model_config_mongo_new.hash),
+                    id=0,
+                    status_code=0,
+                    error_str="",
                 )  # This task has a single sample id
             ]
 

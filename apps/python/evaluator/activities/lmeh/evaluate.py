@@ -275,6 +275,7 @@ async def lmeh_evaluate(args: PocketNetworkEvaluationTaskRequest) -> Tuple[bool,
             return False, f"{error_msg}: {str(e)}"
 
         # Original error that caused the drop
+        error_msg = "Failed to evaluate task."
         return False, f"{error_msg}: {str(e)}"
 
     return result, "OK"

@@ -3,7 +3,7 @@ import logging
 from copy import deepcopy
 from dataclasses import asdict
 from datetime import datetime
-from typing import List
+from typing import List, Tuple
 
 from app.app import get_app_logger
 from bson.objectid import ObjectId
@@ -172,16 +172,16 @@ class MongoOperator:
             {"hash": config_hash}
         )
 
-    async def get_tokenizer_objects(self, address: str, service: str) -> dict:
+    async def get_tokenizer_objects(
+        self, address: str, service: str
+    ) -> Tuple[bool, dict]:
         tokenizer_hash = await self.get_tokenizer_hash(address, service)
 
         if tokenizer_hash == "":
-            eval_logger.error(
+            eval_logger.warn(
                 "Node address does not have a valid tokenizer_hash.", adress=address
             )
-            raise RuntimeError(
-                f"Node address {address} does not have a valid tokenizer_hash."
-            )
+            return False, {}
 
         tokenizer_object = await self.get_tokenizer_entry(tokenizer_hash)
 
@@ -202,27 +202,25 @@ class MongoOperator:
                 tokenizer["tokenizer_config"]["model_max_length"]
             )
 
-        return tokenizer
+        return True, tokenizer
 
-    async def get_config_objects(self, address: str, service: str) -> dict:
+    async def get_config_objects(self, address: str, service: str) -> Tuple[bool, dict]:
         # TODO
         # add get_config_hash method to
         config_hash = await self.get_config_hash(address, service)
 
         if config_hash == "":
-            eval_logger.error(
+            eval_logger.warn(
                 "Node address does not have a valid config_hash.", adress=address
             )
-            raise RuntimeError(
-                f"Node address {address} does not have a valid config_hash."
-            )
+            return False, {}
 
         config_object = await self.get_config_entry(config_hash)
 
         # Validate that the Config is not empty
         if config_object is None:
             eval_logger.error(
-                "Config hash not found.", address=address, hash=config_hash
+                "Config hash not found in MongoDB.", address=address, hash=config_hash
             )
             raise RuntimeError(
                 f"Config with hash {config_hash} does not exist in the database."
@@ -230,7 +228,7 @@ class MongoOperator:
         eval_logger.debug("Config found.", config_keys=list(config_object.keys()))
         _config = config_object["config"]
         eval_logger.debug("Config found.", _config=list(_config.keys()))
-        return _config
+        return True, _config
 
     async def get_prompt_request(self, request_id: ObjectId) -> CompletionRequest:
         prompt_doc = await self.client.db[self.prompts_collection].find_one(
@@ -303,6 +301,8 @@ class MongoOperator:
             [{"$group": {"_id": None, "latest_height": {"$max": "$height"}}}]
         )
         latest_height = await cursor.to_list(length=None)
+        if len(latest_height) == 0:
+            return []  # Nothing found
         # Now get all tasks that have all prompts resolved since a while but
         # somehow the evaluation was not correctly triggered
         # (this can happen due to sessions changing and tasks being terminated)
@@ -321,7 +321,7 @@ class MongoOperator:
                     session=session,
                 )
             except Exception as e:
-                raise f"Error marking task as done: {str(e)}"
+                raise RuntimeError(f"Error marking task as done: {str(e)}")
 
     async def retrieve_responses(
         self,
@@ -457,7 +457,7 @@ class MongoOperator:
                     session=session,
                 )
             except Exception as e:
-                raise f"Error marking task to drop: {str(e)}"
+                raise RuntimeError(f"Error marking task to drop: {str(e)}")
 
             try:
                 await self.client.db[self.results_collection].insert_one(
@@ -465,4 +465,6 @@ class MongoOperator:
                     session=session,
                 )
             except Exception as e:
-                raise f"Error setting the result in drop procedure: {str(e)}"
+                raise RuntimeError(
+                    f"Error setting the result in drop procedure: {str(e)}"
+                )

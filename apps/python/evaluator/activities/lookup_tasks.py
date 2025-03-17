@@ -31,7 +31,7 @@ async def lookup_tasks() -> List[str]:
     old_ids_ok = list()
     for id in old_ids:
         try:
-            mongo_operator.set_task_as_done(id)
+            await mongo_operator.set_task_as_done(id)
             old_ids_ok.append(id)
         except Exception as e:
             eval_logger.error(

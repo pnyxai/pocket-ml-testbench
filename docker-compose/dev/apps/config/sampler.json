@@ -32,8 +32,8 @@
           10
         ]
       },
-      "tpot": 0.336,
-      "queue": 30
+      "tpot": 1.0,
+      "queue": 180
     }
   },
   "include_path": "/home/app/code/packages/python/lmeh/custom_tasks",

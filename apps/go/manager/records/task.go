@@ -359,7 +359,7 @@ const NumericalMinSamplesPerTask uint32 = 50
 const NumericalMaxConcurrentSamplesPerTask uint32 = 10
 
 // This is the length of the buffer and will set the maximum accuracy of the metric.
-const NumericalCircularBufferLength uint32 = NumericalMinSamplesPerTask
+const NumericalCircularBufferLength uint32 = NumericalMinSamplesPerTask * 2
 
 // All information for a given task
 // Each task will have its own data, depending on what it is
@@ -383,10 +383,11 @@ type NumericalTaskRecord struct {
 }
 
 type ScoresSample struct {
-	Score      float64 `bson:"score"`
-	ID         int     `bson:"id"`
-	RunTime    float32 `bson:"run_time"`
-	StatusCode int     `bson:"status_code"`
+	Score       float64 `bson:"score"`
+	ID          int     `bson:"id"`
+	RunTime     float32 `bson:"run_time"`
+	StatusCode  int     `bson:"status_code"`
+	ErrorString string  `bson:"error_str"`
 }
 
 func (record *NumericalTaskRecord) NewTask(nodeID primitive.ObjectID, framework string, task string, date time.Time, l *zerolog.Logger) {
@@ -705,9 +706,10 @@ type SignatureTaskRecord struct {
 }
 
 type SignatureSample struct {
-	Signature  string `bson:"signature"`
-	ID         int    `bson:"id"`
-	StatusCode int    `bson:"status_code"`
+	Signature   string `bson:"signature"`
+	ID          int    `bson:"id"`
+	StatusCode  int    `bson:"status_code"`
+	ErrorString string `bson:"error_str"`
 }
 
 func (record *SignatureTaskRecord) NewTask(nodeID primitive.ObjectID, framework string, task string, date time.Time, l *zerolog.Logger) {

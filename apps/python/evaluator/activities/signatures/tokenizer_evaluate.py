@@ -94,6 +94,7 @@ async def tokenizer_evaluate(
                     signature="Cannot decode tokenizer",
                     id=0,
                     status_code=11,  # Error at evaluation
+                    error_str=str(e),
                 )  # This task has a single sample id
             ]
 
@@ -141,6 +142,7 @@ async def tokenizer_evaluate(
                         signature="Cannot load tokenizer from decoded data",
                         id=0,
                         status_code=11,  # Error at evaluation
+                        error_str=str(e),
                     )  # This task has a single sample id
                 ]
 
@@ -181,7 +183,10 @@ async def tokenizer_evaluate(
             result.result_data.status = 0  # OK
             result.signatures = [
                 SignatureSample(
-                    signature=str(tokenizer_mongo_new.hash), id=0, status_code=0
+                    signature=str(tokenizer_mongo_new.hash),
+                    id=0,
+                    status_code=0,
+                    error_str="",
                 )  # This task has a single sample id
             ]
 
