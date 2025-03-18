@@ -84,3 +84,28 @@ def aggregate_old_tasks(latest_height: int, blocks_ago: int):
         },
         {"$project": {"_id": 1}},
     ]
+
+
+# Define the aggregation pipeline template
+def aggregate_node_task_results(node_id: ObjectId, framework: str, task: str):
+    return [
+        {
+            "$match": {
+                "task_data.node_id": node_id,
+                "task_data.framework": framework,
+                "task_data.task": task,
+            }
+        },
+        {
+            "$project": {
+                "mean_scores": 1,
+                "mean_times": 1,
+                "median_scores": 1,
+                "median_times": 1,
+                "std_scores": 1,
+                "std_times": 1,
+                "samples": "$circ_buffer_control.num_samples",
+                "error_rate": 1,
+            }
+        },
+    ]

@@ -1,0 +1,13 @@
+{
+  "mongodb_uri": "mongodb://NETWORK:27017",
+  "postgres_uri": "postgresql://USER:PASS@NETWORK:5432/DATABASE",
+  "log_level": "DEBUG",
+  "temporal": {
+    "host": "NETWORK",
+    "port": 7233,
+    "namespace": "pocket-ml-testbench",
+    "task_queue": "summarize",
+    "max_workers": 10
+  },
+  "taxonomies_path": "/home/app/code/taxonomies"
+}

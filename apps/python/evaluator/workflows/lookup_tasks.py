@@ -5,6 +5,7 @@ from app.app import get_app_logger, get_app_config
 from packages.python.common.utils import get_from_dict
 from activities.lookup_tasks import lookup_tasks
 from workflows.evaluator import Evaluator
+from temporalio.workflow import ParentClosePolicy
 
 
 @workflow.defn
@@ -28,7 +29,7 @@ class LookupTasks:
         for _id in ids:
             eval_logger.info(f"Triggering Evaluate workflow for task {_id}")
             try:
-                await workflow.execute_child_workflow(
+                await workflow.start_child_workflow(
                     Evaluator,
                     {"task_id": _id},
                     id=_id,
@@ -37,6 +38,7 @@ class LookupTasks:
                     task_timeout=timedelta(seconds=60),
                     id_reuse_policy=WorkflowIDReusePolicy.ALLOW_DUPLICATE_FAILED_ONLY,
                     retry_policy=RetryPolicy(maximum_attempts=1),
+                    parent_close_policy=ParentClosePolicy.ABANDON,
                 )
             except Exception as e:
                 eval_logger.warn(f"Unable to trigger workflow for task {_id}: {e}")

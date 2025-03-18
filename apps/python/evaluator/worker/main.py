@@ -60,7 +60,7 @@ async def main():
     config = app_config["config"]
 
     logger = get_app_logger("worker")
-    logger.info("starting worker")
+    logger.info("starting evaluator worker")
 
     temporal_host = f"{get_from_dict(config, 'temporal.host')}:{get_from_dict(config, 'temporal.port')}"
     namespace = get_from_dict(config, "temporal.namespace")

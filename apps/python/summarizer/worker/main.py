@@ -1,12 +1,9 @@
 import asyncio
-
-# import concurrent.futures
-import multiprocessing
 import sys
+import multiprocessing
 from concurrent.futures import ProcessPoolExecutor
-
 from temporalio.client import Client
-from temporalio.worker import SharedStateManager, Worker
+from temporalio.worker import Worker, SharedStateManager
 from temporalio.worker.workflow_sandbox import (
     SandboxedWorkflowRunner,
     SandboxRestrictions,
@@ -15,15 +12,15 @@ from temporalio.worker.workflow_sandbox import (
 sys.path.append(".")
 sys.path.append("../../../")
 
-from activities.lmeh.register_task import register_task as lmeh_register_task
-from activities.lmeh.sample import lmeh_sample as lmeh_sample
-from activities.signatures.signatures import sign_sample
-from app.app import get_app_logger, setup_app
-from app.config import read_config
-from workflows.register import Register
-from workflows.sampler import Sampler
-
 from packages.python.common.utils import get_from_dict
+from app.app import setup_app, get_app_logger
+from app.config import read_config
+
+from activities.get_node_ids import get_node_ids
+from activities.summarize_taxonomy import summarize_taxonomy
+
+from workflows.taxonomy_summary import TaxonomySummarizer
+from workflows.summary_lookup import TaxonomySummaryLookup
 
 # We always want to pass through external modules to the sandbox that we know
 # are safe for workflow use
@@ -32,18 +29,17 @@ modules = [
     # internal lib
     "app",
     "activities",
+    "protocol",
     "packages.python.protocol",
     "packages.python.common",
     "packages.python.logger",
-    "packages.python.lmeh",
+    "packages.python.taxonomies",
     # external lib
     "motor",
     "asyncpg",
     "asyncio",
-    "lm_eval",
     "pydantic",
-    "datasets",
-    "transformers",
+    "numpy",
 ]
 
 
@@ -60,7 +56,7 @@ async def main():
     config = app_config["config"]
 
     logger = get_app_logger("worker")
-    logger.info("starting sampler worker")
+    logger.info("starting summarizer worker")
 
     temporal_host = f"{get_from_dict(config, 'temporal.host')}:{get_from_dict(config, 'temporal.port')}"
     namespace = get_from_dict(config, "temporal.namespace")
@@ -84,6 +80,7 @@ async def main():
         namespace=namespace,
         # data_converter=pydantic_data_converter
     )
+    app_config["temporal_client"] = client
 
     worker_kwargs = {
         "client": client,
@@ -96,13 +93,12 @@ async def main():
             restrictions=SandboxRestrictions.default.with_passthrough_modules(*modules)
         ),
         "workflows": [
-            Register,
-            Sampler,
+            TaxonomySummarizer,
+            TaxonomySummaryLookup,
         ],
         "activities": [
-            lmeh_register_task,
-            lmeh_sample,
-            sign_sample,
+            get_node_ids,
+            summarize_taxonomy,
         ],
     }
 
@@ -129,4 +125,4 @@ if __name__ == "__main__":
         asyncio.run(main())
     except KeyboardInterrupt:
         eval_logger = get_app_logger("Main")
-        eval_logger.info("Interrupted by user. Exiting...")
+        eval_logger.info("interrupted by user. Exiting...")

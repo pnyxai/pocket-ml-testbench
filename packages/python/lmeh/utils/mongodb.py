@@ -14,6 +14,7 @@ from packages.python.lmeh.utils.mongo_aggrs import (
     aggregate_doc_ids,
     aggregate_response_tree,
     aggregate_old_tasks,
+    aggregate_node_task_results,
 )
 from packages.python.protocol.protocol import (
     CompletionRequest,
@@ -26,6 +27,7 @@ from packages.python.protocol.protocol import (
 
 eval_logger = get_app_logger("sample")
 evaluation_logger = get_app_logger("evaluation")
+summarization_logger = get_app_logger("summarize_taxonomy")
 
 
 class MongoOperator:
@@ -75,6 +77,11 @@ class MongoOperator:
             collections_map["buffers_signatures"]
             if "buffers_signatures" in collections_map
             else "buffers_signatures"
+        )
+        self.taxonomy_summaries = (
+            collections_map["taxonomy_summaries"]
+            if "taxonomy_summaries" in collections_map
+            else "taxonomy_summaries"
         )
 
     # TODO : This should reffer to PocketNetworkMongoDBInstance and not depend on LMEH blindly
@@ -468,3 +475,28 @@ class MongoOperator:
                 raise RuntimeError(
                     f"Error setting the result in drop procedure: {str(e)}"
                 )
+
+    ###############################################
+    # Summarizer
+    ################################################
+
+    async def get_nodes(self):
+        cursor = self.client.db[
+            self.nodes_collection
+        ].find(
+            {}  # TODO : Add filter for only "last_see_height" > 0 when that property is correctly tracked
+        )
+        nodes = await cursor.to_list(length=None)
+        return nodes
+
+    async def get_node_results_for_task(
+        self, node_id: ObjectId, framework: str, task: str
+    ) -> List[dict]:
+        # Create the aggregation pipeline with the given task_id
+        aggr = aggregate_node_task_results(node_id, framework, task)
+        # Execute the aggregation
+        cursor = self.client.db[self.buffers_numerical_collection].aggregate(aggr)
+        # get all of them
+        result = await cursor.to_list(length=None)
+
+        return result
