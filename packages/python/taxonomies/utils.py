@@ -111,7 +111,7 @@ def load_taxonomy(
         node = node_path[-1]
         for edge in taxonomy_graph.in_edges(node):
             if node != edge[1]:
-                # We dont care on outgoing edges from the analyzed node.
+                # We don't care on outgoing edges from the analyzed node.
                 continue
             else:
                 # Get list of datasets used here

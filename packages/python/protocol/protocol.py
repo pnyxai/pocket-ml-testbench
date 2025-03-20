@@ -405,6 +405,8 @@ class TaxonomyNodeSummary(BaseModel):
     run_time_dev: float
     sample_min: int
 
+    # TODO : Extend this class to compute running means from passing a series of numerical buffers
+
 
 class PocketNetworkMongoDBTaxonomySummary(BaseModel):
     id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
