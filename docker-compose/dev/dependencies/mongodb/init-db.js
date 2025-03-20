@@ -36,4 +36,7 @@ db.createCollection('buffers_numerical');
 db.buffers_numerical.createIndex({"task_data.node_id": 1, "task_data.framework": 1, "task_data.task": 1}, {unique: true});
 
 db.createCollection('buffers_signatures');
-db.buffers_numerical.createIndex({"task_data.node_id": 1, "task_data.framework": 1, "task_data.task": 1}, {unique: true});
+db.buffers_signatures.createIndex({"task_data.node_id": 1, "task_data.framework": 1, "task_data.task": 1}, {unique: true});
+
+db.createCollection('taxonomy_summaries');
+db.taxonomy_summaries.createIndex({"node_id": 1, "taxonomy_name": 1}, {unique: true});

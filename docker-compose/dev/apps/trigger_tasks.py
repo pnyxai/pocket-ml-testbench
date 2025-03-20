@@ -223,6 +223,38 @@ def schedule_lookup_task(interval="1m", execution_timeout=350, task_timeout=175)
     return run_command(command)
 
 
+def schedule_taxonomy_summary_task(
+    interval="1h", execution_timeout=1200, task_timeout=1200
+):
+    command = [
+        "docker",
+        "exec",
+        "temporal-admin-tools",
+        "temporal",
+        "schedule",
+        "create",
+        "--schedule-id",
+        "taxonomy-summary-lookup",
+        "--workflow-id",
+        "taxonomy-summary-lookup",
+        "--type",
+        "TaxonomySummaryLookup",
+        "--task-queue",
+        "summarize",
+        "--interval",
+        f"{interval}",
+        "--overlap-policy",
+        "Skip",
+        "--execution-timeout",
+        f"{execution_timeout}s",
+        "--task-timeout",
+        f"{task_timeout}s",
+        "--namespace",
+        f"{NAMESPACE}",
+    ]
+    return run_command(command)
+
+
 def schedule_requester_task(
     app_address, chain_id, interval="1m", execution_timeout=350, task_timeout=175
 ):
@@ -394,6 +426,9 @@ def main():
     parser.add_argument(
         "--only-registers", action="store_true", help="Only trigger register tasks"
     )
+    parser.add_argument(
+        "--task", help="optionally pass a task identifier, e.g. --task ifeval-fix"
+    )
     args = parser.parse_args()
 
     total_registers = 0
@@ -403,6 +438,9 @@ def main():
     total_benchmarks = 0
 
     all_tasks = all_taxonomy_tasks + all_leaderboard_tasks
+    if args.task:
+        print(f"Triggering only: {args.task}")
+        all_tasks = [args.task]
 
     if args.only_registers:
         print("Setting-up registers only:")
@@ -417,6 +455,13 @@ def main():
         # Start the base task lookup
         schedule_lookup_task(interval="1m", execution_timeout=350, task_timeout=175)
         print("Lookup scheduled.")
+        time.sleep(0.25)
+
+        schedule_taxonomy_summary_task(
+            interval="1h", execution_timeout=1200, task_timeout=1200
+        )
+        print("Taxonomy summary scheduled.")
+        time.sleep(0.25)
 
         # Create per-service tasks
         for chain_id in APPS_PER_SERVICE.keys():

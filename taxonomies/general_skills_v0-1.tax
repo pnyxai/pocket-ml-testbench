@@ -1,0 +1,423 @@
+// This is a generalist taxonomy, not aimed to any particular skill set.
+// The nodes and their connections were created to be easy to understand. 
+// The datasets corresponding to each node were manually selected from a those
+// used in the open leaderboards and some extra to fill gaps in basic abilities.
+
+general_skills_v0 {
+
+    //--------------------------------------------------------------------------
+    relational_reasoning -> foundational_reasoning_skills;
+    //--------------------------------------------------------------------------
+    
+    //--------------------------------------------------------------------------
+    coreference_and_temporal_reasoning -> foundational_reasoning_skills;
+    coreference_and_temporal_reasoning -> relational_reasoning;
+    //--------------------------------------------------------------------------
+
+
+    //--------------------------------------------------------------------------
+    complex_deductive_and_inductive_reasoning -> relational_reasoning;
+    complex_deductive_and_inductive_reasoning -> coreference_and_temporal_reasoning;
+    //--------------------------------------------------------------------------
+
+    //--------------------------------------------------------------------------
+    formal_logic_and_fallacies -> foundational_reasoning_skills;
+    formal_logic_and_fallacies -> foundational_math_and_logic;
+    formal_logic_and_fallacies -> complex_deductive_and_inductive_reasoning;
+    //--------------------------------------------------------------------------
+
+    //--------------------------------------------------------------------------
+    foundational_knowledge -> foundational_reasoning_skills;
+    //--------------------------------------------------------------------------
+
+    //--------------------------------------------------------------------------
+    general_knowledge -> foundational_knowledge;
+    general_knowledge -> relational_reasoning;
+    //--------------------------------------------------------------------------
+
+    //--------------------------------------------------------------------------
+    social_sciences_and_humanities -> foundational_knowledge;
+    social_sciences_and_humanities -> complex_deductive_and_inductive_reasoning;
+    //--------------------------------------------------------------------------
+
+    //--------------------------------------------------------------------------
+    legal_and_political_knowledge -> foundational_knowledge;
+    legal_and_political_knowledge -> social_sciences_and_humanities;
+    legal_and_political_knowledge -> formal_logic_and_fallacies;
+    legal_and_political_knowledge -> ethics_and_moral_reasoning;
+    //--------------------------------------------------------------------------
+
+    //--------------------------------------------------------------------------
+    ethics_and_moral_reasoning -> social_sciences_and_humanities;
+    //--------------------------------------------------------------------------
+
+    //--------------------------------------------------------------------------
+    core_natural_sciences -> foundational_reasoning_skills;
+    core_natural_sciences -> foundational_knowledge;
+    //--------------------------------------------------------------------------
+ 
+    //--------------------------------------------------------------------------
+    foundational_math_and_logic -> foundational_knowledge;
+    foundational_math_and_logic -> complex_deductive_and_inductive_reasoning;
+    //--------------------------------------------------------------------------
+
+    //--------------------------------------------------------------------------
+    applied_sciences_and_engineering -> core_natural_sciences;
+    applied_sciences_and_engineering -> foundational_math_and_logic;
+    //--------------------------------------------------------------------------
+
+    //--------------------------------------------------------------------------
+    computer_science -> applied_sciences_and_engineering;
+    //computer_science -> core_natural_sciences;
+    computer_science -> foundational_math_and_logic;
+    //--------------------------------------------------------------------------
+    
+    //--------------------------------------------------------------------------
+    foundational_social_and_behavioral_sci -> social_sciences_and_humanities;
+    foundational_social_and_behavioral_sci -> ethics_and_moral_reasoning;
+    //--------------------------------------------------------------------------
+    
+    //--------------------------------------------------------------------------
+    health_and_biological_sci -> core_natural_sciences;
+    //--------------------------------------------------------------------------
+    
+    //--------------------------------------------------------------------------
+    clinical_and_prof_medical_knowledge -> health_and_biological_sci;
+    clinical_and_prof_medical_knowledge -> complex_deductive_and_inductive_reasoning;
+    //--------------------------------------------------------------------------
+
+    //--------------------------------------------------------------------------
+    foundational_language_skills -> foundational_reasoning_skills;
+    //--------------------------------------------------------------------------
+
+    //--------------------------------------------------------------------------
+    creative_scenario_based -> foundational_language_skills;
+    creative_scenario_based -> social_sciences_and_humanities;
+    //--------------------------------------------------------------------------
+
+    //--------------------------------------------------------------------------
+    advanced_interpretation_and_rhetorical_analysis -> foundational_language_skills;
+    advanced_interpretation_and_rhetorical_analysis -> social_sciences_and_humanities;
+    advanced_interpretation_and_rhetorical_analysis -> formal_logic_and_fallacies;
+    advanced_interpretation_and_rhetorical_analysis -> creative_scenario_based;
+    //--------------------------------------------------------------------------
+
+    //--------------------------------------------------------------------------
+    instruction_comprehension_and_execution -> logical_and_object_tracking_reasoning;
+    instruction_comprehension_and_execution -> complex_deductive_and_inductive_reasoning;
+    //--------------------------------------------------------------------------
+
+    //--------------------------------------------------------------------------
+    advanced_math_and_computational_reasoning -> foundational_math_and_logic;
+    advanced_math_and_computational_reasoning -> complex_deductive_and_inductive_reasoning;
+    //--------------------------------------------------------------------------
+
+    //--------------------------------------------------------------------------
+    logical_and_object_tracking_reasoning -> formal_logic_and_fallacies;
+    logical_and_object_tracking_reasoning -> coreference_and_temporal_reasoning;
+    //--------------------------------------------------------------------------
+    
+    //--------------------------------------------------------------------------
+    computational_coding_and_synthesis -> advanced_math_and_computational_reasoning;
+    computational_coding_and_synthesis -> computer_science;
+    computational_coding_and_synthesis -> foundational_math_and_logic;
+    computational_coding_and_synthesis -> instruction_comprehension_and_execution;
+    //--------------------------------------------------------------------------
+    
+    //--------------------------------------------------------------------------
+    business_and_public_interaction -> foundational_language_skills;
+    business_and_public_interaction -> ethics_and_moral_reasoning;
+    business_and_public_interaction -> foundational_social_and_behavioral_sci;
+    business_and_public_interaction -> legal_and_political_knowledge;
+    //--------------------------------------------------------------------------
+
+
+
+    //--------------------------------------------------------------------------
+    //--------------------------------------------------------------------------
+    // Roots
+    root_c -> general_knowledge;
+    root_c -> clinical_and_prof_medical_knowledge;
+    root_c -> advanced_interpretation_and_rhetorical_analysis;
+    root_c -> computational_coding_and_synthesis;
+    root_c -> business_and_public_interaction;
+    root_c -> logical_and_object_tracking_reasoning
+
+}
+
+general_skills_v0_labeling {
+
+    //--------------------------------------------------------------------------
+    // --- HUMANEVAL
+    // coding
+    computational_coding_and_synthesis -> humaneval;
+    //--------------------------------------------------------------------------
+
+    //--------------------------------------------------------------------------
+    // --- BBH
+    logical_and_object_tracking_reasoning -> bbh_fix_fewshot_tracking_shuffled_objects_three_objects;
+    logical_and_object_tracking_reasoning -> bbh_fix_fewshot_tracking_shuffled_objects_five_objects; 
+    logical_and_object_tracking_reasoning -> bbh_fix_fewshot_tracking_shuffled_objects_seven_objects;
+    logical_and_object_tracking_reasoning -> bbh_fix_fewshot_dyck_languages;
+    logical_and_object_tracking_reasoning -> bbh_fix_fewshot_word_sorting;
+    //--------------------------------------------------------------------------
+
+    //--------------------------------------------------------------------------
+    // --- BBH
+    advanced_math_and_computational_reasoning -> bbh_fix_fewshot_object_counting;
+    advanced_math_and_computational_reasoning -> bbh_fix_fewshot_reasoning_about_colored_objects;
+    advanced_math_and_computational_reasoning -> bbh_fix_fewshot_multistep_arithmetic_two;
+    //--------------------------------------------------------------------------
+
+    //--------------------------------------------------------------------------
+    // --- IFEVAL
+    // instruction following
+    instruction_comprehension_and_execution -> ifeval_fix;
+    //--------------------------------------------------------------------------
+
+    //--------------------------------------------------------------------------
+    // --- MMLU
+    health_and_biological_sci -> mmlu_fix_anatomy_generative;
+    health_and_biological_sci -> mmlu_fix_medical_genetics_generative;
+    health_and_biological_sci -> mmlu_fix_human_aging_generative;
+    health_and_biological_sci -> mmlu_fix_nutrition_generative;
+    //--------------------------------------------------------------------------
+
+    //--------------------------------------------------------------------------
+    // --- MMLU
+    foundational_social_and_behavioral_sci -> mmlu_fix_sociology_generative;
+    foundational_social_and_behavioral_sci -> mmlu_fix_human_sexuality_generative;
+    //--------------------------------------------------------------------------
+
+    //--------------------------------------------------------------------------
+    // --- MMLU
+    clinical_and_prof_medical_knowledge -> mmlu_fix_clinical_knowledge_generative;
+    clinical_and_prof_medical_knowledge -> mmlu_fix_professional_psychology_generative;
+    clinical_and_prof_medical_knowledge -> mmlu_fix_professional_medicine_generative;
+    // --- MMLU-PRO
+    clinical_and_prof_medical_knowledge -> mmlu_pro-category_psychology;
+    clinical_and_prof_medical_knowledge -> mmlu_pro-category_health;
+    //--------------------------------------------------------------------------
+
+    //--------------------------------------------------------------------------
+    // --- MMLU
+    business_and_public_interaction -> mmlu_fix_public_relations_generative;
+    business_and_public_interaction -> mmlu_fix_marketing_generative;
+    business_and_public_interaction -> mmlu_fix_management_generative;
+    // --- MMLU-PRO
+    business_and_public_interaction -> mmlu_pro-category_business;
+    //--------------------------------------------------------------------------
+
+    //--------------------------------------------------------------------------
+    // --- MMLU
+    legal_and_political_knowledge -> mmlu_fix_jurisprudence_generative;
+    legal_and_political_knowledge -> mmlu_fix_professional_law_generative;
+    legal_and_political_knowledge -> mmlu_fix_high_school_government_and_politics_generative;
+    legal_and_political_knowledge -> mmlu_fix_professional_accounting_generative;
+    legal_and_political_knowledge -> mmlu_fix_us_foreign_policy_generative;
+    // --- MMLU-PRO
+    legal_and_political_knowledge -> mmlu_pro-category_law;
+    //--------------------------------------------------------------------------
+
+    //--------------------------------------------------------------------------
+    // --- MMLU
+    social_sciences_and_humanities -> mmlu_fix_philosophy_generative;
+    social_sciences_and_humanities -> mmlu_fix_world_religions_generative;
+    social_sciences_and_humanities -> mmlu_fix_global_facts_generative;
+    social_sciences_and_humanities -> mmlu_fix_econometrics_generative;
+    // --- MMLU-PRO
+    social_sciences_and_humanities -> mmlu_pro-category_history;
+    social_sciences_and_humanities -> mmlu_pro-category_philosophy;
+    social_sciences_and_humanities -> mmlu_pro-category_economics;
+    //--------------------------------------------------------------------------
+
+    //--------------------------------------------------------------------------    
+    // --- MMLU
+    foundational_knowledge -> mmlu_fix_high_school_geography_generative;
+    foundational_knowledge -> mmlu_fix_high_school_statistics_generative;
+    foundational_knowledge -> mmlu_fix_high_school_us_history_generative;
+    foundational_knowledge -> mmlu_fix_high_school_european_history_generative;
+    foundational_knowledge -> mmlu_fix_high_school_world_history_generative;
+    foundational_knowledge -> mmlu_fix_high_school_macroeconomics_generative;
+    foundational_knowledge -> mmlu_fix_high_school_microeconomics_generative;
+    foundational_knowledge -> mmlu_fix_high_school_psychology_generative;
+    foundational_knowledge -> mmlu_fix_high_school_mathematics_generative;
+    foundational_knowledge -> mmlu_fix_high_school_physics_generative;
+    //--------------------------------------------------------------------------
+
+    //--------------------------------------------------------------------------    
+    // --- MMLU
+    ethics_and_moral_reasoning -> mmlu_fix_business_ethics_generative;
+    ethics_and_moral_reasoning -> mmlu_fix_moral_disputes_generative;
+    ethics_and_moral_reasoning -> mmlu_fix_moral_scenarios_generative;
+    //--------------------------------------------------------------------------
+
+    //--------------------------------------------------------------------------
+    // --- MMLU
+    foundational_math_and_logic -> mmlu_pro-category_math;
+    foundational_math_and_logic -> mmlu_fix_college_mathematics_generative;
+    foundational_math_and_logic -> mmlu_fix_elementary_mathematics_generative;
+    foundational_math_and_logic -> mmlu_fix_formal_logic_generative;
+    foundational_math_and_logic -> mmlu_fix_abstract_algebra_generative;
+    // --- GSM8K
+    foundational_math_and_logic -> gsm8k;
+    //--------------------------------------------------------------------------
+
+    //--------------------------------------------------------------------------
+    // --- MMLU
+    core_natural_sciences -> mmlu_fix_high_school_biology_generative;
+    core_natural_sciences -> mmlu_fix_high_school_chemistry_generative;
+    // --- MMLU-PRO
+    core_natural_sciences -> mmlu_pro-category_biology;
+    core_natural_sciences -> mmlu_pro-category_chemistry;
+    core_natural_sciences -> mmlu_pro-category_physics;
+    // --- GPQA
+    core_natural_sciences -> gpqa_subtask_physics_physics_general;
+    core_natural_sciences -> gpqa_subtask_chemistry_chemistry_general;
+    //--------------------------------------------------------------------------
+
+    //--------------------------------------------------------------------------    
+    // --- MMLU
+    applied_sciences_and_engineering -> mmlu_pro-category_engineering;
+    applied_sciences_and_engineering -> mmlu_fix_electrical_engineering_generative;
+    applied_sciences_and_engineering -> mmlu_fix_college_chemistry_generative;
+    applied_sciences_and_engineering -> mmlu_fix_college_physics_generative;
+    applied_sciences_and_engineering -> mmlu_fix_college_biology_generative;
+    applied_sciences_and_engineering -> mmlu_fix_college_medicine_generative;
+    applied_sciences_and_engineering -> mmlu_fix_virology_generative;
+    // --- GPQA
+    applied_sciences_and_engineering -> gpqa_subtask_biology_molecular_biology;
+    applied_sciences_and_engineering -> gpqa_subtask_chemistry_organic_chemistry;
+    applied_sciences_and_engineering -> gpqa_subtask_physics_relativistic_mechanics;
+    applied_sciences_and_engineering -> gpqa_subtask_physics_quantum_mechanics;
+    applied_sciences_and_engineering -> gpqa_subtask_physics_electromagnetism_and_photonics;
+    applied_sciences_and_engineering -> gpqa_subtask_biology_genetics;
+    applied_sciences_and_engineering -> gpqa_subtask_physics_high_energy_particle_physics;
+    applied_sciences_and_engineering -> gpqa_subtask_physics_astrophysics;
+    applied_sciences_and_engineering -> gpqa_subtask_physics_statistical_mechanics;
+    applied_sciences_and_engineering -> gpqa_subtask_chemistry_inorganic_chemistry;
+    applied_sciences_and_engineering -> gpqa_subtask_physics_condensed_matter_physics;
+    applied_sciences_and_engineering -> gpqa_subtask_chemistry_physical_chemistry;
+    applied_sciences_and_engineering -> gpqa_subtask_physics_optics_and_acoustics;
+    applied_sciences_and_engineering -> gpqa_subtask_chemistry_analytical_chemistry;
+    //--------------------------------------------------------------------------
+
+    //--------------------------------------------------------------------------
+    // --- MMLU
+    computer_science -> mmlu_pro-category_computer-science;
+    computer_science -> mmlu_fix_high_school_computer_science_generative;
+    computer_science -> mmlu_fix_machine_learning_generative;
+    computer_science -> mmlu_fix_computer_security_generative;
+    computer_science -> mmlu_fix_college_computer_science_generative;
+    //--------------------------------------------------------------------------
+
+    //--------------------------------------------------------------------------
+    // --- bAbI
+    // motivation
+    creative_scenario_based -> babi-task_20-agents_motivations;
+    // --- BBH
+    creative_scenario_based -> bbh_fix_fewshot_penguins_in_a_table;
+    creative_scenario_based -> bbh_fix_fewshot_movie_recommendation;
+    creative_scenario_based -> bbh_fix_fewshot_navigate;
+
+    //--------------------------------------------------------------------------
+
+    //--------------------------------------------------------------------------
+    // --- bAbI
+    // deduction
+    complex_deductive_and_inductive_reasoning -> babi-task_15-basic_deduction;
+    // induction
+    complex_deductive_and_inductive_reasoning -> babi-task_16-basic_induction;
+    // path_finding
+    complex_deductive_and_inductive_reasoning -> babi-task_19-path_finding;
+    // indefinite knowledge
+    complex_deductive_and_inductive_reasoning -> babi-task_10-indefinite_knowledge;
+    // --- BBH
+    complex_deductive_and_inductive_reasoning -> bbh_fix_fewshot_logical_deduction_three_objects;
+    complex_deductive_and_inductive_reasoning -> bbh_fix_fewshot_logical_deduction_five_objects;
+    complex_deductive_and_inductive_reasoning -> bbh_fix_fewshot_logical_deduction_seven_objects;
+    complex_deductive_and_inductive_reasoning -> bbh_fix_fewshot_causal_judgement;
+    //--------------------------------------------------------------------------
+
+    //--------------------------------------------------------------------------
+    // --- bAbI
+    // basic_coreference
+    coreference_and_temporal_reasoning -> babi-task_11-basic_coreference;
+    // compound_coreference
+    coreference_and_temporal_reasoning -> babi-task_13-compound_coreference;
+    // temporal_reasoning
+    coreference_and_temporal_reasoning -> babi-task_14-time_reasoning;
+    // lists-sets 
+    coreference_and_temporal_reasoning -> babi-task_08-lists_sets;
+    // --- BBH
+    coreference_and_temporal_reasoning -> bbh_fix_fewshot_date_understanding;
+    coreference_and_temporal_reasoning -> bbh_fix_fewshot_temporal_sequences;
+    //--------------------------------------------------------------------------
+
+    //--------------------------------------------------------------------------
+    // --- bAbI
+    // two_facts
+    relational_reasoning -> babi-task_02-two_supporting_facts;
+    // three_facts
+    relational_reasoning -> babi-task_03-three_supporting_facts;
+    // ternary_relation
+    relational_reasoning -> babi-task_05-three_argument_relations;
+    // spatial_reasoning
+    relational_reasoning -> babi-task_17-positional_reasoning;
+    // size_reasoning
+    relational_reasoning -> babi-task_18-size_reasoning;
+    //--------------------------------------------------------------------------
+
+    //--------------------------------------------------------------------------
+    // --- bAbI
+    // one_fact
+    foundational_reasoning_skills -> babi-task_01-single_supporting_fact;
+    // yes_no
+    foundational_reasoning_skills -> babi-task_06-yes_no_questions;
+    // counting
+    foundational_reasoning_skills -> babi-task_07-counting;
+    // negation
+    foundational_reasoning_skills -> babi-task_09-simple_negation;
+    // conjunction
+    foundational_reasoning_skills -> babi-task_12-conjunction;
+    // binary_relation
+    foundational_reasoning_skills -> babi-task_04-two_argument_relations;
+    //--------------------------------------------------------------------------
+
+    //--------------------------------------------------------------------------
+    // --- MMLU
+    formal_logic_and_fallacies -> mmlu_fix_logical_fallacies_generative;
+    // --- BBH
+    formal_logic_and_fallacies -> bbh_fix_fewshot_formal_fallacies;
+    formal_logic_and_fallacies -> bbh_fix_fewshot_boolean_expressions;
+    //--------------------------------------------------------------------------
+
+    //--------------------------------------------------------------------------
+    // --- MMLU
+    general_knowledge -> mmlu_fix_miscellaneous_generative;
+    general_knowledge -> mmlu_fix_conceptual_physics_generative;
+    general_knowledge -> mmlu_fix_prehistory_generative;
+    general_knowledge -> mmlu_fix_international_law_generative;
+    general_knowledge -> mmlu_fix_human_aging_generative;
+    general_knowledge -> mmlu_fix_security_studies_generative;
+    general_knowledge -> mmlu_fix_astronomy_generative;
+    // --- MMLU-PRO
+    general_knowledge -> mmlu_pro-category_other;
+    // --- BBH
+    general_knowledge -> bbh_fix_fewshot_sports_understanding;
+    //--------------------------------------------------------------------------
+
+    //--------------------------------------------------------------------------
+    // --- BBH
+    foundational_language_skills -> bbh_fix_fewshot_disambiguation_qa;
+    foundational_language_skills -> bbh_fix_fewshot_hyperbaton;
+    //--------------------------------------------------------------------------
+
+    //--------------------------------------------------------------------------    
+    // --- BBH
+    advanced_interpretation_and_rhetorical_analysis -> bbh_fix_fewshot_salient_translation_error_detection;
+    advanced_interpretation_and_rhetorical_analysis -> bbh_fix_fewshot_snarks;
+    advanced_interpretation_and_rhetorical_analysis -> bbh_fix_fewshot_web_of_lies;
+    advanced_interpretation_and_rhetorical_analysis -> bbh_fix_fewshot_ruin_names;
+    //--------------------------------------------------------------------------
+}

@@ -6,7 +6,7 @@ Is in charge of reading the Requester responses from the `responses` collection 
 
 1. Generate image
 ```bash
-apps/python/sampler/build.sh
+apps/python/evaluator/build.sh
 ```
 
 2. Generate infrastructure following instructions in the [docker-compose README](../../../docker-compose/README.md)

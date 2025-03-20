@@ -185,8 +185,8 @@ class PocketNetworkMongoDBTask(BaseModel):
 ###########
 
 
-# TODO: Sepparate this class into an agnostic input to the evaluation workflow.
-# This class is inhering multiple optional parameters that dont play any role in
+# TODO: Separate this class into an agnostic input to the evaluation workflow.
+# This class is inhering multiple optional parameters that don't play any role in
 # non-LMEH or non-LLM tasks.
 class PocketNetworkEvaluationTaskRequest(PocketNetworkTaskRequest):
     framework: Optional[str] = None
@@ -386,3 +386,34 @@ class TimeoutHandler(BaseModel):
 
     def get_timeout(self, **kwargs) -> float:
         return self._timeout_fn(**kwargs)
+
+
+###########
+# TAXONOMY SUMMARIZER
+###########
+
+
+class PocketNetworkTaxonomySummaryTaskRequest(BaseModel):
+    node_id: Union[str, PyObjectId]
+    taxonomy: str
+
+
+class TaxonomyNodeSummary(BaseModel):
+    score: float
+    score_dev: float
+    run_time: float
+    run_time_dev: float
+    sample_min: int
+
+    # TODO : Extend this class to compute running means from passing a series of numerical buffers
+
+
+class PocketNetworkMongoDBTaxonomySummary(BaseModel):
+    id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
+    node_id: ObjectId
+    summary_date: datetime
+    taxonomy_name: str
+    taxonomy_nodes_scores: Dict[str, TaxonomyNodeSummary]
+
+    class Config:
+        arbitrary_types_allowed = True
