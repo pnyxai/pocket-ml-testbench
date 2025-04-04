@@ -1,5 +1,0 @@
-{
-  "log_level": "INFO",
-  "tokenizer_path_or_name": "/tokenizer",
-  "model_config_path": "/tokenizer"
-}

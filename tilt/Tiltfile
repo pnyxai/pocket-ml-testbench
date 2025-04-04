@@ -1,0 +1,41 @@
+# Evaluator
+k8s_yaml(kustomize('./apps/evaluator/local'))
+
+# Set-up PostgreSQL
+k8s_yaml(kustomize('./dependencies/postgresql/local'))
+
+# Set-up Pgadmin
+k8s_yaml(['./dependencies/pgadmin/deployment.yaml',
+        './dependencies/pgadmin/configmap.yaml',
+        './dependencies/pgadmin/secret.yaml',
+        './dependencies/pgadmin/service.yaml'])
+
+# Set-up MongoDB
+k8s_yaml(kustomize('./dependencies/mongodb/local'))
+
+
+
+
+
+
+# Base Python Image
+docker_build(
+    "pocket_ml_testbench_base_python_image:latest",
+    context="../",
+    dockerfile="../apps/python/base_image/Dockerfile",
+    live_update=[]  # dummy live_update to trigger builds
+)
+
+# Summarizer
+docker_build(
+    "pocket_ml_testbench_summarizer:dev",
+    context="../",
+    dockerfile="../apps/python/summarizer/Dockerfile",
+    live_update=[]  # dummy live_update to trigger builds
+)
+
+k8s_yaml(kustomize('./apps/summarizer/local'))
+
+
+
+

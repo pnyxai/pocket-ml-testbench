@@ -1,0 +1,21 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mongodb-init-db
+spec:
+  template:
+    spec:
+      containers:
+      - name: mongodb-init-db
+        resources: {}
+        image: mongoImage
+        command: ["mongosh", "--host", "mongodb-service", "/init-db.js"]
+        volumeMounts:
+        - name: init-scripts
+          mountPath: /init-db.js
+          subPath: init-db.js
+      restartPolicy: Never
+      volumes:
+      - name: init-scripts
+        configMap:
+          name: mongodb-init-scripts

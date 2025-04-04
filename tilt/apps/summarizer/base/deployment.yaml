@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: summarizer
+  labels:
+    app: summarizer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: summarizer
+  template:
+    metadata:
+      labels:
+        app: summarizer
+    spec:
+      volumes:
+        - name: configuration-files
+          secret:
+            secretName: summarizer-config
+      containers:
+        - image: pocket_ml_testbench_summarizer:dev
+          name: summarizer
+          env:
+            - name: CONFIG_PATH
+              value: "/home/app/configs/config.json"
+            - name: TQDM_DISABLE
+              value: "True"
+          volumeMounts:
+            - mountPath: /home/app/configs/
+              name: configuration-files
+              readOnly: true
+          resources: {}

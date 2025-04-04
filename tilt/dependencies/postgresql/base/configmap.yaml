@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgresql-config
+data:
+  postgresql.conf: |
+    listen_addresses = '*'
+    port = 5432                            
+    max_connections = 2000                 
+    
+    shared_buffers = 128MB                 
+    
+    dynamic_shared_memory_type = posix     
+    
+    max_wal_size = 1GB
+    min_wal_size = 80MB
+
+    log_timezone = UTC
+
+    datestyle = 'iso, mdy'
+
+    timezone = UTC
+    
+    lc_messages = 'en_US.utf8'              
+                                            
+    lc_monetary = 'en_US.utf8'              
+    lc_numeric = 'en_US.utf8'               
+    lc_time = 'en_US.utf8'                  
+
+    default_text_search_config = 'pg_catalog.english'
+
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgresql-init-script
+data:
+  init.sql: |
+    CREATE TABLE "task_registry" ("task_name" TEXT PRIMARY KEY, "dataset_table_name" TEXT);

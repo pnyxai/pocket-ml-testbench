@@ -1,9 +1,0 @@
-{
-  "log_level": "INFO",
-  "llm_endpoint_override": {
-    "backend_model_name" : "pocket_network",
-    "backend_path" : "http://llm-engine:8000"
-  },
-  "tokenizer_path_or_name": "/tokenizer",
-  "model_config_path": "/tokenizer"
-}
