@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: temporal
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: temporal
+  template:
+    metadata:
+      labels:
+        app: temporal
+    spec:
+      containers:
+        - name: temporal
+          resources: {}
+          image: temporalImage
+          ports:
+            - containerPort: 7233
+          env:
+            - name: DB
+              valueFrom:
+                  secretKeyRef:
+                    name: temporal-secret
+                    key: DB
+            - name: DB_PORT
+              valueFrom:
+                  secretKeyRef:
+                    name: postgresql-secret
+                    key: POSTGRES_PORT
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: postgresql-secret
+                  key: POSTGRES_USER
+            - name: POSTGRES_PWD
+              valueFrom:
+                secretKeyRef:
+                  name: postgresql-secret
+                  key: POSTGRES_PASSWORD
+            - name: POSTGRES_SEEDS
+              valueFrom:
+                secretKeyRef:
+                  name: postgresql-secret
+                  key: POSTGRES_SEEDS
+            - name: DYNAMIC_CONFIG_FILE_PATH
+              value: /etc/temporal/config/dynamicconfig/testbench.yaml
+            - name: SKIP_DEFAULT_NAMESPACE_CREATION
+              value: "false"
+            - name: DEFAULT_NAMESPACE
+              valueFrom:
+                secretKeyRef:
+                  name: temporal-secret
+                  key: TEMPORAL_NAMESPACE
+            - name: DEFAULT_NAMESPACE_RETENTION
+              valueFrom:
+                secretKeyRef:
+                  name: temporal-secret
+                  key: DEFAULT_NAMESPACE_RETENTION
+            - name: TEMPORAL_ADDRESS
+              valueFrom:
+                secretKeyRef:
+                  name: temporal-secret
+                  key: TEMPORAL_ADDRESS
+          volumeMounts:
+            - name: dynamicconfig
+              mountPath: /etc/temporal/config/dynamicconfig
+          # readinessProbe:
+          #   exec:
+          #     command:
+          #       - /bin/sh
+          #       - -c
+          #       - |
+          #         echo "TEMPORAL_ADDRESS=$TEMPORAL_ADDRESS"
+          #         echo "TEMPORAL_PORT=$TEMPORAL_PORT"
+          #         tctl --address="${TEMPORAL_ADDRESS}:${TEMPORAL_PORT}" --namespace="${DEFAULT_NAMESPACE}" workflow list
+          #   initialDelaySeconds: 10
+          #   periodSeconds: 10
+          #   timeoutSeconds: 2
+          #   failureThreshold: 5
+
+      volumes:
+        - name: dynamicconfig
+          configMap:
+            name: temporal-dynamicconfig

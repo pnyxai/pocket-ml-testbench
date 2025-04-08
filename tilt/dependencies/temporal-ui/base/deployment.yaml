@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: temporal-ui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: temporal-ui
+  template:
+    metadata:
+      labels:
+        app: temporal-ui
+    spec:
+      containers:
+        - name: temporal-ui
+          resources: {}
+          image: temporalioUiImage
+          ports:
+            - containerPort: 8080
+          env:
+            - name: TEMPORAL_ADDRESS
+              valueFrom:
+                secretKeyRef:
+                  name: temporal-secret
+                  key: TEMPORAL_ADDRESS
+            - name: TEMPORAL_CORS_ORIGINS
+              valueFrom:
+                secretKeyRef:
+                  name: temporal-secret
+                  key: TEMPORAL_CORS_ORIGINS
+            - name: TEMPORAL_DEFAULT_NAMESPACE
+              valueFrom:
+                secretKeyRef:
+                  name: temporal-secret
+                  key: TEMPORAL_NAMESPACE

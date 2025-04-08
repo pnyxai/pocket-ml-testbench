@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: temporal-admin-tools
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: temporal-admin-tools
+  template:
+    metadata:
+      labels:
+        app: temporal-admin-tools
+    spec:
+      containers:
+        - name: temporal-admin-tools
+          resources: {}
+          image: temporalToolsImage
+          env:
+            - name: TEMPORAL_ADDRESS
+              valueFrom:
+                secretKeyRef:
+                  name: temporal-secret
+                  key: TEMPORAL_ADDRESS
+            - name: TEMPORAL_CLI_ADDRESS
+              valueFrom:
+                secretKeyRef:
+                  name: temporal-secret
+                  key: TEMPORAL_ADDRESS
+            - name: TEMPORAL_CLI_NAMESPACE
+              valueFrom:
+                secretKeyRef:
+                  name: temporal-secret
+                  key: TEMPORAL_ADDRESS
+

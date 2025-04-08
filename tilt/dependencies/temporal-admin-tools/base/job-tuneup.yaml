@@ -1,0 +1,41 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: temporal-tuneup
+spec:
+  backoffLimit: 4
+  template:
+    metadata:
+      labels:
+        app: temporal-tuneup
+    spec:
+      containers:
+        - name: temporal-tuneup
+          image: temporalToolsImage
+          command: ["/home/temporal/initialize.sh"]
+          env:
+            - name: TEMPORAL_ADDRESS
+              valueFrom:
+                secretKeyRef:
+                  name: temporal-secret
+                  key: TEMPORAL_ADDRESS
+            - name: TEMPORAL_CLI_ADDRESS
+              valueFrom:
+                secretKeyRef:
+                  name: temporal-secret
+                  key: TEMPORAL_ADDRESS
+            - name: TEMPORAL_CLI_NAMESPACE
+              valueFrom:
+                secretKeyRef:
+                  name: temporal-secret
+                  key: TEMPORAL_NAMESPACE
+          volumeMounts:
+            - name: init-script
+              mountPath: /home/temporal/initialize.sh
+              subPath: initialize.sh
+      volumes:
+        - name: init-script
+          configMap:
+            name: temporal-init-script
+            defaultMode: 0755
+      restartPolicy: OnFailure
