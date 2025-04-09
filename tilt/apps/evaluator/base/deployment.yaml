@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: evaluator
+  labels:
+    app: evaluator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: evaluator
+  template:
+    metadata:
+      labels:
+        app: evaluator
+    spec:
+      volumes:
+        - name: configuration-files
+          secret:
+            secretName: evaluator-config
+      containers:
+        - image: pocket_ml_testbench_evaluator:dev
+          name: evaluator
+          env:
+            - name: CONFIG_PATH
+              value: "/home/app/configs/config.json"
+            - name: TQDM_DISABLE
+              value: "True"
+            - name: HF_DATASETS_DISABLE_PROGRESS_BARS
+              value: "True"
+            - name: OPENAI_API_KEY
+              valueFrom:
+                  secretKeyRef:
+                    name: testbench-secret
+                    key: OPENAI_API_KEY
+            - name: HF_DATASETS_TRUST_REMOTE_CODE
+              valueFrom:
+                  secretKeyRef:
+                    name: testbench-secret
+                    key: HF_DATASETS_TRUST_REMOTE_CODE
+            - name: DATASETS_TRUST_REMOTE_CODE
+              valueFrom:
+                  secretKeyRef:
+                    name: testbench-secret
+                    key: DATASETS_TRUST_REMOTE_CODE
+            - name: EVALUATE_VERBOSITY
+              valueFrom:
+                  secretKeyRef:
+                    name: testbench-secret
+                    key: EVALUATE_VERBOSITY
+            - name: DATASETS_VERBOSITY
+              valueFrom:
+                  secretKeyRef:
+                    name: testbench-secret
+                    key: DATASETS_VERBOSITY
+          volumeMounts:
+            - mountPath: /home/app/configs/
+              name: configuration-files
+              readOnly: true
+          resources: {}

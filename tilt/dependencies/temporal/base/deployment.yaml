@@ -66,19 +66,17 @@ spec:
           volumeMounts:
             - name: dynamicconfig
               mountPath: /etc/temporal/config/dynamicconfig
-          # readinessProbe:
-          #   exec:
-          #     command:
-          #       - /bin/sh
-          #       - -c
-          #       - |
-          #         echo "TEMPORAL_ADDRESS=$TEMPORAL_ADDRESS"
-          #         echo "TEMPORAL_PORT=$TEMPORAL_PORT"
-          #         tctl --address="${TEMPORAL_ADDRESS}:${TEMPORAL_PORT}" --namespace="${DEFAULT_NAMESPACE}" workflow list
-          #   initialDelaySeconds: 10
-          #   periodSeconds: 10
-          #   timeoutSeconds: 2
-          #   failureThreshold: 5
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  tctl --address="${TEMPORAL_ADDRESS}" --namespace="${DEFAULT_NAMESPACE}" workflow list
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 5
 
       volumes:
         - name: dynamicconfig

@@ -48,6 +48,38 @@ docker_build(
     live_update=[]  # dummy live_update to trigger builds
 )
 
+# ------------------------ Manager ---------------------------------------------
+docker_build(
+    "pocket_ml_testbench_manager:dev",
+    context="../",
+    dockerfile="../apps/go/manager/Dockerfile",
+    live_update=[]  # dummy live_update to trigger builds
+)
+
+# ------------------------ Sampler ---------------------------------------------
+docker_build(
+    "pocket_ml_testbench_sampler:dev",
+    context="../",
+    dockerfile="../apps/python/sampler/Dockerfile",
+    live_update=[]  # dummy live_update to trigger builds
+)
+
+# ------------------------ Requester -------------------------------------------
+docker_build(
+    "pocket_ml_testbench_requester:dev",
+    context="../",
+    dockerfile="../apps/go/requester/Dockerfile",
+    live_update=[]  # dummy live_update to trigger builds
+)
+
+# ------------------------ Evaluator -------------------------------------------
+docker_build(
+    "pocket_ml_testbench_evaluator:dev",
+    context="../",
+    dockerfile="../apps/python/evaluator/Dockerfile",
+    live_update=[]  # dummy live_update to trigger builds
+)
+
 # ------------------------ Summarizer ------------------------------------------
 docker_build(
     "pocket_ml_testbench_summarizer:dev",
@@ -61,9 +93,29 @@ docker_build(
 # ------------------------------------------------------------------------------
 
 k8s_yaml([
+    # Manager
+    kustomize('./apps/manager/local'),
+    # Sampler
+    kustomize('./apps/sampler/local'),
+    # Requester
+    kustomize('./apps/requester/local'),
+    # Evaluator
+    kustomize('./apps/evaluator/local'),
     # Summarizer
-    kustomize('./apps/summarizer/local')
+    kustomize('./apps/summarizer/local'),
+    # Common -- Secrets
+    kustomize('./common/secrets/local')
     ])
 
+# Manager
+k8s_resource("manager", labels=["apps"])
+# Sampler
+k8s_resource("sampler", labels=["apps"])
+# Requester
+k8s_resource("requester", labels=["apps"])
+# Evaluator
+k8s_resource("evaluator", labels=["apps"])
+# Summarizer
 k8s_resource("summarizer", labels=["apps"])
+
 
