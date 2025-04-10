@@ -23,16 +23,15 @@ To deploy the dev env you will need to have access to:
 - A Pocket Node for RPC calls
 - One (or more) Pocket Application private key (staked in the used services)
 
-The URL of the Pocket RPC node should be added to `/etc/hosts` under the name `pokt.rpc.node.local`.
-
-The private key of the application should be manually replaced in `tilt/apps/requester/local/patches/secret.yaml`, as a list under the field `apps`:
-```json
-...
-"apps": [
-        "6d7d9e78fd62b524cfa76a298b6f9653445449bc22960224901a5bb993ba52cb1802f4116b9d3798e2766a2452fbeb4d280fa99e77e61193df146ca4d88b38af"
-      ],
-...
+This data should be added to a `.env` file that must be at the same level of the `Tiltfile`, we provide a sample of that file, but you will need to change the values:
+```dotenv
+# List of Pocket Network RPCs, used by the Manager and Requester
+POKT_RPC_LIST=["http://pokt.rpc.node.local:9081"]
+# List of private keys of the Pocket Network apps used by the Requester
+APPS_PRIVATE_KEYS_LIST=["6d7d9e78fd62b524cfa76a298b6f9653445449bc22960224901a5bb993ba52cb1802f4116b9d3798e2766a2452fbeb4d280fa99e77e61193df146ca4d88b38af"]
 ```
+
+These values will be replaced in all `*.template.yaml`. 
 
 ### Troubleshot
 
