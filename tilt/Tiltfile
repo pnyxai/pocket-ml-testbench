@@ -1,6 +1,5 @@
 load('ext://dotenv', 'dotenv')
 dotenv(fn='.env')
-
 watch_file('.env')
 
 ################################################################################
@@ -102,7 +101,7 @@ replce_file(
     "apps/requester/local/patches/secret.yaml",
     )
 
-# ------------------------ Requester -------------------------------------------
+# ------------------------ Manager ---------------------------------------------
 replce_file(
     "apps/manager/local/patches/secret.template.yaml",
     "apps/manager/local/patches/secret.yaml",
