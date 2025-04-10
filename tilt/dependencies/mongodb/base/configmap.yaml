@@ -1,0 +1,68 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mongodb-init-scripts
+data:
+  init-mongo.js: |
+    try {
+        // Fetching the current replica set configuration
+        var conf = rs.conf();
+        printjson(conf);
+    } catch (err) {
+        print('An error occurred while fetching replica set config: ', err);
+        print('Initiating a replica set');
+
+        // Initiating replica set if config is not found (i.e., not a part of any replica set yet)
+        rs.initiate(
+            {
+                _id: "devRs",
+                version: 1,
+                members: [
+                    { _id: 0, host: "mongodb-service:27017" },
+                ]
+            }
+        );
+    }
+  init-db.js: |
+    db = db.getSiblingDB('pocket-ml-testbench');
+
+    db.createCollection('tokenizers');
+    db.tokenizers.createIndex({hash: 1}, {unique: true});
+
+    db.createCollection('configs');
+    db.configs.createIndex({hash: 1}, {unique: true});
+
+    db.createCollection('tasks');
+    db.tasks.createIndex({
+        "tasks": 1,
+        "framework": 1,
+        "requester_args.address": 1,
+        "requester_args.service": 1,
+        done: 1,
+        evaluated: 1,
+        drop: 1,
+    });
+
+    db.createCollection('instances');
+    db.instances.createIndex({task_id: 1, done: 1});
+
+    db.createCollection('prompts');
+    db.prompts.createIndex({task_id: 1, instance_id: 1, done: 1});
+
+    db.createCollection('responses');
+    db.responses.createIndex({task_id: 1, instance_id: 1, prompt_id: 1, ok: 1});
+
+    db.createCollection('nodes');
+    db.nodes.createIndex({address: 1, service: 1}, {unique: true});
+
+    db.createCollection('results');
+    db.results.createIndex({'result_data.task_id': 1}, {unique: true});
+
+    db.createCollection('buffers_numerical');
+    db.buffers_numerical.createIndex({"task_data.node_id": 1, "task_data.framework": 1, "task_data.task": 1}, {unique: true});
+
+    db.createCollection('buffers_signatures');
+    db.buffers_signatures.createIndex({"task_data.node_id": 1, "task_data.framework": 1, "task_data.task": 1}, {unique: true});
+
+    db.createCollection('taxonomy_summaries');
+    db.taxonomy_summaries.createIndex({"node_id": 1, "taxonomy_name": 1}, {unique: true});

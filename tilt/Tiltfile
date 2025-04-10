@@ -1,0 +1,140 @@
+load('ext://dotenv', 'dotenv')
+dotenv(fn='.env')
+watch_file('.env')
+
+################################################################################
+# ------------------------ Dependencies ----------------------------------------
+################################################################################
+
+k8s_yaml([
+    # PostgreSQL
+    kustomize('./dependencies/postgresql/local'),
+    # Pgadmin
+    kustomize('./dependencies/pgadmin/local'),
+    # MongoDB
+    kustomize('./dependencies/mongodb/local'),
+    # Temporal
+    kustomize('./dependencies/temporal/local'),
+    kustomize('./dependencies/temporal-admin-tools/local'),
+    kustomize('./dependencies/temporal-ui/local')
+    ])
+
+
+# PostgreSQL
+k8s_resource("postgresql", labels="dependencies")
+# Pgadmin
+k8s_resource("pgadmin", labels=["dependencies"])
+# MongoDB
+k8s_resource("mongodb-deployment", labels=["dependencies"])
+k8s_resource("mongodb-init-db", labels=["dependencies"])
+k8s_resource("mongodb-init-replica", labels=["dependencies"])
+# Temporal
+k8s_resource("temporal", labels=["dependencies"])
+k8s_resource("temporal-tuneup", labels=["dependencies"])
+k8s_resource("temporal-admin-tools", labels=["dependencies"])
+k8s_resource("temporal-ui", port_forwards="8080", labels=["dependencies"])
+
+
+################################################################################
+# ------------------------ Testbench Apps --------------------------------------
+################################################################################
+
+# ------------------------ Python Base -----------------------------------------
+
+# Base Python Image
+docker_build(
+    "pocket_ml_testbench_base_python_image:latest",
+    context="../",
+    dockerfile="../apps/python/base_image/Dockerfile",
+    live_update=[]  # dummy live_update to trigger builds
+)
+
+# ------------------------ Manager ---------------------------------------------
+docker_build(
+    "pocket_ml_testbench_manager:dev",
+    context="../",
+    dockerfile="../apps/go/manager/Dockerfile",
+    live_update=[]  # dummy live_update to trigger builds
+)
+
+# ------------------------ Sampler ---------------------------------------------
+docker_build(
+    "pocket_ml_testbench_sampler:dev",
+    context="../",
+    dockerfile="../apps/python/sampler/Dockerfile",
+    live_update=[]  # dummy live_update to trigger builds
+)
+
+# ------------------------ Requester -------------------------------------------
+docker_build(
+    "pocket_ml_testbench_requester:dev",
+    context="../",
+    dockerfile="../apps/go/requester/Dockerfile",
+    live_update=[]  # dummy live_update to trigger builds
+)
+
+# ------------------------ Evaluator -------------------------------------------
+docker_build(
+    "pocket_ml_testbench_evaluator:dev",
+    context="../",
+    dockerfile="../apps/python/evaluator/Dockerfile",
+    live_update=[]  # dummy live_update to trigger builds
+)
+
+# ------------------------ Summarizer ------------------------------------------
+docker_build(
+    "pocket_ml_testbench_summarizer:dev",
+    context="../",
+    dockerfile="../apps/python/summarizer/Dockerfile",
+    live_update=[]  # dummy live_update to trigger builds
+)
+
+# ------------------------------------------------------------------------------
+# ------------------------ Env Vars Substitution -------------------------------
+# ------------------------------------------------------------------------------
+def replce_file(input, output):
+    local("envsubst < " + input + " > " + output, dir = '.')
+
+# ------------------------ Requester -------------------------------------------
+replce_file(
+    "apps/requester/local/patches/secret.template.yaml",
+    "apps/requester/local/patches/secret.yaml",
+    )
+
+# ------------------------ Manager ---------------------------------------------
+replce_file(
+    "apps/manager/local/patches/secret.template.yaml",
+    "apps/manager/local/patches/secret.yaml",
+    )
+
+# ------------------------------------------------------------------------------
+# ------------------------ Deploy ----------------------------------------------
+# ------------------------------------------------------------------------------
+
+k8s_yaml([
+    # Manager
+    kustomize('./apps/manager/local'),
+    # Sampler
+    kustomize('./apps/sampler/local'),
+    # Requester
+    kustomize('./apps/requester/local'),
+    # Evaluator
+    kustomize('./apps/evaluator/local'),
+    # Summarizer
+    kustomize('./apps/summarizer/local'),
+    # Common -- Secrets
+    kustomize('./common/secrets/local')
+    ])
+
+# Manager
+k8s_resource("manager", labels=["apps"])
+# Sampler
+k8s_resource("sampler", labels=["apps"])
+# Requester
+k8s_resource("requester", labels=["apps"])
+# Evaluator
+k8s_resource("evaluator", labels=["apps"])
+# Summarizer
+k8s_resource("summarizer", labels=["apps"])
+
+

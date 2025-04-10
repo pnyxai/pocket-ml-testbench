@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: requester
+  labels:
+    app: requester
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: requester
+  template:
+    metadata:
+      labels:
+        app: requester
+    spec:
+      volumes:
+        - name: configuration-files
+          secret:
+            secretName: requester-config
+      containers:
+        - image: pocket_ml_testbench_requester:dev
+          name: requester
+          env:
+            - name: CONFIG_PATH
+              value: "/home/app/configs/config.json"
+          volumeMounts:
+            - mountPath: /home/app/configs/
+              name: configuration-files
+              readOnly: true
+          resources: {}

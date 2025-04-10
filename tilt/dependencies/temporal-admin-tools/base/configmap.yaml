@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: temporal-init-script
+data:
+  initialize.sh: |
+    #!/bin/bash
+    temporal operator namespace update --history-archival-state enabled -n ${TEMPORAL_CLI_NAMESPACE}
+    temporal operator namespace update --visibility-archival-state enabled -n ${TEMPORAL_CLI_NAMESPACE}

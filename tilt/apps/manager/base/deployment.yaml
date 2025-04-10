@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: manager
+  labels:
+    app: manager
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: manager
+  template:
+    metadata:
+      labels:
+        app: manager
+    spec:
+      volumes:
+        - name: configuration-files
+          secret:
+            secretName: manager-config
+      containers:
+        - image: pocket_ml_testbench_manager:dev
+          name: manager
+          env:
+            - name: CONFIG_PATH
+              value: "/home/app/configs/config.json"
+          volumeMounts:
+            - mountPath: /home/app/configs/
+              name: configuration-files
+              readOnly: true
+          resources: {}
