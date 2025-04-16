@@ -3,7 +3,7 @@ package activities
 import (
 	"context"
 	"manager/types"
-	"strconv"
+	"packages/pocket_shannon"
 )
 
 var GetStakedName = "get_staked"
@@ -11,60 +11,47 @@ var GetStakedName = "get_staked"
 func (aCtx *Ctx) GetStaked(ctx context.Context, params types.GetStakedParams) (*types.GetStakedResults, error) {
 
 	l := aCtx.App.Logger
-	l.Debug().Msg("Collecting staked nodes from network.")
+	l.Debug().Msg("Collecting staked suppliers from network.")
 
 	result := types.GetStakedResults{}
 
-	// Get all nodes in given chain
+	// Get all suppliers in given chain
 	l.Debug().Str("service", params.Service).Msg("Querying service...")
-	nodes, err := aCtx.App.PocketRpc.GetNodes(params.Service)
+
+	suppliersPerService, err := pocket_shannon.SupliersInSession(aCtx.App.PocketFullNode, aCtx.App.PocketApps, aCtx.App.PocketServices)
 	if err != nil {
-		l.Error().Str("service", params.Service).Msg("Could not retrieve staked nodes.")
+		l.Error().Msg("Could not retrieve suppliers in session.")
 		return nil, err
 	}
-	if len(nodes) == 0 {
-		l.Warn().Str("service", params.Service).Msg("No nodes found staked.")
-	}
-	for _, node := range nodes {
-		if !node.Jailed {
-			this_node := types.NodeData{
-				Address: node.Address,
-				Service: params.Service,
+
+	for service, suppliers := range suppliersPerService {
+		for _, supplier := range suppliers {
+			this_supplier := types.SupplierData{
+				Address: string(supplier),
+				Service: service,
 			}
-			result.Nodes = append(result.Nodes, this_node)
+			result.Suppliers = append(result.Suppliers, this_supplier)
 		}
 	}
 
-	if len(result.Nodes) == 0 {
-		l.Warn().Msg("No nodes were found on any of the given services")
+	if len(result.Suppliers) == 0 {
+		l.Warn().Msg("No suppliers were found on any of the given services")
 	} else {
-		l.Debug().Int("nodes_staked", len(result.Nodes)).Msg("Successfully pulled staked node-services.")
+		l.Debug().Int("suppliers_staked", len(result.Suppliers)).Msg("Successfully pulled staked supplier-services.")
 	}
 
-	// Get block data
-	currHeight, err := aCtx.App.PocketRpc.GetHeight()
+	// Get latest block
+	currHeight, err := aCtx.App.PocketFullNode.GetLatestBlockHeight()
 	if err != nil {
-		l.Error().Str("service", params.Service).Msg("Could not retrieve latest block hieght.")
+		l.Error().Str("service", params.Service).Msg("Could not retrieve latest block height.")
 		return nil, err
 	}
-	blockParams, err := aCtx.App.PocketRpc.GetAllParams(currHeight)
-	if err != nil {
-		l.Error().Str("service", params.Service).Msg("Could not retrieve block params.")
-		return nil, err
-	}
-	blocksPerSession, ok := blockParams.NodeParams.Get("pos/BlocksPerSession")
-	if !ok {
-		l.Error().Str("service", params.Service).Msg("Cannot get blocks per session parameter.")
-		return nil, err
-	}
-	i64, err := strconv.ParseInt(blocksPerSession, 10, 64)
-	if err != nil {
-		l.Error().Str("service", params.Service).Msg("Could convert parameter to number.")
-		return nil, err
-	}
+	// Get blocks per session
+	// TODO : Add SDK support for this, in the meantime it is a parameter
+	blocksPerSession := aCtx.App.PocketBlocksPerSession
 
 	// Assign
-	result.Block.BlocksPerSession = i64
+	result.Block.BlocksPerSession = blocksPerSession
 	result.Block.Height = currHeight
 
 	return &result, nil

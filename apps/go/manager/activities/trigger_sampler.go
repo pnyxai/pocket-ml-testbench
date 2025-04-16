@@ -34,7 +34,7 @@ func (aCtx *Ctx) TriggerSampler(_ context.Context, params types.TriggerSamplerPa
 	}
 	samplerWorkflowOptions := client.StartWorkflowOptions{
 		ID: fmt.Sprintf(
-			// lmeh-hellaswag-nodeaddress-servicehex
+			// lmeh-hellaswag-supplieraddress-servicecode
 			"%s-%s-%s-%s",
 			params.Trigger.Framework,
 			params.Trigger.Task,

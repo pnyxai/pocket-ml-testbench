@@ -50,33 +50,33 @@ func (aCtx *Ctx) AnalyzeResult(ctx context.Context, params types.AnalyzeResultPa
 		return &result, nil
 	}
 	// Extract data
-	Node := types.NodeData{
+	Supplier := types.SupplierData{
 		Address: taskData.RequesterArgs.Address,
 		Service: taskData.RequesterArgs.Service,
 	}
 
 	l.Debug().
 		Str("task_id", params.TaskID.String()).
-		Str("address", Node.Address).
-		Str("service", Node.Service).
+		Str("address", Supplier.Address).
+		Str("service", Supplier.Service).
 		Str("framework", taskData.Framework).
 		Str("task", taskData.Task).
 		Msg("Analyzing result.")
 
 	//------------------------------------------------------------------
-	// Get stored data for this node
+	// Get stored data for this supplier
 	//------------------------------------------------------------------
-	var nodeData records.NodeRecord
-	found, err := nodeData.FindAndLoadNode(Node, aCtx.App.Mongodb, l)
+	var supplierData records.SupplierRecord
+	found, err := supplierData.FindAndLoadSupplier(Supplier, aCtx.App.Mongodb, l)
 	if err != nil {
 		return nil, err
 	}
 
 	if !found {
-		err = temporal.NewApplicationErrorWithCause("unable to get node data", "FindAndLoadNode", fmt.Errorf("Node %s not found", Node.Address))
+		err = temporal.NewApplicationErrorWithCause("unable to get supplier data", "FindAndLoadSupplier", fmt.Errorf("Supplier %s not found", Supplier.Address))
 		l.Error().
-			Str("address", Node.Address).
-			Msg("Cannot retrieve node data")
+			Str("address", Supplier.Address).
+			Msg("Cannot retrieve supplier data")
 		return nil, err
 	}
 
@@ -87,13 +87,13 @@ func (aCtx *Ctx) AnalyzeResult(ctx context.Context, params types.AnalyzeResultPa
 	if err != nil {
 		return nil, err
 	}
-	thisTaskRecord, found := records.GetTaskData(nodeData.ID, taskType, taskData.Framework, taskData.Task, aCtx.App.Mongodb, l)
+	thisTaskRecord, found := records.GetTaskData(supplierData.ID, taskType, taskData.Framework, taskData.Task, aCtx.App.Mongodb, l)
 
 	if !found {
 		err = temporal.NewApplicationErrorWithCause("unable to get task data", "GetTaskData", fmt.Errorf("Task %s not found", taskData.Task))
 		l.Error().
-			Str("address", nodeData.Address).
-			Str("service", nodeData.Service).
+			Str("address", supplierData.Address).
+			Str("service", supplierData.Service).
 			Str("framework", taskData.Framework).
 			Str("task", taskData.Task).
 			Msg("Requested task was not found.")
@@ -110,16 +110,16 @@ func (aCtx *Ctx) AnalyzeResult(ctx context.Context, params types.AnalyzeResultPa
 	}
 	if !found {
 		l.Error().
-			Str("address", nodeData.Address).
-			Str("service", nodeData.Service).
+			Str("address", supplierData.Address).
+			Str("service", supplierData.Service).
 			Str("framework", taskData.Framework).
 			Str("task", taskData.Task).
 			Msg("Requested result was not found.")
 	}
 
 	l.Debug().
-		Str("address", nodeData.Address).
-		Str("service", nodeData.Service).
+		Str("address", supplierData.Address).
+		Str("service", supplierData.Service).
 		Str("framework", taskData.Framework).
 		Str("task", taskData.Task).
 		Str("task_id", params.TaskID.String()).
@@ -132,8 +132,8 @@ func (aCtx *Ctx) AnalyzeResult(ctx context.Context, params types.AnalyzeResultPa
 	if thisTaskResults.GetStatus() == 0 {
 		if thisTaskResults.GetNumSamples() == 0 {
 			l.Warn().
-				Str("address", nodeData.Address).
-				Str("service", nodeData.Service).
+				Str("address", supplierData.Address).
+				Str("service", supplierData.Service).
 				Str("framework", taskData.Framework).
 				Str("task", taskData.Task).
 				Str("task_id", params.TaskID.String()).
@@ -141,8 +141,8 @@ func (aCtx *Ctx) AnalyzeResult(ctx context.Context, params types.AnalyzeResultPa
 		} else {
 			l.Debug().
 				Int("NumSamples", int(thisTaskResults.GetNumSamples())).
-				Str("address", nodeData.Address).
-				Str("service", nodeData.Service).
+				Str("address", supplierData.Address).
+				Str("service", supplierData.Service).
 				Str("framework", taskData.Framework).
 				Str("task", taskData.Task).
 				Str("task_id", params.TaskID.String()).
@@ -159,8 +159,8 @@ func (aCtx *Ctx) AnalyzeResult(ctx context.Context, params types.AnalyzeResultPa
 	} else {
 		// TODO: handle status!=0
 		l.Debug().
-			Str("address", nodeData.Address).
-			Str("service", nodeData.Service).
+			Str("address", supplierData.Address).
+			Str("service", supplierData.Service).
 			Str("framework", taskData.Framework).
 			Str("task", taskData.Task).
 			Str("task_id", params.TaskID.String()).
@@ -181,7 +181,7 @@ func (aCtx *Ctx) AnalyzeResult(ctx context.Context, params types.AnalyzeResultPa
 	// Update task in DB
 	//------------------------------------------------------------------
 
-	_, err = thisTaskRecord.UpdateTask(nodeData.ID, taskData.Framework, taskData.Task, aCtx.App.Mongodb, l)
+	_, err = thisTaskRecord.UpdateTask(supplierData.ID, taskData.Framework, taskData.Task, aCtx.App.Mongodb, l)
 	if err != nil {
 		return nil, err
 	}
@@ -207,7 +207,7 @@ func retrieveTaskData(taskID primitive.ObjectID,
 	ctxM, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
-	// Now retrieve all node task requests entries
+	// Now retrieve all supplier's task requests entries
 	cursor := tasksCollection.FindOne(ctxM, task_request_filter, opts)
 	var taskReq types.TaskRequestRecord
 	if err := cursor.Decode(&taskReq); err != nil {
@@ -226,12 +226,12 @@ func RemoveTaskID(taskID primitive.ObjectID, mongoDB mongodb.MongoDb, l *zerolog
 	//-------------------------- Instances -------------------------------------
 	//--------------------------------------------------------------------------
 	instancesCollection := mongoDB.GetCollection(types.InstanceCollection)
-	// Set filtering for this node-service pair data
+	// Set filtering for this supplier-service pair data
 	task_request_filter := bson.D{{Key: "task_id", Value: taskID}}
 	// Set mongo context
 	ctxM, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
-	// Now retrieve all node task requests entries
+	// Now retrieve all supplier's task requests entries
 	response, err := instancesCollection.DeleteMany(ctxM, task_request_filter)
 	if err != nil {
 		l.Warn().Err(err).Msg("Could not delete instances data from MongoDB.")
@@ -243,12 +243,12 @@ func RemoveTaskID(taskID primitive.ObjectID, mongoDB mongodb.MongoDb, l *zerolog
 	//-------------------------- Prompts ---------------------------------------
 	//--------------------------------------------------------------------------
 	promptsCollection := mongoDB.GetCollection(types.PromptsCollection)
-	// Set filtering for this node-service pair data
+	// Set filtering for this supplier-service pair data
 	task_request_filter = bson.D{{Key: "task_id", Value: taskID}}
 	// Set mongo context
 	ctxM, cancel = context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
-	// Now retrieve all node task requests entries
+	// Now retrieve all supplier task requests entries
 	response, err = promptsCollection.DeleteMany(ctxM, task_request_filter)
 	if err != nil {
 		l.Warn().Err(err).Msg("Could not delete prompts data from MongoDB.")
@@ -260,12 +260,12 @@ func RemoveTaskID(taskID primitive.ObjectID, mongoDB mongodb.MongoDb, l *zerolog
 	//-------------------------- Responses -------------------------------------
 	//--------------------------------------------------------------------------
 	responsesCollection := mongoDB.GetCollection(types.ResponsesCollection)
-	// Set filtering for this node-service pair data
+	// Set filtering for this supplier-service pair data
 	task_request_filter = bson.D{{Key: "task_id", Value: taskID}}
 	// Set mongo context
 	ctxM, cancel = context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
-	// Now retrieve all node task requests entries
+	// Now retrieve all supplier task requests entries
 	response, err = responsesCollection.DeleteMany(ctxM, task_request_filter)
 	if err != nil {
 		l.Warn().Err(err).Msg("Could not delete responses data from MongoDB.")
@@ -277,12 +277,12 @@ func RemoveTaskID(taskID primitive.ObjectID, mongoDB mongodb.MongoDb, l *zerolog
 	//-------------------------- Results ---------------------------------------
 	//--------------------------------------------------------------------------
 	resultsCollection := mongoDB.GetCollection(types.ResultsCollection)
-	// Set filtering for this node-service pair data
+	// Set filtering for this supplier-service pair data
 	task_request_filter = bson.D{{Key: "result_data.task_id", Value: taskID}}
 	// Set mongo context
 	ctxM, cancel = context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
-	// Now retrieve all node task requests entries
+	// Now retrieve all supplier task requests entries
 	response, err = resultsCollection.DeleteMany(ctxM, task_request_filter)
 	if err != nil {
 		l.Warn().Err(err).Msg("Could not delete results data from MongoDB.")
@@ -294,12 +294,12 @@ func RemoveTaskID(taskID primitive.ObjectID, mongoDB mongodb.MongoDb, l *zerolog
 	//-------------------------- Task ------------------------------------------
 	//--------------------------------------------------------------------------
 	tasksCollection := mongoDB.GetCollection(types.TaskCollection)
-	// Set filtering for this node-service pair data
+	// Set filtering for this supplier-service pair data
 	task_request_filter = bson.D{{Key: "_id", Value: taskID}}
 	// Set mongo context
 	ctxM, cancel = context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
-	// Now retrieve all node task requests entries
+	// Now retrieve all supplier task requests entries
 	response, err = tasksCollection.DeleteMany(ctxM, task_request_filter)
 	if err != nil {
 		l.Warn().Err(err).Msg("Could not delete task data from MongoDB.")

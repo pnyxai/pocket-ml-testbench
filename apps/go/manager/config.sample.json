@@ -1,19 +1,12 @@
 {
   "mongodb_uri": "mongodb://127.0.0.1:27017/pocket-ml-testbench?replicaSet=devRs",
-  "postgres_uri": "postgres://USER:PASS@localhost:5432",
-  "apps": ["APP_PK"],
-  "rpc": {
-    "urls": [
-      "http://localhost:8081",
-      "http://localhost:8071",
-      "http://localhost:8091",
-      "http://localhost:9081"
-    ],
-    "retries": 3,
-    "min_backoff": 10,
-    "max_backoff": 60,
-    "req_per_sec": 10
-  },
+  "apps": ["<app addresss>","<app addresss>","<app addresss>","<app addresss>"],
+  "pocket_rpc_url": "http://<host>:<port>",
+  "pocket_grpc_config": {
+      "host_port": "<host>:<port>",
+      "insecure": true
+    },
+  "pocket_blocks_per_session" : 10,
   "log_level": "debug",
   "develop": {
     "do_not_remove_tasks_from_db" : false

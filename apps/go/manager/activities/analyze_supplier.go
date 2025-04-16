@@ -14,26 +14,26 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-var AnalyzeNodeName = "analyze_node"
+var AnalyzeSupplierName = "analyze_supplier"
 
-func (aCtx *Ctx) AnalyzeNode(ctx context.Context, params types.AnalyzeNodeParams) (*types.AnalyzeNodeResults, error) {
+func (aCtx *Ctx) AnalyzeSupplier(ctx context.Context, params types.AnalyzeSupplierParams) (*types.AnalyzeSupplierResults, error) {
 
-	var result types.AnalyzeNodeResults
+	var result types.AnalyzeSupplierResults
 	result.Success = false
 	result.IsNew = false
 
 	// Get logger
 	l := aCtx.App.Logger
 	l.Debug().
-		Str("address", params.Node.Address).
-		Str("service", params.Node.Service).
-		Msg("Analyzing staked node.")
+		Str("address", params.Supplier.Address).
+		Str("service", params.Supplier.Service).
+		Msg("Analyzing staked supplier.")
 
-	// Retrieve this node entry
-	var thisNodeData records.NodeRecord
-	found, err := thisNodeData.FindAndLoadNode(params.Node, aCtx.App.Mongodb, l)
+	// Retrieve this supplier entry
+	var thisSupplierData records.SupplierRecord
+	found, err := thisSupplierData.FindAndLoadSupplier(params.Supplier, aCtx.App.Mongodb, l)
 	if err != nil {
-		l.Error().Err(err).Str("address", params.Node.Address).Str("service", params.Node.Service).Msg("Failed to load node data.")
+		l.Error().Err(err).Str("address", params.Supplier.Address).Str("service", params.Supplier.Service).Msg("Failed to load supplier data.")
 		return nil, err
 	}
 
@@ -43,31 +43,31 @@ func (aCtx *Ctx) AnalyzeNode(ctx context.Context, params types.AnalyzeNodeParams
 
 	if !found {
 		// Create entry in MongoDB
-		l.Debug().Bool("found", found).Msg("Creating empty node entry.")
-		err = thisNodeData.Init(params, aCtx.App.Config.Frameworks, aCtx.App.Mongodb, l)
+		l.Debug().Bool("found", found).Msg("Creating empty supplier entry.")
+		err = thisSupplierData.Init(params, aCtx.App.Config.Frameworks, aCtx.App.Mongodb, l)
 		if err != nil {
-			l.Error().Err(err).Str("address", params.Node.Address).Str("service", params.Node.Service).Msg("Failed to create node entry.")
+			l.Error().Err(err).Str("address", params.Supplier.Address).Str("service", params.Supplier.Service).Msg("Failed to create supplier entry.")
 			return nil, err
 		}
 		result.IsNew = true
 
 	} else {
-		// If the node entry exist we must cycle and check for pending results
-		err = updateTasksNode(&thisNodeData, params.Tests, aCtx.App.Config.Frameworks, aCtx.App.Mongodb, l)
+		// If the supplier entry exist we must cycle and check for pending results
+		err = updateTasksSupplier(&thisSupplierData, params.Tests, aCtx.App.Config.Frameworks, aCtx.App.Mongodb, l)
 		if err != nil {
-			l.Error().Err(err).Str("address", params.Node.Address).Str("service", params.Node.Service).Msg("Failed to create update node.")
+			l.Error().Err(err).Str("address", params.Supplier.Address).Str("service", params.Supplier.Service).Msg("Failed to create update supplier.")
 			return nil, err
 		}
 
 	}
 
-	// TODO : Do general update of node entry if needed (for instance to track last values of buffers)
+	// TODO : Do general update of supplier entry if needed (for instance to track last values of buffers)
 
-	// Push to DB the node data
-	l.Debug().Msg("Uploading node changes to DB.")
-	_, err = thisNodeData.UpdateNode(aCtx.App.Mongodb, l)
+	// Push to DB the supplier data
+	l.Debug().Msg("Uploading supplier changes to DB.")
+	_, err = thisSupplierData.UpdateSupplier(aCtx.App.Mongodb, l)
 	if err != nil {
-		l.Error().Err(err).Str("address", params.Node.Address).Str("service", params.Node.Service).Msg("Failed upload node to MongoDB.")
+		l.Error().Err(err).Str("address", params.Supplier.Address).Str("service", params.Supplier.Service).Msg("Failed upload supplier to MongoDB.")
 		return nil, err
 	}
 
@@ -80,14 +80,14 @@ func (aCtx *Ctx) AnalyzeNode(ctx context.Context, params types.AnalyzeNodeParams
 
 		for _, task := range test.Tasks {
 			l.Debug().
-				Str("address", thisNodeData.Address).
-				Str("service", thisNodeData.Service).
+				Str("address", thisSupplierData.Address).
+				Str("service", thisSupplierData.Service).
 				Str("framework", test.Framework).
 				Str("task", task).
 				Msg("Checking task requests.")
 
 			// Check task dependencies
-			depStatus, err := records.CheckTaskDependency(&thisNodeData, test.Framework, task, aCtx.App.Config.Frameworks, aCtx.App.Mongodb, l)
+			depStatus, err := records.CheckTaskDependency(&thisSupplierData, test.Framework, task, aCtx.App.Config.Frameworks, aCtx.App.Mongodb, l)
 			if err != nil {
 				l.Error().Err(err).
 					Msg("Could not check task dependencies.")
@@ -95,8 +95,8 @@ func (aCtx *Ctx) AnalyzeNode(ctx context.Context, params types.AnalyzeNodeParams
 			}
 			if !depStatus {
 				l.Debug().
-					Str("address", thisNodeData.Address).
-					Str("service", thisNodeData.Service).
+					Str("address", thisSupplierData.Address).
+					Str("service", thisSupplierData.Service).
 					Str("framework", test.Framework).
 					Str("task", task).
 					Msg("Does not meet task dependencies, ignoring for now.")
@@ -109,11 +109,11 @@ func (aCtx *Ctx) AnalyzeNode(ctx context.Context, params types.AnalyzeNodeParams
 				l.Error().Err(err).Msg("cannot retrieve task type")
 				return nil, fmt.Errorf("cannot retrieve task type")
 			}
-			thisTaskRecord, found := records.GetTaskData(thisNodeData.ID, taskType, test.Framework, task, aCtx.App.Mongodb, l)
+			thisTaskRecord, found := records.GetTaskData(thisSupplierData.ID, taskType, test.Framework, task, aCtx.App.Mongodb, l)
 			if found != true {
 				l.Error().
-					Str("address", thisNodeData.Address).
-					Str("service", thisNodeData.Service).
+					Str("address", thisSupplierData.Address).
+					Str("service", thisSupplierData.Service).
 					Str("framework", test.Framework).
 					Str("task", task).
 					Msg("not found task entry after check creation (task should be present at this point)")
@@ -127,7 +127,7 @@ func (aCtx *Ctx) AnalyzeNode(ctx context.Context, params types.AnalyzeNodeParams
 				return nil, err
 			}
 			if !schdStatus {
-				l.Debug().Str("address", thisNodeData.Address).Str("service", thisNodeData.Service).Str("framework", test.Framework).Str("task", task).Msg("Does not meet task schedule, ignoring for now.")
+				l.Debug().Str("address", thisSupplierData.Address).Str("service", thisSupplierData.Service).Str("framework", test.Framework).Str("task", task).Msg("Does not meet task schedule, ignoring for now.")
 				continue
 			}
 
@@ -140,7 +140,7 @@ func (aCtx *Ctx) AnalyzeNode(ctx context.Context, params types.AnalyzeNodeParams
 
 			// If the number of samples is less than the minimum or there is a minimum value to trigger, proceed to request more
 			numberOfSamples := thisTaskRecord.GetNumOkSamples()
-			l.Debug().Str("address", thisNodeData.Address).Str("service", thisNodeData.Service).Str("framework", test.Framework).Str("task", task).Uint32("numberOfSamples", numberOfSamples).Msg("Ok sample count.")
+			l.Debug().Str("address", thisSupplierData.Address).Str("service", thisSupplierData.Service).Str("framework", test.Framework).Str("task", task).Uint32("numberOfSamples", numberOfSamples).Msg("Ok sample count.")
 			if numberOfSamples < thisTaskRecord.GetMinSamplesPerTask() || minTrigger > 0 {
 
 				// Calculate the total number of request needed
@@ -152,7 +152,7 @@ func (aCtx *Ctx) AnalyzeNode(ctx context.Context, params types.AnalyzeNodeParams
 				}
 
 				// Get number of tasks in queue
-				inQueue, _, blackList, _, err := checkTaskDatabase(thisNodeData.Address, thisNodeData.Service, test.Framework, task, aCtx.App.Mongodb, l)
+				inQueue, _, blackList, _, err := checkTaskDatabase(thisSupplierData.Address, thisSupplierData.Service, test.Framework, task, aCtx.App.Mongodb, l)
 				if err != nil {
 					return nil, err
 				}
@@ -170,8 +170,8 @@ func (aCtx *Ctx) AnalyzeNode(ctx context.Context, params types.AnalyzeNodeParams
 					if reqNeeded > 0 {
 
 						// Add trigger
-						thisTrigger := types.TaskTrigger{Address: thisNodeData.Address,
-							Service:   thisNodeData.Service,
+						thisTrigger := types.TaskTrigger{Address: thisSupplierData.Address,
+							Service:   thisSupplierData.Service,
 							Framework: test.Framework,
 							Task:      task,
 							Blacklist: blackList,
@@ -179,11 +179,11 @@ func (aCtx *Ctx) AnalyzeNode(ctx context.Context, params types.AnalyzeNodeParams
 						result.Triggers = append(result.Triggers, thisTrigger)
 					}
 				} else {
-					l.Debug().Str("address", thisNodeData.Address).Str("service", thisNodeData.Service).Str("framework", test.Framework).Str("task", task).Msg("Pending requests capped.")
+					l.Debug().Str("address", thisSupplierData.Address).Str("service", thisSupplierData.Service).Str("framework", test.Framework).Str("task", task).Msg("Pending requests capped.")
 				}
 
 			} else {
-				l.Debug().Str("address", thisNodeData.Address).Str("service", thisNodeData.Service).Str("framework", test.Framework).Str("task", task).Msg("Buffer filled and up to date.")
+				l.Debug().Str("address", thisSupplierData.Address).Str("service", thisSupplierData.Service).Str("framework", test.Framework).Str("task", task).Msg("Buffer filled and up to date.")
 			}
 		}
 	}
@@ -193,8 +193,8 @@ func (aCtx *Ctx) AnalyzeNode(ctx context.Context, params types.AnalyzeNodeParams
 	return &result, nil
 }
 
-// Checks for node's tasks records and drops old ones.
-func updateTasksNode(nodeData *records.NodeRecord,
+// Checks for suppliers's tasks records and drops old ones.
+func updateTasksSupplier(supplierData *records.SupplierRecord,
 	tests []types.TestsData,
 	frameworkConfigMap map[string]types.FrameworkConfig,
 	mongoDB mongodb.MongoDb,
@@ -208,8 +208,8 @@ func updateTasksNode(nodeData *records.NodeRecord,
 		for _, task := range test.Tasks {
 
 			l.Debug().
-				Str("address", nodeData.Address).
-				Str("service", nodeData.Service).
+				Str("address", supplierData.Address).
+				Str("service", supplierData.Service).
 				Str("framework", test.Framework).
 				Str("task", task).
 				Msg("Updating circular buffer.")
@@ -221,17 +221,17 @@ func updateTasksNode(nodeData *records.NodeRecord,
 			if err != nil {
 				return nil
 			}
-			thisTaskRecord, found := records.GetTaskData(nodeData.ID, taskType, test.Framework, task, mongoDB, l)
+			thisTaskRecord, found := records.GetTaskData(supplierData.ID, taskType, test.Framework, task, mongoDB, l)
 
 			if !found {
 				l.Debug().
-					Str("address", nodeData.Address).
-					Str("service", nodeData.Service).
+					Str("address", supplierData.Address).
+					Str("service", supplierData.Service).
 					Str("framework", test.Framework).
 					Str("task", task).
 					Msg("Not found, creating.")
 				defaultDate := time.Now()
-				thisTaskRecord = nodeData.AppendTask(nodeData.ID, test.Framework, task, defaultDate, frameworkConfigMap, mongoDB, l)
+				thisTaskRecord = supplierData.AppendTask(supplierData.ID, test.Framework, task, defaultDate, frameworkConfigMap, mongoDB, l)
 			}
 
 			//------------------------------------------------------------------
@@ -239,8 +239,8 @@ func updateTasksNode(nodeData *records.NodeRecord,
 			//------------------------------------------------------------------
 
 			l.Debug().
-				Str("address", nodeData.Address).
-				Str("service", nodeData.Service).
+				Str("address", supplierData.Address).
+				Str("service", supplierData.Service).
 				Str("framework", test.Framework).
 				Str("task", task).
 				Msg("Cycling indexes.")
@@ -254,12 +254,12 @@ func updateTasksNode(nodeData *records.NodeRecord,
 			//------------------------------------------------------------------
 			if cycled || found {
 				l.Debug().
-					Str("address", nodeData.Address).
-					Str("service", nodeData.Service).
+					Str("address", supplierData.Address).
+					Str("service", supplierData.Service).
 					Str("framework", test.Framework).
 					Str("task", task).
 					Msg("Updating task entry.")
-				_, err = thisTaskRecord.UpdateTask(nodeData.ID, test.Framework, task, mongoDB, l)
+				_, err = thisTaskRecord.UpdateTask(supplierData.ID, test.Framework, task, mongoDB, l)
 				if err != nil {
 					return err
 				}
@@ -272,7 +272,7 @@ func updateTasksNode(nodeData *records.NodeRecord,
 	return err
 }
 
-// Looks for a framework-task-node in the TaskDB and retrieves all the IDs and tasks status
+// Looks for a framework-task-suppliers in the TaskDB and retrieves all the IDs and tasks status
 func checkTaskDatabase(address string,
 	service string,
 	framework string,
@@ -291,7 +291,7 @@ func checkTaskDatabase(address string,
 	// Get tasks instances
 	instancesCollection := mongoDB.GetCollection(types.InstanceCollection)
 
-	// Set filtering for this node-service pair data
+	// Set filtering for this supplier-service pair data
 	task_request_filter := bson.D{{Key: "requester_args.address", Value: address},
 		{Key: "requester_args.service", Value: service},
 		{Key: "framework", Value: framework},
@@ -301,7 +301,7 @@ func checkTaskDatabase(address string,
 	ctxM, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
-	// Now retrieve all node task requests entries
+	// Now retrieve all supplier task requests entries
 	cursor, err := tasksCollection.Find(ctxM, task_request_filter)
 	if err != nil {
 		l.Error().Msg("Could not retrieve task request data from MongoDB.")

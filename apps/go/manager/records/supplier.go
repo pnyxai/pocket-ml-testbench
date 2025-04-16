@@ -17,12 +17,12 @@ import (
 )
 
 //------------------------------------------------------------------------------
-// NodeRecord
+// SupplierRecord
 //------------------------------------------------------------------------------
 
-// DB entry of a given node-service pair
+// DB entry of a given supplier-service pair
 // The "Tasks" array will hold as many entries as tasks being tested
-type NodeRecord struct {
+type SupplierRecord struct {
 	ID             primitive.ObjectID `bson:"_id,omitempty"`
 	Address        string             `bson:"address"`
 	Service        string             `bson:"service"`
@@ -30,31 +30,31 @@ type NodeRecord struct {
 	LastSeenTime   time.Time          `bson:"last_seen_time"`
 }
 
-func (record *NodeRecord) FindAndLoadNode(node types.NodeData, mongoDB mongodb.MongoDb, l *zerolog.Logger) (bool, error) {
+func (record *SupplierRecord) FindAndLoadSupplier(supplier types.SupplierData, mongoDB mongodb.MongoDb, l *zerolog.Logger) (bool, error) {
 
-	// Get nodes collection
-	nodesCollection := mongoDB.GetCollection(types.NodesCollection)
+	// Get suppliers collection
+	suppliersCollection := mongoDB.GetCollection(types.SuppliersCollection)
 
-	// Set filtering for this node-service pair data
-	node_filter := bson.D{{Key: "address", Value: node.Address}, {Key: "service", Value: node.Service}}
+	// Set filtering for this supplier-service pair data
+	supplier_filter := bson.D{{Key: "address", Value: supplier.Address}, {Key: "service", Value: supplier.Service}}
 	opts := options.FindOne()
 
 	// Set mongo context
 	ctxM, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
-	// Retrieve this node entry
+	// Retrieve this supplier entry
 	var found bool = true
-	cursor := nodesCollection.FindOne(ctxM, node_filter, opts)
+	cursor := suppliersCollection.FindOne(ctxM, supplier_filter, opts)
 	err := cursor.Decode(record)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-			l.Warn().Str("address", node.Address).Str("service", node.Service).Msg("Node entry not found (FindAndLoadNode).")
+			l.Warn().Str("address", supplier.Address).Str("service", supplier.Service).Msg("Supplier entry not found (FindAndLoadSupplier).")
 			found = false
 			// }else if err == mongo. {
 			return found, nil
 		} else {
-			l.Error().Err(err).Str("address", node.Address).Str("service", node.Service).Msg("Could not retrieve node data from MongoDB (FindAndLoadNode).")
+			l.Error().Err(err).Str("address", supplier.Address).Str("service", supplier.Service).Msg("Could not retrieve supplier data from MongoDB (FindAndLoadSupplier).")
 			return false, err
 		}
 	}
@@ -62,14 +62,14 @@ func (record *NodeRecord) FindAndLoadNode(node types.NodeData, mongoDB mongodb.M
 	return found, nil
 }
 
-func (record *NodeRecord) AppendTask(nodeID primitive.ObjectID, framework string, task string, date time.Time, frameworkConfigMap map[string]types.FrameworkConfig, mongoDB mongodb.MongoDb, l *zerolog.Logger) TaskInterface {
+func (record *SupplierRecord) AppendTask(supplierID primitive.ObjectID, framework string, task string, date time.Time, frameworkConfigMap map[string]types.FrameworkConfig, mongoDB mongodb.MongoDb, l *zerolog.Logger) TaskInterface {
 
 	taskType, err := GetTaskType(framework, task, frameworkConfigMap, l)
 	if err != nil {
 		return nil
 	}
 	// Get the task, wich will create it if not found
-	taskRecord, found := GetTaskData(nodeID, taskType, framework, task, mongoDB, l)
+	taskRecord, found := GetTaskData(supplierID, taskType, framework, task, mongoDB, l)
 	if !found {
 		return nil
 	} else {
@@ -78,12 +78,12 @@ func (record *NodeRecord) AppendTask(nodeID primitive.ObjectID, framework string
 
 }
 
-func (record *NodeRecord) Init(params types.AnalyzeNodeParams, frameworkConfigMap map[string]types.FrameworkConfig, mongoDB mongodb.MongoDb, l *zerolog.Logger) error {
+func (record *SupplierRecord) Init(params types.AnalyzeSupplierParams, frameworkConfigMap map[string]types.FrameworkConfig, mongoDB mongodb.MongoDb, l *zerolog.Logger) error {
 	// Initialize empty record
 
-	// Set node data
-	record.Address = params.Node.Address
-	record.Service = params.Node.Service
+	// Set supplier data
+	record.Address = params.Supplier.Address
+	record.Service = params.Supplier.Service
 
 	// Create a hash of the strings
 	hash := sha256.New()
@@ -118,19 +118,19 @@ func (record *NodeRecord) Init(params types.AnalyzeNodeParams, frameworkConfigMa
 		}
 	}
 
-	_, err = record.UpdateNode(mongoDB, l)
+	_, err = record.UpdateSupplier(mongoDB, l)
 
 	return err
 
 }
 
-func (record *NodeRecord) UpdateNode(mongoDB mongodb.MongoDb, l *zerolog.Logger) (bool, error) {
+func (record *SupplierRecord) UpdateSupplier(mongoDB mongodb.MongoDb, l *zerolog.Logger) (bool, error) {
 
-	// Get nodes collection
-	nodesCollection := mongoDB.GetCollection(types.NodesCollection)
+	// Get suppliers collection
+	suppliersCollection := mongoDB.GetCollection(types.SuppliersCollection)
 
 	opts := options.FindOneAndUpdate().SetUpsert(true)
-	node_filter := bson.D{{Key: "address", Value: record.Address}, {Key: "service", Value: record.Service}}
+	suppliers_filter := bson.D{{Key: "address", Value: record.Address}, {Key: "service", Value: record.Service}}
 	ctxM, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
@@ -138,13 +138,13 @@ func (record *NodeRecord) UpdateNode(mongoDB mongodb.MongoDb, l *zerolog.Logger)
 	update := bson.D{{Key: "$set", Value: record}}
 	// Get collection and update
 	var found bool = true
-	err := nodesCollection.FindOneAndUpdate(ctxM, node_filter, update, opts).Decode(record)
+	err := suppliersCollection.FindOneAndUpdate(ctxM, suppliers_filter, update, opts).Decode(record)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-			l.Warn().Str("address", record.Address).Str("service", record.Service).Msg("Node entry not found (UpdateNode). New entry created.")
+			l.Warn().Str("address", record.Address).Str("service", record.Service).Msg("Supplier entry not found (UpdateSupplier). New entry created.")
 			found = false
 		} else {
-			l.Error().Err(err).Str("address", record.Address).Str("service", record.Service).Msg("Could not retrieve node data from MongoDB (UpdateNode).")
+			l.Error().Err(err).Str("address", record.Address).Str("service", record.Service).Msg("Could not retrieve supplier data from MongoDB (UpdateSupplier).")
 			return false, err
 		}
 	}

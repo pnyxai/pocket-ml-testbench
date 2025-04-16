@@ -5,7 +5,7 @@ var (
 	InstanceCollection       = "instances"
 	PromptsCollection        = "prompts"
 	ResponsesCollection      = "responses"
-	NodesCollection          = "nodes"
+	SuppliersCollection      = "suppliers"
 	ResultsCollection        = "results"
 	NumericalTaskCollection  = "buffers_numerical"
 	SignaturesTaskCollection = "buffers_signatures"

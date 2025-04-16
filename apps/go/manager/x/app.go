@@ -11,7 +11,8 @@ import (
 	"os"
 	"packages/logger"
 	"packages/mongodb"
-	"packages/pocket_rpc"
+	"packages/pocket_shannon"
+	shannon_types "packages/pocket_shannon/types"
 	"path/filepath"
 	"time"
 
@@ -75,7 +76,7 @@ func Initialize() *types.App {
 	m := mongodb.NewClient(cfg.MongodbUri, []string{
 		types.TaskCollection,
 		types.InstanceCollection,
-		types.NodesCollection,
+		types.SuppliersCollection,
 		types.ResultsCollection,
 		types.PromptsCollection,
 		types.ResponsesCollection,
@@ -83,15 +84,32 @@ func Initialize() *types.App {
 		types.SignaturesTaskCollection,
 	}, l)
 
-	// Initialize connection to RPC
-	clientPoolOpts := pocket_rpc.ClientPoolOptions{
-		MaxRetries: cfg.Rpc.Retries,
-		ReqPerSec:  cfg.Rpc.ReqPerSec,
-		MinBackoff: time.Duration(cfg.Rpc.MinBackoff),
-		MaxBackoff: time.Duration(cfg.Rpc.MaxBackoff),
+	// Create LazyNode
+	nodeConfig := shannon_types.FullNodeConfig{
+		RpcURL:     cfg.PocketRpc,
+		GRPCConfig: cfg.PocketGrpc,
 	}
-	clientPool := pocket_rpc.NewClientPool(cfg.Rpc.Urls, &clientPoolOpts, l)
-	pocketRpc := pocket_rpc.NewPocketRpc(clientPool)
+
+	// Create a LazyFull node from the config
+	FullNode, err := pocket_shannon.NewLazyFullNode(nodeConfig)
+	if err != nil {
+		l.Fatal().Err(err).Msg("Failed to create Lazy Node")
+	}
+
+	// Check Pocket Apps status
+	for _, appAddress := range cfg.Apps {
+		l.Info().Str("appAddress", appAddress).Msg("Checking app...")
+
+		// Check if the app is correctly staked for service
+		ctx := context.Background()
+		onchainApp, err := FullNode.GetApp(ctx, appAddress)
+		if err != nil {
+			l.Fatal().Err(err).Str("appAddress", appAddress).Msg("Error getting on-chain data for app")
+		}
+		if onchainApp == nil {
+			l.Fatal().Str("appAddress", appAddress).Msg("No on-chain data found for app")
+		}
+	}
 
 	// Create a temportal client for triggering
 	temporalClientOptions := client.Options{
@@ -111,11 +129,14 @@ func Initialize() *types.App {
 
 	// Create instance of App data
 	ac := &types.App{
-		Logger:         l,
-		Config:         cfg,
-		PocketRpc:      pocketRpc,
-		Mongodb:        m,
-		TemporalClient: temporalClient,
+		Logger:                 l,
+		Config:                 cfg,
+		PocketFullNode:         FullNode,
+		PocketApps:             cfg.Apps,
+		PocketServices:         cfg.Services,
+		PocketBlocksPerSession: cfg.PocketBlocksPerSession,
+		Mongodb:                m,
+		TemporalClient:         temporalClient,
 	}
 
 	// set this to workflows and activities to avoid use of context.Context
