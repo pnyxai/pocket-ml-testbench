@@ -231,7 +231,7 @@ type Config struct {
 	PocketRpc              string                     `json:"pocket_rpc_url"`
 	PocketGrpc             shannon_types.GRPCConfig   `json:"pocket_grpc_config"`
 	PocketBlocksPerSession int64                      `json:"pocket_blocks_per_session"`
-	Apps                   []string                   `json:"pocket_apps"`
+	Apps                   map[string]string          `json:"pocket_apps"`
 	Services               []string                   `json:"pocket_services"`
 }
 

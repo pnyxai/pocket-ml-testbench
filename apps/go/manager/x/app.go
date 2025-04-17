@@ -97,7 +97,7 @@ func Initialize() *types.App {
 	}
 
 	// Check Pocket Apps status
-	for _, appAddress := range cfg.Apps {
+	for appAddress, _ := range cfg.Apps {
 		l.Info().Str("appAddress", appAddress).Msg("Checking app...")
 
 		// Check if the app is correctly staked for service

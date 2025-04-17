@@ -1,6 +1,11 @@
 {
   "mongodb_uri": "mongodb://127.0.0.1:27017/pocket-ml-testbench?replicaSet=devRs",
-  "apps": ["<app addresss>","<app addresss>","<app addresss>","<app addresss>"],
+  "pocket_apps": {
+    "<app addresss>": "<app private key hex>",
+    "<app addresss>": "<app private key hex>",
+    "<app addresss>": "<app private key hex>",
+    "<app addresss>": "<app private key hex>"
+  },
   "pocket_rpc_url": "http://<host>:<port>",
   "pocket_grpc_config": {
       "host_port": "<host>:<port>",

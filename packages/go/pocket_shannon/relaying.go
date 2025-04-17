@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"time"
 
 	"packages/pocket_shannon/types"
 
@@ -18,6 +17,45 @@ import (
 	sdk "github.com/pokt-network/shannon-sdk"
 	sdktypes "github.com/pokt-network/shannon-sdk/types"
 )
+
+// RelayErrorCode is enum of possible relay error codes
+type RelayErrorCode int
+
+const (
+	// AppNotFoundError error when app is not found
+	// AppNotFoundError = 45
+	// DuplicateProofError error when proof is used multiple times
+	// DuplicateProofError RelayErrorCode = 37
+	// EmptyPayloadDataError error when sent payload is empty
+	// EmptyPayloadDataError RelayErrorCode = 25
+	// EvidencedSealedError error when evidence is sealed, either max relays reached or claim already submitted
+	// EvidencedSealedError RelayErrorCode = 90
+	// HTTPExecutionError error when http request failed
+	HTTPExecutionError RelayErrorCode = 28
+	// InvalidBlockHeightError error when sent block height is invalid
+	// InvalidBlockHeightError RelayErrorCode = 60
+	// InvalidSessionError error when session is invalid
+	InvalidSessionError RelayErrorCode = 14
+	// OutOfSyncRequestError error when request is not on sync
+	// OutOfSyncRequestError RelayErrorCode = 75
+	// OverServiceError error when request exceeds service capacity
+	// OverServiceError RelayErrorCode = 71
+	// RequestHashError error when hash is not correct
+	// RequestHashError RelayErrorCode = 74
+	// UnsupportedBlockchainError error when sent blockchain is not supported yet
+	// UnsupportedBlockchainError RelayErrorCode = 76
+
+	// New ones, defined here
+	UnsignedRequestBuildError RelayErrorCode = 20
+	RequestSigningError       RelayErrorCode = 21
+	InvalidRelayError         RelayErrorCode = 22
+)
+
+// RPCError represents error output from RPC request
+type RPCError struct {
+	Code    RelayErrorCode `json:"code"`
+	Message string         `json:"message"`
+}
 
 // endpoint is used to fulfill a protocol package Endpoint using a Shannon SupplierEndpoint.
 // An endpoint is identified by combining its supplier address and its URL, because
@@ -72,39 +110,60 @@ func (s *RelayRequestSigner) SignRelayRequest(req *servicetypes.RelayRequest, ap
 	return req, nil
 }
 
-func SendRelay(payload types.Payload, selectedEndpoint Endpoint, serviceID types.ServiceID, fullNode LazyFullNode, relayRequestSigner RelayRequestSigner) (*servicetypes.RelayResponse, error) {
+func SendRelay(payload types.Payload, selectedEndpoint Endpoint, serviceID types.ServiceID, fullNode LazyFullNode, relayRequestSigner RelayRequestSigner) (*servicetypes.RelayResponse, RPCError) {
 
 	session := selectedEndpoint.GetSession()
 	if session.Application == nil {
-		return nil, fmt.Errorf("sendRelay: nil app on session %s for service %s", session.SessionId, serviceID)
+		errOut := RPCError{
+			Code:    InvalidSessionError,
+			Message: fmt.Sprintf("sendRelay: nil app on session %s for service %s", session.SessionId, serviceID),
+		}
+		return nil, errOut
 	}
 	app := *session.Application
 
 	relayRequest, err := buildUnsignedRelayRequest(selectedEndpoint, session, []byte(payload.Data), payload.Path)
 	if err != nil {
-		return nil, err
+		errOut := RPCError{
+			Code:    UnsignedRequestBuildError,
+			Message: fmt.Sprintf("sendRelay: error building unsigned relay request for app %s: %w", app.Address, err),
+		}
+		return nil, errOut
 	}
 
 	signedRelayReq, err := signRelayRequest(relayRequest, app, relayRequestSigner)
 	if err != nil {
-		return nil, fmt.Errorf("sendRelay: error signing the relay request for app %s: %w", app.Address, err)
+		errOut := RPCError{
+			Code:    RequestSigningError,
+			Message: fmt.Sprintf("sendRelay: error signing the relay request for app %s: %w", app.Address, err),
+		}
+		return nil, errOut
 	}
 
-	ctxWithTimeout, cancelFn := context.WithTimeout(context.Background(), time.Duration(payload.TimeoutMillisec)*time.Millisecond)
+	ctxWithTimeout, cancelFn := context.WithTimeout(context.Background(), payload.Timeout)
 	defer cancelFn()
 
 	responseBz, err := sendHttpRelay(ctxWithTimeout, selectedEndpoint.PublicURL(), signedRelayReq)
 	if err != nil {
-		return nil, fmt.Errorf("relay: error sending request to endpoint %s: %w", selectedEndpoint.PublicURL(), err)
+		errOut := RPCError{
+			Code:    HTTPExecutionError,
+			Message: fmt.Sprintf("relay: error sending request to endpoint %s: %w", selectedEndpoint.PublicURL(), err),
+		}
+		return nil, errOut
 	}
 
 	// Validate the response
 	response, err := fullNode.ValidateRelayResponse(sdk.SupplierAddress(selectedEndpoint.GetSupplier()), responseBz)
 	if err != nil {
-		return nil, fmt.Errorf("relay: error verifying the relay response for app %s, endpoint %s: %w", app.Address, selectedEndpoint.PublicURL(), err)
+
+		errOut := RPCError{
+			Code:    InvalidRelayError,
+			Message: fmt.Sprintf("relay: error verifying the relay response for app %s, endpoint %s: %w", app.Address, selectedEndpoint.PublicURL(), err),
+		}
+		return nil, errOut
 	}
 
-	return response, nil
+	return response, RPCError{Code: 0, Message: "OK"}
 }
 
 // sendHttpRelay sends the relay request to the supplier at the given URL using an HTTP Post request.

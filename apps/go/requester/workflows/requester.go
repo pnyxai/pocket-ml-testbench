@@ -6,14 +6,15 @@ import (
 	"math/rand"
 	"packages/logger"
 	"requester/activities"
-	"requester/common"
 	"time"
 
-	poktGoSdk "github.com/pokt-foundation/pocket-go/provider"
 	"go.temporal.io/api/enums/v1"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
+
+	"packages/pocket_shannon"
+	shannon_types "packages/pocket_shannon/types"
 )
 
 type RequesterParams struct {
@@ -30,12 +31,6 @@ type RequesterResults struct {
 	TriggeredWorkflows []string `json:"workflows"`
 	// somehow, maybe we could identify when workflow trigger fail because it is already waiting
 	SkippedWorkflows []string `json:"skipped_workflows"`
-}
-
-type LookupChanResponse struct {
-	Node     *poktGoSdk.Node
-	Request  *activities.GetTasksParams
-	Response *activities.GetTaskRequestResults
 }
 
 var RequesterName = "Requester"
@@ -60,83 +55,76 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 			MaximumAttempts:    3,
 		},
 	}
+
 	l.Info("Starting workflow", "Application", params.App, "Service", params.Service)
-	if _, ok := wCtx.App.AppAccounts.Load(params.App); !ok {
-		e = temporal.NewNonRetryableApplicationError("application not found", "ApplicationNotFound", nil)
+
+	// Get latest block
+	currHeight, err := wCtx.App.PocketFullNode.GetLatestBlockHeight()
+	if err != nil {
+		e = temporal.NewNonRetryableApplicationError("Could not retrieve latest block height.", "LatestBlockQuery", nil)
 		return
 	}
 
-	// GetApp will try to retrieve the application state from the RPC
-	// with this we ensure it exists and has the chain staked
-	getAppActivityCtx := workflow.WithActivityOptions(ctx, ao)
-	getAppResults := &poktGoSdk.App{}
-	l.Debug("Calling GetApp activity")
-	getAppErr := workflow.ExecuteActivity(getAppActivityCtx, activities.Activities.GetApp, activities.GetAppParams{
-		Address: params.App,
-		Service: params.Service,
-	}).Get(getAppActivityCtx, getAppResults)
-	if getAppErr != nil {
-		e = temporal.NewApplicationErrorWithCause("unable to get app", "GetApp", getAppErr)
-		l.Error("GetApp activity ends with error", "error", e)
+	found := false
+	for appAddress, _ := range wCtx.App.PocketApps {
+		if appAddress == params.App {
+			found = true
+			break
+		}
+	}
+	if !found {
+		e = temporal.NewNonRetryableApplicationError("application not found in available Apps list", "ApplicationNotFound", nil)
 		return
 	}
-	l.Debug("GetApp activity ends successfully")
 
-	// get session
-	getSessionActivityCtx := workflow.WithActivityOptions(ctx, ao)
-	sessionResult := poktGoSdk.DispatchOutput{}
-	l.Debug("Calling GetSession activity")
-	getSessionErr := workflow.ExecuteActivity(
-		getSessionActivityCtx,
-		activities.Activities.GetSession,
-		activities.GetSessionParams{
-			App:     params.App,
-			Service: params.Service,
-		},
-	).Get(getSessionActivityCtx, &sessionResult)
-	if getSessionErr != nil {
-		e = temporal.NewApplicationErrorWithCause("unable to get session", "GetSession", getSessionErr)
-		l.Error("GetSession activity ends with error", "error", e)
+	// Check if the app is correctly staked for service
+	l.Debug("Checking app: ", params.App)
+	ctxNode := context.Background()
+	onchainApp, err := wCtx.App.PocketFullNode.GetApp(ctxNode, params.App)
+	if err != nil {
+		temporal.NewNonRetryableApplicationError("Error getting on-chain data", "ApplicationNotFound", nil)
+		l.Error("Error getting on-chain data for app", params.App, " : ", err)
 		return
 	}
-	l.Debug("GetSession activity ends successfully")
+	if onchainApp == nil {
+		temporal.NewNonRetryableApplicationError("Cannot find App on-chain data", "ApplicationNotFound", nil)
+		l.Error("No on-chain data for app", params.App, " : ", err)
+		return
+	}
+
+	// Check if the app is staked for the requested service
+	if !pocket_shannon.AppIsStakedForService(shannon_types.ServiceID(params.Service), onchainApp) {
+		temporal.NewNonRetryableApplicationError("App not staked for service", "ApplicationNotStaked", nil)
+		l.Error(fmt.Sprintf("App %s is not staked for service %s", params.App, params.Service))
+		return
+	}
+
+	// Get App session
+	appSession, err := wCtx.App.PocketFullNode.GetSession(shannon_types.ServiceID(params.Service), params.App)
+	if err != nil {
+		temporal.NewNonRetryableApplicationError("Could not get session data", "SessionNotFound", nil)
+		l.Error(fmt.Sprintf("Error getting session data for app %s in service %s", params.App, params.Service))
+		return
+	}
 
 	// get_block_params
-	getAllParamsActivityCtx := workflow.WithActivityOptions(ctx, ao)
-	allParams := poktGoSdk.AllParams{}
-	l.Debug("Calling GetBlockParams activity")
-	getBlockErr := workflow.ExecuteActivity(
-		getAllParamsActivityCtx,
-		activities.Activities.GetBlockParams,
-		// latest height always
-		int64(0),
-	).Get(getAllParamsActivityCtx, &allParams)
-	if getBlockErr != nil {
-		e = temporal.NewApplicationErrorWithCause("unable to get block params", "GetBlockParams", getBlockErr)
-		l.Error("GetBlockParams activity ends with error", "error", e)
-		return
-	}
-	l.Debug("Calling GetBlockParams activity")
+	blocksPerSession := appSession.NumBlocksPerSession
+	sessionHeight := appSession.NumBlocksPerSession * appSession.SessionNumber
 
-	blocksPerSession, blocksPerSessionErr := common.GetBlocksPerSession(&allParams)
-	if blocksPerSessionErr != nil {
-		return nil, temporal.NewApplicationErrorWithCause(blocksPerSessionErr.Error(), "GetBlocksPerSession", blocksPerSessionErr)
-	}
+	// Get all the endpoint available in this session
+	suppliers, err := pocket_shannon.EndpointsFromSession(appSession)
 
-	sessionHeight := int64(sessionResult.Session.Header.SessionHeight)
-	nodes := sessionResult.Session.Nodes
-	triggeredNodeAddresses := make([]string, 0)
-
+	// For these suppliers, get the pending tasks
 	l.Debug("Calling GetTasks activity")
 	request := activities.GetTasksParams{
-		Nodes:          make([]string, len(nodes)),
+		Nodes:          make([]string, len(suppliers)),
 		Service:        params.Service,
 		CurrentSession: sessionHeight,
 	}
-	nodesMap := make(map[string]*poktGoSdk.Node, len(nodes))
-	for i, node := range nodes {
-		request.Nodes[i] = node.Address
-		nodesMap[node.Address] = &node
+	i := 0
+	for supplierAddrres, _ := range suppliers {
+		request.Nodes[i] = string(supplierAddrres)
+		i += 1
 	}
 	getTasksActivityCtx := workflow.WithActivityOptions(ctx, ao)
 	ltr := activities.GetTaskRequestResults{}
@@ -144,16 +132,19 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 		getTasksActivityCtx,
 		activities.Activities.GetTasks,
 		request,
-	).Get(getAllParamsActivityCtx, &ltr)
+	).Get(getTasksActivityCtx, &ltr)
 	if getTasksErr != nil {
 		e = temporal.NewApplicationErrorWithCause("unable to get tasks", "GetTasks", getTasksErr)
 		l.Error("GetTasks activity ends with error", "error", e)
 		return
 	}
 
+	l.Debug("GetTasks activity ends", "tasks_found", len(ltr.TaskRequests))
+
+	// With all the data, we will proceed to trigger the relaying workflow
+	triggeredNodeAddresses := make([]string, 0)
 	skippedWorkflows := make([]string, 0)
 	triggeredWorkflows := make([]string, 0)
-	l.Debug("GetTasks activity ends", "tasks_found", len(ltr.TaskRequests))
 
 	// Now we must divide tasks into groups of tasks with the same ADDRESS
 	reqMap := activities.SplitByUniqueAddress(ltr.TaskRequests)
@@ -166,19 +157,16 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 		for reqIdx, tr := range theseNodeReq {
 			// Create a random timeout with a fixed time that marks the rate: 0+1 sec; 2 +- 1 sec ; 4 +- 1 sec ; etc...
 			randomDelay := (rand.Float64() * wCtx.App.Config.Relay.TimeDispersion) + (float64(reqIdx) * wCtx.App.Config.Relay.TimeBetweenRelays)
-			// Track node address
-			node := nodesMap[tr.Node]
-			if node == nil {
-				l.Error("missing node on Map from TaskRequest response", "node", tr.Node, "nodes", request.Nodes)
-				continue
-			}
 			// add only those nodes that get pending tasks
 			triggeredNodeAddresses = append(triggeredNodeAddresses, tr.Node)
+			// Create target endpoint, which already contains the session
+			targetEndpoint := suppliers[shannon_types.EndpointAddr(tr.Node)]
 			// You can access desired attributes here.
 			relayerRequest := activities.RelayerParams{
-				App:               getAppResults,
-				Node:              node,
-				Session:           sessionResult.Session,
+				AppAddress:        params.App,
+				AppPrivHex:        wCtx.App.PocketApps[params.App],
+				NodeAddress:       tr.Node,
+				TargetEndpoint:    targetEndpoint,
 				Service:           request.Service,
 				SessionHeight:     sessionHeight,
 				BlocksPerSession:  blocksPerSession,
@@ -254,7 +242,7 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 		Service: params.Service,
 		Nodes:   triggeredNodeAddresses,
 		// check if this is the height of the block when the session is get or what
-		Height:             int64(sessionResult.BlockHeight),
+		Height:             currHeight,
 		SessionHeight:      sessionHeight,
 		TriggeredWorkflows: triggeredWorkflows,
 		SkippedWorkflows:   skippedWorkflows,

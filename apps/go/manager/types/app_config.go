@@ -13,7 +13,7 @@ type App struct {
 	Config                 *Config
 	Mongodb                mongodb.MongoDb
 	PocketFullNode         *pocket_shannon.LazyFullNode
-	PocketApps             []string
+	PocketApps             map[string]string
 	PocketServices         []string
 	PocketBlocksPerSession int64
 	TemporalClient         client.Client

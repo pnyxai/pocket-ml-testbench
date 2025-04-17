@@ -94,6 +94,7 @@ docker_build(
 # ------------------------------------------------------------------------------
 def replce_file(input, output):
     local("envsubst < " + input + " > " + output, dir = '.')
+    watch_settings(ignore=output)
 
 # ------------------------ Requester -------------------------------------------
 replce_file(

@@ -1,5 +1,7 @@
 package types
 
+import "time"
+
 type FullNodeConfig struct {
 	RpcURL     string     `json:"rpc_url"`
 	GRPCConfig GRPCConfig `json:"grpc_config"`
@@ -11,10 +13,10 @@ type GRPCConfig struct {
 }
 
 type Payload struct {
-	Data            string
-	Method          string
-	Path            string
-	TimeoutMillisec int
+	Data    string
+	Method  string
+	Path    string
+	Timeout time.Duration
 }
 
 type EndpointAddr string
