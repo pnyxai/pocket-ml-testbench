@@ -4,7 +4,7 @@ from temporalio.common import RetryPolicy, WorkflowIDReusePolicy
 from app.app import get_app_logger, get_app_config
 from packages.python.common.utils import get_from_dict
 from workflows.taxonomy_summary import TaxonomySummarizer
-from activities.get_node_ids import get_node_ids
+from activities.get_supplier_ids import get_supplier_ids
 from temporalio.workflow import ParentClosePolicy
 
 
@@ -22,25 +22,25 @@ class TaxonomySummaryLookup:
         taxonomies = list(app_config["taxonomies"].keys())
         summary_logger.info(f"Analyzing {len(taxonomies)} taxonomies")
 
-        # Get nodes ids to test
+        # Get suppliers ids to test
         ids = await workflow.execute_activity(
-            get_node_ids,
+            get_supplier_ids,
             start_to_close_timeout=timedelta(seconds=60),
             retry_policy=RetryPolicy(maximum_attempts=1),
         )
-        summary_logger.info(f'Activity "get_node_ids" found {len(ids)} nodes')
+        summary_logger.info(f'Activity "get_supplier_ids" found {len(ids)} suppliers')
 
-        # For each node and taxonomy, trigger a summary workflow
+        # For each supplier and taxonomy, trigger a summary workflow
         for _id in ids:
             for tax in taxonomies:
                 summary_logger.debug(
-                    f"Triggering Summary workflow for taxonomy {tax} and node {_id}"
+                    f"Triggering Summary workflow for taxonomy {tax} and supplier {_id}"
                 )
                 try:
                     await workflow.start_child_workflow(
                         TaxonomySummarizer,
                         {
-                            "node_id": _id,
+                            "supplier_id": _id,
                             "taxonomy": tax,
                         },
                         id=f"{tax}-{_id}",
