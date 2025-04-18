@@ -1,5 +1,9 @@
 package types
 
+import (
+	shannon_types "packages/pocket_shannon/types"
+)
+
 type TemporalWorkerOptions struct {
 	// Optional: To set the maximum concurrent activity executions this worker can have.
 	// The zero value of this uses the default value.
@@ -218,21 +222,17 @@ type TemporalConfig struct {
 	Sampler   *SamplerConfig         `json:"sampler"`
 }
 
-type RPCConfig struct {
-	Urls       []string `json:"urls"`
-	Retries    int      `json:"retries"`
-	MinBackoff int      `json:"min_backoff"`
-	MaxBackoff int      `json:"max_backoff"`
-	ReqPerSec  int      `json:"req_per_sec"`
-}
-
 type Config struct {
-	MongodbUri string                     `json:"mongodb_uri"`
-	Frameworks map[string]FrameworkConfig `json:"frameworks"`
-	Rpc        *RPCConfig                 `json:"rpc"`
-	LogLevel   string                     `json:"log_level"`
-	Temporal   *TemporalConfig            `json:"temporal"`
-	DevelopCfg *DevelopConfig             `json:"develop"`
+	MongodbUri             string                     `json:"mongodb_uri"`
+	Frameworks             map[string]FrameworkConfig `json:"frameworks"`
+	LogLevel               string                     `json:"log_level"`
+	Temporal               *TemporalConfig            `json:"temporal"`
+	DevelopCfg             *DevelopConfig             `json:"develop"`
+	PocketRpc              string                     `json:"pocket_rpc_url"`
+	PocketGrpc             shannon_types.GRPCConfig   `json:"pocket_grpc_config"`
+	PocketBlocksPerSession int64                      `json:"pocket_blocks_per_session"`
+	Apps                   map[string]string          `json:"pocket_apps"`
+	Services               []string                   `json:"pocket_services"`
 }
 
 type FrameworkConfig struct {

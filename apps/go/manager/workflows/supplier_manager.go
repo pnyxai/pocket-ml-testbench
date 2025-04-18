@@ -11,20 +11,20 @@ import (
 	"go.temporal.io/sdk/workflow"
 )
 
-var NodeManagerName = "Manager"
+var SupplierManagerName = "Manager"
 
-// NodeManager - Is a method that orchestrates the tracking of staked ML nodes.
+// SuppliereManager - Is a method that orchestrates the tracking of staked ML suppliers.
 // It performs the following activities:
-// - Staked nodes retrieval
-// - Analyze nodes data
+// - Staked suppliers retrieval
+// - Analyze suppliers data
 // - Triggering new evaluation tasks
-func (wCtx *Ctx) NodeManager(ctx workflow.Context, params types.NodeManagerParams) (*types.NodeManagerResults, error) {
+func (wCtx *Ctx) SupplierManager(ctx workflow.Context, params types.SupplierManagerParams) (*types.SupplierManagerResults, error) {
 
 	l := wCtx.App.Logger
-	l.Debug().Msg("Starting Node Manager Workflow.")
+	l.Debug().Msg("Starting Supplier Manager Workflow.")
 
 	// Create result
-	result := types.NodeManagerResults{SuccessNodes: 0}
+	result := types.SupplierManagerResults{SuccessSuppliers: 0}
 
 	// Check parameters
 	if len(params.Tests) == 0 {
@@ -37,9 +37,9 @@ func (wCtx *Ctx) NodeManager(ctx workflow.Context, params types.NodeManagerParam
 	}
 
 	// -------------------------------------------------------------------------
-	// -------------------- Get all nodes staked -------------------------------
+	// -------------------- Get all suppliers staked -------------------------------
 	// -------------------------------------------------------------------------
-	// Set timeout to get staked nodes activity
+	// Set timeout to get staked suppliers activity
 	ctxTimeout := workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
 		ScheduleToStartTimeout: time.Minute * 5,
 		StartToCloseTimeout:    time.Minute * 5,
@@ -63,9 +63,9 @@ func (wCtx *Ctx) NodeManager(ctx workflow.Context, params types.NodeManagerParam
 	}
 
 	// -------------------------------------------------------------------------
-	// -------------------- Analyze each node ----------------------------------
+	// -------------------- Analyze each supplier ------------------------------
 	// -------------------------------------------------------------------------
-	// Set timeout for nodes analysis activity
+	// Set timeout for supplier analysis activity
 	ctxTimeout = workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
 		ScheduleToStartTimeout: time.Minute,
 		StartToCloseTimeout:    time.Minute,
@@ -73,24 +73,24 @@ func (wCtx *Ctx) NodeManager(ctx workflow.Context, params types.NodeManagerParam
 
 	selector := workflow.NewSelector(ctx)
 
-	// The channel requests are the nodes data
-	nodes := pocketNetworkData.Nodes
-	// Define a channel to store NodeAnalysisChanResponse objects
-	nodeAnalysisResultsChan := make(chan types.NodeAnalysisChanResponse, len(nodes))
+	// The channel requests are the suppliers data
+	suppliers := pocketNetworkData.Suppliers
+	// Define a channel to store SupplierAnalysisChanResponse objects
+	supplierAnalysisResultsChan := make(chan types.SupplierAnalysisChanResponse, len(suppliers))
 	// defer close lookup task results channel
-	defer close(nodeAnalysisResultsChan)
-	// Iterate all nodes and execute the analysis in futures
-	for _, node := range nodes {
-		input := types.AnalyzeNodeParams{
-			Node:  node,
-			Block: pocketNetworkData.Block,
-			Tests: params.Tests,
+	defer close(supplierAnalysisResultsChan)
+	// Iterate all suppliers and execute the analysis in futures
+	for _, supplier := range suppliers {
+		input := types.AnalyzeSupplierParams{
+			Supplier: supplier,
+			Block:    pocketNetworkData.Block,
+			Tests:    params.Tests,
 		}
-		ltr := types.AnalyzeNodeResults{}
+		ltr := types.AnalyzeSupplierResults{}
 		selector.AddFuture(
 			workflow.ExecuteActivity(
 				ctxTimeout,
-				activities.AnalyzeNodeName,
+				activities.AnalyzeSupplierName,
 				input,
 			),
 			// Declare the function to execute on activity end
@@ -101,8 +101,8 @@ func (wCtx *Ctx) NodeManager(ctx workflow.Context, params types.NodeManagerParam
 					return
 				}
 				// Fill the output channel
-				nodeAnalysisResultsChan <- types.NodeAnalysisChanResponse{
-					Request:  &node,
+				supplierAnalysisResultsChan <- types.SupplierAnalysisChanResponse{
+					Request:  &supplier,
 					Response: &ltr,
 				}
 			},
@@ -110,7 +110,7 @@ func (wCtx *Ctx) NodeManager(ctx workflow.Context, params types.NodeManagerParam
 	}
 
 	var allTriggers []types.TaskTrigger
-	for i := 0; i < len(nodes); i++ {
+	for i := 0; i < len(suppliers); i++ {
 		// Each call to Select matches a single ready Future.
 		// Each Future is matched only once independently on the number of Select calls.
 		// Ensure there is a call to process
@@ -119,13 +119,13 @@ func (wCtx *Ctx) NodeManager(ctx workflow.Context, params types.NodeManagerParam
 			return nil, err
 		}
 		// Retrieve the response from the channel
-		response := <-nodeAnalysisResultsChan
+		response := <-supplierAnalysisResultsChan
 		// Append to triggers
 		allTriggers = append(allTriggers, response.Response.Triggers...)
 		// Keep count
 		// Update workflow result
 		if response.Response.IsNew {
-			result.NewNodes += 1
+			result.NewSuppliers += 1
 		}
 		result.TriggeredTasks += uint(len(response.Response.Triggers))
 	}
@@ -140,7 +140,7 @@ func (wCtx *Ctx) NodeManager(ctx workflow.Context, params types.NodeManagerParam
 	taskTriggerResultsChan := make(chan *types.TriggerSamplerResults, len(allTriggers))
 	// defer close lookup task results channel
 	defer close(taskTriggerResultsChan)
-	// Iterate all nodes and execute the analysis in futures
+	// Iterate all suppliers and execute the analysis in futures
 	for _, trigger := range allTriggers {
 		input := types.TriggerSamplerParams{
 			Trigger: trigger,
@@ -175,9 +175,9 @@ func (wCtx *Ctx) NodeManager(ctx workflow.Context, params types.NodeManagerParam
 		// Keep count
 		// Update workflow result
 		if response.Success {
-			result.SuccessNodes += 1
+			result.SuccessSuppliers += 1
 		} else {
-			result.FailedNodes += 1
+			result.FailedSuppliers += 1
 		}
 	}
 

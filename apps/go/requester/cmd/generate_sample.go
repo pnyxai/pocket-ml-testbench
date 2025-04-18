@@ -14,12 +14,12 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-func GetTask(node string) *types.Task {
+func GetTask(supplier string) *types.Task {
 	return &types.Task{
 		Id: primitive.NewObjectID(),
 		RequesterArgs: types.RequesterArgs{
 			// found in localnet
-			Address: node,
+			Address: supplier,
 			Service: "0001",
 			Path:    "/v1/query/height",
 			Headers: map[string]string{"Content-Type": "application/json"},
@@ -28,10 +28,10 @@ func GetTask(node string) *types.Task {
 	}
 }
 
-func GetTasks(count int, node string) []*types.Task {
+func GetTasks(count int, supplier string) []*types.Task {
 	docs := make([]*types.Task, count)
 	for i := 0; i < count; i++ {
-		docs[i] = GetTask(node)
+		docs[i] = GetTask(supplier)
 	}
 	return docs
 }
@@ -99,8 +99,8 @@ func main() {
 	allPrompts := make([]*types.Prompt, 0)
 	allInstances := make([]*types.Instance, 0)
 
-	// this node is the one on the localnet repository
-	nodes := []string{
+	// this supplier is the one on the localnet repository
+	suppliers := []string{
 		"7c08e2e1265246a66d7d022b163970114dda124e",
 		//"9ab105b900c4633657f60974ad0e243c8f50ae1e",
 		//"cb85946c8171e3bbe78f5dbc01469053419b7be1",
@@ -128,7 +128,7 @@ func main() {
 	}
 
 	allTasks := make([]*types.Task, 0)
-	for _, address := range nodes {
+	for _, address := range suppliers {
 		tasks := GetTasks(3, address)
 		for j, task := range tasks {
 			allTasks = append(allTasks, tasks[j])

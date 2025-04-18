@@ -35,8 +35,8 @@ func (aCtx *Ctx) Register(w worker.Worker) {
 		Name: GetStakedName,
 	})
 
-	w.RegisterActivityWithOptions(aCtx.AnalyzeNode, activity.RegisterOptions{
-		Name: AnalyzeNodeName,
+	w.RegisterActivityWithOptions(aCtx.AnalyzeSupplier, activity.RegisterOptions{
+		Name: AnalyzeSupplierName,
 	})
 
 	w.RegisterActivityWithOptions(aCtx.TriggerSampler, activity.RegisterOptions{

@@ -7,22 +7,22 @@ type TestsData struct {
 	Tasks     []string `json:"tasks"`
 }
 
-type NodeManagerParams struct {
+type SupplierManagerParams struct {
 	Service       string      `json:"service"`
 	SessionHeight int64       `json:"session_height"`
 	Tests         []TestsData `json:"tests"`
 }
 
-type NodeManagerResults struct {
-	SuccessNodes   uint `json:"success"`
-	FailedNodes    uint `json:"failed"`
-	NewNodes       uint `json:"new_nodes"`
-	TriggeredTasks uint `json:"triggered_tasks"`
+type SupplierManagerResults struct {
+	SuccessSuppliers uint `json:"success"`
+	FailedSuppliers  uint `json:"failed"`
+	NewSuppliers     uint `json:"new_suppliers"`
+	TriggeredTasks   uint `json:"triggered_tasks"`
 }
 
-type NodeAnalysisChanResponse struct {
-	Request  *NodeData
-	Response *AnalyzeNodeResults
+type SupplierAnalysisChanResponse struct {
+	Request  *SupplierData
+	Response *AnalyzeSupplierResults
 }
 
 type SamplerWorkflowParams struct {

@@ -35,7 +35,7 @@ async def summarize_taxonomy(
 
     # Create base result
     result = PocketNetworkMongoDBTaxonomySummary(
-        node_id=ObjectId(args.node_id),
+        supplier_id=ObjectId(args.supplier_id),
         summary_date=datetime.today().isoformat(),
         taxonomy_name=args.taxonomy,
         taxonomy_nodes_scores=dict(),
@@ -56,13 +56,13 @@ async def summarize_taxonomy(
             # Get data for this node and dataset
             framework = "lmeh"  # TODO : Remove hardcode
             try:
-                docs = await mongo_operator.get_node_results_for_task(
-                    ObjectId(args.node_id), framework, dataset
+                docs = await mongo_operator.get_supplier_results_for_task(
+                    ObjectId(args.supplier_id), framework, dataset
                 )
                 if len(docs) > 1:
                     return (
                         False,
-                        f"Found multiple buffers ({len(docs)}) for node {args.node_id}, in framework {framework} and task {dataset}.",
+                        f"Found multiple buffers ({len(docs)}) for supplier {args.supplier_id}, in framework {framework} and task {dataset}.",
                     )
             except Exception as e:
                 return False, str(e)
@@ -70,8 +70,8 @@ async def summarize_taxonomy(
             # No data, continue
             if len(docs) == 0:
                 summary_logger.warn(
-                    "No results found for node.",
-                    node_id=args.node_id,
+                    "No results found for supplier.",
+                    supplier_id=args.supplier_id,
                     framework=framework,
                     task=dataset,
                 )
@@ -152,7 +152,7 @@ async def summarize_taxonomy(
                 await mongo_client.db[
                     mongo_operator.taxonomy_summaries
                 ].find_one_and_replace(
-                    {"node_id": ObjectId(args.node_id), "taxonomy_name": args.taxonomy},
+                    {"supplier_id": ObjectId(args.supplier_id), "taxonomy_name": args.taxonomy},
                     result_dump,
                     upsert=True,
                     return_document=False,
@@ -183,7 +183,7 @@ async def summarize_taxonomy(
         )
 
     summary_logger.debug(
-        f"Success summary for {args.node_id} in taxonomy {args.taxonomy}"
+        f"Success summary for {args.supplier_id} in taxonomy {args.taxonomy}"
     )
 
     return True, ""

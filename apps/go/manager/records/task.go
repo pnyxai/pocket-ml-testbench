@@ -24,16 +24,16 @@ import (
 
 // This is the basic information that all tasks should have
 type BaseTaskRecord struct {
-	NodeID    primitive.ObjectID `bson:"node_id"`
-	Framework string             `bson:"framework"`
-	Task      string             `bson:"task"`
+	SupplierID primitive.ObjectID `bson:"supplier_id"`
+	Framework  string             `bson:"framework"`
+	Task       string             `bson:"task"`
 
 	LastSeen   time.Time `bson:"last_seen"`
 	LastHeight int64     `bson:"last_height"`
 }
 
-func (record *BaseTaskRecord) GetNodeID() primitive.ObjectID {
-	return record.NodeID
+func (record *BaseTaskRecord) GetSupplierID() primitive.ObjectID {
+	return record.SupplierID
 }
 
 func (record *BaseTaskRecord) GetTask() string {
@@ -88,41 +88,41 @@ type TaskInterface interface {
 	UpdateLastSeen(timeSample time.Time) (err error)
 	UpdateLastHeight(height int64) (err error)
 	IsOK() bool
-	NewTask(nodeID primitive.ObjectID, framework string, task string, date time.Time, l *zerolog.Logger)
-	LoadTask(nodeID primitive.ObjectID, framework string, task string, mongoDB mongodb.MongoDb, l *zerolog.Logger) (bool, error)
-	UpdateTask(nodeID primitive.ObjectID, framework string, task string, mongoDB mongodb.MongoDb, l *zerolog.Logger) (bool, error)
+	NewTask(supplierID primitive.ObjectID, framework string, task string, date time.Time, l *zerolog.Logger)
+	LoadTask(supplierID primitive.ObjectID, framework string, task string, mongoDB mongodb.MongoDb, l *zerolog.Logger) (bool, error)
+	UpdateTask(supplierID primitive.ObjectID, framework string, task string, mongoDB mongodb.MongoDb, l *zerolog.Logger) (bool, error)
 }
 
-// Get specific task data from a node record
-func GetTaskData(nodeID primitive.ObjectID, taskType string, framework string, task string, mongoDB mongodb.MongoDb, l *zerolog.Logger) (TaskInterface, bool) {
+// Get specific task data from a supplier record
+func GetTaskData(supplierID primitive.ObjectID, taskType string, framework string, task string, mongoDB mongodb.MongoDb, l *zerolog.Logger) (TaskInterface, bool) {
 
 	// Look for entry
 	if taskType == NumericalTaskTypeName {
 		// get task record
 		var record NumericalTaskRecord
-		found, err := record.LoadTask(nodeID, framework, task, mongoDB, l)
+		found, err := record.LoadTask(supplierID, framework, task, mongoDB, l)
 		if err != nil {
-			l.Error().Str("nodeID", nodeID.String()).Str("framework", framework).Str("task", task).Msg("cannot find default task buffer")
+			l.Error().Str("supplierID", supplierID.String()).Str("framework", framework).Str("task", task).Msg("cannot find default task buffer")
 			return nil, false
 		}
 		if !found {
 			// Initialize and save
-			record.NewTask(nodeID, framework, task, types.EpochStart.UTC(), l)
-			record.UpdateTask(nodeID, framework, task, mongoDB, l)
+			record.NewTask(supplierID, framework, task, types.EpochStart.UTC(), l)
+			record.UpdateTask(supplierID, framework, task, mongoDB, l)
 		}
 		return &record, true
 	} else if taskType == SignatureTaskTypeName {
 		// set task record
 		var record SignatureTaskRecord
-		found, err := record.LoadTask(nodeID, framework, task, mongoDB, l)
+		found, err := record.LoadTask(supplierID, framework, task, mongoDB, l)
 		if err != nil {
-			l.Error().Str("nodeID", nodeID.String()).Str("framework", framework).Str("task", task).Msg("cannot find default task buffer")
+			l.Error().Str("supplierID", supplierID.String()).Str("framework", framework).Str("task", task).Msg("cannot find default task buffer")
 			return nil, false
 		}
 		if !found {
 			// Initialize and save
-			record.NewTask(nodeID, framework, task, types.EpochStart.UTC(), l)
-			record.UpdateTask(nodeID, framework, task, mongoDB, l)
+			record.NewTask(supplierID, framework, task, types.EpochStart.UTC(), l)
+			record.UpdateTask(supplierID, framework, task, mongoDB, l)
 		}
 		return &record, true
 	}
@@ -159,7 +159,7 @@ func GetTaskType(framework string, task string, configMap map[string]types.Frame
 
 // Analyzes the configuration and returns if it is possible to proceed with this task triggering/analysis
 // A task can depend on others (such as having a tokenizer signature), here we check for that
-func CheckTaskDependency(nodeData *NodeRecord, framework string, task string, configMap map[string]types.FrameworkConfig, mongoDB mongodb.MongoDb, l *zerolog.Logger) (bool, error) {
+func CheckTaskDependency(supplierData *SupplierRecord, framework string, task string, configMap map[string]types.FrameworkConfig, mongoDB mongodb.MongoDb, l *zerolog.Logger) (bool, error) {
 
 	// Get Framework config
 	frameworkCfg, ok := configMap[framework]
@@ -198,7 +198,7 @@ func CheckTaskDependency(nodeData *NodeRecord, framework string, task string, co
 		}
 		if frameworkTaskandStatus[0] == "none" {
 			// No dependencies
-			l.Debug().Str("address", nodeData.Address).Str("service", nodeData.Service).Str("framework", framework).Str("task", task).Msg("No dependency: Dependecy OK")
+			l.Debug().Str("address", supplierData.Address).Str("service", supplierData.Service).Str("framework", framework).Str("task", task).Msg("No dependency: Dependecy OK")
 			continue
 		}
 		taskType, err := GetTaskType(frameworkTaskandStatus[0], frameworkTaskandStatus[1], configMap, l)
@@ -206,7 +206,7 @@ func CheckTaskDependency(nodeData *NodeRecord, framework string, task string, co
 			l.Error().Str("framework", framework).Str("task", task).Str("task type", taskType).Msg("Error getting task type")
 			return false, err
 		}
-		thisTaskRecord, found := GetTaskData(nodeData.ID, taskType, frameworkTaskandStatus[0], frameworkTaskandStatus[1], mongoDB, l)
+		thisTaskRecord, found := GetTaskData(supplierData.ID, taskType, frameworkTaskandStatus[0], frameworkTaskandStatus[1], mongoDB, l)
 		if !found {
 			// The task is not even created, we must fail
 			depOK = false
@@ -215,15 +215,15 @@ func CheckTaskDependency(nodeData *NodeRecord, framework string, task string, co
 			// Check the condition
 			if frameworkTaskandStatus[2] == "present" {
 				// Task is present, so OK
-				l.Debug().Str("address", nodeData.Address).Str("service", nodeData.Service).Str("framework", framework).Str("task", task).Msg("Present: Dependecy OK")
+				l.Debug().Str("address", supplierData.Address).Str("service", supplierData.Service).Str("framework", framework).Str("task", task).Msg("Present: Dependecy OK")
 				continue
 			} else if frameworkTaskandStatus[2] == "ok" {
 				// Check for it having a correct value
 				if thisTaskRecord.IsOK() {
-					l.Debug().Str("address", nodeData.Address).Str("service", nodeData.Service).Str("framework", framework).Str("task", task).Msg("OK: Dependecy OK")
+					l.Debug().Str("address", supplierData.Address).Str("service", supplierData.Service).Str("framework", framework).Str("task", task).Msg("OK: Dependecy OK")
 					continue
 				} else {
-					l.Debug().Str("address", nodeData.Address).Str("service", nodeData.Service).Str("framework", framework).Str("task", task).Msg("OK: Dependecy NOT OK")
+					l.Debug().Str("address", supplierData.Address).Str("service", supplierData.Service).Str("framework", framework).Str("task", task).Msg("OK: Dependecy NOT OK")
 					depOK = false
 					break
 				}
@@ -390,7 +390,7 @@ type ScoresSample struct {
 	ErrorString string  `bson:"error_str"`
 }
 
-func (record *NumericalTaskRecord) NewTask(nodeID primitive.ObjectID, framework string, task string, date time.Time, l *zerolog.Logger) {
+func (record *NumericalTaskRecord) NewTask(supplierID primitive.ObjectID, framework string, task string, date time.Time, l *zerolog.Logger) {
 	// TODO: Get default values from framework-task
 	bufferLen := NumericalCircularBufferLength
 	timeArray := make([]time.Time, bufferLen)
@@ -398,7 +398,7 @@ func (record *NumericalTaskRecord) NewTask(nodeID primitive.ObjectID, framework 
 		timeArray[i] = date
 	}
 
-	record.TaskData.NodeID = nodeID
+	record.TaskData.SupplierID = supplierID
 	record.TaskData.Framework = framework
 	record.TaskData.Task = task
 	record.TaskData.LastSeen = date
@@ -425,9 +425,9 @@ func (record *NumericalTaskRecord) NewTask(nodeID primitive.ObjectID, framework 
 
 }
 
-func (record *NumericalTaskRecord) LoadTask(nodeID primitive.ObjectID, framework string, task string, mongoDB mongodb.MongoDb, l *zerolog.Logger) (bool, error) {
+func (record *NumericalTaskRecord) LoadTask(supplierID primitive.ObjectID, framework string, task string, mongoDB mongodb.MongoDb, l *zerolog.Logger) (bool, error) {
 
-	task_filter := bson.D{{Key: "task_data.node_id", Value: nodeID}, {Key: "task_data.framework", Value: framework}, {Key: "task_data.task", Value: task}}
+	task_filter := bson.D{{Key: "task_data.supplier_id", Value: supplierID}, {Key: "task_data.framework", Value: framework}, {Key: "task_data.task", Value: task}}
 	tasksCollection := mongoDB.GetCollection(types.NumericalTaskCollection)
 	opts := options.FindOne()
 
@@ -435,13 +435,13 @@ func (record *NumericalTaskRecord) LoadTask(nodeID primitive.ObjectID, framework
 	ctxM, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
-	// Retrieve this node entry
+	// Retrieve this supplier entry
 	var found bool = true
 	cursor := tasksCollection.FindOne(ctxM, task_filter, opts)
 	err := cursor.Decode(record)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-			l.Warn().Str("node_id", nodeID.String()).Str("framework", framework).Str("task", task).Msg("Numerical Task not found")
+			l.Warn().Str("supplier_id", supplierID.String()).Str("framework", framework).Str("task", task).Msg("Numerical Task not found")
 			found = false
 		} else {
 			l.Error().Msg("Could not retrieve task data from MongoDB.")
@@ -453,12 +453,12 @@ func (record *NumericalTaskRecord) LoadTask(nodeID primitive.ObjectID, framework
 	return found, nil
 }
 
-func (record *NumericalTaskRecord) UpdateTask(nodeID primitive.ObjectID, framework string, task string, mongoDB mongodb.MongoDb, l *zerolog.Logger) (bool, error) {
+func (record *NumericalTaskRecord) UpdateTask(supplierID primitive.ObjectID, framework string, task string, mongoDB mongodb.MongoDb, l *zerolog.Logger) (bool, error) {
 
 	tasksCollection := mongoDB.GetCollection(types.NumericalTaskCollection)
 
 	opts := options.FindOneAndUpdate().SetUpsert(true)
-	task_filter := bson.D{{Key: "task_data.node_id", Value: nodeID}, {Key: "task_data.framework", Value: framework}, {Key: "task_data.task", Value: task}}
+	task_filter := bson.D{{Key: "task_data.supplier_id", Value: supplierID}, {Key: "task_data.framework", Value: framework}, {Key: "task_data.task", Value: task}}
 	ctxM, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
@@ -469,7 +469,7 @@ func (record *NumericalTaskRecord) UpdateTask(nodeID primitive.ObjectID, framewo
 	err := tasksCollection.FindOneAndUpdate(ctxM, task_filter, update, opts).Decode(record)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-			l.Warn().Str("node_id", nodeID.String()).Str("framework", framework).Str("task", task).Msg("Numerical Task not found, creating one.")
+			l.Warn().Str("supplier_id", supplierID.String()).Str("framework", framework).Str("task", task).Msg("Numerical Task not found, creating one.")
 			found = false
 		} else {
 			l.Error().Msg("Could not retrieve numerical task data from MongoDB.")
@@ -573,8 +573,8 @@ func (record *NumericalTaskRecord) ProcessData(l *zerolog.Logger) (err error) {
 			// Add sample to data array
 			auxDataScores = append(auxDataScores, float64(record.ScoresSamples[sampleId].Score))
 			auxDataTimes = append(auxDataTimes, float64(record.ScoresSamples[sampleId].RunTime))
-		} else if sampleStatus == RelayResponseCodes.Node || sampleStatus == RelayResponseCodes.Evaluation {
-			// This is a Node or Evaluation (response) error, we should punish the node
+		} else if sampleStatus == RelayResponseCodes.Supplier || sampleStatus == RelayResponseCodes.Evaluation {
+			// This is a Supplier or Evaluation (response) error, we should punish the supplier
 			totalPunibleErrors += 1
 			punibleErrorsCodes[sampleStatus] += 1
 		}
@@ -648,11 +648,11 @@ func (record *NumericalTaskRecord) InsertSample(timeSample time.Time, data inter
 		return fmt.Errorf("invalid sample data type")
 	}
 
-	// Save sample if it is OK or it is an error imputable to the node
+	// Save sample if it is OK or it is an error imputable to the supplier
 	// the rest are ignored on purpose to avoid polluting the buffer with information
-	// that is not important to the servicer node. To debug other errors, check the logs...
+	// that is not important to the servicer supplier. To debug other errors, check the logs...
 	if dataOk.StatusCode == RelayResponseCodes.Ok ||
-		dataOk.StatusCode == RelayResponseCodes.Node ||
+		dataOk.StatusCode == RelayResponseCodes.Supplier ||
 		dataOk.StatusCode == RelayResponseCodes.Evaluation {
 
 		// Increment the end (only on valid data)
@@ -712,7 +712,7 @@ type SignatureSample struct {
 	ErrorString string `bson:"error_str"`
 }
 
-func (record *SignatureTaskRecord) NewTask(nodeID primitive.ObjectID, framework string, task string, date time.Time, l *zerolog.Logger) {
+func (record *SignatureTaskRecord) NewTask(supplierID primitive.ObjectID, framework string, task string, date time.Time, l *zerolog.Logger) {
 	// TODO: Get default values from framework-task
 	bufferLen := SignatureCircularBufferLength
 	timeArray := make([]time.Time, bufferLen)
@@ -720,7 +720,7 @@ func (record *SignatureTaskRecord) NewTask(nodeID primitive.ObjectID, framework 
 		timeArray[i] = date
 	}
 
-	record.TaskData.NodeID = nodeID
+	record.TaskData.SupplierID = supplierID
 	record.TaskData.Framework = framework
 	record.TaskData.Task = task
 	record.TaskData.LastSeen = date
@@ -739,9 +739,9 @@ func (record *SignatureTaskRecord) NewTask(nodeID primitive.ObjectID, framework 
 	}
 }
 
-func (record *SignatureTaskRecord) LoadTask(nodeID primitive.ObjectID, framework string, task string, mongoDB mongodb.MongoDb, l *zerolog.Logger) (bool, error) {
+func (record *SignatureTaskRecord) LoadTask(supplierID primitive.ObjectID, framework string, task string, mongoDB mongodb.MongoDb, l *zerolog.Logger) (bool, error) {
 
-	task_filter := bson.D{{Key: "task_data.node_id", Value: nodeID}, {Key: "task_data.framework", Value: framework}, {Key: "task_data.task", Value: task}}
+	task_filter := bson.D{{Key: "task_data.supplier_id", Value: supplierID}, {Key: "task_data.framework", Value: framework}, {Key: "task_data.task", Value: task}}
 	tasksCollection := mongoDB.GetCollection(types.SignaturesTaskCollection)
 	opts := options.FindOne()
 
@@ -749,13 +749,13 @@ func (record *SignatureTaskRecord) LoadTask(nodeID primitive.ObjectID, framework
 	ctxM, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
-	// Retrieve this node entry
+	// Retrieve this supplier entry
 	var found bool = true
 	cursor := tasksCollection.FindOne(ctxM, task_filter, opts)
 	err := cursor.Decode(record)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-			l.Warn().Str("node_id", nodeID.String()).Str("framework", framework).Str("task", task).Msg("Signature Task not found")
+			l.Warn().Str("supplier_id", supplierID.String()).Str("framework", framework).Str("task", task).Msg("Signature Task not found")
 			found = false
 		} else {
 			l.Error().Msg("Could not retrieve task data from MongoDB.")
@@ -767,12 +767,12 @@ func (record *SignatureTaskRecord) LoadTask(nodeID primitive.ObjectID, framework
 	return found, nil
 }
 
-func (record *SignatureTaskRecord) UpdateTask(nodeID primitive.ObjectID, framework string, task string, mongoDB mongodb.MongoDb, l *zerolog.Logger) (bool, error) {
+func (record *SignatureTaskRecord) UpdateTask(supplierID primitive.ObjectID, framework string, task string, mongoDB mongodb.MongoDb, l *zerolog.Logger) (bool, error) {
 
 	tasksCollection := mongoDB.GetCollection(types.SignaturesTaskCollection)
 
 	opts := options.FindOneAndUpdate().SetUpsert(true)
-	task_filter := bson.D{{Key: "task_data.node_id", Value: nodeID}, {Key: "task_data.framework", Value: framework}, {Key: "task_data.task", Value: task}}
+	task_filter := bson.D{{Key: "task_data.supplier_id", Value: supplierID}, {Key: "task_data.framework", Value: framework}, {Key: "task_data.task", Value: task}}
 	ctxM, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
@@ -783,10 +783,10 @@ func (record *SignatureTaskRecord) UpdateTask(nodeID primitive.ObjectID, framewo
 	err := tasksCollection.FindOneAndUpdate(ctxM, task_filter, update, opts).Decode(record)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-			l.Warn().Str("node_id", nodeID.String()).Str("framework", framework).Str("task", task).Msg("Signature Task not found, creating one.")
+			l.Warn().Str("supplier_id", supplierID.String()).Str("framework", framework).Str("task", task).Msg("Signature Task not found, creating one.")
 			found = false
 		} else {
-			l.Error().Str("node_id", nodeID.String()).Str("framework", framework).Str("task", task).Msg("Could not retrieve signature task data from MongoDB.")
+			l.Error().Str("supplier_id", supplierID.String()).Str("framework", framework).Str("task", task).Msg("Could not retrieve signature task data from MongoDB.")
 			return false, err
 		}
 	}
@@ -879,9 +879,9 @@ func (record *SignatureTaskRecord) InsertSample(timeSample time.Time, data inter
 
 	// Increment the end
 	err = record.StepIndex(1, "end", true, l)
-	// Save sample if it is OK or it is an error imputable to the node
+	// Save sample if it is OK or it is an error imputable to the supplier
 	if dataOk.StatusCode == RelayResponseCodes.Ok ||
-		dataOk.StatusCode == RelayResponseCodes.Node ||
+		dataOk.StatusCode == RelayResponseCodes.Supplier ||
 		dataOk.StatusCode == RelayResponseCodes.Evaluation {
 
 		record.Signatures[record.CircBuffer.Indexes.End].Signature = dataOk.Signature

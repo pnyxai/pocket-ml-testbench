@@ -23,7 +23,7 @@ func (wCtx *Ctx) ResultAnalyzer(ctx workflow.Context, params types.ResultAnalyze
 	// -------------------------------------------------------------------------
 	// -------------------- Analyze Result -------------------------------------
 	// -------------------------------------------------------------------------
-	// Set timeout to get staked nodes activity
+	// Set timeout to get staked suppliers activity
 	ctxTimeout := workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
 		ScheduleToStartTimeout: time.Minute * 5,
 		StartToCloseTimeout:    time.Minute * 5,

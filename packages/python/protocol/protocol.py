@@ -394,7 +394,7 @@ class TimeoutHandler(BaseModel):
 
 
 class PocketNetworkTaxonomySummaryTaskRequest(BaseModel):
-    node_id: Union[str, PyObjectId]
+    supplier_id: Union[str, PyObjectId]
     taxonomy: str
 
 
@@ -410,7 +410,7 @@ class TaxonomyNodeSummary(BaseModel):
 
 class PocketNetworkMongoDBTaxonomySummary(BaseModel):
     id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
-    node_id: ObjectId
+    supplier_id: ObjectId
     summary_date: datetime
     taxonomy_name: str
     taxonomy_nodes_scores: Dict[str, TaxonomyNodeSummary]

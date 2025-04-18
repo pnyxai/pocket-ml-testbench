@@ -3,14 +3,14 @@ package types
 import "go.mongodb.org/mongo-driver/bson/primitive"
 
 //------------------------------------------------------------------------------
-// Get Staked Nodes
+// Get Staked Suppliers
 //------------------------------------------------------------------------------
 
 type GetStakedParams struct {
 	Service string
 }
 
-type NodeData struct {
+type SupplierData struct {
 	Address string
 	Service string
 }
@@ -21,21 +21,21 @@ type BlockData struct {
 }
 
 type GetStakedResults struct {
-	Nodes []NodeData
-	Block BlockData
+	Suppliers []SupplierData
+	Block     BlockData
 }
 
 //------------------------------------------------------------------------------
-// Analyze Nodes
+// Analyze Suppliers
 //------------------------------------------------------------------------------
 
-type AnalyzeNodeParams struct {
-	Node  NodeData    `json:"node"`
-	Block BlockData   `json:"block"`
-	Tests []TestsData `json:"tests"`
+type AnalyzeSupplierParams struct {
+	Supplier SupplierData `json:"supplier"`
+	Block    BlockData    `json:"block"`
+	Tests    []TestsData  `json:"tests"`
 }
 
-type AnalyzeNodeResults struct {
+type AnalyzeSupplierResults struct {
 	Success  bool          `json:"success"`
 	IsNew    bool          `json:"is_new"`
 	Triggers []TaskTrigger `json:"task_trigger"`

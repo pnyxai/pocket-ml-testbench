@@ -87,11 +87,11 @@ def aggregate_old_tasks(latest_height: int, blocks_ago: int):
 
 
 # Define the aggregation pipeline template
-def aggregate_node_task_results(node_id: ObjectId, framework: str, task: str):
+def aggregate_supplier_task_results(supplier_id: ObjectId, framework: str, task: str):
     return [
         {
             "$match": {
-                "task_data.node_id": node_id,
+                "task_data.supplier_id": supplier_id,
                 "task_data.framework": framework,
                 "task_data.task": task,
             }

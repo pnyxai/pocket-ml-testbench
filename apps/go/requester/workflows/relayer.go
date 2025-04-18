@@ -29,7 +29,7 @@ func (wCtx *Ctx) Relayer(ctx workflow.Context, params activities.RelayerParams) 
 	info := workflow.GetInfo(ctx)
 	if info.Attempt == 1 {
 		// Use workflow.Sleep to make the workflow sleep before actually executing the task.
-		// This is to avoid clogging the node with tests
+		// This is to avoid clogging the supplier with tests
 		es := workflow.Sleep(ctx, time.Duration(params.RelayTriggerDelay*1000)*time.Millisecond)
 		if es != nil {
 			e = temporal.NewNonRetryableApplicationError("Sleep failed", "SLEEP_ERROR", es)
@@ -54,12 +54,7 @@ func (wCtx *Ctx) Relayer(ctx workflow.Context, params activities.RelayerParams) 
 		},
 	})
 
-	if _, ok := wCtx.App.AppAccounts.Load(params.App.Address); !ok {
-		e = temporal.NewNonRetryableApplicationError("application not found", "ApplicationNotFound", nil)
-		return
-	}
-
-	// Now we will execute the activity that makes the relay to the servicer node
+	// Now we will execute the activity that makes the relay to the supplier
 	relayerResponse := types.RelayResponse{}
 	relayerErr := workflow.ExecuteActivity(relayerCtx, activities.Activities.Relayer, params).Get(relayerCtx, &relayerResponse)
 	if relayerErr != nil {
