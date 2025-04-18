@@ -25,7 +25,7 @@ type RequesterParams struct {
 type RequesterResults struct {
 	App                string   `json:"app"`
 	Service            string   `json:"service"`
-	Nodes              []string `json:"nodes"`
+	Suppliers          []string `json:"suppliers"`
 	Height             int64    `json:"height"`
 	SessionHeight      int64    `json:"session_height"`
 	TriggeredWorkflows []string `json:"workflows"`
@@ -117,13 +117,13 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 	// For these suppliers, get the pending tasks
 	l.Debug("Calling GetTasks activity")
 	request := activities.GetTasksParams{
-		Nodes:          make([]string, len(suppliers)),
+		Suppliers:      make([]string, len(suppliers)),
 		Service:        params.Service,
 		CurrentSession: sessionHeight,
 	}
 	i := 0
 	for supplierAddrres, _ := range suppliers {
-		request.Nodes[i] = string(supplierAddrres)
+		request.Suppliers[i] = string(supplierAddrres)
 		i += 1
 	}
 	getTasksActivityCtx := workflow.WithActivityOptions(ctx, ao)
@@ -142,7 +142,7 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 	l.Debug("GetTasks activity ends", "tasks_found", len(ltr.TaskRequests))
 
 	// With all the data, we will proceed to trigger the relaying workflow
-	triggeredNodeAddresses := make([]string, 0)
+	triggeredSupplierAddresses := make([]string, 0)
 	skippedWorkflows := make([]string, 0)
 	triggeredWorkflows := make([]string, 0)
 
@@ -150,22 +150,22 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 	reqMap := activities.SplitByUniqueAddress(ltr.TaskRequests)
 
 	// For each group of tasks:
-	for _, theseNodeReq := range reqMap {
-		l.Debug("Processing group.", "node", theseNodeReq[0].Node, "number of elements", len(theseNodeReq))
+	for _, theseSupplierReq := range reqMap {
+		l.Debug("Processing group.", "supplier", theseSupplierReq[0].Supplier, "number of elements", len(theseSupplierReq))
 
 		// For each address
-		for reqIdx, tr := range theseNodeReq {
+		for reqIdx, tr := range theseSupplierReq {
 			// Create a random timeout with a fixed time that marks the rate: 0+1 sec; 2 +- 1 sec ; 4 +- 1 sec ; etc...
 			randomDelay := (rand.Float64() * wCtx.App.Config.Relay.TimeDispersion) + (float64(reqIdx) * wCtx.App.Config.Relay.TimeBetweenRelays)
-			// add only those nodes that get pending tasks
-			triggeredNodeAddresses = append(triggeredNodeAddresses, tr.Node)
+			// add only those suppliers that get pending tasks
+			triggeredSupplierAddresses = append(triggeredSupplierAddresses, tr.Supplier)
 			// Create target endpoint, which already contains the session
-			targetEndpoint := suppliers[shannon_types.EndpointAddr(tr.Node)]
+			targetEndpoint := suppliers[shannon_types.EndpointAddr(tr.Supplier)]
 			// You can access desired attributes here.
 			relayerRequest := activities.RelayerParams{
 				AppAddress:        params.App,
 				AppPrivHex:        wCtx.App.PocketApps[params.App],
-				NodeAddress:       tr.Node,
+				SupplierAddress:   tr.Supplier,
 				TargetEndpoint:    targetEndpoint,
 				Service:           request.Service,
 				SessionHeight:     sessionHeight,
@@ -175,14 +175,14 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 				RelayTriggerDelay: randomDelay,
 			}
 
-			//  Here we start the workflow that will ultimately dispatch the relays to the servicer nodes
+			//  Here we start the workflow that will ultimately dispatch the relays to the supplier
 			workflowOptions := client.StartWorkflowOptions{
-				// with this format: "app-node-service-taskId-instanceId-promptId"
+				// with this format: "app-supplier-service-taskId-instanceId-promptId"
 				// we are sure that when its workflow runs again inside the same session and the task is still not done,
 				// we will not get the same relayer workflow executed twice
 				ID: fmt.Sprintf(
 					"%s-%s-%s-%s",
-					request.Service, tr.Node, params.App,
+					request.Service, tr.Supplier, params.App,
 					tr.PromptId,
 				),
 				TaskQueue:                                wCtx.App.Config.Temporal.TaskQueue,
@@ -238,9 +238,9 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 	}
 
 	result := RequesterResults{
-		App:     params.App,
-		Service: params.Service,
-		Nodes:   triggeredNodeAddresses,
+		App:       params.App,
+		Service:   params.Service,
+		Suppliers: triggeredSupplierAddresses,
 		// check if this is the height of the block when the session is get or what
 		Height:             currHeight,
 		SessionHeight:      sessionHeight,

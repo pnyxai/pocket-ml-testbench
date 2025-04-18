@@ -19,11 +19,11 @@ import (
 )
 
 type RelayerParams struct {
-	// inflated version of the data to avoid calling again the node when the activity is really called
-	TargetEndpoint pocket_shannon.Endpoint `json:"target_endpoint"`
-	NodeAddress    string                  `json:"node_address"`
-	AppAddress     string                  `json:"app_address"`
-	AppPrivHex     string                  `json:"app_key"`
+	// inflated version of the data to avoid calling again the supplier when the activity is really called
+	TargetEndpoint  pocket_shannon.Endpoint `json:"target_endpoint"`
+	SupplierAddress string                  `json:"supplier_address"`
+	AppAddress      string                  `json:"app_address"`
+	AppPrivHex      string                  `json:"app_key"`
 
 	// pocket relay data related that do not need to be inflated
 	Service          string `json:"service"`
@@ -43,7 +43,7 @@ type RelayerResponse struct {
 type RelayResponseCodesEnum struct {
 	Ok             int
 	Relay          int
-	Node           int
+	Supplier       int
 	OutOfSession   int
 	BadParams      int
 	PromptNotFound int
@@ -58,7 +58,7 @@ type RelayResponseCodesEnum struct {
 var RelayResponseCodes = RelayResponseCodesEnum{
 	Ok:             0,
 	Relay:          1,
-	Node:           2,
+	Supplier:       2,
 	OutOfSession:   3,
 	BadParams:      4,
 	PromptNotFound: 5,
@@ -172,7 +172,7 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 		return
 	}
 
-	// load prompt+task before call node
+	// load prompt+task before call supplier
 	promptCollection := aCtx.App.Mongodb.GetCollection(types.PromptsCollection)
 	taskCollection := aCtx.App.Mongodb.GetCollection(types.TaskCollection)
 	getPromptCtx, cancelFn := context.WithTimeout(ctx, 20*time.Second)
@@ -261,7 +261,7 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 		// Get backend response
 		relayResponse, errDeserialize := pocket_shannon.DeserializeRelayResponse(relay.Payload)
 		if errDeserialize != nil {
-			response.Code = RelayResponseCodes.Node
+			response.Code = RelayResponseCodes.Supplier
 			response.Error = fmt.Sprintf("Error unmarshalling endpoint response into a POKTHTTP response: %w", errDeserialize)
 		}
 		// Decode and assign
@@ -279,8 +279,8 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 			response.Error = response.Response
 
 		} else {
-			// Some other error of the node
-			response.Code = RelayResponseCodes.Node
+			// Some other error of the supplier
+			response.Code = RelayResponseCodes.Supplier
 			response.Error = response.Response
 		}
 	}
