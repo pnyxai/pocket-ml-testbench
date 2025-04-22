@@ -122,7 +122,7 @@ func SendRelay(payload types.Payload, selectedEndpoint Endpoint, serviceID types
 	}
 	app := *session.Application
 
-	relayRequest, err := buildUnsignedRelayRequest(selectedEndpoint, session, []byte(payload.Data), payload.Path)
+	relayRequest, err := buildUnsignedRelayRequest(selectedEndpoint, session, []byte(payload.Data), payload.Path, payload.Method)
 	if err != nil {
 		errOut := RPCError{
 			Code:    UnsignedRequestBuildError,
@@ -184,7 +184,7 @@ func sendHttpRelay(
 
 	relayHTTPRequest, err := http.NewRequestWithContext(
 		ctx,
-		http.MethodPost,
+		http.MethodPost, // This is the method to the POKT node
 		supplierUrlStr,
 		io.NopCloser(bytes.NewReader(relayRequestBz)),
 	)
@@ -223,14 +223,14 @@ func signRelayRequest(unsignedRelayReq *servicetypes.RelayRequest, app apptypes.
 
 // buildUnsignedRelayRequest builds a ready-to-sign RelayRequest struct using the supplied endpoint, session, and payload.
 // The returned RelayRequest can be signed and sent to the endpoint to receive the endpoint's response.
-func buildUnsignedRelayRequest(endpoint Endpoint, session sessiontypes.Session, payload []byte, path string) (*servicetypes.RelayRequest, error) {
+func buildUnsignedRelayRequest(endpoint Endpoint, session sessiontypes.Session, payload []byte, path string, method string) (*servicetypes.RelayRequest, error) {
 	// If the path is not empty (ie. for a REST service request), append it to the endpoint's URL
 	url := endpoint.PublicURL()
 	if path != "" {
 		url = fmt.Sprintf("%s%s", url, path)
 	}
 	// TODO_TECHDEBT: need to select the correct underlying request (HTTP, etc.) based on the selected service.
-	jsonRpcHttpReq, err := shannonJsonRpcHttpRequest(payload, url)
+	jsonRpcHttpReq, err := shannonJsonRpcHttpRequest(payload, url, method)
 	if err != nil {
 		return nil, fmt.Errorf("error building a JSONRPC HTTP request for url %s: %w", url, err)
 	}
@@ -250,8 +250,8 @@ func buildUnsignedRelayRequest(endpoint Endpoint, session sessiontypes.Session, 
 }
 
 // serviceRequestPayload is the contents of the request received by the underlying service's API server.
-func shannonJsonRpcHttpRequest(serviceRequestPayload []byte, url string) (*http.Request, error) {
-	jsonRpcServiceReq, err := http.NewRequest(http.MethodPost, url, io.NopCloser(bytes.NewReader(serviceRequestPayload)))
+func shannonJsonRpcHttpRequest(serviceRequestPayload []byte, url string, method string) (*http.Request, error) {
+	jsonRpcServiceReq, err := http.NewRequest(method, url, io.NopCloser(bytes.NewReader(serviceRequestPayload)))
 	if err != nil {
 		return nil, fmt.Errorf("shannonJsonRpcHttpRequest: failed to create a new HTTP request for url %s: %w", url, err)
 	}

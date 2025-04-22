@@ -123,7 +123,7 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 	}
 	i := 0
 	for supplierAddrres, _ := range suppliers {
-		request.Suppliers[i] = string(supplierAddrres)
+		request.Suppliers[i] = supplierAddrres
 		i += 1
 	}
 	getTasksActivityCtx := workflow.WithActivityOptions(ctx, ao)
@@ -160,11 +160,10 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 			// add only those suppliers that get pending tasks
 			triggeredSupplierAddresses = append(triggeredSupplierAddresses, tr.Supplier)
 			// Create target endpoint, which already contains the session
-			targetEndpoint := suppliers[shannon_types.EndpointAddr(tr.Supplier)]
+			targetEndpoint := suppliers[tr.Supplier]
 			// You can access desired attributes here.
 			relayerRequest := activities.RelayerParams{
 				AppAddress:        params.App,
-				AppPrivHex:        wCtx.App.PocketApps[params.App],
 				SupplierAddress:   tr.Supplier,
 				TargetEndpoint:    targetEndpoint,
 				Service:           request.Service,

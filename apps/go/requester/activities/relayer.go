@@ -23,7 +23,6 @@ type RelayerParams struct {
 	TargetEndpoint  pocket_shannon.Endpoint `json:"target_endpoint"`
 	SupplierAddress string                  `json:"supplier_address"`
 	AppAddress      string                  `json:"app_address"`
-	AppPrivHex      string                  `json:"app_key"`
 
 	// pocket relay data related that do not need to be inflated
 	Service          string `json:"service"`
@@ -216,7 +215,7 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 	// Create a signer
 	signerApp := pocket_shannon.RelayRequestSigner{
 		AccountClient: *aCtx.App.PocketFullNode.GetAccountClient(),
-		PrivateKeyHex: params.AppPrivHex,
+		PrivateKeyHex: aCtx.App.PocketApps[params.AppAddress],
 	}
 
 	// Build the payload

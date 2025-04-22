@@ -95,7 +95,7 @@ class MongoOperator:
         instance_mongo["done"] = False
         return instance_mongo
 
-    async def getnsupplier_id(self, address: str, service: str) -> str:
+    async def get_supplier_id(self, address: str, service: str) -> str:
         supplier = await self.client.db[self.suppliers_collection].find_one(
             {"address": address, "service": service}
         )

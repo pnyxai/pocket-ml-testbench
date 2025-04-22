@@ -15,18 +15,20 @@ func (aCtx *Ctx) GetStaked(ctx context.Context, params types.GetStakedParams) (*
 
 	result := types.GetStakedResults{}
 
-	// Get all suppliers in given chain
-	l.Debug().Str("service", params.Service).Msg("Querying service...")
-
-	appAddresses := make([]string, len(aCtx.App.PocketApps))
+	// Get all suppliers in given service
+	appAddresses := make([]string, 0)
 	for address, _ := range aCtx.App.PocketApps {
 		appAddresses = append(appAddresses, address)
 	}
-	suppliersPerService, err := pocket_shannon.SupliersInSession(aCtx.App.PocketFullNode, appAddresses, aCtx.App.PocketServices)
+	servicesNames := make([]string, 0)
+	servicesNames = append(servicesNames, params.Service)
+	l.Debug().Strs("service", servicesNames).Strs("Apps", appAddresses).Msg("Querying network...")
+	suppliersPerService, err := pocket_shannon.SupliersInSession(aCtx.App.PocketFullNode, appAddresses, servicesNames, l)
 	if err != nil {
 		l.Error().Msg("Could not retrieve suppliers in session.")
 		return nil, err
 	}
+	l.Debug().Int("suppliersPerService", len(suppliersPerService)).Msg("Total Suppliers per service")
 
 	for service, suppliers := range suppliersPerService {
 		for _, supplier := range suppliers {

@@ -17,7 +17,7 @@ import (
 type GetTasksParams struct {
 	// Pass a 0 to get the latest
 	Suppliers []string `json:"suppliers"`
-	// chain (morse) service (shannon)
+	// Service (aka chain in Morse network)
 	Service string `json:"service"`
 	// current session height
 	CurrentSession int64 `json:"current_session"`

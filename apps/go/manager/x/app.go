@@ -109,6 +109,7 @@ func Initialize() *types.App {
 		if onchainApp == nil {
 			l.Fatal().Str("appAddress", appAddress).Msg("No on-chain data found for app")
 		}
+		l.Info().Str("onchainApp Address", onchainApp.Address).Msg("Found app.")
 	}
 
 	// Create a temportal client for triggering

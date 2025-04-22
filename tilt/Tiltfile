@@ -25,7 +25,7 @@ k8s_resource("postgresql", labels="dependencies")
 # Pgadmin
 k8s_resource("pgadmin", labels=["dependencies"])
 # MongoDB
-k8s_resource("mongodb-deployment", labels=["dependencies"])
+k8s_resource("mongodb-deployment", port_forwards="27017", labels=["dependencies"])
 k8s_resource("mongodb-init-db", labels=["dependencies"])
 k8s_resource("mongodb-init-replica", labels=["dependencies"])
 # Temporal
@@ -93,6 +93,7 @@ docker_build(
 # ------------------------ Env Vars Substitution -------------------------------
 # ------------------------------------------------------------------------------
 def replce_file(input, output):
+    watch_file(input)
     local("envsubst < " + input + " > " + output, dir = '.')
     watch_settings(ignore=output)
 
@@ -107,7 +108,11 @@ replce_file(
     "apps/manager/local/patches/secret.template.yaml",
     "apps/manager/local/patches/secret.yaml",
     )
-
+# ------------------------ Sampler ---------------------------------------------
+replce_file(
+    "apps/sampler/local/patches/secret.template.yaml",
+    "apps/sampler/local/patches/secret.yaml",
+    )
 # ------------------------------------------------------------------------------
 # ------------------------ Deploy ----------------------------------------------
 # ------------------------------------------------------------------------------

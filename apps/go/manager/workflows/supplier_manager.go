@@ -31,10 +31,6 @@ func (wCtx *Ctx) SupplierManager(ctx workflow.Context, params types.SupplierMana
 		l.Error().Msg("Tests array cannot be empty.")
 		return &result, fmt.Errorf("tests array cannot be empty")
 	}
-	if len(params.Service) != 4 {
-		l.Error().Msg("Service must be a 4 letter string (4 digit hex number).")
-		return &result, fmt.Errorf("service must be a 4 letter string (4 digit hex number)")
-	}
 
 	// -------------------------------------------------------------------------
 	// -------------------- Get all suppliers staked -------------------------------

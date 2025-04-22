@@ -6,6 +6,7 @@ import (
 	apptypes "github.com/pokt-network/poktroll/x/application/types"
 	sessiontypes "github.com/pokt-network/poktroll/x/session/types"
 	sdk "github.com/pokt-network/shannon-sdk"
+	"github.com/rs/zerolog"
 )
 
 func AppIsStakedForService(serviceID types.ServiceID, app *apptypes.Application) bool {
@@ -21,7 +22,7 @@ func AppIsStakedForService(serviceID types.ServiceID, app *apptypes.Application)
 // endpointsFromSession returns the list of all endpoints from a Shannon session.
 // It returns a map for efficient lookup, as the main/only consumer of this function uses
 // the return value for selecting an endpoint for sending a relay.
-func EndpointsFromSession(session sessiontypes.Session) (map[types.EndpointAddr]Endpoint, error) {
+func EndpointsFromSession(session sessiontypes.Session) (map[string]Endpoint, error) {
 	sf := sdk.SessionFilter{
 		Session: &session,
 	}
@@ -31,7 +32,7 @@ func EndpointsFromSession(session sessiontypes.Session) (map[types.EndpointAddr]
 		return nil, err
 	}
 
-	endpoints := make(map[types.EndpointAddr]Endpoint)
+	endpoints := make(map[string]Endpoint)
 	for _, supplierEndpoints := range allEndpoints {
 		for _, supplierEndpoint := range supplierEndpoints {
 			endpoint := Endpoint{
@@ -40,7 +41,7 @@ func EndpointsFromSession(session sessiontypes.Session) (map[types.EndpointAddr]
 				// Set the session field on the endpoint for efficient lookup when sending relays.
 				Session: session,
 			}
-			endpoints[endpoint.Addr()] = endpoint
+			endpoints[endpoint.GetSupplier()] = endpoint
 		}
 	}
 
@@ -48,13 +49,14 @@ func EndpointsFromSession(session sessiontypes.Session) (map[types.EndpointAddr]
 }
 
 // For a given App session, returns all suppliers associated with it
-func SupliersInAppSession(session sessiontypes.Session) ([]sdk.SupplierAddress, error) {
+func SupliersInAppSession(session sessiontypes.Session, l *zerolog.Logger) ([]sdk.SupplierAddress, error) {
 	sf := sdk.SessionFilter{
 		Session: &session,
 	}
 
 	allEndpoints, err := sf.AllEndpoints()
 	if err != nil {
+		l.Debug().Msg("Failed to get endpoint from supplier.")
 		return nil, err
 	}
 
@@ -67,33 +69,42 @@ func SupliersInAppSession(session sessiontypes.Session) ([]sdk.SupplierAddress, 
 
 // For a list of apps, return all the supplier addresses that are in session on each of the services, without repeating
 // TODO : It would be nice to change all this into a SDK version of `pocketd query supplier list-suppliers --chain-id <chainID>`
-func SupliersInSession(FullNode *LazyFullNode, Apps []string, ServiceIDs []string) (map[string][]sdk.SupplierAddress, error) {
+func SupliersInSession(FullNode *LazyFullNode, Apps []string, ServiceIDs []string, l *zerolog.Logger) (map[string][]sdk.SupplierAddress, error) {
 
 	supplierSeen := make(map[string]map[sdk.SupplierAddress]bool)
 	uniqueSuppliers := make(map[string][]sdk.SupplierAddress, 0)
 
 	// For all Apps
 	for _, thisApp := range Apps {
+		l.Debug().Str("thisApp", thisApp).Msg("Checking App:")
 		// For all services
 		for _, thisService := range ServiceIDs {
+			l.Debug().Str("thisService", thisService).Msg("Checking Service:")
 
 			// Get App session
 			appSession, err := FullNode.GetSession(types.ServiceID(thisService), thisApp)
 			if err != nil {
+				l.Debug().Msg("Failed to get session.")
 				return nil, err
 			}
 
 			// Get all suppliers here
-			appSupliers, err := SupliersInAppSession(appSession)
+			appSupliers, err := SupliersInAppSession(appSession, l)
 			if err != nil {
+				l.Debug().Msg("Failed to get suppliers in session.")
 				return nil, err
 			}
 
 			// Add to list of unique
 			for _, thisSupplier := range appSupliers {
+				if _, ok := supplierSeen[thisService]; !ok {
+					supplierSeen[thisService] = make(map[sdk.SupplierAddress]bool)
+				}
 				if !supplierSeen[thisService][thisSupplier] {
 					supplierSeen[thisService][thisSupplier] = true
 					uniqueSuppliers[thisService] = append(uniqueSuppliers[thisService], thisSupplier)
+				} else {
+					l.Debug().Str("thisService", thisService).Str("thisSupplier", string(thisSupplier)).Msg("Duplicate supplier found.")
 				}
 			}
 
