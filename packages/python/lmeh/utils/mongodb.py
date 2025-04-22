@@ -47,7 +47,9 @@ class MongoOperator:
             collections_map["configs"] if "configs" in collections_map else "configs"
         )
         self.suppliers_collection = (
-            collections_map["suppliers"] if "suppliers" in collections_map else "suppliers"
+            collections_map["suppliers"]
+            if "suppliers" in collections_map
+            else "suppliers"
         )
         self.tasks_collection = (
             collections_map["tasks"] if "tasks" in collections_map else "tasks"
@@ -111,7 +113,8 @@ class MongoOperator:
         # Get the supplier ID
         if supplier.get("_id", None) is None:
             eval_logger.error(
-                "Supplier address has no _id, cannot load tokenizer hash.", adress=address
+                "Supplier address has no _id, cannot load tokenizer hash.",
+                adress=address,
             )
             raise RuntimeError(
                 f"Supplier address {address}, has no _id, cannot load tokenizer hash."
@@ -157,7 +160,9 @@ class MongoOperator:
         # Get supplier ID
         supplier_id = await self.get_supplier_id(address, service)
         # Get tokenizer signature hash
-        tokenizer_hash = await self.get_signature_hash(address, supplier_id, "tokenizer")
+        tokenizer_hash = await self.get_signature_hash(
+            address, supplier_id, "tokenizer"
+        )
 
         return tokenizer_hash
 
