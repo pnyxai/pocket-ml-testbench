@@ -25,10 +25,15 @@ To deploy the dev env you will need to have access to:
 
 This data should be added to a `.env` file that must be at the same level of the `Tiltfile`, we provide a sample of that file, but you will need to change the values:
 ```dotenv
-# List of Pocket Network RPCs, used by the Manager and Requester
-POKT_RPC_LIST=["http://pokt.rpc.node.local:9081"]
-# List of private keys of the Pocket Network apps used by the Requester
-APPS_PRIVATE_KEYS_LIST=["6d7d9e78fd62b524cfa76a298b6f9653445449bc22960224901a5bb993ba52cb1802f4116b9d3798e2766a2452fbeb4d280fa99e77e61193df146ca4d88b38af"]
+# POKT Network RPCs
+POKT_RPC="http://127.0.0.1:26657"
+POKT_GRPC="127.0.0.1:9090"
+# Pockent Network Apps used for relaying
+APPS_LIST={"app_address" : "app_pk_hex", "app_address" : "app_pk_hex"}
+# Services to watch and the associated app addresses 
+APPS_PER_SERVICE="<service id>=<app address>, <service id>=<app address>"
+# Huggingface token, for dataset downloading
+HF_TOKEN="YOUR TOKEN"
 ```
 
 These values will be replaced in all `*.template.yaml`. 
