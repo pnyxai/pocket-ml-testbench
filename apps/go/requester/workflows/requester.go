@@ -58,61 +58,99 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 
 	l.Info("Starting workflow", "Application", params.App, "Service", params.Service)
 
-	// Get latest block
-	currHeight, err := wCtx.App.PocketFullNode.GetLatestBlockHeight()
-	if err != nil {
-		e = temporal.NewNonRetryableApplicationError("Could not retrieve latest block height.", "LatestBlockQuery", nil)
-		return
+	// get_block_params
+	getHeightActivityCtx := workflow.WithActivityOptions(ctx, ao)
+	var currHeight int64 = -1
+	l.Debug("Calling GetHeight activity")
+	getBlockErr := workflow.ExecuteActivity(
+		getHeightActivityCtx,
+		activities.Activities.GetHeight,
+	).Get(getHeightActivityCtx, &currHeight)
+	if getBlockErr != nil {
+		e = temporal.NewApplicationErrorWithCause("unable to get height", "GetHeight", getBlockErr)
+		l.Error("GetHeight activity ends with error", "error", e)
+		return nil, e
 	}
+	l.Debug("Calling GetHeight activity ends")
 
-	found := false
-	for appAddress, _ := range wCtx.App.PocketApps {
-		if appAddress == params.App {
-			found = true
-			break
-		}
+	// get app
+	appFound := false
+	getAppActivityCtx := workflow.WithActivityOptions(ctx, ao)
+	l.Debug("Calling GetApp activity")
+	getAppErr := workflow.ExecuteActivity(
+		getAppActivityCtx,
+		activities.Activities.GetApp,
+		activities.GetAppParams{
+			Address: params.App,
+			Service: params.Service,
+		},
+	).Get(getAppActivityCtx, &appFound)
+	if getAppErr != nil {
+		e = temporal.NewApplicationErrorWithCause("unable to get app", "GetApp", getBlockErr)
+		l.Error("GetApp activity ends with error", "error", e)
+		return nil, e
 	}
-	if !found {
+	l.Debug("Calling GetApp activity ends")
+	if !appFound {
 		e = temporal.NewNonRetryableApplicationError("application not found in available Apps list", "ApplicationNotFound", nil)
-		return
+		return nil, e
 	}
 
-	// Check if the app is correctly staked for service
-	l.Debug("Checking app: ", params.App)
-	ctxNode := context.Background()
-	onchainApp, err := wCtx.App.PocketFullNode.GetApp(ctxNode, params.App)
-	if err != nil {
-		temporal.NewNonRetryableApplicationError("Error getting on-chain data", "ApplicationNotFound", nil)
-		l.Error("Error getting on-chain data for app", params.App, " : ", err)
-		return
-	}
-	if onchainApp == nil {
-		temporal.NewNonRetryableApplicationError("Cannot find App on-chain data", "ApplicationNotFound", nil)
-		l.Error("No on-chain data for app", params.App, " : ", err)
-		return
-	}
-
-	// Check if the app is staked for the requested service
-	if !pocket_shannon.AppIsStakedForService(shannon_types.ServiceID(params.Service), onchainApp) {
-		temporal.NewNonRetryableApplicationError("App not staked for service", "ApplicationNotStaked", nil)
-		l.Error(fmt.Sprintf("App %s is not staked for service %s", params.App, params.Service))
-		return
-	}
-
-	// Get App session
+	// get session
+	// TODO : This throws an error when temporal tries to decode the returned
+	// 		  variable, specifically: "payload item 0: unable to decode: unknown value \"JSON_RPC\" for enum pocket.shared.RPCType"
+	// 		  this is related to the poktroll package and I cannot find a fix, right now.
+	//		  LEAVING AS TECH DEBT, USING IN-PLACE CODE INSTEAD
 	appSession, err := wCtx.App.PocketFullNode.GetSession(shannon_types.ServiceID(params.Service), params.App)
 	if err != nil {
-		temporal.NewNonRetryableApplicationError("Could not get session data", "SessionNotFound", nil)
+		e = temporal.NewNonRetryableApplicationError("Could not get session data", "SessionNotFound", nil)
 		l.Error(fmt.Sprintf("Error getting session data for app %s in service %s", params.App, params.Service))
-		return
+		return nil, e
 	}
+	// appSession := sessiontypes.Session{}
+	// getSessionActivityCtx := workflow.WithActivityOptions(ctx, ao)
+	// l.Debug("Calling GetSession activity")
+	// getSessionErr := workflow.ExecuteActivity(
+	// 	getSessionActivityCtx,
+	// 	activities.Activities.GetSession,
+	// 	activities.GetSessionParams{
+	// 		Address: params.App,
+	// 		Service: params.Service,
+	// 	},
+	// ).Get(getSessionActivityCtx, &appSession)
+	// if getSessionErr != nil {
+	// 	e = temporal.NewApplicationErrorWithCause("unable to get session", "GetSession", getSessionErr)
+	// 	l.Error("GetSession activity ends with error", "error", e)
+	// 	return nil, e
+	// }
+	// l.Debug("Calling GetSession activity ends")
 
 	// get_block_params
 	blocksPerSession := appSession.NumBlocksPerSession
 	sessionHeight := appSession.NumBlocksPerSession * appSession.SessionNumber
 
 	// Get all the endpoint available in this session
-	suppliers, err := pocket_shannon.EndpointsFromSession(appSession)
+	// TODO : Idem previous problem with "GetSession" activity
+	suppliers, getEndpointsErr := pocket_shannon.EndpointsFromSession(appSession)
+	if getEndpointsErr != nil {
+		e = temporal.NewApplicationErrorWithCause("unable to get endpoints", "GetEndpoints", getEndpointsErr)
+		l.Error("Error getting endpoints", "error", e)
+		return nil, e
+	}
+	// var suppliers map[string]pocket_shannon.Endpoint
+	// getEndpointsActivityCtx := workflow.WithActivityOptions(ctx, ao)
+	// l.Debug("Calling GetEndpoints activity")
+	// getEndpointsErr := workflow.ExecuteActivity(
+	// 	getEndpointsActivityCtx,
+	// 	activities.Activities.GetEndpoints,
+	// 	appSession,
+	// ).Get(getEndpointsActivityCtx, &suppliers)
+	// if getEndpointsErr != nil {
+	// 	e = temporal.NewApplicationErrorWithCause("unable to get endpoints", "GetEndpoints", getEndpointsErr)
+	// 	l.Error("GetEndpoints activity ends with error", "error", e)
+	// 	return nil, e
+	// }
+	// l.Debug("Calling GetEndpoints activity ends")
 
 	// For these suppliers, get the pending tasks
 	l.Debug("Calling GetTasks activity")
