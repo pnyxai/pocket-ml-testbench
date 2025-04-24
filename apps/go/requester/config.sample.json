@@ -1,21 +1,25 @@
 {
   "mongodb_uri": "mongodb://127.0.0.1:27017/pocket-ml-testbench?replicaSet=devRs",
-  "apps": [
-    "APP_PK"
-  ],
-  "rpc": {
-    "urls": [
-      "http://localhost:8081"
-    ],
+  "pocket_apps": {
+    "<app addresss>": "<app private key hex>",
+    "<app addresss>": "<app private key hex>",
+    "<app addresss>": "<app private key hex>",
+    "<app addresss>": "<app private key hex>"
+  },
+  "pocket_rpc_url": "http://<host>:<port>",
+  "pocket_grpc_config": {
+      "host_port": "<host>:<port>",
+      "insecure": true
+    },
+  "pocket_blocks_per_session" : 10,
+  "relay": {
+    "time_between_relays" : 0.1,
+    "time_dispersion" : 0.05,
     "retries": 1,
     "min_backoff": 10,
     "max_backoff": 60,
     "req_per_sec": 10,
     "session_tolerance": 1
-  },
-  "relay": {
-    "time_between_relays" : 0.1,
-    "time_dispersion" : 0.05
   },
   "log_level": "debug",
   "temporal": {

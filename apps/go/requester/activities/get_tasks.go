@@ -16,8 +16,8 @@ import (
 
 type GetTasksParams struct {
 	// Pass a 0 to get the latest
-	Nodes []string `json:"nodes"`
-	// chain (morse) service (shannon)
+	Suppliers []string `json:"suppliers"`
+	// Service (aka chain in Morse network)
 	Service string `json:"service"`
 	// current session height
 	CurrentSession int64 `json:"current_session"`
@@ -32,7 +32,7 @@ type TaskRequest struct {
 	//TaskId       string  `json:"task_id" bson:"task_id"`
 	//InstanceId   string  `json:"instance_id" bson:"instance_id"`
 	PromptId     string  `json:"prompt_id" bson:"prompt_id"`
-	Node         string  `json:"node" bson:"node"`
+	Supplier     string  `json:"supplier" bson:"supplier"`
 	RelayTimeout float64 `json:"relay_timeout" bson:"relay_timeout"`
 }
 
@@ -43,16 +43,16 @@ type GetTaskRequestResults struct {
 var GetTasksName = "get_tasks"
 var SetPromptTriggerSessionName = "set_prompt_trigger_session"
 
-func getTaskRequestPipeline(nodes []string, service string, currentSession int64) mongo.Pipeline {
-	nodesFilter := make(bson.A, len(nodes))
-	for i, node := range nodes {
-		nodesFilter[i] = bson.M{"requester_args.address": node}
+func getTaskRequestPipeline(suppliers []string, service string, currentSession int64) mongo.Pipeline {
+	suppliersFilter := make(bson.A, len(suppliers))
+	for i, supplier := range suppliers {
+		suppliersFilter[i] = bson.M{"requester_args.address": supplier}
 	}
 
 	return mongo.Pipeline{
 		bson.D{{"$match", bson.D{
 			{"$and", bson.A{
-				bson.D{{"$or", nodesFilter}},
+				bson.D{{"$or", suppliersFilter}},
 				bson.D{
 					{"requester_args.service", service},
 					{"done", false},
@@ -106,7 +106,7 @@ func getTaskRequestPipeline(nodes []string, service string, currentSession int64
 			//{"task_id", "$_id"},
 			//{"instance_id", "$instance._id"},
 			{"prompt_id", "$prompt._id"},
-			{"node", "$requester_args.address"},
+			{"supplier", "$requester_args.address"},
 			{"relay_timeout", "$prompt.timeout"},
 		}}},
 		// 15k of pending task request is a crazy amount, larger than this will throw an error on Temporal due to the
@@ -145,9 +145,9 @@ func (aCtx *Ctx) GetTasks(ctx context.Context, params GetTasksParams) (result *G
 	result = &GetTaskRequestResults{TaskRequests: make([]TaskRequest, 0)}
 	tasksCtx, taskCancelFn := context.WithTimeout(ctx, 5*time.Minute)
 	defer taskCancelFn()
-	// get tasks for the retrieved node and service that are not done yet
+	// get tasks for the retrieved supplier and service that are not done yet
 	taskCollection := aCtx.App.Mongodb.GetCollection(types.TaskCollection)
-	pipeline := getTaskRequestPipeline(params.Nodes, params.Service, params.CurrentSession)
+	pipeline := getTaskRequestPipeline(params.Suppliers, params.Service, params.CurrentSession)
 	// PrintPipeline("tasksInstancePrompts", pipeline)
 	opts := options.Aggregate().SetAllowDiskUse(true)
 	cursor, aggErr := taskCollection.Aggregate(tasksCtx, pipeline, opts)
@@ -168,7 +168,7 @@ func SplitByUniqueAddress(input []TaskRequest) [][]TaskRequest {
 	// Iterate through the input list
 	for _, s := range input {
 		// Add the request to the corresponding slice in the map
-		nameToStructs[s.Node] = append(nameToStructs[s.Node], s)
+		nameToStructs[s.Supplier] = append(nameToStructs[s.Supplier], s)
 	}
 
 	// Create a slice to store the resulting lists

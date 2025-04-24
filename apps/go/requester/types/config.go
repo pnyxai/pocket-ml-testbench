@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"go.temporal.io/sdk/worker"
+
+	shannon_types "packages/pocket_shannon/types"
 )
 
 type TemporalWorkerOptions struct {
@@ -256,27 +258,25 @@ func (tc *TemporalConfig) GetWorkerOptions() worker.Options {
 	}
 }
 
-type RPCConfig struct {
-	Urls             []string `json:"urls"`
-	Retries          int      `json:"retries"`
-	MinBackoff       int      `json:"min_backoff"`
-	MaxBackoff       int      `json:"max_backoff"`
-	ReqPerSec        int      `json:"req_per_sec"`
-	SessionTolerance int64    `json:"session_tolerance"`
-}
-
 type RelayConfig struct {
 	TimeBetweenRelays float64 `json:"time_between_relays"`
 	TimeDispersion    float64 `json:"time_dispersion"`
+	Retries           int     `json:"retries"`
+	MinBackoff        int     `json:"min_backoff"`
+	MaxBackoff        int     `json:"max_backoff"`
+	ReqPerSec         int     `json:"req_per_sec"`
+	SessionTolerance  int64   `json:"session_tolerance"`
 }
 
 type Config struct {
-	MongodbUri string          `json:"mongodb_uri"`
-	Apps       []string        `json:"apps"`
-	Rpc        *RPCConfig      `json:"rpc"`
-	Relay      *RelayConfig    `json:"relay"`
-	LogLevel   string          `json:"log_level"`
-	Temporal   *TemporalConfig `json:"temporal"`
+	MongodbUri             string                   `json:"mongodb_uri"`
+	PocketRpc              string                   `json:"pocket_rpc_url"`
+	PocketGrpc             shannon_types.GRPCConfig `json:"pocket_grpc_config"`
+	PocketBlocksPerSession int64                    `json:"pocket_blocks_per_session"`
+	Apps                   map[string]string        `json:"pocket_apps"`
+	Relay                  *RelayConfig             `json:"relay"`
+	LogLevel               string                   `json:"log_level"`
+	Temporal               *TemporalConfig          `json:"temporal"`
 }
 
 // UnmarshalJSON implement the Unmarshaler interface on Config
@@ -285,8 +285,9 @@ func (c *Config) UnmarshalJSON(b []byte) error {
 	type Alias Config
 	defaultValues := &Alias{
 		MongodbUri: DefaultMongodbUri,
-		Apps:       []string{},
-		Rpc:        &DefaultRpc,
+		Apps:       map[string]string{},
+		PocketRpc:  DefaultRpc,
+		PocketGrpc: DefaultGRpc,
 		LogLevel:   DefaultLogLevel,
 		Temporal:   &DefaultTemporal,
 	}

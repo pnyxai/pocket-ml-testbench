@@ -2,11 +2,11 @@ package activities
 
 import (
 	"context"
-	"errors"
-	poktGoSdk "github.com/pokt-foundation/pocket-go/provider"
-	poktGoUtils "github.com/pokt-foundation/pocket-go/utils"
+
+	"packages/pocket_shannon"
+	shannon_types "packages/pocket_shannon/types"
+
 	"go.temporal.io/sdk/temporal"
-	"packages/pocket_rpc"
 )
 
 type GetAppParams struct {
@@ -16,17 +16,31 @@ type GetAppParams struct {
 
 var GetAppName = "get_app"
 
-func (aCtx *Ctx) GetApp(_ context.Context, params GetAppParams) (*poktGoSdk.App, error) {
-	if ok := poktGoUtils.ValidateAddress(params.Address); !ok {
-		return nil, temporal.NewNonRetryableApplicationError("bad params", "BadParams", nil)
+func (aCtx *Ctx) GetApp(_ context.Context, params GetAppParams) (bool, error) {
+
+	found := false
+	for appAddress, _ := range aCtx.App.PocketApps {
+		if appAddress == params.Address {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return found, temporal.NewNonRetryableApplicationError("application not found in available Apps list", "ApplicationNotFound", nil)
 	}
 
-	app, err := aCtx.App.PocketRpc.GetApp(params.Address)
+	ctxNode := context.Background()
+	onchainApp, err := aCtx.App.PocketFullNode.GetApp(ctxNode, params.Address)
 	if err != nil {
-		if errors.Is(err, pocket_rpc.ErrBadRequestParams) {
-			return nil, temporal.NewNonRetryableApplicationError("bad params", "BadParams", err)
-		}
-		return nil, temporal.NewApplicationError("unable to get app", "GetApp", err)
+		return found, temporal.NewNonRetryableApplicationError("Error getting on-chain data", "ApplicationNotFound", nil)
 	}
-	return app, nil
+	if onchainApp == nil {
+		return found, temporal.NewNonRetryableApplicationError("Cannot find App on-chain data", "ApplicationNotFound", nil)
+	}
+	// Check if the app is staked for the requested service
+	if !pocket_shannon.AppIsStakedForService(shannon_types.ServiceID(params.Service), onchainApp) {
+		return found, temporal.NewNonRetryableApplicationError("App not staked for service", "ApplicationNotStaked", nil)
+	}
+
+	return found, nil
 }

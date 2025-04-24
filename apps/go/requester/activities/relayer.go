@@ -3,13 +3,15 @@ package activities
 import (
 	"context"
 	"errors"
+	"fmt"
 	"packages/logger"
 	"packages/mongodb"
 	"requester/types"
 	"time"
 
-	poktGoProvider "github.com/pokt-foundation/pocket-go/provider"
-	poktGoRelayer "github.com/pokt-foundation/pocket-go/relayer"
+	"packages/pocket_shannon"
+	shannon_types "packages/pocket_shannon/types"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -17,10 +19,10 @@ import (
 )
 
 type RelayerParams struct {
-	// inflated version of the data to avoid calling again the node when the activity is really called
-	Session *poktGoProvider.Session `json:"session"`
-	Node    *poktGoProvider.Node    `json:"node"`
-	App     *poktGoProvider.App     `json:"app"`
+	// inflated version of the data to avoid calling again the supplier when the activity is really called
+	TargetEndpoint  pocket_shannon.Endpoint `json:"target_endpoint"`
+	SupplierAddress string                  `json:"supplier_address"`
+	AppAddress      string                  `json:"app_address"`
 
 	// pocket relay data related that do not need to be inflated
 	Service          string `json:"service"`
@@ -40,7 +42,7 @@ type RelayerResponse struct {
 type RelayResponseCodesEnum struct {
 	Ok             int
 	Relay          int
-	Node           int
+	Supplier       int
 	OutOfSession   int
 	BadParams      int
 	PromptNotFound int
@@ -55,7 +57,7 @@ type RelayResponseCodesEnum struct {
 var RelayResponseCodes = RelayResponseCodesEnum{
 	Ok:             0,
 	Relay:          1,
-	Node:           2,
+	Supplier:       2,
 	OutOfSession:   3,
 	BadParams:      4,
 	PromptNotFound: 5,
@@ -169,7 +171,7 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 		return
 	}
 
-	// load prompt+task before call node
+	// load prompt+task before call supplier
 	promptCollection := aCtx.App.Mongodb.GetCollection(types.PromptsCollection)
 	taskCollection := aCtx.App.Mongodb.GetCollection(types.TaskCollection)
 	getPromptCtx, cancelFn := context.WithTimeout(ctx, 20*time.Second)
@@ -191,7 +193,7 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 	response.InstanceId = prompt.InstanceId
 
 	// get_height
-	height, getHeightErr := aCtx.App.PocketRpc.GetHeight()
+	height, getHeightErr := aCtx.App.PocketFullNode.GetLatestBlockHeight()
 	if getHeightErr != nil {
 		err := temporal.NewApplicationErrorWithCause("unable to get height", "GetHeight", getHeightErr)
 		response.SetError(RelayResponseCodes.PocketRpc, err)
@@ -204,75 +206,82 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 	// Verify if the relay is able to be dispatched base on the current session height (calculated by the height) and
 	// the session height in the params. Also, contemplate the session tolerance, basically how many sessions out it will
 	// anyway try to dispatch the relay.
-	if !CanHandleRelayWithinTolerance(currentSessionHeight, params.SessionHeight, params.BlocksPerSession, aCtx.App.Config.Rpc.SessionTolerance) {
+	if !CanHandleRelayWithinTolerance(currentSessionHeight, params.SessionHeight, params.BlocksPerSession, aCtx.App.Config.Relay.SessionTolerance) {
 		err := temporal.NewNonRetryableApplicationError("out of session", "OutOfSession", nil)
 		response.SetError(RelayResponseCodes.OutOfSession, err)
 		return
 	}
 
-	// here we get all the data needed to dispatch the relay
-	appAccount, appFound := aCtx.App.AppAccounts.Load(params.App.Address)
-
-	if !appFound {
-		err := temporal.NewNonRetryableApplicationError("signer not found", "SignerNotFoundErrorCode", nil, params.App)
-		response.SetError(RelayResponseCodes.SignerNotFound, err)
-		return
+	// Create a signer
+	signerApp := pocket_shannon.RelayRequestSigner{
+		AccountClient: *aCtx.App.PocketFullNode.GetAccountClient(),
+		PrivateKeyHex: aCtx.App.PocketApps[params.AppAddress],
 	}
 
-	servicerUrl := params.Node.ServiceURL
-	provider := poktGoProvider.NewProvider(servicerUrl, []string{servicerUrl})
-	provider.UpdateRequestConfig(poktGoProvider.RequestConfigOpts{
-		Timeout: prompt.GetTimeoutDuration(),
-		Retries: RelayRetries,
-	})
-
-	relayer := poktGoRelayer.NewRelayer(appAccount.Signer, provider)
-
-	relayInput := poktGoRelayer.Input{
-		Blockchain: params.Service,
-		Data:       prompt.Data,
-		Method:     prompt.Task.RequesterArgs.Method,
-		Node:       params.Node,
-		Path:       prompt.Task.RequesterArgs.Path,
-		Headers:    prompt.Task.RequesterArgs.Headers,
-		PocketAAT:  appAccount.SignedAAT,
-		Session:    params.Session,
+	// Build the payload
+	thisPayload := shannon_types.Payload{
+		Data:    prompt.Data,
+		Method:  prompt.Task.RequesterArgs.Method,
+		Path:    prompt.Task.RequesterArgs.Path,
+		Timeout: prompt.GetTimeoutDuration() * time.Duration(RelayRetries+1),
 	}
-	relayOpts := &poktGoProvider.RelayRequestOptions{
-		RejectSelfSignedCertificates: true,
-	}
+
+	// Send the relay
 	startTime := time.Now()
-
-	relayerCtx, cancelRelayerFn := context.WithTimeout(ctx, prompt.GetTimeoutDuration()*time.Duration(RelayRetries+1))
-	defer cancelRelayerFn()
-	// Relay to service node is sent here
-	relay, relayErr := relayer.RelayWithCtx(relayerCtx, &relayInput, relayOpts)
+	relay, relayErr := pocket_shannon.SendRelay(thisPayload,
+		params.TargetEndpoint,
+		shannon_types.ServiceID(params.Service),
+		*aCtx.App.PocketFullNode,
+		signerApp)
 	response.Ms = time.Since(startTime).Milliseconds()
-	if relayErr != nil {
+
+	if relay == nil {
+		// An error occurred
 		// not an rpc error
 		response.Ok = false
-		response.Error = relayErr.Error()
-		var rpcError *poktGoProvider.RPCError
-		var relayError *poktGoProvider.RelayError
-		if errors.As(relayErr, &rpcError) {
-			if rpcError.Code == 90 {
-				response.Code = RelayResponseCodes.OutOfSession
-			} else {
-				response.Code = RelayResponseCodes.Relay
-			}
-		} else if errors.As(relayErr, &relayError) {
-			if relayError.Code == 90 {
-				response.Code = RelayResponseCodes.OutOfSession
-			} else {
-				response.Code = RelayResponseCodes.Relay
-			}
-		} else {
-			response.Code = RelayResponseCodes.Node
+		response.Error = relayErr.Message
+
+		switch relayErr.Code {
+		case pocket_shannon.InvalidSessionError:
+			response.Code = RelayResponseCodes.OutOfSession
+		case pocket_shannon.HTTPExecutionError:
+			response.Code = RelayResponseCodes.Relay
+		case pocket_shannon.UnsignedRequestBuildError:
+			response.Code = RelayResponseCodes.Relay
+		case pocket_shannon.RequestSigningError:
+			response.Code = RelayResponseCodes.SignerError
+		case pocket_shannon.InvalidRelayError:
+			response.Code = RelayResponseCodes.AATSignature
+		default:
+			response.Code = RelayResponseCodes.Relay
 		}
+
 	} else {
-		response.Code = RelayResponseCodes.Ok
+		// Get backend response
+		relayResponse, errDeserialize := pocket_shannon.DeserializeRelayResponse(relay.Payload)
+		if errDeserialize != nil {
+			response.Code = RelayResponseCodes.Supplier
+			response.Error = fmt.Sprintf("Error unmarshalling endpoint response into a POKTHTTP response: %w", errDeserialize)
+		}
+		// Decode and assign
+		response.Response = string(relayResponse.Bytes)
+
+		// Analyze response
 		response.Ok = true
-		response.Response = relay.RelayOutput.Response
+		if relayResponse.HTTPStatusCode == 200 {
+			// All ok
+			response.Code = RelayResponseCodes.Ok
+			response.Error = ""
+		} else if relayResponse.HTTPStatusCode >= 400 && relayResponse.HTTPStatusCode < 500 {
+			// Client error
+			response.Code = RelayResponseCodes.BadParams
+			response.Error = response.Response
+
+		} else {
+			// Some other error of the supplier
+			response.Code = RelayResponseCodes.Supplier
+			response.Error = response.Response
+		}
 	}
 
 	return

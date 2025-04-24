@@ -108,7 +108,7 @@ async def get_leaderboard_full(mongodb: PoktMongodb) -> Tuple[dict, bool]:
 
             # Get scores data
             aggr_use = deepcopy(agg_data_scores)
-            aggr_use[0]["$match"]["task_data.node_id"] = ObjectId(entry["_id"])
+            aggr_use[0]["$match"]["task_data.supplier_id"] = ObjectId(entry["_id"])
             result = await mongodb.query("buffers_numerical", aggr_use)
             list_cur = list(result)
 

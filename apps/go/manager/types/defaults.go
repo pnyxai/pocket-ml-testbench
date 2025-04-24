@@ -6,5 +6,5 @@ var (
 	DefaultLogLevel          = "info"
 	DefaultTemporalHost      = "localhost"
 	DefaultTemporalPort      = uint(7233)
-	DefaultTemporalTaskQueue = "node-manager"
+	DefaultTemporalTaskQueue = "supplier-manager"
 )

@@ -16,7 +16,7 @@ from packages.python.common.utils import get_from_dict
 from app.app import setup_app, get_app_logger
 from app.config import read_config
 
-from activities.get_node_ids import get_node_ids
+from activities.get_supplier_ids import get_supplier_ids
 from activities.summarize_taxonomy import summarize_taxonomy
 
 from workflows.taxonomy_summary import TaxonomySummarizer
@@ -97,7 +97,7 @@ async def main():
             TaxonomySummaryLookup,
         ],
         "activities": [
-            get_node_ids,
+            get_supplier_ids,
             summarize_taxonomy,
         ],
     }

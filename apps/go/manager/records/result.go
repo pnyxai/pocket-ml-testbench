@@ -36,7 +36,7 @@ func (record *BaseResultRecord) GetResultHeight() int64 {
 type RelayResponseCodesEnum struct {
 	Ok             int
 	Relay          int
-	Node           int
+	Supplier       int
 	OutOfSession   int
 	BadParams      int
 	PromptNotFound int
@@ -51,7 +51,7 @@ type RelayResponseCodesEnum struct {
 var RelayResponseCodes = RelayResponseCodesEnum{
 	Ok:             0,
 	Relay:          1,
-	Node:           2,
+	Supplier:       2,
 	OutOfSession:   3,
 	BadParams:      4,
 	PromptNotFound: 5,
@@ -121,7 +121,7 @@ func (record *NumericalResultRecord) FindAndLoadResults(taskID primitive.ObjectI
 	ctxM, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
-	// Retrieve this node entry
+	// Retrieve this supplier entry
 	var found bool = true
 	cursor := collection.FindOne(ctxM, result_filter, opts)
 	err := cursor.Decode(record)
@@ -182,7 +182,7 @@ func (record *SignatureResultRecord) FindAndLoadResults(taskID primitive.ObjectI
 	ctxM, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
-	// Retrieve this node entry
+	// Retrieve this supplier entry
 	var found bool = true
 	cursor := collection.FindOne(ctxM, result_filter, opts)
 	err := cursor.Decode(record)

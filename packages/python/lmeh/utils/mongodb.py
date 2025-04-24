@@ -14,7 +14,7 @@ from packages.python.lmeh.utils.mongo_aggrs import (
     aggregate_doc_ids,
     aggregate_response_tree,
     aggregate_old_tasks,
-    aggregate_node_task_results,
+    aggregate_supplier_task_results,
 )
 from packages.python.protocol.protocol import (
     CompletionRequest,
@@ -46,8 +46,10 @@ class MongoOperator:
         self.configs_collection = (
             collections_map["configs"] if "configs" in collections_map else "configs"
         )
-        self.nodes_collection = (
-            collections_map["nodes"] if "nodes" in collections_map else "nodes"
+        self.suppliers_collection = (
+            collections_map["suppliers"]
+            if "suppliers" in collections_map
+            else "suppliers"
         )
         self.tasks_collection = (
             collections_map["tasks"] if "tasks" in collections_map else "tasks"
@@ -95,37 +97,38 @@ class MongoOperator:
         instance_mongo["done"] = False
         return instance_mongo
 
-    async def get_node_id(self, address: str, service: str) -> str:
-        node = await self.client.db[self.nodes_collection].find_one(
+    async def get_supplier_id(self, address: str, service: str) -> str:
+        supplier = await self.client.db[self.suppliers_collection].find_one(
             {"address": address, "service": service}
         )
 
-        if node is None:
-            eval_logger.error("Node address not found.", adress=address)
+        if supplier is None:
+            eval_logger.error("Supplier address not found.", adress=address)
             raise RuntimeError(
-                f"Node address {address} does not exist in the database."
+                f"Supplier address {address} does not exist in the database."
             )
 
-        eval_logger.debug("Node found.", node=node)
+        eval_logger.debug("Supplier found.", supplier=supplier)
 
-        # Get the node ID
-        if node.get("_id", None) is None:
+        # Get the supplier ID
+        if supplier.get("_id", None) is None:
             eval_logger.error(
-                "Node address has no _id, cannot load tokenizer hash.", adress=address
+                "Supplier address has no _id, cannot load tokenizer hash.",
+                adress=address,
             )
             raise RuntimeError(
-                f"Node address {address}, has no _id, cannot load tokenizer hash."
+                f"Supplier address {address}, has no _id, cannot load tokenizer hash."
             )
 
-        return node["_id"]
+        return supplier["_id"]
 
     async def get_signature_hash(
-        self, address: str, node_id: str, signature_name: str
+        self, address: str, supplier_id: str, signature_name: str
     ) -> str:
         # Get the corresponding signature buffer
         buffer = await self.client.db[self.buffers_signatures_collection].find_one(
             {
-                "task_data.node_id": node_id,
+                "task_data.supplier_id": supplier_id,
                 "task_data.framework": "signatures",
                 "task_data.task": signature_name,
             }
@@ -136,7 +139,7 @@ class MongoOperator:
                 f"Buffer for {signature_name} signature not found.", adress=address
             )
             raise RuntimeError(
-                f"Node address {address} does not have a {signature_name} signature buffer associated."
+                f"Supplier address {address} does not have a {signature_name} signature buffer associated."
             )
 
         eval_logger.debug(f"{signature_name} signature buffer found.", buffer=buffer)
@@ -148,24 +151,26 @@ class MongoOperator:
                 adress=address,
             )
             raise RuntimeError(
-                f"Node address {address} buffer has no last signature field, entry is malformed cannot proceed."
+                f"Supplier address {address} buffer has no last signature field, entry is malformed cannot proceed."
             )
 
         return this_hash
 
     async def get_tokenizer_hash(self, address: str, service: str) -> str:
-        # Get node ID
-        node_id = await self.get_node_id(address, service)
+        # Get supplier ID
+        supplier_id = await self.get_supplier_id(address, service)
         # Get tokenizer signature hash
-        tokenizer_hash = await self.get_signature_hash(address, node_id, "tokenizer")
+        tokenizer_hash = await self.get_signature_hash(
+            address, supplier_id, "tokenizer"
+        )
 
         return tokenizer_hash
 
     async def get_config_hash(self, address: str, service: str) -> str:
-        # Get node ID
-        node_id = await self.get_node_id(address, service)
+        # Get supplier ID
+        supplier_id = await self.get_supplier_id(address, service)
         # Get config signature hash
-        config_hash = await self.get_signature_hash(address, node_id, "config")
+        config_hash = await self.get_signature_hash(address, supplier_id, "config")
 
         return config_hash
 
@@ -186,7 +191,7 @@ class MongoOperator:
 
         if tokenizer_hash == "":
             eval_logger.warn(
-                "Node address does not have a valid tokenizer_hash.", adress=address
+                "Supplier address does not have a valid tokenizer_hash.", adress=address
             )
             return False, {}
 
@@ -218,7 +223,7 @@ class MongoOperator:
 
         if config_hash == "":
             eval_logger.warn(
-                "Node address does not have a valid config_hash.", adress=address
+                "Supplier address does not have a valid config_hash.", adress=address
             )
             return False, {}
 
@@ -480,20 +485,20 @@ class MongoOperator:
     # Summarizer
     ################################################
 
-    async def get_nodes(self):
+    async def get_suppliers(self):
         cursor = self.client.db[
-            self.nodes_collection
+            self.suppliers_collection
         ].find(
             {}  # TODO : Add filter for only "last_see_height" > 0 when that property is correctly tracked
         )
-        nodes = await cursor.to_list(length=None)
-        return nodes
+        suppliers = await cursor.to_list(length=None)
+        return suppliers
 
-    async def get_node_results_for_task(
-        self, node_id: ObjectId, framework: str, task: str
+    async def get_supplier_results_for_task(
+        self, supplier_id: ObjectId, framework: str, task: str
     ) -> List[dict]:
         # Create the aggregation pipeline with the given task_id
-        aggr = aggregate_node_task_results(node_id, framework, task)
+        aggr = aggregate_supplier_task_results(supplier_id, framework, task)
         # Execute the aggregation
         cursor = self.client.db[self.buffers_numerical_collection].aggregate(aggr)
         # get all of them

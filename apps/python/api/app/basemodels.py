@@ -6,9 +6,9 @@ from app.logger import init_logger
 from motor.motor_asyncio import AsyncIOMotorClient
 
 
-agg_get_nodes_ids = [{"$project": {"_id": 1}}]
+agg_get_suppliers_ids = [{"$project": {"_id": 1}}]
 
-agg_data_node = [
+agg_data_supplier = [
     {"$match": {"_id": ""}},
     {
         "$project": {
@@ -22,7 +22,7 @@ agg_data_node = [
 ]
 
 agg_data_scores = [
-    {"$match": {"task_data.node_id": ""}},
+    {"$match": {"task_data.supplier_id": ""}},
     {
         "$project": {
             "_id": 0,

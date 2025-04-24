@@ -32,11 +32,11 @@ func SetAppConfig(ac *types.App) *Ctx {
 func (wCtx *Ctx) Register(w worker.Worker) {
 
 	// Main workflow, containing the logic of:
-	// - Staked nodes retrieval
-	// - Analyze nodes data
+	// - Staked suppliers retrieval
+	// - Analyze suppliers data
 	// - Triggering new evaluation tasks
-	w.RegisterWorkflowWithOptions(wCtx.NodeManager, workflow.RegisterOptions{
-		Name: NodeManagerName,
+	w.RegisterWorkflowWithOptions(wCtx.SupplierManager, workflow.RegisterOptions{
+		Name: SupplierManagerName,
 	})
 
 	// Secondary workflow used to update the results quickly
