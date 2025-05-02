@@ -128,8 +128,8 @@ k8s_yaml([
     kustomize('./apps/evaluator/local'),
     # Summarizer
     kustomize('./apps/summarizer/local'),
-    # Common -- Secrets
-    kustomize('./common/secrets/local')
+    # Commons
+    kustomize('./apps/commons/local')
     ])
 
 # Manager
