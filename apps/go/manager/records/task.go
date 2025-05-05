@@ -287,6 +287,8 @@ func CheckTaskSchedule(taskData TaskInterface, block types.BlockData, configMap 
 		lastHeight := taskData.GetLastHeight()
 		if (block.Height - lastHeight) >= (value * block.BlocksPerSession) {
 			return true, nil
+		} else {
+			return false, nil
 		}
 
 	} else if frameworkTaskandSchedule[1] == "block" {
@@ -294,6 +296,8 @@ func CheckTaskSchedule(taskData TaskInterface, block types.BlockData, configMap 
 		lastHeight := taskData.GetLastHeight()
 		if (block.Height - lastHeight) >= value {
 			return true, nil
+		} else {
+			return false, nil
 		}
 
 	} else {

@@ -15,7 +15,7 @@ k8s_yaml([
     kustomize('./dependencies/mongodb/local'),
     # Temporal
     kustomize('./dependencies/temporal/local'),
-    kustomize('./dependencies/temporal-admin-tools/local'),
+    kustomize('./dependencies/temporal-admintools/local'),
     kustomize('./dependencies/temporal-ui/local')
     ])
 
@@ -31,7 +31,7 @@ k8s_resource("mongodb-init-replica", labels=["dependencies"])
 # Temporal
 k8s_resource("temporal", labels=["dependencies"])
 k8s_resource("temporal-tuneup", labels=["dependencies"])
-k8s_resource("temporal-admin-tools", labels=["dependencies"])
+k8s_resource("temporal-admintools", labels=["dependencies"])
 k8s_resource("temporal-ui", port_forwards="8080", labels=["dependencies"])
 
 

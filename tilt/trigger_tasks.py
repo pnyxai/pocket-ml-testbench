@@ -1,12 +1,14 @@
 import subprocess
 import time
 import argparse
+import json
 
-
-NAMESPACE = "pocket-ml-testbench"
+TEMPORAL_NAMESPACE = "pocket-ml-testbench"
 APPS_PER_SERVICE = {
     "lm": ["pokt1wkra80yv9zv69y2rgkmc69jfqph6053dwn47vx"],
 }
+
+BASE_COMMAND = ["kubectl", "exec", "-it", "deploy/temporal-admintools"]
 
 all_taxonomy_tasks = [
     "mmlu_fix_anatomy_generative",
@@ -191,11 +193,7 @@ def run_command(command):
 
 
 def schedule_lookup_task(interval="1m", execution_timeout=350, task_timeout=175):
-    command = [
-        "kubectl",
-        "exec",
-        "-it",
-        "deploy/temporal-admin-tools",
+    command = BASE_COMMAND + [
         "--",
         "temporal",
         "schedule",
@@ -217,7 +215,7 @@ def schedule_lookup_task(interval="1m", execution_timeout=350, task_timeout=175)
         "--task-timeout",
         f"{task_timeout}s",
         "--namespace",
-        f"{NAMESPACE}",
+        f"{TEMPORAL_NAMESPACE}",
     ]
     return run_command(command)
 
@@ -225,11 +223,7 @@ def schedule_lookup_task(interval="1m", execution_timeout=350, task_timeout=175)
 def schedule_taxonomy_summary_task(
     interval="1h", execution_timeout=1200, task_timeout=1200
 ):
-    command = [
-        "kubectl",
-        "exec",
-        "-it",
-        "deploy/temporal-admin-tools",
+    command = BASE_COMMAND + [
         "--",
         "temporal",
         "schedule",
@@ -251,7 +245,7 @@ def schedule_taxonomy_summary_task(
         "--task-timeout",
         f"{task_timeout}s",
         "--namespace",
-        f"{NAMESPACE}",
+        f"{TEMPORAL_NAMESPACE}",
     ]
     return run_command(command)
 
@@ -259,11 +253,7 @@ def schedule_taxonomy_summary_task(
 def schedule_requester_task(
     app_address, chain_id, interval="1m", execution_timeout=350, task_timeout=175
 ):
-    command = [
-        "kubectl",
-        "exec",
-        "-it",
-        "deploy/temporal-admin-tools",
+    command = BASE_COMMAND + [
         "--",
         "temporal",
         "schedule",
@@ -285,7 +275,7 @@ def schedule_requester_task(
         "--task-timeout",
         f"{task_timeout}s",
         "--namespace",
-        f"{NAMESPACE}",
+        f"{TEMPORAL_NAMESPACE}",
         "--input",
         f'{{"app":"{app_address}","service":"{chain_id}"}}',
     ]
@@ -295,11 +285,7 @@ def schedule_requester_task(
 def schedule_tokenizer_task(
     chain_id, interval="2m", execution_timeout=120, task_timeout=120
 ):
-    command = [
-        "kubectl",
-        "exec",
-        "-it",
-        "deploy/temporal-admin-tools",
+    command = BASE_COMMAND + [
         "--",
         "temporal",
         "schedule",
@@ -321,7 +307,7 @@ def schedule_tokenizer_task(
         "--task-timeout",
         f"{task_timeout}s",
         "--namespace",
-        f"{NAMESPACE}",
+        f"{TEMPORAL_NAMESPACE}",
         "--input",
         f'{{"service":"{chain_id}","tests":[{{"framework" : "signatures", "tasks": ["tokenizer"]}}]}}',
     ]
@@ -331,11 +317,7 @@ def schedule_tokenizer_task(
 def schedule_config_task(
     chain_id, interval="2m", execution_timeout=120, task_timeout=120
 ):
-    command = [
-        "kubectl",
-        "exec",
-        "-it",
-        "deploy/temporal-admin-tools",
+    command = BASE_COMMAND + [
         "--",
         "temporal",
         "schedule",
@@ -357,7 +339,7 @@ def schedule_config_task(
         "--task-timeout",
         f"{task_timeout}s",
         "--namespace",
-        f"{NAMESPACE}",
+        f"{TEMPORAL_NAMESPACE}",
         "--input",
         f'{{"service":"{chain_id}","tests":[{{"framework" : "signatures", "tasks": ["config"]}}]}}',
     ]
@@ -367,11 +349,7 @@ def schedule_config_task(
 def schedule_benchmark_task(
     benchmark, chain_id, interval="2m", execution_timeout=120, task_timeout=120
 ):
-    command = [
-        "kubectl",
-        "exec",
-        "-it",
-        "deploy/temporal-admin-tools",
+    command = BASE_COMMAND + [
         "--",
         "temporal",
         "schedule",
@@ -393,7 +371,7 @@ def schedule_benchmark_task(
         "--task-timeout",
         f"{task_timeout}s",
         "--namespace",
-        f"{NAMESPACE}",
+        f"{TEMPORAL_NAMESPACE}",
         "--input",
         f'{{"service":"{chain_id}","tests":[{{"framework" : "lmeh", "tasks": ["{benchmark}"]}}]}}',
     ]
@@ -407,11 +385,7 @@ def execute_register_task(task, execution_timeout=7200, task_timeout=3600):
     Args:
         key (str): The task key to be passed as input to the workflow.
     """
-    command = [
-        "kubectl",
-        "exec",
-        "-it",
-        "deploy/temporal-admin-tools",
+    command = BASE_COMMAND + [
         "--",
         "temporal",
         "workflow",
@@ -427,12 +401,23 @@ def execute_register_task(task, execution_timeout=7200, task_timeout=3600):
         "--task-timeout",
         f"{task_timeout}s",
         "--namespace",
-        f"{NAMESPACE}",
+        f"{TEMPORAL_NAMESPACE}",
     ]
     return run_command(command)
 
 
+
+def parse_dict_from_string(arg_string):
+    """Parses a string representation of a dictionary into a Python dictionary."""
+    try:
+        return json.loads(arg_string)
+    except json.JSONDecodeError:
+        raise argparse.ArgumentTypeError(f"Invalid dictionary format: '{arg_string}'. Please use valid JSON syntax.")
+
+
 def main():
+    global BASE_COMMAND,TEMPORAL_NAMESPACE, APPS_PER_SERVICE
+
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--only-registers", action="store_true", help="Only trigger register tasks"
@@ -440,7 +425,33 @@ def main():
     parser.add_argument(
         "--task", help="optionally pass a task identifier, e.g. --task ifeval-fix"
     )
+    parser.add_argument(
+        "--k8s-namespace", help="Namespace of the k8s deployment, defaults to default"
+    )
+    parser.add_argument(
+        "--temporal-namespace", help=f"Namespace of temporal, defaults to {TEMPORAL_NAMESPACE}"
+    )
+    parser.add_argument(
+        "--pokt-service-apps",
+        type=parse_dict_from_string,
+        help='A dictionary in JSON format (e.g., \'{"lm": ["pokt1wkra80yv9zv69y2rgkmc69jfqph6053dwn47vx"]}\')'
+    )
+   
     args = parser.parse_args()
+
+    
+    if args.pokt_service_apps:
+        print("Received services and apps:", args.pokt_service_apps)
+        if type(args.pokt_service_apps) == dict:
+            APPS_PER_SERVICE = args.pokt_service_apps
+
+    if args.k8s_namespace:
+        print(f"Using k8s Namespace: {args.k8s_namespace}")
+        BASE_COMMAND += ["-n", f"{args.k8s_namespace}"]
+    if args.temporal_namespace:
+        print(f"Using Temporal Namespace: {args.temporal_namespace}")
+        TEMPORAL_NAMESPACE =  args.temporal_namespace
+
 
     total_registers = 0
     total_tokenizers = 0
