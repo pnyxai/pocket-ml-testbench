@@ -406,17 +406,18 @@ def execute_register_task(task, execution_timeout=7200, task_timeout=3600):
     return run_command(command)
 
 
-
 def parse_dict_from_string(arg_string):
     """Parses a string representation of a dictionary into a Python dictionary."""
     try:
         return json.loads(arg_string)
     except json.JSONDecodeError:
-        raise argparse.ArgumentTypeError(f"Invalid dictionary format: '{arg_string}'. Please use valid JSON syntax.")
+        raise argparse.ArgumentTypeError(
+            f"Invalid dictionary format: '{arg_string}'. Please use valid JSON syntax."
+        )
 
 
 def main():
-    global BASE_COMMAND,TEMPORAL_NAMESPACE, APPS_PER_SERVICE
+    global BASE_COMMAND, TEMPORAL_NAMESPACE, APPS_PER_SERVICE
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -429,20 +430,20 @@ def main():
         "--k8s-namespace", help="Namespace of the k8s deployment, defaults to default"
     )
     parser.add_argument(
-        "--temporal-namespace", help=f"Namespace of temporal, defaults to {TEMPORAL_NAMESPACE}"
+        "--temporal-namespace",
+        help=f"Namespace of temporal, defaults to {TEMPORAL_NAMESPACE}",
     )
     parser.add_argument(
         "--pokt-service-apps",
         type=parse_dict_from_string,
-        help='A dictionary in JSON format (e.g., \'{"lm": ["pokt1wkra80yv9zv69y2rgkmc69jfqph6053dwn47vx"]}\')'
+        help='A dictionary in JSON format (e.g., \'{"lm": ["pokt1wkra80yv9zv69y2rgkmc69jfqph6053dwn47vx"]}\')',
     )
-   
+
     args = parser.parse_args()
 
-    
     if args.pokt_service_apps:
         print("Received services and apps:", args.pokt_service_apps)
-        if type(args.pokt_service_apps) == dict:
+        if isinstance(args.pokt_service_apps, dict):
             APPS_PER_SERVICE = args.pokt_service_apps
 
     if args.k8s_namespace:
@@ -450,8 +451,7 @@ def main():
         BASE_COMMAND += ["-n", f"{args.k8s_namespace}"]
     if args.temporal_namespace:
         print(f"Using Temporal Namespace: {args.temporal_namespace}")
-        TEMPORAL_NAMESPACE =  args.temporal_namespace
-
+        TEMPORAL_NAMESPACE = args.temporal_namespace
 
     total_registers = 0
     total_tokenizers = 0

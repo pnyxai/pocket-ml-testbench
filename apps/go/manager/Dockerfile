@@ -22,5 +22,5 @@ WORKDIR /app
 # Copy the binary from builder stage
 COPY --from=builder /code/bin/manager /app/manager
 
-# Run the web service on container startup.
+# Run the service on container startup.
 CMD ["/app/manager"]
