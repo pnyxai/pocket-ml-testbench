@@ -310,7 +310,7 @@ class MongoOperator:
         # Get latest response height
         # TODO : Change this with a parameter, that must come from the activity making query to the network
         cursor = self.client.db[self.suppliers_collection].aggregate(
-            [{"$group": {"_id": None, "latest_height": {"$max": "$last_pool_height"}}}]
+            [{"$group": {"_id": None, "latest_height": {"$max": "$last_process_height"}}}]
         )
         latest_height = await cursor.to_list(length=None)
         if len(latest_height) == 0:

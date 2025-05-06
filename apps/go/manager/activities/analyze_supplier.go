@@ -72,8 +72,8 @@ func (aCtx *Ctx) AnalyzeSupplier(ctx context.Context, params types.AnalyzeSuppli
 	}
 
 	// Do general update of supplier
-	thisSupplierData.LastPoolHeight = currHeight
-	thisSupplierData.LastPoolTime = currTime
+	thisSupplierData.LastProcessHeight = currHeight
+	thisSupplierData.LastProcessTime = currTime
 	thisSupplierData.LastSeenHeight = LastSeenHeight
 	thisSupplierData.LastSeenTime = LastSeenTime
 
