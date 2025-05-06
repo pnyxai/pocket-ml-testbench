@@ -309,8 +309,8 @@ class MongoOperator:
     async def get_old_tasks(self, blocks_ago=40):
         # Get latest response height
         # TODO : Change this with a parameter, that must come from the activity making query to the network
-        cursor = self.client.db[self.responses_collection].aggregate(
-            [{"$group": {"_id": None, "latest_height": {"$max": "$height"}}}]
+        cursor = self.client.db[self.suppliers_collection].aggregate(
+            [{"$group": {"_id": None, "latest_height": {"$max": "$last_pool_height"}}}]
         )
         latest_height = await cursor.to_list(length=None)
         if len(latest_height) == 0:

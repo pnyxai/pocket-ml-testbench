@@ -28,6 +28,8 @@ type SupplierRecord struct {
 	Service        string             `bson:"service"`
 	LastSeenHeight int64              `bson:"last_seen_height"`
 	LastSeenTime   time.Time          `bson:"last_seen_time"`
+	LastPoolHeight int64              `bson:"last_pool_height"`
+	LastPoolTime   time.Time          `bson:"last_pool_time"`
 }
 
 func (record *SupplierRecord) FindAndLoadSupplier(supplier types.SupplierData, mongoDB mongodb.MongoDb, l *zerolog.Logger) (bool, error) {
