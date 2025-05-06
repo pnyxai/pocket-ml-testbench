@@ -23,13 +23,15 @@ import (
 // DB entry of a given supplier-service pair
 // The "Tasks" array will hold as many entries as tasks being tested
 type SupplierRecord struct {
-	ID             primitive.ObjectID `bson:"_id,omitempty"`
-	Address        string             `bson:"address"`
-	Service        string             `bson:"service"`
-	LastSeenHeight int64              `bson:"last_seen_height"`
-	LastSeenTime   time.Time          `bson:"last_seen_time"`
-	LastPoolHeight int64              `bson:"last_pool_height"`
-	LastPoolTime   time.Time          `bson:"last_pool_time"`
+	ID      primitive.ObjectID `bson:"_id,omitempty"`
+	Address string             `bson:"address"`
+	Service string             `bson:"service"`
+	// This is the last time the tests interacted with the supplier (any interaction)
+	LastSeenHeight int64     `bson:"last_seen_height"`
+	LastSeenTime   time.Time `bson:"last_seen_time"`
+	// This is the last time the Manager updated the supplier's entries: Updated buffers, dropped old samples, etc.
+	LastProcessHeight int64     `bson:"last_process_height"`
+	LastProcessTime   time.Time `bson:"last_process_time"`
 }
 
 func (record *SupplierRecord) FindAndLoadSupplier(supplier types.SupplierData, mongoDB mongodb.MongoDb, l *zerolog.Logger) (bool, error) {
