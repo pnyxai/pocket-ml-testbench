@@ -29,6 +29,14 @@ func (aCtx *Ctx) AnalyzeSupplier(ctx context.Context, params types.AnalyzeSuppli
 		Str("service", params.Supplier.Service).
 		Msg("Analyzing staked supplier.")
 
+	// Get current height and time
+	currHeight, err := aCtx.App.PocketFullNode.GetLatestBlockHeight()
+	if err != nil {
+		l.Error().Str("supplier", params.Supplier.Address).Str("service", params.Supplier.Service).Msg("Could not retrieve latest block height.")
+		return nil, err
+	}
+	currTime := time.Now()
+
 	// Retrieve this supplier entry
 	var thisSupplierData records.SupplierRecord
 	found, err := thisSupplierData.FindAndLoadSupplier(params.Supplier, aCtx.App.Mongodb, l)
@@ -40,7 +48,8 @@ func (aCtx *Ctx) AnalyzeSupplier(ctx context.Context, params types.AnalyzeSuppli
 	//--------------------------------------------------------------------------
 	// Update all tasks buffers
 	//--------------------------------------------------------------------------
-
+	var LastSeenHeight int64
+	var LastSeenTime time.Time
 	if !found {
 		// Create entry in MongoDB
 		l.Debug().Bool("found", found).Msg("Creating empty supplier entry.")
@@ -50,18 +59,23 @@ func (aCtx *Ctx) AnalyzeSupplier(ctx context.Context, params types.AnalyzeSuppli
 			return nil, err
 		}
 		result.IsNew = true
+		LastSeenHeight = currHeight
+		LastSeenTime = currTime
 
 	} else {
 		// If the supplier entry exist we must cycle and check for pending results
-		err = updateTasksSupplier(&thisSupplierData, params.Tests, aCtx.App.Config.Frameworks, aCtx.App.Mongodb, l)
+		LastSeenHeight, LastSeenTime, err = updateTasksSupplier(&thisSupplierData, params.Tests, aCtx.App.Config.Frameworks, aCtx.App.Mongodb, l)
 		if err != nil {
 			l.Error().Err(err).Str("address", params.Supplier.Address).Str("service", params.Supplier.Service).Msg("Failed to create update supplier.")
 			return nil, err
 		}
-
 	}
 
-	// TODO : Do general update of supplier entry if needed (for instance to track last values of buffers)
+	// Do general update of supplier
+	thisSupplierData.LastPoolHeight = currHeight
+	thisSupplierData.LastPoolTime = currTime
+	thisSupplierData.LastSeenHeight = LastSeenHeight
+	thisSupplierData.LastSeenTime = LastSeenTime
 
 	// Push to DB the supplier data
 	l.Debug().Msg("Uploading supplier changes to DB.")
@@ -198,7 +212,7 @@ func updateTasksSupplier(supplierData *records.SupplierRecord,
 	tests []types.TestsData,
 	frameworkConfigMap map[string]types.FrameworkConfig,
 	mongoDB mongodb.MongoDb,
-	l *zerolog.Logger) (err error) {
+	l *zerolog.Logger) (LastSeenHeight int64, LastSeenTime time.Time, err error) {
 
 	//--------------------------------------------------------------------------
 	// Check for each task sample date
@@ -219,7 +233,7 @@ func updateTasksSupplier(supplierData *records.SupplierRecord,
 			//------------------------------------------------------------------
 			taskType, err := records.GetTaskType(test.Framework, task, frameworkConfigMap, l)
 			if err != nil {
-				return nil
+				return LastSeenHeight, LastSeenTime, err
 			}
 			thisTaskRecord, found := records.GetTaskData(supplierData.ID, taskType, test.Framework, task, mongoDB, l)
 
@@ -246,7 +260,7 @@ func updateTasksSupplier(supplierData *records.SupplierRecord,
 				Msg("Cycling indexes.")
 			cycled, err := thisTaskRecord.CycleIndexes(l)
 			if err != nil {
-				return err
+				return LastSeenHeight, LastSeenTime, err
 			}
 
 			//------------------------------------------------------------------
@@ -261,15 +275,31 @@ func updateTasksSupplier(supplierData *records.SupplierRecord,
 					Msg("Updating task entry.")
 				_, err = thisTaskRecord.UpdateTask(supplierData.ID, test.Framework, task, mongoDB, l)
 				if err != nil {
-					return err
+					return LastSeenHeight, LastSeenTime, err
 				}
+			}
+
+			//------------------------------------------------------------------
+			// Track Last Seen
+			//------------------------------------------------------------------
+			if LastSeenHeight < thisTaskRecord.GetLastHeight() {
+				LastSeenHeight = thisTaskRecord.GetLastHeight()
+				LastSeenTime = thisTaskRecord.GetLastSeen()
 			}
 
 		}
 
 	}
 
-	return err
+	// If the tracked last seen height is lower than the last record we have
+	// it means that the supplier was seen by another framework after the
+	// framework that we are analyzing here, so we must keep the largest value.
+	if LastSeenHeight < supplierData.LastSeenHeight {
+		LastSeenHeight = supplierData.LastSeenHeight
+		LastSeenTime = supplierData.LastSeenTime
+	}
+
+	return LastSeenHeight, LastSeenTime, err
 }
 
 // Looks for a framework-task-suppliers in the TaskDB and retrieves all the IDs and tasks status
