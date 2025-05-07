@@ -78,8 +78,15 @@ async def lmeh_evaluate(args: PocketNetworkEvaluationTaskRequest) -> Tuple[bool,
             #     non_retryable=True,
             # )
         if not task_mongo.done:
-            eval_logger.error("Task is not done.", task=args.task_id)
-            return False, "Task is not done."
+            eval_logger.warn("Task is not done, forcing as \"done\" and proceeding.", task=args.task_id)
+            # Even if we error on this condition, the task is already sent to the Manager, which results
+            # in a complete deletion of the task, even if it had pending prompts.
+            # Since this point is only reached by specifically calling the workflow
+            # from another task, we can be more lax when checking this state.
+
+            # eval_logger.error("Task is not done.", task=args.task_id)
+            # return False, "Task is not done."
+            
             # raise ApplicationError(
             #     "Task is not done.",
             #     args.task_id,

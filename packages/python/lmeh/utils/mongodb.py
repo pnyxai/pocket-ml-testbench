@@ -15,6 +15,7 @@ from packages.python.lmeh.utils.mongo_aggrs import (
     aggregate_response_tree,
     aggregate_old_tasks,
     aggregate_supplier_task_results,
+    aggregate_skipped_tasks
 )
 from packages.python.protocol.protocol import (
     CompletionRequest,
@@ -298,6 +299,15 @@ class MongoOperator:
         task.id = task_id
 
         return task
+
+    async def get_skipped_tasks(self):
+
+        cursor = self.client.db[self.prompts_collection].aggregate(
+            aggregate_skipped_tasks()
+        )
+        tasks = await cursor.to_list(length=None)
+
+        return tasks
 
     async def get_tasks(self):
         cursor = self.client.db[self.tasks_collection].find(
