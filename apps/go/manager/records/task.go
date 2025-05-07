@@ -645,7 +645,7 @@ func (record *NumericalTaskRecord) StepIndex(step uint32, marker string, positiv
 func (record *NumericalTaskRecord) CycleIndexes(l *zerolog.Logger) (bool, error) {
 	return record.CircBuffer.CycleIndexes(NumericalSampleTTLDays, l)
 }
-func (record *NumericalTaskRecord) InsertSample(timeSample time.Time, data interface{}, l *zerolog.Logger) (ok bool, err error) {
+func (record *NumericalTaskRecord) InsertSample(timeSample time.Time, data interface{}, l *zerolog.Logger) (statusOK bool, err error) {
 	// Assert data type
 	dataOk, ok := data.(ScoresSample)
 	if !ok {
@@ -671,10 +671,10 @@ func (record *NumericalTaskRecord) InsertSample(timeSample time.Time, data inter
 	}
 	if dataOk.StatusCode == RelayResponseCodes.Ok {
 		// Sample was ok
-		ok = true
+		statusOK = true
 	}
 
-	return ok, nil
+	return statusOK, nil
 }
 
 func (record *NumericalTaskRecord) GetResultStruct() ResultInterface {
