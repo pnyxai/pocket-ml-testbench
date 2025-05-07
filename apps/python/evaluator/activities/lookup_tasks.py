@@ -43,11 +43,13 @@ async def lookup_tasks() -> List[str]:
                 task_id=id,
                 error=str(e),
             )
-    if len(skip_old_ids_ok)>0:
+    if len(skip_old_ids_ok) > 0:
         # Add a short delay before triggering the evaluation samples
         # This is a tweak to allow slow propagation of task updated state
         time.sleep(1.0)
 
-    eval_logger.debug(f"Lookup tasks found {len(ids + skip_old_ids_ok)} old/skipped tasks")
+    eval_logger.debug(
+        f"Lookup tasks found {len(ids + skip_old_ids_ok)} old/skipped tasks"
+    )
 
     return ids + skip_old_ids_ok

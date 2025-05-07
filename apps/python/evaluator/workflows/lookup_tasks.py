@@ -25,7 +25,6 @@ class LookupTasks:
         )
 
         eval_logger.info(f"Activity Lookup tasks found {len(ids)} tasks")
-            
 
         for _id in ids:
             eval_logger.info(f"Triggering Evaluate workflow for task {_id}")
