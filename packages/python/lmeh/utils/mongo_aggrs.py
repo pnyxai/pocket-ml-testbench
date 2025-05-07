@@ -52,6 +52,20 @@ def aggregate_response_tree(task_id: ObjectId):
     ]
 
 
+def aggregate_skipped_tasks():
+    return [
+        {
+            "$group": {
+                "_id": "$task_id",
+                "done": {"$sum": {"$cond": {"if": "$done", "then": 1, "else": 0}}},
+                "total": {"$sum": 1},
+            }
+        },
+        {"$match": {"$expr": {"$eq": ["$done", "$total"]}}},
+        {"$project": {"_id": 1}},
+    ]
+
+
 def aggregate_old_tasks(latest_height: int, blocks_ago: int):
     return [
         {"$match": {"done": False}},

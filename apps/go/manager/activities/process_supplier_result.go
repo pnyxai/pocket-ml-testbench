@@ -149,13 +149,32 @@ func (aCtx *Ctx) AnalyzeResult(ctx context.Context, params types.AnalyzeResultPa
 				Msg("Inserting results into buffers.")
 			// Add results to current task record
 			// This inclusion is conditional on the status of the RPC.
+			total_ok := 0
 			for i := 0; i < int(thisTaskResults.GetNumSamples()); i++ {
-				thisTaskRecord.InsertSample(time.Now(), thisTaskResults.GetSample(i), l)
+				ok, err := thisTaskRecord.InsertSample(time.Now(), thisTaskResults.GetSample(i), l)
+				if err != nil {
+					l.Error().
+						Err(err).
+						Str("address", supplierData.Address).
+						Str("service", supplierData.Service).
+						Str("framework", taskData.Framework).
+						Str("task", taskData.Task).
+						Msg("Wrong buffer class (really weird...).")
+					return nil, err
+				}
+				if ok {
+					total_ok += 1
+				}
 			}
+			if total_ok > 0 {
+				// Update the last seen fields, because we have seen the supplier
+				// responding to a call successfully at least once.
+				thisTaskRecord.UpdateLastHeight(thisTaskResults.GetResultHeight())
+				thisTaskRecord.UpdateLastSeen(thisTaskResults.GetResultTime())
+			}
+
 		}
-		// Update the last seen fields
-		thisTaskRecord.UpdateLastHeight(thisTaskResults.GetResultHeight())
-		thisTaskRecord.UpdateLastSeen(thisTaskResults.GetResultTime())
+
 	} else {
 		// TODO: handle status!=0
 		l.Debug().

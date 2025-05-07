@@ -73,7 +73,7 @@ type TaskInterface interface {
 	ProcessData(l *zerolog.Logger) error
 	StepIndex(step uint32, marker string, positive_step bool, l *zerolog.Logger) error
 	CycleIndexes(l *zerolog.Logger) (bool, error)
-	InsertSample(timeSample time.Time, data interface{}, l *zerolog.Logger) (err error)
+	InsertSample(timeSample time.Time, data interface{}, l *zerolog.Logger) (ok bool, err error)
 	GetNumSamples() uint32
 	GetNumOkSamples() uint32
 	GetFramework() string
@@ -645,11 +645,11 @@ func (record *NumericalTaskRecord) StepIndex(step uint32, marker string, positiv
 func (record *NumericalTaskRecord) CycleIndexes(l *zerolog.Logger) (bool, error) {
 	return record.CircBuffer.CycleIndexes(NumericalSampleTTLDays, l)
 }
-func (record *NumericalTaskRecord) InsertSample(timeSample time.Time, data interface{}, l *zerolog.Logger) (err error) {
+func (record *NumericalTaskRecord) InsertSample(timeSample time.Time, data interface{}, l *zerolog.Logger) (statusOK bool, err error) {
 	// Assert data type
 	dataOk, ok := data.(ScoresSample)
 	if !ok {
-		return fmt.Errorf("invalid sample data type")
+		return ok, fmt.Errorf("invalid sample data type")
 	}
 
 	// Save sample if it is OK or it is an error imputable to the supplier
@@ -669,8 +669,12 @@ func (record *NumericalTaskRecord) InsertSample(timeSample time.Time, data inter
 		record.ScoresSamples[record.CircBuffer.Indexes.End].StatusCode = dataOk.StatusCode
 		record.CircBuffer.Times[record.CircBuffer.Indexes.End] = timeSample
 	}
+	if dataOk.StatusCode == RelayResponseCodes.Ok {
+		// Sample was ok
+		statusOK = true
+	}
 
-	return nil
+	return statusOK, nil
 }
 
 func (record *NumericalTaskRecord) GetResultStruct() ResultInterface {
@@ -872,11 +876,11 @@ func (record *SignatureTaskRecord) GetNumOkSamples() uint32 {
 }
 
 // insert a new signature into the circular buffer
-func (record *SignatureTaskRecord) InsertSample(timeSample time.Time, data interface{}, l *zerolog.Logger) (err error) {
+func (record *SignatureTaskRecord) InsertSample(timeSample time.Time, data interface{}, l *zerolog.Logger) (statusOK bool, err error) {
 	// Assert data type
 	dataOk, ok := data.(SignatureSample)
 	if !ok {
-		return fmt.Errorf("invalid sample data type")
+		return ok, fmt.Errorf("invalid sample data type")
 	}
 
 	l.Debug().Str("signature", dataOk.Signature).Int("ID", dataOk.ID).Msg("Inserting sample.")
@@ -892,10 +896,13 @@ func (record *SignatureTaskRecord) InsertSample(timeSample time.Time, data inter
 		record.Signatures[record.CircBuffer.Indexes.End].ID = dataOk.ID
 		record.Signatures[record.CircBuffer.Indexes.End].StatusCode = dataOk.StatusCode
 		record.CircBuffer.Times[record.CircBuffer.Indexes.End] = timeSample
-
+	}
+	if dataOk.StatusCode == RelayResponseCodes.Ok {
+		// Sample was ok
+		statusOK = true
 	}
 
-	return nil
+	return statusOK, nil
 }
 
 // Returns True if the task is ok, meaning that their values are updated and correct
