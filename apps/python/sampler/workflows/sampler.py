@@ -16,7 +16,7 @@ class Sampler:
         eval_logger = get_app_logger("Sampler")
         eval_logger.info("Starting Workflow Sampler")
 
-        if params.framework == "lmeh":
+        if "lmeh" in params.framework:
             result = await workflow.execute_activity(
                 lmeh_sample,
                 params,

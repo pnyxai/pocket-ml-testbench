@@ -15,7 +15,8 @@ class Register:
         eval_logger = get_app_logger("Register")
         eval_logger.info("Starting Workflow Register")
 
-        if args.framework == "lmeh":
+        if "lmeh" in args.framework:
+            # This is a variant of lmeh
             result = await workflow.execute_activity(
                 lmeh_register_task,
                 args,

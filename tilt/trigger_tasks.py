@@ -10,6 +10,8 @@ APPS_PER_SERVICE = {
 
 BASE_COMMAND = ["kubectl", "exec", "-it", "deploy/temporal-admintools"]
 
+LMEH_TYPE = "lmeh"
+
 all_taxonomy_tasks = [
     "mmlu_fix_anatomy_generative",
     "mmlu_fix_medical_genetics_generative",
@@ -355,9 +357,9 @@ def schedule_benchmark_task(
         "schedule",
         "create",
         "--schedule-id",
-        f"lmeh-{benchmark}-{chain_id}",
+        f"{LMEH_TYPE}-{benchmark}-{chain_id}",
         "--workflow-id",
-        f"lmeh-{benchmark}-{chain_id}",
+        f"{LMEH_TYPE}-{benchmark}-{chain_id}",
         "--type",
         "Manager",
         "--task-queue",
@@ -373,7 +375,7 @@ def schedule_benchmark_task(
         "--namespace",
         f"{TEMPORAL_NAMESPACE}",
         "--input",
-        f'{{"service":"{chain_id}","tests":[{{"framework" : "lmeh", "tasks": ["{benchmark}"]}}]}}',
+        f'{{"service":"{chain_id}","tests":[{{"framework" : "{LMEH_TYPE}", "tasks": ["{benchmark}"]}}]}}',
     ]
     return run_command(command)
 
@@ -395,7 +397,7 @@ def execute_register_task(task, execution_timeout=7200, task_timeout=3600):
         "--type",
         "Register",
         "--input",
-        f'{{"framework": "lmeh", "tasks": "{task}"}}',
+        f'{{"framework": "{LMEH_TYPE}", "tasks": "{task}"}}',
         "--execution-timeout",
         f"{execution_timeout}s",
         "--task-timeout",
@@ -417,11 +419,14 @@ def parse_dict_from_string(arg_string):
 
 
 def main():
-    global BASE_COMMAND, TEMPORAL_NAMESPACE, APPS_PER_SERVICE
+    global BASE_COMMAND, TEMPORAL_NAMESPACE, APPS_PER_SERVICE, LMEH_TYPE
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--only-registers", action="store_true", help="Only trigger register tasks"
+    )
+    parser.add_argument(
+        "--generative", action="store_true", help="Use generative LMEH tasks"
     )
     parser.add_argument(
         "--task", help="optionally pass a task identifier, e.g. --task ifeval-fix"
@@ -464,6 +469,9 @@ def main():
         print(f"Triggering only: {args.task}")
         all_tasks = [args.task]
 
+    if args.generative:
+        LMEH_TYPE += "-generative"
+
     if args.only_registers:
         print("Setting-up registers only:")
         for task in all_tasks:
@@ -486,25 +494,44 @@ def main():
         time.sleep(0.25)
 
         # Create per-service tasks
+        if not args.generative:
+            for chain_id in APPS_PER_SERVICE.keys():
+                print(f"Triggering signatures for {chain_id}:")
+                # Schedule the tokenizer in this service ID
+                ok = schedule_tokenizer_task(
+                    chain_id, interval="2m", execution_timeout=120, task_timeout=120
+                )
+                print("\tTokenizer triggered.")
+                time.sleep(0.25)
+                total_tokenizers += ok
+                # Schedule the config task in this Service ID
+                ok = schedule_config_task(
+                    chain_id, interval="2m", execution_timeout=120, task_timeout=120
+                )
+                print("\tConfiguration triggered.")
+                time.sleep(0.25)
+                total_configs += ok
+                # Schedule a requester for each app in this service ID
+                print("\tTriggering requesters for apps:")
+                for app in APPS_PER_SERVICE[chain_id]:
+                    # Schedule the requester using this app
+                    ok = schedule_requester_task(
+                        app,
+                        chain_id,
+                        interval="1m",
+                        execution_timeout=350,
+                        task_timeout=175,
+                    )
+                    total_requesters += ok
+                    print(f"\t\t{app}")
+                    time.sleep(0.25)
+            print("Signatures scheduled.")
+
+        # Create per-service tasks
         for chain_id in APPS_PER_SERVICE.keys():
-            print(f"Setting-up chain: {chain_id}")
-            # Schedule the tokenizer in this service ID
-            ok = schedule_tokenizer_task(
-                chain_id, interval="2m", execution_timeout=120, task_timeout=120
-            )
-            print("\tTokenizer triggered.")
-            time.sleep(0.25)
-            total_tokenizers += ok
-            # Schedule the config task in this Service ID
-            ok = schedule_config_task(
-                chain_id, interval="2m", execution_timeout=120, task_timeout=120
-            )
-            print("\tConfiguration triggered.")
-            time.sleep(0.25)
-            total_configs += ok
-            # Schedule a requester for each app in this service ID
-            print("\tTriggering requesters for apps:")
+            print(f"Triggering requesters for {chain_id} apps':")
             for app in APPS_PER_SERVICE[chain_id]:
+                print(f"\t{app}")
                 # Schedule the requester using this app
                 ok = schedule_requester_task(
                     app,
@@ -516,7 +543,7 @@ def main():
                 total_requesters += ok
                 print(f"\t\t{app}")
                 time.sleep(0.25)
-        print("Signatures scheduled.")
+        print("Requesters scheduled.")
 
         # Create all tasks for all chains
         for task in all_tasks:

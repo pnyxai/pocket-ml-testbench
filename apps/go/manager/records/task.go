@@ -198,7 +198,7 @@ func CheckTaskDependency(supplierData *SupplierRecord, framework string, task st
 		}
 		if frameworkTaskandStatus[0] == "none" {
 			// No dependencies
-			l.Debug().Str("address", supplierData.Address).Str("service", supplierData.Service).Str("framework", framework).Str("task", task).Msg("No dependency: Dependecy OK")
+			l.Debug().Str("address", supplierData.Address).Str("service", supplierData.Service).Str("framework", framework).Str("task", task).Msg("No dependency: Dependency OK")
 			continue
 		}
 		taskType, err := GetTaskType(frameworkTaskandStatus[0], frameworkTaskandStatus[1], configMap, l)
@@ -215,15 +215,15 @@ func CheckTaskDependency(supplierData *SupplierRecord, framework string, task st
 			// Check the condition
 			if frameworkTaskandStatus[2] == "present" {
 				// Task is present, so OK
-				l.Debug().Str("address", supplierData.Address).Str("service", supplierData.Service).Str("framework", framework).Str("task", task).Msg("Present: Dependecy OK")
+				l.Debug().Str("address", supplierData.Address).Str("service", supplierData.Service).Str("framework", framework).Str("task", task).Msg("Present: Dependency OK")
 				continue
 			} else if frameworkTaskandStatus[2] == "ok" {
 				// Check for it having a correct value
 				if thisTaskRecord.IsOK() {
-					l.Debug().Str("address", supplierData.Address).Str("service", supplierData.Service).Str("framework", framework).Str("task", task).Msg("OK: Dependecy OK")
+					l.Debug().Str("address", supplierData.Address).Str("service", supplierData.Service).Str("framework", framework).Str("task", task).Msg("OK: Dependency OK")
 					continue
 				} else {
-					l.Debug().Str("address", supplierData.Address).Str("service", supplierData.Service).Str("framework", framework).Str("task", task).Msg("OK: Dependecy NOT OK")
+					l.Debug().Str("address", supplierData.Address).Str("service", supplierData.Service).Str("framework", framework).Str("task", task).Msg("OK: Dependency NOT OK")
 					depOK = false
 					break
 				}
