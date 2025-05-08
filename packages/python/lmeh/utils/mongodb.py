@@ -136,12 +136,10 @@ class MongoOperator:
         )
 
         if buffer is None:
-            eval_logger.error(
+            eval_logger.debug(
                 f"Buffer for {signature_name} signature not found.", adress=address
             )
-            raise RuntimeError(
-                f"Supplier address {address} does not have a {signature_name} signature buffer associated."
-            )
+            return ""
 
         eval_logger.debug(f"{signature_name} signature buffer found.", buffer=buffer)
 
@@ -191,7 +189,8 @@ class MongoOperator:
         tokenizer_hash = await self.get_tokenizer_hash(address, service)
 
         if tokenizer_hash == "":
-            eval_logger.warn(
+            # This should not be an error if the tokenizer loading is optional
+            eval_logger.debug(
                 "Supplier address does not have a valid tokenizer_hash.", adress=address
             )
             return False, {}
@@ -200,12 +199,11 @@ class MongoOperator:
 
         # Validate that the tokenizer is not empty
         if tokenizer_object is None:
-            eval_logger.error(
-                "Tokenizer hash not found.", address=address, hash=tokenizer_hash
-            )
-            raise RuntimeError(
+            err_str = (
                 f"Tokenizer with hash {tokenizer_hash} does not exist in the database."
             )
+            eval_logger.error(err_str, address=address, hash=tokenizer_hash)
+            raise RuntimeError(err_str)
 
         tokenizer = tokenizer_object["tokenizer"]
         eval_logger.debug("Tokenizer found.", tokenizer_keys=list(tokenizer.keys()))
@@ -218,12 +216,11 @@ class MongoOperator:
         return True, tokenizer
 
     async def get_config_objects(self, address: str, service: str) -> Tuple[bool, dict]:
-        # TODO
-        # add get_config_hash method to
         config_hash = await self.get_config_hash(address, service)
 
         if config_hash == "":
-            eval_logger.warn(
+            # This should not be an error if the configuration loading is optional
+            eval_logger.debug(
                 "Supplier address does not have a valid config_hash.", adress=address
             )
             return False, {}

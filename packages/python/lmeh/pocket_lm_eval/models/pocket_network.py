@@ -63,7 +63,7 @@ def get_result(response, ctxlen: int) -> Tuple[float, bool]:
 
 
 class PocketNetworkLM(TemplateLM):
-    _DEFAULT_MAX_LENGTH = 4096
+    _DEFAULT_MAX_LENGTH = 8192
 
     def __init__(
         self,
@@ -117,7 +117,9 @@ class PocketNetworkLM(TemplateLM):
 
     @property
     def max_length(self):
-        if self._max_length:  # if max length manually set, return it
+        # if max length manually set or defaulted if no config is available,
+        # return it
+        if self._max_length:
             return self._max_length
         # next to do apply to POKT benchmark
         # if self.data_parallel_size <= 1:
@@ -166,14 +168,15 @@ class PocketNetworkLM(TemplateLM):
         raise NotImplementedError()
 
     async def load_tokenizer(self) -> bool:
-        # Load tokenizer
+        # -------------------- Load Tokenizer ----------------------------------
         try:
-            ok, tokenizer_objects = await self.mongo_operator.get_tokenizer_objects(
+            (
+                has_tokenizer,
+                tokenizer_objects,
+            ) = await self.mongo_operator.get_tokenizer_objects(
                 address=self.requester_args.address,
                 service=self.requester_args.service,
             )
-            if not ok:
-                return False
 
         except Exception as e:
             eval_logger.error(
@@ -189,13 +192,37 @@ class PocketNetworkLM(TemplateLM):
                 service=self.requester_args.service,
                 non_retryable=True,
             )
+
+        if has_tokenizer:
+            try:
+                self.tokenizer = load_tokenizer(
+                    tokenizer_objects=tokenizer_objects,
+                    wf_id=self.wf_id,
+                    trust_remote_code=self.trust_remote_code,
+                )
+            except Exception as e:
+                eval_logger.error(
+                    "Error loading tokenizer from database",
+                    error=str(e),
+                    address=self.requester_args.address,
+                    service=self.requester_args.service,
+                )
+                raise ApplicationError(
+                    "Error loading tokenizer from database",
+                    error=str(e),
+                    address=self.requester_args.address,
+                    service=self.requester_args.service,
+                    non_retryable=True,
+                )
+        else:
+            self.tokenizer = None
+
+        # -------------------- Load Configuration ------------------------------
         try:
-            ok, config_objects = await self.mongo_operator.get_config_objects(
+            has_config, config_objects = await self.mongo_operator.get_config_objects(
                 address=self.requester_args.address,
                 service=self.requester_args.service,
             )
-            if not ok:
-                return False
         except Exception as e:
             eval_logger.error(
                 "Error loading config objects",
@@ -211,62 +238,54 @@ class PocketNetworkLM(TemplateLM):
                 non_retryable=True,
             )
 
-        try:
-            self.tokenizer = load_tokenizer(
-                tokenizer_objects=tokenizer_objects,
-                wf_id=self.wf_id,
-                trust_remote_code=self.trust_remote_code,
-            )
-        except Exception as e:
-            eval_logger.error(
-                "Error loading tokenizer from database",
-                error=str(e),
-                address=self.requester_args.address,
-                service=self.requester_args.service,
-            )
-            raise ApplicationError(
-                "Error loading tokenizer from database",
-                error=str(e),
-                address=self.requester_args.address,
-                service=self.requester_args.service,
-                non_retryable=True,
-            )
-        try:
-            self._config = load_config(
-                config_objects=config_objects,
-                wf_id=self.wf_id,
-                trust_remote_code=False,  # We dont want to download and execute anything
-            )
-        except Exception as e:
-            eval_logger.error(
-                "Error loading config from database",
-                error=str(e),
-                address=self.requester_args.address,
-                service=self.requester_args.service,
-            )
-            raise ApplicationError(
-                "Error loading config from database",
-                error=str(e),
-                address=self.requester_args.address,
-                service=self.requester_args.service,
-                non_retryable=True,
-            )
+        if has_config:
+            try:
+                self._config = load_config(
+                    config_objects=config_objects,
+                    wf_id=self.wf_id,
+                    trust_remote_code=False,  # We don't want to download and execute anything
+                )
+            except Exception as e:
+                eval_logger.error(
+                    "Error loading config from database",
+                    error=str(e),
+                    address=self.requester_args.address,
+                    service=self.requester_args.service,
+                )
+                raise ApplicationError(
+                    "Error loading config from database",
+                    error=str(e),
+                    address=self.requester_args.address,
+                    service=self.requester_args.service,
+                    non_retryable=True,
+                )
+        else:
+            self._config = {}
+            self._max_length = self._DEFAULT_MAX_LENGTH
 
-        self.tokenizer = configure_pad_token(self.tokenizer)
-        self.custom_prefix_token_id = self.init_prefix_token_id
-        if self.init_prefix_token_id is not None:
-            eval_logger.info(
-                f"Loglikelihood prefix token id used in evaluation: {self.prefix_token_id}"
+        # -------------------- Update Tokenizer with Config --------------------
+        if has_tokenizer and has_config:
+            self.tokenizer = configure_pad_token(self.tokenizer)
+            self.custom_prefix_token_id = self.init_prefix_token_id
+            if self.init_prefix_token_id is not None:
+                eval_logger.info(
+                    f"Log-likelihood prefix token id used in evaluation: {self.prefix_token_id}"
+                )
+            self.vocab_size = self.tokenizer.vocab
+            self.end_of_text_token_id = self.tokenizer.eos_token_id
+            eval_logger.debug(
+                "Tokenizer and Config loaded successfully.",
+                adress=self.requester_args.address,
+                service=self.requester_args.service,
             )
-        self.vocab_size = self.tokenizer.vocab
-        self.end_of_text_token_id = self.tokenizer.eos_token_id
-        eval_logger.debug(
-            "Tokenizer loaded successfully.",
-            adress=self.requester_args.address,
-            service=self.requester_args.service,
-        )
+        else:
+            self.custom_prefix_token_id = None
+            self.init_prefix_token_id = None
+            self.vocab_size = None
+            self.end_of_text_token_id = None
 
-        return True
+        # True if tokenizer and config are present, false otherwise
+        return has_tokenizer and has_config
 
     def tok_encode(
         self,
@@ -369,8 +388,12 @@ class PocketNetworkLM(TemplateLM):
         requests = [req.args for req in requests]
 
         def _collate(x):
-            toks = self.tok_encode(x[0])
-            return len(toks), x[0]
+            if self.tokenizer is not None:
+                toks = self.tok_encode(x[0])
+                feat = len(toks)
+            else:
+                feat = len(x[0])
+            return feat, x[0]
 
         re_ord = utils.Reorderer(requests, _collate)
 
@@ -394,10 +417,23 @@ class PocketNetworkLM(TemplateLM):
         ):
             inps = []
             self._max_gen_toks = request_args.get("max_gen_toks", self.max_gen_toks)
-            for context, _ in chunk:
-                context_enc = self.tok_encode(context)
-                inp = context_enc[-(self.max_length - self.max_gen_toks) :]
-                inps.append(inp)
+
+            ############################################################
+            # START: POCKET NETWORK CODE
+            ############################################################
+            if self.tokenizer is not None:
+                for context, _ in chunk:
+                    context_enc = self.tok_encode(context)
+                    inp = context_enc[-(self.max_length - self.max_gen_toks) :]
+                    inps.append(inp)
+            else:
+                # No chunking, hope for the best
+                for context, _ in chunk:
+                    inps.append(context)
+            ############################################################
+            # END: POCKET NETWORK CODE
+            ############################################################
+
             gen_kwargs = request_args
             until = None
             if isinstance(gen_kwargs, dict):
@@ -414,12 +450,20 @@ class PocketNetworkLM(TemplateLM):
                 raise ValueError(
                     f"Expected `kwargs` to be of type `dict` but got {gen_kwargs}"
                 )
-            # add EOS token to stop sequences
-            eos = self.tokenizer.decode(self.eot_token_id)
-            if not until:
-                until = [eos]
-            else:
-                until.append(eos)
+            ############################################################
+            # START: POCKET NETWORK CODE
+            ############################################################
+            if self.tokenizer is not None:
+                # add EOS token to stop sequences
+                eos = self.tokenizer.decode(self.eot_token_id)
+                if not until:
+                    until = [eos]
+                else:
+                    until.append(eos)
+            ############################################################
+            # END: POCKET NETWORK CODE
+            ############################################################
+
             request_args["temperature"] = request_args.get("temperature", 0)
             ############################################################
             # START: POCKET NETWORK CODE
@@ -450,8 +494,15 @@ class PocketNetworkLM(TemplateLM):
                 req_dict = request.to_dict(remove_fields=["prompt"])
                 # context is a string
                 req_dict["prompt"] = prompt_i
-                req_dict["ctxlen"] = len(prompt_i)
-                req_dict["context_enc"] = prompt_i
+
+                if self.tokenizer is not None:
+                    req_dict["ctxlen"] = len(prompt_i)
+                    req_dict["context_enc"] = prompt_i
+                else:
+                    # This is used later to calculate the timeout for the request,
+                    # we use an approximation from string to token
+                    req_dict["ctxlen"] = int(len(prompt_i.split(" ")) / 0.75)
+
                 req_i = CompletionRequest(**req_dict)
                 res.append(req_i)
             ############################################################
@@ -520,7 +571,7 @@ class PocketNetworkLM(TemplateLM):
 
 
 class EvaluatorLM(TemplateLM):
-    _DEFAULT_MAX_LENGTH = 4096
+    _DEFAULT_MAX_LENGTH = 8192
 
     def __init__(
         self,
@@ -636,7 +687,11 @@ class EvaluatorLM(TemplateLM):
 
         def _collate(x):
             toks = x[0][1]
-            return len(toks), x[0][0]
+            if toks is None:
+                feat = len(x[0][0])
+            else:
+                feat = len(toks)
+            return feat, x[0][0]
 
         re_ord = utils.Reorderer(requests, _collate)
 

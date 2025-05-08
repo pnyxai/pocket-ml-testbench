@@ -487,7 +487,7 @@ def main():
 
         # Create per-service tasks
         for chain_id in APPS_PER_SERVICE.keys():
-            print(f"Setting-up chain: {chain_id}")
+            print(f"Triggering signatures for {chain_id}:")
             # Schedule the tokenizer in this service ID
             ok = schedule_tokenizer_task(
                 chain_id, interval="2m", execution_timeout=120, task_timeout=120
@@ -517,6 +517,24 @@ def main():
                 print(f"\t\t{app}")
                 time.sleep(0.25)
         print("Signatures scheduled.")
+
+        # Create per-service tasks
+        for chain_id in APPS_PER_SERVICE.keys():
+            print(f"Triggering requesters for {chain_id} apps':")
+            for app in APPS_PER_SERVICE[chain_id]:
+                print(f"\t{app}")
+                # Schedule the requester using this app
+                ok = schedule_requester_task(
+                    app,
+                    chain_id,
+                    interval="1m",
+                    execution_timeout=350,
+                    task_timeout=175,
+                )
+                total_requesters += ok
+                print(f"\t\t{app}")
+                time.sleep(0.25)
+        print("Requesters scheduled.")
 
         # Create all tasks for all chains
         for task in all_tasks:

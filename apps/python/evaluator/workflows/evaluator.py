@@ -29,7 +29,7 @@ class Evaluator:
         )
 
         # Perform the corresponding evaluation
-        if framework == "lmeh":
+        if "lmeh" in framework:
             eval_OK, msg_str = await workflow.execute_activity(
                 lmeh_evaluate,
                 args,
