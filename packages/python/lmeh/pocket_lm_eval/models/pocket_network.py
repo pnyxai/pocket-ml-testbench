@@ -687,10 +687,12 @@ class EvaluatorLM(TemplateLM):
 
         def _collate(x):
             toks = x[0][1]
-            if toks is None:
-                feat = len(x[0][0])
-            else:
+            if toks is not None:
+                # Normal behavior of lmeh
                 feat = len(toks)
+            else:
+                # Not tokenized input available, we use prompt string length instead
+                feat = len(x[0][0])
             return feat, x[0][0]
 
         re_ord = utils.Reorderer(requests, _collate)
