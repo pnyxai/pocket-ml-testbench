@@ -195,6 +195,8 @@ func sendHttpRelay(
 
 	relayHTTPRequest.Header.Add("Content-Type", "application/json")
 
+	relayHTTPRequest.Header.Set("Expect", "")
+
 	httpClient := &http.Client{
 		Transport: &http.Transport{
 			ResponseHeaderTimeout: 0 * time.Second,
@@ -203,6 +205,8 @@ func sendHttpRelay(
 		},
 	}
 	relayHTTPResponse, err := httpClient.Do(relayHTTPRequest)
+
+	fmt.Println("Status:", relayHTTPResponse.Status)
 
 	// relayHTTPResponse, err := http.DefaultClient.Do(relayHTTPRequest)
 
