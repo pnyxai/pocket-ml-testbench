@@ -67,13 +67,10 @@ func SupliersInAppSession(session sessiontypes.Session, l *zerolog.Logger) ([]sd
 	return out, nil
 }
 
-// For a list of apps, return all the supplier addresses that are in session on each of the services, without repeating
-// TODO : It would be nice to change all this into a SDK version of `pocketd query supplier list-suppliers --chain-id <chainID>`
-func SupliersInSession(FullNode *LazyFullNode, Apps []string, ServiceIDs []string, l *zerolog.Logger) (map[string][]sdk.SupplierAddress, error) {
+// Get the session data and connected nodes for a list of apps and services
+func GetAllSessions(FullNode *LazyFullNode, Apps []string, ServiceIDs []string, failOnError bool, l *zerolog.Logger) ([]sessiontypes.Session, error) {
 
-	supplierSeen := make(map[string]map[sdk.SupplierAddress]bool)
-	uniqueSuppliers := make(map[string][]sdk.SupplierAddress, 0)
-
+	sessions := make([]sessiontypes.Session, 0)
 	// For all Apps
 	for _, thisApp := range Apps {
 		l.Debug().Str("thisApp", thisApp).Msg("Checking App:")
@@ -85,30 +82,56 @@ func SupliersInSession(FullNode *LazyFullNode, Apps []string, ServiceIDs []strin
 			appSession, err := FullNode.GetSession(types.ServiceID(thisService), thisApp)
 			if err != nil {
 				l.Debug().Msg("Failed to get session.")
-				return nil, err
-			}
-
-			// Get all suppliers here
-			appSupliers, err := SupliersInAppSession(appSession, l)
-			if err != nil {
-				l.Debug().Msg("Failed to get suppliers in session.")
-				return nil, err
-			}
-
-			// Add to list of unique
-			for _, thisSupplier := range appSupliers {
-				if _, ok := supplierSeen[thisService]; !ok {
-					supplierSeen[thisService] = make(map[sdk.SupplierAddress]bool)
-				}
-				if !supplierSeen[thisService][thisSupplier] {
-					supplierSeen[thisService][thisSupplier] = true
-					uniqueSuppliers[thisService] = append(uniqueSuppliers[thisService], thisSupplier)
-				} else {
-					l.Debug().Str("thisService", thisService).Str("thisSupplier", string(thisSupplier)).Msg("Duplicate supplier found.")
+				if failOnError {
+					return nil, err
 				}
 			}
 
+			sessions = append(sessions, appSession)
 		}
+	}
+	return sessions, nil
+}
+
+// For a list of apps, return all the supplier addresses that are in session on each of the services, without repeating
+// TODO : It would be nice to change all this into a SDK version of `pocketd query supplier list-suppliers --chain-id <chainID>`
+func SupliersInSession(FullNode *LazyFullNode, Apps []string, ServiceIDs []string, l *zerolog.Logger) (map[string][]sdk.SupplierAddress, error) {
+
+	supplierSeen := make(map[string]map[sdk.SupplierAddress]bool)
+	uniqueSuppliers := make(map[string][]sdk.SupplierAddress, 0)
+
+	// Get all sessions
+	allSessions, err := GetAllSessions(FullNode, Apps, ServiceIDs, true, l)
+	if err != nil {
+		return nil, err
+	}
+
+	// Process
+	for _, appSession := range allSessions {
+
+		// Recover the session ID
+		thisService := appSession.Header.ServiceId
+
+		// Get all suppliers here
+		appSupliers, err := SupliersInAppSession(appSession, l)
+		if err != nil {
+			l.Debug().Msg("Failed to get suppliers in session.")
+			return nil, err
+		}
+
+		// Add to list of unique
+		for _, thisSupplier := range appSupliers {
+			if _, ok := supplierSeen[thisService]; !ok {
+				supplierSeen[thisService] = make(map[sdk.SupplierAddress]bool)
+			}
+			if !supplierSeen[thisService][thisSupplier] {
+				supplierSeen[thisService][thisSupplier] = true
+				uniqueSuppliers[thisService] = append(uniqueSuppliers[thisService], thisSupplier)
+			} else {
+				l.Debug().Str("thisService", thisService).Str("thisSupplier", string(thisSupplier)).Msg("Duplicate supplier found.")
+			}
+		}
+
 	}
 
 	return uniqueSuppliers, nil

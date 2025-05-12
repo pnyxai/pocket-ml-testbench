@@ -1,6 +1,8 @@
 package types
 
-import "time"
+import (
+	"time"
+)
 
 type FullNodeConfig struct {
 	RpcURL     string     `json:"rpc_url"`
