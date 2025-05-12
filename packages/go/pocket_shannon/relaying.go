@@ -1,7 +1,6 @@
 package pocket_shannon
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"errors"
@@ -212,8 +211,15 @@ func sendHttpRelay(
 	}
 	defer relayHTTPResponse.Body.Close()
 
-	buf := bufio.NewReader(relayHTTPResponse.Body)
-	relayResponseBz, err = io.ReadAll(buf)
+	// buf := bufio.NewReader(relayHTTPResponse.Body)
+	// relayResponseBz, err = io.ReadAll(buf)
+
+	var buf bytes.Buffer
+	_, err = io.Copy(&buf, relayHTTPResponse.Body)
+	if err != nil {
+		return nil, fmt.Errorf("error copying response: %w", err)
+	}
+	relayResponseBz = buf.Bytes()
 
 	return
 
