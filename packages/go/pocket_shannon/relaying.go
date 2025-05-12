@@ -1,6 +1,7 @@
 package pocket_shannon
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"errors"
@@ -211,7 +212,12 @@ func sendHttpRelay(
 	}
 	defer relayHTTPResponse.Body.Close()
 
-	return io.ReadAll(relayHTTPResponse.Body)
+	buf := bufio.NewReader(relayHTTPResponse.Body)
+	relayResponseBz, err = io.ReadAll(buf)
+
+	return
+
+	// return io.ReadAll(relayHTTPResponse.Body)
 }
 
 func signRelayRequest(unsignedRelayReq *servicetypes.RelayRequest, app apptypes.Application, relayRequestSigner RelayRequestSigner) (*servicetypes.RelayRequest, error) {
