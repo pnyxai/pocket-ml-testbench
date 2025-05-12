@@ -197,9 +197,9 @@ func sendHttpRelay(
 
 	httpClient := &http.Client{
 		Transport: &http.Transport{
-			ResponseHeaderTimeout: 10 * time.Second,
-			TLSHandshakeTimeout:   10 * time.Second,
-			IdleConnTimeout:       90 * time.Second,
+			ResponseHeaderTimeout: 0 * time.Second,
+			TLSHandshakeTimeout:   0 * time.Second,
+			IdleConnTimeout:       0 * time.Second,
 		},
 	}
 	relayHTTPResponse, err := httpClient.Do(relayHTTPRequest)
