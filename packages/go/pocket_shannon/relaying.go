@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"time"
 
 	"packages/pocket_shannon/types"
 
@@ -194,7 +195,17 @@ func sendHttpRelay(
 
 	relayHTTPRequest.Header.Add("Content-Type", "application/json")
 
-	relayHTTPResponse, err := http.DefaultClient.Do(relayHTTPRequest)
+	httpClient := &http.Client{
+		Transport: &http.Transport{
+			ResponseHeaderTimeout: 10 * time.Second,
+			TLSHandshakeTimeout:   10 * time.Second,
+			IdleConnTimeout:       90 * time.Second,
+		},
+	}
+	relayHTTPResponse, err := httpClient.Do(relayHTTPRequest)
+
+	// relayHTTPResponse, err := http.DefaultClient.Do(relayHTTPRequest)
+
 	if err != nil {
 		return nil, err
 	}
