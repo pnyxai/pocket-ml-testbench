@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"time"
 
 	"packages/pocket_shannon/types"
 
@@ -195,39 +194,14 @@ func sendHttpRelay(
 
 	relayHTTPRequest.Header.Add("Content-Type", "application/json")
 
-	relayHTTPRequest.Header.Set("Expect", "")
-
-	httpClient := &http.Client{
-		Transport: &http.Transport{
-			ResponseHeaderTimeout: 0 * time.Second,
-			TLSHandshakeTimeout:   0 * time.Second,
-			IdleConnTimeout:       0 * time.Second,
-		},
-	}
-	relayHTTPResponse, err := httpClient.Do(relayHTTPRequest)
-
-	fmt.Println("Status:", relayHTTPResponse.Status)
-
-	// relayHTTPResponse, err := http.DefaultClient.Do(relayHTTPRequest)
+	relayHTTPResponse, err := http.DefaultClient.Do(relayHTTPRequest)
 
 	if err != nil {
 		return nil, fmt.Errorf("error sending relay: %w", err)
 	}
 	defer relayHTTPResponse.Body.Close()
 
-	// buf := bufio.NewReader(relayHTTPResponse.Body)
-	// relayResponseBz, err = io.ReadAll(buf)
-
-	var buf bytes.Buffer
-	_, err = io.Copy(&buf, relayHTTPResponse.Body)
-	if err != nil {
-		return nil, fmt.Errorf("error copying response: %w", err)
-	}
-	relayResponseBz = buf.Bytes()
-
-	return
-
-	// return io.ReadAll(relayHTTPResponse.Body)
+	return io.ReadAll(relayHTTPResponse.Body)
 }
 
 func signRelayRequest(unsignedRelayReq *servicetypes.RelayRequest, app apptypes.Application, relayRequestSigner RelayRequestSigner) (*servicetypes.RelayRequest, error) {
