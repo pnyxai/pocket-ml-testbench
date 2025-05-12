@@ -1,4 +1,4 @@
-module pocket_shannon
+module github.com/pnyxai/pocket-ml-testbench/packages/go/pocket_shannon
 
 go 1.24.1
 
