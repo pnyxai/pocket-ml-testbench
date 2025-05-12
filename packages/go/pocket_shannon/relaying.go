@@ -174,12 +174,12 @@ func sendHttpRelay(
 ) (relayResponseBz []byte, err error) {
 	_, err = url.Parse(supplierUrlStr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error parsing relay url: %w", err)
 	}
 
 	relayRequestBz, err := relayRequest.Marshal()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error marshaling relay request: %w", err)
 	}
 
 	relayHTTPRequest, err := http.NewRequestWithContext(
@@ -189,14 +189,15 @@ func sendHttpRelay(
 		io.NopCloser(bytes.NewReader(relayRequestBz)),
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error creating relay with context: %w", err)
 	}
 
 	relayHTTPRequest.Header.Add("Content-Type", "application/json")
 
 	relayHTTPResponse, err := http.DefaultClient.Do(relayHTTPRequest)
+
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error sending relay: %w", err)
 	}
 	defer relayHTTPResponse.Body.Close()
 
