@@ -49,6 +49,7 @@ const (
 	UnsignedRequestBuildError RelayErrorCode = 20
 	RequestSigningError       RelayErrorCode = 21
 	InvalidRelayError         RelayErrorCode = 22
+	ResponseSigningError      RelayErrorCode = 23
 )
 
 // RPCError represents error output from RPC request
@@ -110,8 +111,12 @@ func (s *RelayRequestSigner) SignRelayRequest(req *servicetypes.RelayRequest, ap
 	return req, nil
 }
 
-func SendRelay(payload types.Payload, selectedEndpoint Endpoint, serviceID types.ServiceID, fullNode LazyFullNode, relayRequestSigner RelayRequestSigner) (*servicetypes.RelayResponse, RPCError) {
-
+func BuildSignedRequest(
+	payload types.Payload,
+	selectedEndpoint Endpoint,
+	serviceID types.ServiceID,
+	relayRequestSigner RelayRequestSigner,
+) (*servicetypes.RelayRequest, RPCError) {
 	session := selectedEndpoint.GetSession()
 	if session.Application == nil {
 		errOut := RPCError{
@@ -140,9 +145,25 @@ func SendRelay(payload types.Payload, selectedEndpoint Endpoint, serviceID types
 		return nil, errOut
 	}
 
+	return signedRelayReq, RPCError{Code: 0, Message: "OK"}
+}
+
+func SendRelay(
+	payload types.Payload,
+	selectedEndpoint Endpoint,
+	serviceID types.ServiceID,
+	fullNode LazyFullNode,
+	relayRequestSigner RelayRequestSigner,
+) (*servicetypes.RelayResponse, RPCError) {
+	// Get signed request for relay miner
+	signedRelayReq, errOut := BuildSignedRequest(payload, selectedEndpoint, serviceID, relayRequestSigner)
+	if signedRelayReq == nil {
+		return nil, errOut
+	}
+
+	// Send the relay
 	ctxWithTimeout, cancelFn := context.WithTimeout(context.Background(), payload.Timeout)
 	defer cancelFn()
-
 	responseBz, err := sendHttpRelay(ctxWithTimeout, selectedEndpoint.PublicURL(), signedRelayReq)
 	if err != nil {
 		errOut := RPCError{
@@ -157,8 +178,8 @@ func SendRelay(payload types.Payload, selectedEndpoint Endpoint, serviceID types
 	if err != nil {
 
 		errOut := RPCError{
-			Code:    InvalidRelayError,
-			Message: fmt.Sprintf("relay: error verifying the relay response for app %s, endpoint %s: %w", app.Address, selectedEndpoint.PublicURL(), err),
+			Code:    ResponseSigningError,
+			Message: fmt.Sprintf("relay: error verifying the relay response, endpoint %s: %w", selectedEndpoint.PublicURL(), err),
 		}
 		return nil, errOut
 	}
