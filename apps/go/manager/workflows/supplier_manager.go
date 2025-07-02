@@ -33,44 +33,70 @@ func (wCtx *Ctx) SupplierManager(ctx workflow.Context, params types.SupplierMana
 	}
 
 	// -------------------------------------------------------------------------
-	// -------------------- Get all suppliers staked -------------------------------
+	// -------------------- Get suppliers --------------------------------------
 	// -------------------------------------------------------------------------
-	// Set timeout to get staked suppliers activity
-	ctxTimeout := workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
-		ScheduleToStartTimeout: time.Minute * 5,
-		StartToCloseTimeout:    time.Minute * 5,
-		RetryPolicy: &temporal.RetryPolicy{
-			InitialInterval:    time.Second * 5,
-			BackoffCoefficient: 2,
-			MaximumInterval:    time.Second * 32,
-			MaximumAttempts:    5,
-		},
-	})
-	// Set activity input
-	getStakedInput := types.GetStakedParams{
-		Service: params.Service,
-	}
-	// Results will be kept logged by temporal
-	var pocketNetworkData types.GetStakedResults
-	// Execute activity
-	err := workflow.ExecuteActivity(ctxTimeout, activities.GetStakedName, getStakedInput).Get(ctx, &pocketNetworkData)
-	if err != nil {
-		return &result, err
+	var suppliers []types.SupplierData
+	var currBlockData types.BlockData
+	if params.Service != types.ExternalServiceName {
+
+		// Set timeout to get staked suppliers activity
+		ctxTimeout := workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
+			ScheduleToStartTimeout: time.Minute * 5,
+			StartToCloseTimeout:    time.Minute * 5,
+			RetryPolicy: &temporal.RetryPolicy{
+				InitialInterval:    time.Second * 5,
+				BackoffCoefficient: 2,
+				MaximumInterval:    time.Second * 32,
+				MaximumAttempts:    5,
+			},
+		})
+		// Set activity input
+		getStakedInput := types.GetStakedParams{
+			Service: params.Service,
+		}
+		// Results will be kept logged by temporal
+		var pocketNetworkData types.GetStakedResults
+		// Execute activity
+		err := workflow.ExecuteActivity(ctxTimeout, activities.GetStakedName, getStakedInput).Get(ctx, &pocketNetworkData)
+		if err != nil {
+			return &result, err
+		}
+		// Assign
+		suppliers = pocketNetworkData.Suppliers
+		currBlockData = pocketNetworkData.Block
+
+	} else {
+		// This is an external service manage call, just read the config
+		suppliers = make([]types.SupplierData, 0, len(wCtx.App.ExternalSuppliers))
+		for _, thisAddr := range wCtx.App.ExternalSuppliers {
+			suppliers = append(suppliers, types.SupplierData{
+				Address: thisAddr,
+				Service: types.ExternalServiceName,
+			})
+		}
+		// Get latest block
+		currHeight, err := wCtx.App.PocketFullNode.GetLatestBlockHeight()
+		if err != nil {
+			l.Error().Str("service", params.Service).Msg("Could not retrieve latest block height.")
+			return nil, err
+		}
+		currBlockData = types.BlockData{
+			Height:           currHeight,
+			BlocksPerSession: wCtx.App.PocketBlocksPerSession,
+		}
 	}
 
 	// -------------------------------------------------------------------------
 	// -------------------- Analyze each supplier ------------------------------
 	// -------------------------------------------------------------------------
 	// Set timeout for supplier analysis activity
-	ctxTimeout = workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
+	ctxTimeout := workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
 		ScheduleToStartTimeout: time.Minute,
 		StartToCloseTimeout:    time.Minute,
 	})
 
 	selector := workflow.NewSelector(ctx)
 
-	// The channel requests are the suppliers data
-	suppliers := pocketNetworkData.Suppliers
 	// Define a channel to store SupplierAnalysisChanResponse objects
 	supplierAnalysisResultsChan := make(chan types.SupplierAnalysisChanResponse, len(suppliers))
 	// defer close lookup task results channel
@@ -79,7 +105,7 @@ func (wCtx *Ctx) SupplierManager(ctx workflow.Context, params types.SupplierMana
 	for _, supplier := range suppliers {
 		input := types.AnalyzeSupplierParams{
 			Supplier: supplier,
-			Block:    pocketNetworkData.Block,
+			Block:    currBlockData,
 			Tests:    params.Tests,
 		}
 		ltr := types.AnalyzeSupplierResults{}
@@ -91,9 +117,8 @@ func (wCtx *Ctx) SupplierManager(ctx workflow.Context, params types.SupplierMana
 			),
 			// Declare the function to execute on activity end
 			func(f workflow.Future) {
-				err1 := f.Get(ctx, &ltr)
-				if err1 != nil {
-					err = err1
+				err := f.Get(ctx, &ltr)
+				if err != nil {
 					return
 				}
 				// Fill the output channel
@@ -111,9 +136,6 @@ func (wCtx *Ctx) SupplierManager(ctx workflow.Context, params types.SupplierMana
 		// Each Future is matched only once independently on the number of Select calls.
 		// Ensure there is a call to process
 		selector.Select(ctx)
-		if err != nil {
-			return nil, err
-		}
 		// Retrieve the response from the channel
 		response := <-supplierAnalysisResultsChan
 		// Append to triggers
@@ -150,9 +172,8 @@ func (wCtx *Ctx) SupplierManager(ctx workflow.Context, params types.SupplierMana
 			),
 			// Declare the function to execute on activity end
 			func(f workflow.Future) {
-				err1 := f.Get(ctx, &ltr)
-				if err1 != nil {
-					err = err1
+				err := f.Get(ctx, &ltr)
+				if err != nil {
 					return
 				}
 				// Fill the output channel
@@ -163,9 +184,6 @@ func (wCtx *Ctx) SupplierManager(ctx workflow.Context, params types.SupplierMana
 
 	for i := 0; i < len(allTriggers); i++ {
 		selector.Select(ctx)
-		if err != nil {
-			return nil, err
-		}
 		// Retrieve the response from the channel
 		response := <-taskTriggerResultsChan
 		// Keep count

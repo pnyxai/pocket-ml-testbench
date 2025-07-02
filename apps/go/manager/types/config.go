@@ -233,6 +233,7 @@ type Config struct {
 	PocketBlocksPerSession int64                      `json:"pocket_blocks_per_session"`
 	Apps                   map[string]string          `json:"pocket_apps"`
 	Services               []string                   `json:"pocket_services"`
+	ExternalSuppliers      []string                   `json:"external_suppliers"`
 }
 
 type FrameworkConfig struct {

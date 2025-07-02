@@ -1,12 +1,16 @@
 package activities
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
 	"packages/logger"
 	"packages/mongodb"
 	"requester/types"
+	"strings"
 	"time"
 
 	"packages/pocket_shannon"
@@ -203,85 +207,159 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 	response.Height = height
 	currentSessionHeight := GetCurrentSession(height, params.BlocksPerSession)
 
-	// Verify if the relay is able to be dispatched base on the current session height (calculated by the height) and
-	// the session height in the params. Also, contemplate the session tolerance, basically how many sessions out it will
-	// anyway try to dispatch the relay.
-	if !CanHandleRelayWithinTolerance(currentSessionHeight, params.SessionHeight, params.BlocksPerSession, aCtx.App.Config.Relay.SessionTolerance) {
-		err := temporal.NewNonRetryableApplicationError("out of session", "OutOfSession", nil)
-		response.SetError(RelayResponseCodes.OutOfSession, err)
-		return
-	}
+	// -------------------------------------------------------------------------
+	// -------------------------------------------------------------------------
+	// Now we will relay using a given method
+	// -------------------------------------------------------------------------
+	// -------------------------------------------------------------------------
+	var statusCode int
+	var responseString string
+	if strings.HasPrefix(params.SupplierAddress, types.ExternalSupplierIdentifier) {
+		// -------------------------------------------------------------------------
+		// EXTERNAL
+		// -------------------------------------------------------------------------
+		// Send and external relay using the provided config for this supplier
 
-	// Create a signer
-	signerApp := pocket_shannon.RelayRequestSigner{
-		AccountClient: *aCtx.App.PocketFullNode.GetAccountClient(),
-		PrivateKeyHex: aCtx.App.PocketApps[params.AppAddress],
-	}
-
-	// Build the payload
-	thisPayload := shannon_types.Payload{
-		Data:    prompt.Data,
-		Method:  prompt.Task.RequesterArgs.Method,
-		Path:    prompt.Task.RequesterArgs.Path,
-		Timeout: prompt.GetTimeoutDuration() * time.Duration(RelayRetries+1),
-	}
-
-	// Send the relay
-	startTime := time.Now()
-	relay, relayErr := pocket_shannon.SendRelay(thisPayload,
-		params.TargetEndpoint,
-		shannon_types.ServiceID(params.Service),
-		*aCtx.App.PocketFullNode,
-		signerApp)
-	response.Ms = time.Since(startTime).Milliseconds()
-
-	if relay == nil {
-		// An error occurred
-		// not an rpc error
-		response.Ok = false
-		response.Error = relayErr.Message
-
-		switch relayErr.Code {
-		case pocket_shannon.InvalidSessionError:
-			response.Code = RelayResponseCodes.OutOfSession
-		case pocket_shannon.HTTPExecutionError:
-			response.Code = RelayResponseCodes.Relay
-		case pocket_shannon.UnsignedRequestBuildError:
-			response.Code = RelayResponseCodes.Relay
-		case pocket_shannon.RequestSigningError:
-			response.Code = RelayResponseCodes.SignerError
-		case pocket_shannon.InvalidRelayError:
-			response.Code = RelayResponseCodes.AATSignature
-		default:
-			response.Code = RelayResponseCodes.Relay
+		// Retrieve supplier data
+		supplierData, ok := aCtx.App.ExternalSuppliers[params.SupplierAddress]
+		if !ok {
+			err := temporal.NewApplicationErrorWithCause("cannot retrieve external supplier data", "BadParams", nil, params.SupplierAddress)
+			response.SetError(RelayResponseCodes.PocketRpc, err)
+			return
 		}
 
-	} else {
-		// Get backend response
-		relayResponse, errDeserialize := pocket_shannon.DeserializeRelayResponse(relay.Payload)
-		if errDeserialize != nil {
+		// Define the endpoint with the target path
+		endURL := params.TargetEndpoint.Url + prompt.Task.RequesterArgs.Path
+		// Create a new request with the url, method and body
+		newReq, err := http.NewRequest(prompt.Task.RequesterArgs.Method, endURL, bytes.NewBuffer([]byte(prompt.Data)))
+		if err != nil {
+			response.Ok = false
+			response.Code = RelayResponseCodes.Relay
+			response.Error = fmt.Sprintf("cannot create new http request for external provider: %w", err)
+			return
+		}
+		// Add the needed headers
+		for headerName, headerContent := range supplierData.Headers {
+			newReq.Header.Set(headerName, headerContent)
+		}
+		// Do the relay
+		startTime := time.Now()
+		resp, err := aCtx.App.ExternalHttpClient.Do(newReq)
+		if err != nil {
+			response.Ok = false
+			response.Code = RelayResponseCodes.Relay
+			response.Error = fmt.Sprintf("unable to send the new request: %w", err)
+			return
+		}
+		defer resp.Body.Close()
+
+		// Get the response
+		respBody, err := io.ReadAll(resp.Body)
+		response.Ms = time.Since(startTime).Milliseconds()
+		if err != nil {
 			response.Code = RelayResponseCodes.Supplier
-			response.Error = fmt.Sprintf("Error unmarshalling endpoint response into a POKTHTTP response: %w", errDeserialize)
+			response.Error = fmt.Sprintf("unable to copy the response body: %w", err)
+			return
 		}
 		// Decode and assign
-		response.Response = string(relayResponse.Bytes)
+		statusCode = resp.StatusCode
+		responseString = string(respBody)
 
-		// Analyze response
-		response.Ok = true
-		if relayResponse.HTTPStatusCode == 200 {
-			// All ok
-			response.Code = RelayResponseCodes.Ok
-			response.Error = ""
-		} else if relayResponse.HTTPStatusCode >= 400 && relayResponse.HTTPStatusCode < 500 {
-			// Client error
-			response.Code = RelayResponseCodes.BadParams
-			response.Error = response.Response
+	} else {
+		// -------------------------------------------------------------------------
+		// POKT NETWORK
+		// -------------------------------------------------------------------------
+		// Send a POKT Network relay
+
+		// Verify if the relay is able to be dispatched base on the current session height (calculated by the height) and
+		// the session height in the params. Also, contemplate the session tolerance, basically how many sessions out it will
+		// anyway try to dispatch the relay.
+		if !CanHandleRelayWithinTolerance(currentSessionHeight, params.SessionHeight, params.BlocksPerSession, aCtx.App.Config.Relay.SessionTolerance) {
+			err := temporal.NewNonRetryableApplicationError("out of session", "OutOfSession", nil)
+			response.SetError(RelayResponseCodes.OutOfSession, err)
+			return
+		}
+
+		// Create a signer
+		signerApp := pocket_shannon.RelayRequestSigner{
+			AccountClient: *aCtx.App.PocketFullNode.GetAccountClient(),
+			PrivateKeyHex: aCtx.App.PocketApps[params.AppAddress],
+		}
+
+		// Build the payload
+		thisPayload := shannon_types.Payload{
+			Data:    prompt.Data,
+			Method:  prompt.Task.RequesterArgs.Method,
+			Path:    prompt.Task.RequesterArgs.Path,
+			Timeout: prompt.GetTimeoutDuration() * time.Duration(RelayRetries+1),
+		}
+
+		// Send the relay
+		startTime := time.Now()
+		relay, relayErr := pocket_shannon.SendRelay(thisPayload,
+			params.TargetEndpoint,
+			shannon_types.ServiceID(params.Service),
+			*aCtx.App.PocketFullNode,
+			signerApp)
+
+		if relay == nil {
+			// An error occurred
+			// not an rpc error
+			response.Ok = false
+			response.Error = relayErr.Message
+			response.Ms = time.Since(startTime).Milliseconds()
+
+			switch relayErr.Code {
+			case pocket_shannon.InvalidSessionError:
+				response.Code = RelayResponseCodes.OutOfSession
+			case pocket_shannon.HTTPExecutionError:
+				response.Code = RelayResponseCodes.Relay
+			case pocket_shannon.UnsignedRequestBuildError:
+				response.Code = RelayResponseCodes.Relay
+			case pocket_shannon.RequestSigningError:
+				response.Code = RelayResponseCodes.SignerError
+			case pocket_shannon.InvalidRelayError:
+				response.Code = RelayResponseCodes.AATSignature
+			default:
+				response.Code = RelayResponseCodes.Relay
+			}
 
 		} else {
-			// Some other error of the supplier
-			response.Code = RelayResponseCodes.Supplier
-			response.Error = response.Response
+			// Get backend response
+			relayResponse, errDeserialize := pocket_shannon.DeserializeRelayResponse(relay.Payload)
+			if errDeserialize != nil {
+				response.Ok = false
+				response.Code = RelayResponseCodes.Supplier
+				response.Error = fmt.Sprintf("Error unmarshalling endpoint response into a POKTHTTP response: %w", errDeserialize)
+				return
+			}
+			// Decode and assign
+			statusCode = relayResponse.HTTPStatusCode
+			responseString = string(relayResponse.Bytes)
+			response.Ms = time.Since(startTime).Milliseconds()
 		}
+	}
+
+	// Analyze successful response
+	response.Ok = true
+	response.Response = responseString
+	if statusCode == 200 {
+		// All ok
+		response.Code = RelayResponseCodes.Ok
+		response.Error = ""
+	} else if statusCode > 200 && statusCode < 300 {
+		// Non 200 success?
+		response.Code = RelayResponseCodes.Ok
+		response.Error = "non 200 success"
+	} else if statusCode >= 400 && statusCode < 500 {
+		// Client error
+		response.Code = RelayResponseCodes.BadParams
+		response.Error = response.Response
+
+	} else {
+		// Some other error of the supplier
+		response.Code = RelayResponseCodes.Supplier
+		response.Error = response.Response
 	}
 
 	return

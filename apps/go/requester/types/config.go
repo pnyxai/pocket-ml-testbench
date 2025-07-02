@@ -269,14 +269,15 @@ type RelayConfig struct {
 }
 
 type Config struct {
-	MongodbUri             string                   `json:"mongodb_uri"`
-	PocketRpc              string                   `json:"pocket_rpc_url"`
-	PocketGrpc             shannon_types.GRPCConfig `json:"pocket_grpc_config"`
-	PocketBlocksPerSession int64                    `json:"pocket_blocks_per_session"`
-	Apps                   map[string]string        `json:"pocket_apps"`
-	Relay                  *RelayConfig             `json:"relay"`
-	LogLevel               string                   `json:"log_level"`
-	Temporal               *TemporalConfig          `json:"temporal"`
+	MongodbUri             string                          `json:"mongodb_uri"`
+	PocketRpc              string                          `json:"pocket_rpc_url"`
+	PocketGrpc             shannon_types.GRPCConfig        `json:"pocket_grpc_config"`
+	PocketBlocksPerSession int64                           `json:"pocket_blocks_per_session"`
+	Apps                   map[string]string               `json:"pocket_apps"`
+	Relay                  *RelayConfig                    `json:"relay"`
+	LogLevel               string                          `json:"log_level"`
+	Temporal               *TemporalConfig                 `json:"temporal"`
+	ExternalSuppliers      map[string]ExternalSupplierData `json:"external_suppliers"`
 }
 
 // UnmarshalJSON implement the Unmarshaler interface on Config

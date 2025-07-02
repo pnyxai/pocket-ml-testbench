@@ -38,5 +38,14 @@
       "workflow_name": "evaluator",
       "task_queue": "evaluator"
     }
+  },
+  "external_suppliers" : {
+    "external_some_name" : {
+      "endpoint" : "https://some.endpoint", 
+      "headers" : {
+        "authorization" : "some string",
+        "random" : "header data"
+      }
+    }
   }
 }
