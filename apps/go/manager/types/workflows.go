@@ -8,9 +8,8 @@ type TestsData struct {
 }
 
 type SupplierManagerParams struct {
-	Service       string      `json:"service"`
-	SessionHeight int64       `json:"session_height"`
-	Tests         []TestsData `json:"tests"`
+	Service string      `json:"service"`
+	Tests   []TestsData `json:"tests"`
 }
 
 type SupplierManagerResults struct {

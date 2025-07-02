@@ -1,6 +1,7 @@
 package types
 
 import (
+	"net/http"
 	"packages/mongodb"
 
 	"github.com/rs/zerolog"
@@ -17,4 +18,6 @@ type App struct {
 	PocketApps             map[string]string
 	PocketBlocksPerSession int64
 	Mongodb                mongodb.MongoDb
+	ExternalSuppliers      map[string]ExternalSupplierData
+	ExternalHttpClient     *http.Client
 }

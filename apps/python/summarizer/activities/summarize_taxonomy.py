@@ -54,7 +54,7 @@ async def summarize_taxonomy(
             continue
         for dataset in taxonomy_graph.nodes[node]["datasets"]:
             # Get data for this node and dataset
-            framework = "lmeh"  # TODO : Remove hardcode
+            framework = "lmeh-generative"  # TODO : Remove hardcode
             try:
                 docs = await mongo_operator.get_supplier_results_for_task(
                     ObjectId(args.supplier_id), framework, dataset

@@ -14,6 +14,7 @@ import (
 	"packages/pocket_shannon"
 	shannon_types "packages/pocket_shannon/types"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -72,6 +73,15 @@ func Initialize() *types.App {
 	// initialize logger
 	l := InitLogger(cfg)
 
+	// Check external suppliers
+	for _, extAddr := range cfg.ExternalSuppliers {
+		// Check if external supplier name is valid
+		if !strings.HasPrefix(extAddr, types.ExternalSupplierIdentifier) {
+			err := fmt.Errorf("Invalid external supplier name")
+			l.Fatal().Err(err).Str("extAddr", extAddr)
+		}
+	}
+
 	// initialize mongodb
 	m := mongodb.NewClient(cfg.MongodbUri, []string{
 		types.TaskCollection,
@@ -112,7 +122,7 @@ func Initialize() *types.App {
 		l.Info().Str("onchainApp Address", onchainApp.Address).Msg("Found app.")
 	}
 
-	// Create a temportal client for triggering
+	// Create a temporal client for triggering
 	temporalClientOptions := client.Options{
 		HostPort:  fmt.Sprintf("%s:%d", cfg.Temporal.Host, cfg.Temporal.Port),
 		Namespace: cfg.Temporal.Namespace,
@@ -138,6 +148,7 @@ func Initialize() *types.App {
 		PocketBlocksPerSession: cfg.PocketBlocksPerSession,
 		Mongodb:                m,
 		TemporalClient:         temporalClient,
+		ExternalSuppliers:      cfg.ExternalSuppliers,
 	}
 
 	// set this to workflows and activities to avoid use of context.Context

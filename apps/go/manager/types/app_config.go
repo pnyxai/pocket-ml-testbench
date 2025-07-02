@@ -17,4 +17,5 @@ type App struct {
 	PocketServices         []string
 	PocketBlocksPerSession int64
 	TemporalClient         client.Client
+	ExternalSuppliers      []string
 }

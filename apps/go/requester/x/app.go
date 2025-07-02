@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"packages/logger"
 	"packages/mongodb"
@@ -12,6 +13,7 @@ import (
 	"requester/activities"
 	"requester/types"
 	"requester/workflows"
+	"strings"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -70,6 +72,16 @@ func Initialize() *types.App {
 	cfg := LoadConfigFile()
 	// initialize logger
 	l := InitLogger(cfg)
+
+	// Check external suppliers
+	for extAddr, _ := range cfg.ExternalSuppliers {
+		// Check if external supplier name is valid
+		if !strings.HasPrefix(extAddr, types.ExternalSupplierIdentifier) {
+			err := fmt.Errorf("Invalid external supplier name")
+			l.Fatal().Err(err).Str("extAddr", extAddr)
+		}
+	}
+
 	// initialize mongodb
 	m := mongodb.NewClient(cfg.MongodbUri, []string{
 		types.TaskCollection,
@@ -128,6 +140,10 @@ func Initialize() *types.App {
 		PocketBlocksPerSession: cfg.PocketBlocksPerSession,
 		Mongodb:                m,
 		TemporalClient:         temporalClient,
+		ExternalSuppliers:      cfg.ExternalSuppliers,
+		ExternalHttpClient: &http.Client{
+			Timeout: time.Second * 6000,
+		},
 	}
 
 	// set this to workflows and activities to avoid use of context.Context
