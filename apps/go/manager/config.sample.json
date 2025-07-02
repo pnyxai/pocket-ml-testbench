@@ -52,6 +52,6 @@
       "schedule_limits": {"any" : "1:session"},
       "trigger_minimum": {"tokenizer" : "1", "config" : "1"}
     }
-  }
-
+  },
+  "external_suppliers" : ["external_some_name"]
 }
