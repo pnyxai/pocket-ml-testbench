@@ -7,12 +7,11 @@ fewshot_config:
   sampler: first_n
 output_type: generate_until
 doc_to_text: "Passage: {{passage}}Question: {{question}}\nAnswer:"
-doc_to_target: "{{answer}}"
+doc_to_target: " {{answer}}"
 generation_kwargs:
   until:
     - "\n"
     - "Passage:"
-    - "</s>"
 metric_list:
   - metric: exact_match
     aggregation: mean

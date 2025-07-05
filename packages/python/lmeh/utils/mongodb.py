@@ -20,6 +20,8 @@ from packages.python.lmeh.utils.mongo_aggrs import (
 from packages.python.protocol.protocol import (
     CompletionRequest,
     CompletionResponse,
+    ChatCompletionRequest,
+    ChatCompletionResponse,
     PocketNetworkMongoDBPrompt,
     PocketNetworkMongoDBResultBase,
     PocketNetworkMongoDBResultNumerical,
@@ -29,6 +31,17 @@ from packages.python.protocol.protocol import (
 eval_logger = get_app_logger("sample")
 evaluation_logger = get_app_logger("evaluation")
 summarization_logger = get_app_logger("summarize_taxonomy")
+
+# Mapping of request and response types based on the API path
+request_mapping: dict = {
+    "/v1/completions": CompletionRequest,
+    "/v1/chat/completions": ChatCompletionRequest,
+}
+
+response_mapping: dict = {
+    "/v1/completions": CompletionResponse,
+    "/v1/chat/completions": ChatCompletionResponse,
+}
 
 
 class MongoOperator:
@@ -96,6 +109,18 @@ class MongoOperator:
         instance_mongo["task_id"] = task_id
         instance_mongo["_id"] = ObjectId()
         instance_mongo["done"] = False
+
+        # Flatten arguments structure to match expected Instance.args format
+        # ref: lm-eval/docs/model_guide.md
+        if isinstance(instance_mongo["arguments"], tuple):
+            flattened_args = []
+            for arg in instance_mongo["arguments"]:
+                # Recursively flatten nested lists/tuples until we get to the actual content
+                while isinstance(arg, (list, tuple)) and len(arg) == 1:
+                    arg = arg[0]
+                flattened_args.append(arg)
+            instance_mongo["arguments"] = flattened_args
+
         return instance_mongo
 
     async def get_supplier_id(self, address: str, service: str) -> str:
@@ -364,9 +389,11 @@ class MongoOperator:
         return result
 
     async def reconstruct_instances(
-        self, task_id: ObjectId, eval_logger: logging.Logger
+        self, task_id: ObjectId, eval_logger: logging.Logger, path: str
     ) -> List[Instance]:
         result = await self.retrieve_responses(task_id)
+        req_class = request_mapping.get(path, None)
+        resp_class = response_mapping.get(path, None)
 
         valid_fields = {field.name for field in Instance.__dataclass_fields__.values()}
         instances = []
@@ -409,6 +436,11 @@ class MongoOperator:
             }
             instance = Instance(**instance_dict)
             instance.repeats = 1  # to avoid double evaluation for each instance
+            # NOTE(nicolas) :
+            # Convert the list back to tuple for proper args property access
+            # see instance_to_dict to undo serialization issues.
+            if isinstance(instance.arguments, list):
+                instance.arguments = tuple(instance.arguments)
             p["id"] = deepcopy(p["_id"])
             p.pop("_id")
             instance.prompt = PocketNetworkMongoDBPrompt(**p)
@@ -427,14 +459,16 @@ class MongoOperator:
                     {"id": i["doc_id"], "code": 11, "error": error_str}
                 )
                 continue
-            instance.prompt.data = CompletionRequest(**request_data)
+            instance.prompt.data = req_class(**request_data)
 
             try:
                 r["response_time"] = ms
-                instance.resp = CompletionResponse(**r)
+                # NOTE (nicolas): the attribute `resp` is used as a placeholder.
+                # resps will populate `resps` accordingly when  `resps = getattr(lm, reqtype)(cloned_reqs)` is called
+                instance.resp = resp_class(**r)
             except Exception as e:
                 remove_doc_ids.add(i["doc_id"])
-                error_str = "Bad JSON CompletionResponse format"
+                error_str = f"Bad JSON {type(resp_class)} format"
                 eval_logger.debug(  # This is rather common if we cannot control the supply.
                     error_str,
                     response=r,

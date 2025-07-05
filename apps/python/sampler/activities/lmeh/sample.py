@@ -3,7 +3,11 @@ from app.app import get_app_config, get_app_logger
 from temporalio import activity
 from temporalio.exceptions import ApplicationError
 
-from packages.python.lmeh.pocket_lm_eval.models.pocket_network import PocketNetworkLM
+from lm_eval.utils import simple_parse_args_string
+from packages.python.lmeh.pocket_lm_eval.models.pocket_network import (
+    SamplerCompletionAPI,
+    SamplerChatCompletionAPI,
+)
 from packages.python.lmeh.pocket_lm_eval.tasks import TASK_MANAGER_SAMPLE_STAGE
 from packages.python.lmeh.utils import generator as lmeh_generator
 from packages.python.lmeh.utils import sql as lmeh_sql
@@ -87,6 +91,18 @@ async def lmeh_sample(args: PocketNetworkTaskRequest) -> bool:
             f"Using additional tasks from : {include_path}",
         )
 
+    metadata = (
+        simple_parse_args_string(args.llm_args)
+        if isinstance(args.llm_args, str)
+        else args.llm_args
+        if isinstance(args.llm_args, dict)
+        else {}
+        # ) | (
+        #     args.metadata
+        #     if isinstance(args.metadata, dict)
+        #     else simple_parse_args_string(args.metadata)
+    )
+
     eval_logger.debug("Acquiring Postgres Connection from pool")
     async with app_config["postgres"].acquire() as conn:
         async with conn.transaction():
@@ -94,8 +110,9 @@ async def lmeh_sample(args: PocketNetworkTaskRequest) -> bool:
                 tasks=args.tasks,
                 include_path=include_path,
                 verbosity=str(args.verbosity),
-                logger=eval_logger,
                 postgres_conn=conn,
+                logger=eval_logger,
+                metadata=metadata,
                 pocket_args=args,
                 stage=TASK_MANAGER_SAMPLE_STAGE,
             )
@@ -111,19 +128,46 @@ async def lmeh_sample(args: PocketNetworkTaskRequest) -> bool:
                         non_retryable=True,
                     )
 
-                # generate configurable tasks
+                # Generate configurable tasks
                 try:
+                    # Loading task config and updating args when needed
                     open_llm_cfg = open_llm_config.get_task_config(task_name)
-                    args.num_fewshot = open_llm_cfg["num_fewshot"]
+                    if "num_fewshot" in open_llm_cfg:
+                        args.num_fewshot = open_llm_cfg["num_fewshot"]
+                    if "system_instruction" in open_llm_cfg:
+                        args.system_instruction = open_llm_cfg["system_instruction"]
+                    if "apply_chat_template" in open_llm_cfg:
+                        args.apply_chat_template = open_llm_cfg["apply_chat_template"]
+                    if "fewshot_as_multiturn" in open_llm_cfg:
+                        args.fewshot_as_multiturn = open_llm_cfg["fewshot_as_multiturn"]
+                    if "gen_kwargs" in open_llm_cfg:
+                        args.gen_kwargs = open_llm_cfg["gen_kwargs"]
+                    if "path" in open_llm_cfg:
+                        args.requester_args.path = open_llm_cfg["path"]
+                    # Validate if fewshot_as_multiturn and apply_chat_template are set correctly
+                    if args.fewshot_as_multiturn and args.apply_chat_template is False:
+                        eval_logger.error(
+                            "When `fewshot_as_multiturn` is selected, `apply_chat_template` must be set (either to `True` or to the chosen template name).",
+                            task_name=task_name,
+                            fewshot_as_multiturn=args.fewshot_as_multiturn,
+                            apply_chat_template=args.apply_chat_template,
+                        )
+                        raise ApplicationError(
+                            "When `fewshot_as_multiturn` is selected, `apply_chat_template` must be set (either to `True` or to the chosen template name).",
+                            type="BadParams",
+                            non_retryable=True,
+                        )
+                    # Now all the args are set, we can generate the task dict with ConfigurableTask
                     task_dict = lmeh_generator.get_configurable_task(
                         tasks=[task_name],
                         num_fewshot=args.num_fewshot,
                         check_integrity=False,
-                        gen_kwargs=None,
+                        gen_kwargs=args.gen_kwargs,
                         task_manager=task_manager,
                         verbosity=str(args.verbosity),
                         predict_only=False,
                         eval_logger=eval_logger,
+                        metadata=metadata,
                     )
                 except ApplicationError as e:
                     raise e
@@ -177,14 +221,43 @@ async def lmeh_sample(args: PocketNetworkTaskRequest) -> bool:
 
                 datasets.config.HF_DATASETS_TRUST_REMOTE_CODE = True
 
-                args.llm_args["trust_remote_code"] = True
-                lm = PocketNetworkLM(
-                    requester_args=args.requester_args,
-                    mongo_client=mongo_client,
-                    wf_id=wf_id,
-                    **args.llm_args,
-                )
+                # LM Setup
+                if isinstance(args.llm_args, dict):
+                    args.llm_args["trust_remote_code"] = True
+                else:
+                    args.llm_args = args.llm_args + ",trust_remote_code=True"
 
+                # NOTE (Nicolas): Let's fullfill here the tokenized_requests and tokenizer_backend args
+                # based on the output_type of the task.
+                if task_dict[task_name].get_config("output_type") == "generate_until":
+                    args.llm_args["tokenized_requests"] = False
+                    args.llm_args["tokenizer_backend"] = None
+                elif task_dict[task_name].get_config("output_type") == "loglikelihood":
+                    args.llm_args["tokenized_requests"] = True
+                    args.llm_args["tokenizer_backend"] = "huggingface"
+
+                if args.requester_args.path == "/v1/completions":
+                    lm = SamplerCompletionAPI(
+                        requester_args=args.requester_args,
+                        mongo_client=mongo_client,
+                        wf_id=wf_id,
+                        **args.llm_args,
+                    )
+                elif args.requester_args.path == "/v1/chat/completions":
+                    lm = SamplerChatCompletionAPI(
+                        requester_args=args.requester_args,
+                        mongo_client=mongo_client,
+                        wf_id=wf_id,
+                        **args.llm_args,
+                    )
+                # LM Setup (end)
+                else:
+                    raise ApplicationError(
+                        "Unsupported path for LLM API",
+                        args.requester_args.path,
+                        type="UnsupportedPath",
+                        non_retryable=True,
+                    )
                 # first try to load tokenizer then pass it to be used
                 ok = await lm.load_tokenizer()
                 if (
@@ -201,6 +274,10 @@ async def lmeh_sample(args: PocketNetworkTaskRequest) -> bool:
                             task_dict=task_dict,
                             mongo_client=mongo_client,
                             args=args,
+                            system_instruction=args.system_instruction,
+                            apply_chat_template=args.apply_chat_template,
+                            fewshot_as_multiturn=args.fewshot_as_multiturn,
+                            confirm_run_unsafe_code=args.confirm_run_unsafe_code,
                             eval_logger=eval_logger,
                             timeout_handler=timeout_handler,
                         )

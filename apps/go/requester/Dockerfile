@@ -1,7 +1,7 @@
 # Use the official Golang image to create a build artifact.
 # This is based on Debian and sets the GOPATH to /go.
 # https://hub.docker.com/_/golang
-FROM golang:1.24.3-alpine as builder
+FROM golang:1.24.4-alpine as builder
 
 # Create and change to the app directory.
 WORKDIR /code

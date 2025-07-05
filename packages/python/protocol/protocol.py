@@ -1,10 +1,28 @@
 import time
 import uuid
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Literal, Optional, Union
+from typing import Any, ClassVar, Callable, Dict, List, Literal, Optional, Union
+from collections.abc import Iterable
+from dataclasses import dataclass
 
 from bson import ObjectId
+from openai.types.chat import ChatCompletionContentPartInputAudioParam
+from openai.types.chat import (
+    ChatCompletionContentPartParam as OpenAIChatCompletionContentPartParam,
+)
+from openai.types.chat import ChatCompletionContentPartRefusalParam
+from openai.types.chat import (
+    ChatCompletionMessageParam as OpenAIChatCompletionMessageParam,
+)
+from openai.types.chat import ChatCompletionMessageToolCallParam
+
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+# pydantic needs the TypedDict from typing_extensions
+from typing_extensions import Required, TypeAlias, TypedDict
+
+_LONG_INFO_min = -9223372036854775808  # from torch.iinfo(torch.long).min,
+_LONG_INFO_max = 9223372036854775807  # from torch.iinfo(torch.long).max)
 
 
 ######################
@@ -23,7 +41,7 @@ class RequesterArgs(BaseModel):
     address: str
     service: str
     method: str = "POST"
-    path: str = "/v1/completions"
+    path: str = "/v1/chat/completions"
     headers: Optional[Dict] = {"Content-Type": "application/json"}
 
 
@@ -39,11 +57,12 @@ class PocketNetworkTaskRequest(PocketNetworkRegisterTaskRequest):
     num_fewshot: Optional[int] = Field(
         None, ge=0
     )  # TODO : Remove: This is LLM specific, move to agnostic format.
-    gen_kwargs: Optional[str] = None
+    gen_kwargs: Optional[Union[str, dict]] = None
     bootstrap_iters: Optional[int] = 100000
     system_instruction: Optional[str] = None
-    apply_chat_template: Optional[bool] = False
-    fewshot_as_multiturn: Optional[bool] = False
+    apply_chat_template: Optional[bool] = True
+    fewshot_as_multiturn: Optional[bool] = True
+    confirm_run_unsafe_code: Optional[bool] = False
 
     @model_validator(mode="after")
     def verify_qty_or_doc_ids(self):
@@ -56,6 +75,15 @@ class PocketNetworkTaskRequest(PocketNetworkRegisterTaskRequest):
         if self.qty < 0:
             self.blacklist = []
             self.doc_ids = None
+        return self
+
+    @model_validator(mode="after")
+    # "When `fewshot_as_multiturn` is selected, `apply_chat_template` must be set (either to `True` or to the chosen template name)."
+    def verify_fewshot_as_multiturn(self):
+        if self.fewshot_as_multiturn and self.apply_chat_template is False:
+            raise ValueError(
+                "When `fewshot_as_multiturn` is selected, `apply_chat_template` must be set (either to `True` or to the chosen template name)."
+            )
         return self
 
     # TODO: Fix this, problem between pydantic and temporalio
@@ -86,29 +114,86 @@ class OpenAIBaseModel(BaseModel):
     model_config = ConfigDict(extra="allow")
 
 
+class JsonSchemaResponseFormat(OpenAIBaseModel):
+    name: str
+    description: Optional[str] = None
+    # schema is the field in openai but that causes conflicts with pydantic so
+    # instead use json_schema with an alias
+    json_schema: Optional[dict[str, Any]] = Field(default=None, alias="schema")
+    strict: Optional[bool] = None
+
+
+class StructuralTag(OpenAIBaseModel):
+    begin: str
+    # schema is the field, but that causes conflicts with pydantic so
+    # instead use structural_tag_schema with an alias
+    structural_tag_schema: Optional[dict[str, Any]] = Field(
+        default=None, alias="schema"
+    )
+    end: str
+
+
+class StructuralTagResponseFormat(OpenAIBaseModel):
+    type: Literal["structural_tag"]
+    structures: list[StructuralTag]
+    triggers: list[str]
+
+
+class ResponseFormat(OpenAIBaseModel):
+    # type must be "json_schema", "json_object", or "text"
+    type: Literal["text", "json_object", "json_schema"]
+    json_schema: Optional[JsonSchemaResponseFormat] = None
+
+
+AnyResponseFormat = Union[ResponseFormat, StructuralTagResponseFormat]
+
+
+class StreamOptions(OpenAIBaseModel):
+    include_usage: Optional[bool] = True
+    continuous_usage_stats: Optional[bool] = False
+
+
+class FunctionDefinition(OpenAIBaseModel):
+    name: str
+    description: Optional[str] = None
+    parameters: Optional[dict[str, Any]] = None
+
+
+class ChatCompletionToolsParam(OpenAIBaseModel):
+    type: Literal["function"] = "function"
+    function: FunctionDefinition
+
+
+class ChatCompletionNamedFunction(OpenAIBaseModel):
+    name: str
+
+
+class ChatCompletionNamedToolChoiceParam(OpenAIBaseModel):
+    function: ChatCompletionNamedFunction
+    type: Literal["function"] = "function"
+
+
 class CompletionRequest(BaseModel):
     # Ordered by official OpenAI API documentation
     # https://platform.openai.com/docs/api-reference/completions/create
     model: str
-    prompt: Union[List[int], List[List[int]], str, List[str]]
+    prompt: Optional[Union[list[int], list[list[int]], str, list[str]]]
+    prompt_embeds: Optional[Union[bytes, list[bytes]]] = None
     best_of: Optional[int] = None
     echo: Optional[bool] = False
     frequency_penalty: Optional[float] = 0.0
-    logit_bias: Optional[Dict[str, float]] = None
+    logit_bias: Optional[dict[str, float]] = None
     logprobs: Optional[int] = None
     max_tokens: Optional[int] = 16
     n: int = 1
     presence_penalty: Optional[float] = 0.0
-    seed: Optional[int] = Field(
-        None,
-        ge=-9223372036854775808,  # from torch.iinfo(torch.long).min,
-        le=9223372036854775807,
-    )  # from torch.iinfo(torch.long).max)
-    stop: Optional[Union[str, List[str]]] = Field(default_factory=list)
+    seed: Optional[int] = Field(None, ge=_LONG_INFO_min, le=_LONG_INFO_max)
+    stop: Optional[Union[str, list[str]]] = []
     stream: Optional[bool] = False
+    stream_options: Optional[StreamOptions] = None
     suffix: Optional[str] = None
-    temperature: Optional[float] = 1.0
-    top_p: Optional[float] = 1.0
+    temperature: Optional[float] = None
+    top_p: Optional[float] = None
     user: Optional[str] = None
     # Fields to avoid futures tokenizer's call
     ctxlen: Optional[int] = None
@@ -122,6 +207,206 @@ class CompletionRequest(BaseModel):
                 if field in data:
                     del data[field]
         return data
+
+    def estimate_ctxlen(self) -> int:
+        assert isinstance(
+            self.prompt, (str, list)
+        ), "Prompt must be a string or a list of strings or integers"
+        if isinstance(self.prompt, str):
+            self.ctxlen = int(len(self.prompt.split(" ")) / 0.75)
+        return
+
+
+#########################
+# Chat Completion Request
+#########################
+
+# Subclases from vllm repo: vllm/entrypoints/chat_utils.py
+
+
+class AudioURL(TypedDict, total=False):
+    url: Required[str]
+    """
+    Either a URL of the audio or a data URL with base64 encoded audio data.
+    """
+
+
+class ChatCompletionContentPartAudioParam(TypedDict, total=False):
+    audio_url: Required[AudioURL]
+
+    type: Required[Literal["audio_url"]]
+    """The type of the content part."""
+
+
+class ChatCompletionContentPartImageEmbedsParam(TypedDict, total=False):
+    image_embeds: Required[Union[str, dict[str, str]]]
+    """
+    The image embeddings. It can be either:
+    - A single base64 string.
+    - A dictionary where each value is a base64 string.
+    """
+    type: Required[Literal["image_embeds"]]
+    """The type of the content part."""
+
+
+class VideoURL(TypedDict, total=False):
+    url: Required[str]
+    """
+    Either a URL of the video or a data URL with base64 encoded video data.
+    """
+
+
+class ChatCompletionContentPartVideoParam(TypedDict, total=False):
+    video_url: Required[VideoURL]
+
+    type: Required[Literal["video_url"]]
+    """The type of the content part."""
+
+
+class CustomChatCompletionContentSimpleImageParam(TypedDict, total=False):
+    """A simpler version of the param that only accepts a plain image_url.
+    This is supported by OpenAI API, although it is not documented.
+
+    Example:
+    {
+        "image_url": "https://example.com/image.jpg"
+    }
+    """
+
+    image_url: Required[str]
+
+
+class CustomChatCompletionContentSimpleAudioParam(TypedDict, total=False):
+    """A simpler version of the param that only accepts a plain audio_url.
+
+    Example:
+    {
+        "audio_url": "https://example.com/audio.mp3"
+    }
+    """
+
+    audio_url: Required[str]
+
+
+class CustomChatCompletionContentSimpleVideoParam(TypedDict, total=False):
+    """A simpler version of the param that only accepts a plain audio_url.
+
+    Example:
+    {
+        "video_url": "https://example.com/video.mp4"
+    }
+    """
+
+    video_url: Required[str]
+
+
+ChatCompletionContentPartParam: TypeAlias = Union[
+    OpenAIChatCompletionContentPartParam,
+    ChatCompletionContentPartAudioParam,
+    ChatCompletionContentPartInputAudioParam,
+    ChatCompletionContentPartVideoParam,
+    ChatCompletionContentPartRefusalParam,
+    CustomChatCompletionContentSimpleImageParam,
+    ChatCompletionContentPartImageEmbedsParam,
+    CustomChatCompletionContentSimpleAudioParam,
+    CustomChatCompletionContentSimpleVideoParam,
+    str,
+]
+
+
+class CustomChatCompletionMessageParam(TypedDict, total=False):
+    """Enables custom roles in the Chat Completion API."""
+
+    role: Required[str]
+    """The role of the message's author."""
+
+    content: Union[str, list[ChatCompletionContentPartParam]]
+    """The contents of the message."""
+
+    name: str
+    """An optional name for the participant.
+
+    Provides the model information to differentiate between participants of the
+    same role.
+    """
+
+    tool_call_id: Optional[str]
+    """Tool call that this message is responding to."""
+
+    tool_calls: Optional[Iterable[ChatCompletionMessageToolCallParam]]
+    """The tool calls generated by the model, such as function calls."""
+
+
+ChatCompletionMessageParam = Union[
+    OpenAIChatCompletionMessageParam, CustomChatCompletionMessageParam
+]
+
+
+class ChatCompletionRequest(OpenAIBaseModel):
+    # Ordered by official OpenAI API documentation
+    # https://platform.openai.com/docs/api-reference/chat/create
+    messages: list[ChatCompletionMessageParam]
+    model: Optional[str] = None
+    frequency_penalty: Optional[float] = 0.0
+    logit_bias: Optional[dict[str, float]] = None
+    logprobs: Optional[bool] = False
+    top_logprobs: Optional[int] = 0
+    # TODO(#9845): remove max_tokens when field is removed from OpenAI API
+    max_tokens: Optional[int] = Field(
+        default=None,
+        deprecated="max_tokens is deprecated in favor of the max_completion_tokens field",
+    )
+    max_completion_tokens: Optional[int] = None
+    n: Optional[int] = 1
+    presence_penalty: Optional[float] = 0.0
+    response_format: Optional[AnyResponseFormat] = None
+    seed: Optional[int] = Field(None, ge=_LONG_INFO_min, le=_LONG_INFO_max)
+    stop: Optional[Union[str, list[str]]] = []
+    stream: Optional[bool] = False
+    stream_options: Optional[StreamOptions] = None
+    temperature: Optional[float] = None
+    top_p: Optional[float] = None
+    tools: Optional[list[ChatCompletionToolsParam]] = None
+    tool_choice: Optional[
+        Union[
+            Literal["none"],
+            Literal["auto"],
+            Literal["required"],
+            ChatCompletionNamedToolChoiceParam,
+        ]
+    ] = "none"
+
+    # NOTE this will be ignored by vLLM -- the model determines the behavior
+    parallel_tool_calls: Optional[bool] = False
+    user: Optional[str] = None
+    # Fields to avoid futures tokenizer's call
+    ctxlen: Optional[int] = None
+    context_enc: Optional[List[int]] = None
+    continuation_enc: Optional[List[int]] = None
+
+    def estimate_ctxlen(self) -> int:
+        """
+        Estimate the context length of chat completion messages.
+
+        Args:
+            messages: List of chat completion message parameters
+
+        Returns:
+            Estimated total context length in tokens
+        """
+        total_tokens = 0
+
+        for message in self.messages:
+            content = message.get("content", "")
+            if not isinstance(content, str):
+                # Handle different content types with errors
+                raise ValueError("Content must be a string or a list of content parts")
+            else:
+                # Simple string content
+                tokens = int(len(content.split(" ")) / 0.75) + 2
+            total_tokens += tokens
+        self.ctxlen = total_tokens
+        return
 
 
 # This class serves a subgroup of prompts, as a task can have many instances,
@@ -142,7 +427,7 @@ class PocketNetworkMongoDBInstance(BaseModel):
 class PocketNetworkMongoDBPrompt(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
     id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
-    data: Union[str, CompletionRequest]
+    data: Union[str, CompletionRequest, ChatCompletionRequest]
     task_id: ObjectId
     instance_id: ObjectId
     timeout: int = 0
@@ -164,8 +449,12 @@ class PocketNetworkMongoDBTask(BaseModel):
     num_fewshot: Optional[int] = Field(
         None, ge=0
     )  # TODO : Remove: This is LLM specific, move to agnostic format.
-    gen_kwargs: Optional[str] = None
+    gen_kwargs: Optional[Union[str, dict]] = None
     bootstrap_iters: Optional[int] = 100000
+    system_instruction: Optional[str] = None
+    apply_chat_template: Optional[bool] = True
+    fewshot_as_multiturn: Optional[bool] = True
+    confirm_run_unsafe_code: Optional[bool] = False
     qty: int
     tasks: str
     total_instances: int
@@ -245,6 +534,107 @@ class CompletionResponse(OpenAIBaseModel):
     choices: List[CompletionResponseChoice]
     usage: UsageInfo
     response_time: int  # Total time to complete request (POKT Network)
+
+
+# Chat Completion Response Classes
+
+
+# We use dataclass for now because it is used for
+# openai server output, and msgspec is not serializable.
+# TODO(sang): Fix it.
+@dataclass
+class Logprob:
+    """Infos for supporting OpenAI compatible logprobs and token ranks.
+
+    Attributes:
+        logprob: The logprob of chosen token
+        rank: The vocab rank of chosen token (>=1)
+        decoded_token: The decoded chosen token index
+    """
+
+    logprob: float
+    rank: Optional[int] = None
+    decoded_token: Optional[str] = None
+
+
+class FunctionCall(OpenAIBaseModel):
+    name: str
+    arguments: str
+
+
+class ToolCall(OpenAIBaseModel):
+    id: str
+    type: Literal["function"] = "function"
+    function: FunctionCall
+
+
+class DeltaFunctionCall(BaseModel):
+    name: Optional[str] = None
+    arguments: Optional[str] = None
+
+
+# a tool call delta where everything is optional
+class DeltaToolCall(OpenAIBaseModel):
+    id: Optional[str] = None
+    type: Optional[Literal["function"]] = None
+    index: int
+    function: Optional[DeltaFunctionCall] = None
+
+
+class ExtractedToolCallInformation(BaseModel):
+    # indicate if tools were called
+    tools_called: bool
+
+    # extracted tool calls
+    tool_calls: list[ToolCall]
+
+    # content - per OpenAI spec, content AND tool calls can be returned rarely
+    # But some models will do this intentionally
+    content: Optional[str] = None
+
+
+class ChatMessage(OpenAIBaseModel):
+    role: str
+    reasoning_content: Optional[str] = None
+    content: Optional[str] = None
+    tool_calls: list[ToolCall] = Field(default_factory=list)
+
+
+class ChatCompletionLogProb(OpenAIBaseModel):
+    token: str
+    logprob: float = -9999.0
+    bytes: Optional[list[int]] = None
+
+
+class ChatCompletionLogProbsContent(ChatCompletionLogProb):
+    # Workaround: redefine fields name cache so that it's not
+    # shared with the super class.
+    field_names: ClassVar[Optional[set[str]]] = None
+    top_logprobs: list[ChatCompletionLogProb] = Field(default_factory=list)
+
+
+class ChatCompletionLogProbs(OpenAIBaseModel):
+    content: Optional[list[ChatCompletionLogProbsContent]] = None
+
+
+class ChatCompletionResponseChoice(OpenAIBaseModel):
+    index: int
+    message: ChatMessage
+    logprobs: Optional[ChatCompletionLogProbs] = None
+    # per OpenAI spec this is the default
+    finish_reason: Optional[str] = "stop"
+    # not part of the OpenAI spec but included in vLLM for legacy reasons
+    stop_reason: Optional[Union[int, str]] = None
+
+
+class ChatCompletionResponse(OpenAIBaseModel):
+    id: str
+    object: Literal["chat.completion"] = "chat.completion"
+    created: int = Field(default_factory=lambda: int(time.time()))
+    model: str
+    choices: list[ChatCompletionResponseChoice]
+    usage: UsageInfo
+    prompt_logprobs: Optional[list[Optional[dict[int, Logprob]]]] = None
 
 
 ###########
