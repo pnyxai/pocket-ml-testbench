@@ -138,6 +138,25 @@ all_taxonomy_tasks = [
     "babi-task_20-agents_motivations",
 ]
 
+babisteps_taxonomy_tasks = [
+    "babisteps-task_01-simpletracking",
+    "babisteps-task_02-immediateorder",
+    "babisteps-task_03-complextracking",
+    "babisteps-task_04-listing",
+    "babisteps-task_05-sizeorder",
+    "babisteps-task_06-spatialorder",
+    "babisteps-task_07-temporalorder"
+]
+
+babisteps_chat_taxonomy_tasks = [
+    "babisteps-chat-cot-task_01-simpletracking",
+    "babisteps-chat-cot-task_02-immediateorder",
+    "babisteps-chat-cot-task_03-complextracking",
+    "babisteps-chat-cot-task_04-listing",
+    "babisteps-chat-cot-task_05-sizeorder",
+    "babisteps-chat-cot-task_06-spatialorder",
+    "babisteps-chat-cot-task_07-temporalorder",
+]
 all_leaderboard_tasks = [
     # # MATH TODO : Abuse of splits probably...
     # "leaderboard_math_algebra_hard",
@@ -464,7 +483,7 @@ def main():
     total_requesters = 0
     total_benchmarks = 0
 
-    all_tasks = all_taxonomy_tasks + all_leaderboard_tasks
+    all_tasks = all_taxonomy_tasks + all_leaderboard_tasks + babisteps_chat_taxonomy_tasks
     if args.task:
         print(f"Triggering only: {args.task}")
         all_tasks = [args.task]

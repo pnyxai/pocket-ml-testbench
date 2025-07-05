@@ -1,6 +1,7 @@
 from temporalio import activity
 from temporalio.exceptions import ApplicationError
 
+from lm_eval.utils import simple_parse_args_string
 from packages.python.lmeh.utils.common import get_task_manager
 from app.app import get_app_logger, get_app_config
 from packages.python.protocol.protocol import PocketNetworkRegisterTaskRequest
@@ -40,7 +41,7 @@ async def register_task(args: PocketNetworkRegisterTaskRequest) -> bool:
         eval_logger.info(
             f"Using additional tasks from : {include_path}",
         )
-
+    metadata = None # for register_task is not used this variable.
     # retrieve database connection
     eval_logger.debug("Acquiring Postgres Connection from pool")
     async with app_config["postgres"].acquire() as conn:
@@ -52,8 +53,9 @@ async def register_task(args: PocketNetworkRegisterTaskRequest) -> bool:
                 tasks=args.tasks,
                 include_path=include_path,
                 verbosity=str(args.verbosity),
-                logger=eval_logger,
                 postgres_conn=conn,
+                logger=eval_logger,
+                metadata=metadata,                
                 stage=TASK_MANAGER_REGISTER_STAGE,
                 hf_token=hf_token,
             )
@@ -76,6 +78,7 @@ async def register_task(args: PocketNetworkRegisterTaskRequest) -> bool:
                             verbosity=str(args.verbosity),
                             predict_only=False,
                             eval_logger=eval_logger,
+                            metadata=metadata,
                         )
                     except ApplicationError as e:
                         raise e

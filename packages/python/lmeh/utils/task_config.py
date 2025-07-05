@@ -37,6 +37,12 @@ task_cnfg = {
     "leaderboard_math": {
         "metrics": ["exact_match"],
         "num_fewshot": 4,
+        "gen_kwargs": {
+            "until": ["Problem:"],
+            "do_sample": False,
+            "temperature": 0,
+            "max_gen_toks": 8192,
+        },
     },
     "leaderboard_mmlu_pro": {
         "metrics": ["acc"],
@@ -67,6 +73,22 @@ task_cnfg = {
         "num_fewshot": 3,
         "filters": ["custom-extract", "get_response"],
     },
+    "babisteps-chat": {
+        "metrics": ["exact_match"],
+        "num_fewshot": 3,
+        "filters": ["get_response"],
+        "apply_chat_template": True,
+        "fewshot_as_multiturn": True,
+        "path": "/v1/chat/completions",
+    },    
+    "babisteps": {
+        "metrics": ["exact_match"],
+        "num_fewshot": 3,
+        "filters": ["get_response"],
+        "apply_chat_template": False,
+        "fewshot_as_multiturn": False,
+        "path": "/v1/completions",
+    },
     "babi": {
         "metrics": ["exact_match"],
         "num_fewshot": 3,
@@ -90,6 +112,8 @@ def get_task_config(task_name: str):
             return task_cnfg["leaderboard_gpqa"]
         if "leaderboard_musr" in task_name:
             return task_cnfg["leaderboard_musr"]
+        if "leaderboard_math" in task_name:
+            return task_cnfg["leaderboard_math"]
     else:
         if "mmlu" in task_name:
             if "generative" in task_name:
@@ -98,6 +122,10 @@ def get_task_config(task_name: str):
                 return task_cnfg["mmlu_pro"]
             else:
                 return task_cnfg["mmlu"]
+        if "babisteps-chat-cot-task" in task_name:
+            return task_cnfg["babisteps-chat"]
+        if "babisteps-task" in task_name:
+            return task_cnfg["babisteps"]        
         if "babi" in task_name:
             return task_cnfg["babi"]
         if "bbh_fix_fewshot" in task_name:
