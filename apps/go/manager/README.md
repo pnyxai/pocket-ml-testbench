@@ -20,4 +20,4 @@ The trigger process must include limits to avoid clogging the Requester app:
 1. Check db for how many are in queue for a given supplier.
 2. Add as many as it can until the given limit using round-robin on metrics.
 3. Trigger tasks periodically
-4. Check for tasks requirements (such as having a tokenizer signature).
+4. Check for tasks requirements (such as having a tokenizer signature or meet a taxonomy result dependency).

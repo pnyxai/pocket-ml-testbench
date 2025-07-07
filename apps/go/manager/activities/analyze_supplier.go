@@ -100,8 +100,25 @@ func (aCtx *Ctx) AnalyzeSupplier(ctx context.Context, params types.AnalyzeSuppli
 				Str("task", task).
 				Msg("Checking task requests.")
 
+			// Check taxonomy dependencies
+			depStatus, err := records.CheckTaxonomyDependency(&thisSupplierData, test.Framework, task, aCtx.App.Config.Frameworks, aCtx.App.Mongodb, l)
+			if err != nil {
+				l.Error().Err(err).
+					Msg("Could not check taxonomy dependencies.")
+				return nil, err
+			}
+			if !depStatus {
+				l.Debug().
+					Str("address", thisSupplierData.Address).
+					Str("service", thisSupplierData.Service).
+					Str("framework", test.Framework).
+					Str("task", task).
+					Msg("Does not meet taxonomy dependencies, ignoring for now.")
+				continue
+			}
+
 			// Check task dependencies
-			depStatus, err := records.CheckTaskDependency(&thisSupplierData, test.Framework, task, aCtx.App.Config.Frameworks, aCtx.App.Mongodb, l)
+			depStatus, err = records.CheckTaskDependency(&thisSupplierData, test.Framework, task, aCtx.App.Config.Frameworks, aCtx.App.Mongodb, l)
 			if err != nil {
 				l.Error().Err(err).
 					Msg("Could not check task dependencies.")
@@ -123,15 +140,15 @@ func (aCtx *Ctx) AnalyzeSupplier(ctx context.Context, params types.AnalyzeSuppli
 				l.Error().Err(err).Msg("cannot retrieve task type")
 				return nil, fmt.Errorf("cannot retrieve task type")
 			}
-			thisTaskRecord, found := records.GetTaskData(thisSupplierData.ID, taskType, test.Framework, task, aCtx.App.Mongodb, l)
+			thisTaskRecord, found := records.GetTaskData(thisSupplierData.ID, taskType, test.Framework, task, true, aCtx.App.Mongodb, l)
 			if found != true {
 				l.Error().
 					Str("address", thisSupplierData.Address).
 					Str("service", thisSupplierData.Service).
 					Str("framework", test.Framework).
 					Str("task", task).
-					Msg("not found task entry after check creation (task should be present at this point)")
-				return nil, fmt.Errorf("not found task entry after check creation (task should be present at this point)")
+					Msg("not found task entry after check creation (task should have been created)")
+				return nil, fmt.Errorf("not found task entry after check creation (task should have been created)")
 			}
 
 			// Check schedule restrictions
@@ -235,7 +252,7 @@ func updateTasksSupplier(supplierData *records.SupplierRecord,
 			if err != nil {
 				return LastSeenHeight, LastSeenTime, err
 			}
-			thisTaskRecord, found := records.GetTaskData(supplierData.ID, taskType, test.Framework, task, mongoDB, l)
+			thisTaskRecord, found := records.GetTaskData(supplierData.ID, taskType, test.Framework, task, false, mongoDB, l)
 
 			if !found {
 				l.Debug().
@@ -243,9 +260,8 @@ func updateTasksSupplier(supplierData *records.SupplierRecord,
 					Str("service", supplierData.Service).
 					Str("framework", test.Framework).
 					Str("task", task).
-					Msg("Not found, creating.")
-				defaultDate := time.Now()
-				thisTaskRecord = supplierData.AppendTask(supplierData.ID, test.Framework, task, defaultDate, frameworkConfigMap, mongoDB, l)
+					Msg("Not found, skipping.")
+				continue
 			}
 
 			//------------------------------------------------------------------

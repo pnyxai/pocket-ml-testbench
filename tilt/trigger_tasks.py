@@ -443,6 +443,10 @@ def main():
         type=parse_dict_from_string,
         help='A dictionary in JSON format (e.g., \'{"lm": ["pokt1wkra80yv9zv69y2rgkmc69jfqph6053dwn47vx"]}\')',
     )
+    parser.add_argument(
+        "--framework-postfix",
+        help='Optional: Framework postfix to use, the final framework name will be "lmeh-THISVALUE"',
+    )
 
     args = parser.parse_args()
 
@@ -469,7 +473,9 @@ def main():
         print(f"Triggering only: {args.task}")
         all_tasks = [args.task]
 
-    if args.generative:
+    if args.framework_postfix:
+        LMEH_TYPE += "-" + args.framework_postfix
+    elif args.generative:
         LMEH_TYPE += "-generative"
 
     if args.only_registers:

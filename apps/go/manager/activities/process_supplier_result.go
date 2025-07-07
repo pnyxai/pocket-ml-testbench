@@ -87,9 +87,9 @@ func (aCtx *Ctx) AnalyzeResult(ctx context.Context, params types.AnalyzeResultPa
 	if err != nil {
 		return nil, err
 	}
-	thisTaskRecord, found := records.GetTaskData(supplierData.ID, taskType, taskData.Framework, taskData.Task, aCtx.App.Mongodb, l)
-
+	thisTaskRecord, found := records.GetTaskData(supplierData.ID, taskType, taskData.Framework, taskData.Task, true, aCtx.App.Mongodb, l)
 	if !found {
+		// Data should be found because we are creating it in the last call...
 		err = temporal.NewApplicationErrorWithCause("unable to get task data", "GetTaskData", fmt.Errorf("Task %s not found", taskData.Task))
 		l.Error().
 			Str("address", supplierData.Address).

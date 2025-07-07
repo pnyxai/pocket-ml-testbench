@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"manager/types"
 	"packages/mongodb"
 	"time"
@@ -66,23 +65,10 @@ func (record *SupplierRecord) FindAndLoadSupplier(supplier types.SupplierData, m
 	return found, nil
 }
 
-func (record *SupplierRecord) AppendTask(supplierID primitive.ObjectID, framework string, task string, date time.Time, frameworkConfigMap map[string]types.FrameworkConfig, mongoDB mongodb.MongoDb, l *zerolog.Logger) TaskInterface {
-
-	taskType, err := GetTaskType(framework, task, frameworkConfigMap, l)
-	if err != nil {
-		return nil
-	}
-	// Get the task, wich will create it if not found
-	taskRecord, found := GetTaskData(supplierID, taskType, framework, task, mongoDB, l)
-	if !found {
-		return nil
-	} else {
-		return taskRecord
-	}
-
-}
-
-func (record *SupplierRecord) Init(params types.AnalyzeSupplierParams, frameworkConfigMap map[string]types.FrameworkConfig, mongoDB mongodb.MongoDb, l *zerolog.Logger) error {
+func (record *SupplierRecord) Init(
+	params types.AnalyzeSupplierParams,
+	frameworkConfigMap map[string]types.FrameworkConfig,
+	mongoDB mongodb.MongoDb, l *zerolog.Logger) error {
 	// Initialize empty record
 
 	// Set supplier data
@@ -107,20 +93,7 @@ func (record *SupplierRecord) Init(params types.AnalyzeSupplierParams, framework
 
 	record.ID = hashObjectId
 	record.LastSeenHeight = 0
-	defaultDate := time.Date(2018, 1, 1, 00, 00, 00, 100, time.Local)
-	record.LastSeenTime = defaultDate
-
-	// Create all tests
-	if len(params.Tests) == 0 {
-		return errors.New(`tests array cannot be empty`)
-	}
-	for _, test := range params.Tests {
-
-		for _, task := range test.Tasks {
-			// Add all tasks with the current date as maker for creation
-			_ = record.AppendTask(record.ID, test.Framework, task, time.Now(), frameworkConfigMap, mongoDB, l)
-		}
-	}
+	record.LastSeenTime = time.Now().UTC()
 
 	_, err = record.UpdateSupplier(mongoDB, l)
 

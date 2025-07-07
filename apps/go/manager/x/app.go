@@ -92,6 +92,7 @@ func Initialize() *types.App {
 		types.ResponsesCollection,
 		types.NumericalTaskCollection,
 		types.SignaturesTaskCollection,
+		types.TaxonomySummariesCollection,
 	}, l)
 
 	// Create LazyNode
@@ -138,7 +139,7 @@ func Initialize() *types.App {
 		Str("TaskQueue", cfg.Temporal.TaskQueue).
 		Msg("Successfully connected to Temporal Server")
 
-	// Create instance of App data
+		// Create instance of App data
 	ac := &types.App{
 		Logger:                 l,
 		Config:                 cfg,

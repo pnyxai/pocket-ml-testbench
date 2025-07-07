@@ -93,8 +93,49 @@ type TaskInterface interface {
 	UpdateTask(supplierID primitive.ObjectID, framework string, task string, mongoDB mongodb.MongoDb, l *zerolog.Logger) (bool, error)
 }
 
+// Get specific taxonomy data from a supplier record
+func GetTaxonomyData(
+	supplierID primitive.ObjectID,
+	taxonomy string,
+	mongoDB mongodb.MongoDb,
+	l *zerolog.Logger) (taxonomySummary types.TaxonomySummary, found bool) {
+
+	task_filter := bson.D{
+		{Key: "supplier_id", Value: supplierID},
+		{Key: "taxonomy_name", Value: taxonomy},
+	}
+	taxonomyCollection := mongoDB.GetCollection(types.TaxonomySummariesCollection)
+	opts := options.FindOne()
+
+	// Set mongo context
+	ctxM, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	// Retrieve this supplier entry
+	found = true
+	cursor := taxonomyCollection.FindOne(ctxM, task_filter, opts)
+	err := cursor.Decode(&taxonomySummary)
+	if err != nil {
+		found = false
+		if err == mongo.ErrNoDocuments {
+			l.Warn().Str("supplier_id", supplierID.String()).Str("taxonomy", taxonomy).Msg("Taxonomy summary not found")
+		} else {
+			l.Error().Err(err).Str("supplierID", supplierID.String()).Str("taxonomy", taxonomy).Msg("Could not retrieve taxonomy summary data from MongoDB")
+		}
+	}
+	return taxonomySummary, found
+
+}
+
 // Get specific task data from a supplier record
-func GetTaskData(supplierID primitive.ObjectID, taskType string, framework string, task string, mongoDB mongodb.MongoDb, l *zerolog.Logger) (TaskInterface, bool) {
+func GetTaskData(
+	supplierID primitive.ObjectID,
+	taskType string,
+	framework string,
+	task string,
+	create_new bool,
+	mongoDB mongodb.MongoDb,
+	l *zerolog.Logger) (TaskInterface, bool) {
 
 	// Look for entry
 	if taskType == NumericalTaskTypeName {
@@ -106,9 +147,13 @@ func GetTaskData(supplierID primitive.ObjectID, taskType string, framework strin
 			return nil, false
 		}
 		if !found {
-			// Initialize and save
-			record.NewTask(supplierID, framework, task, types.EpochStart.UTC(), l)
-			record.UpdateTask(supplierID, framework, task, mongoDB, l)
+			if create_new {
+				// Initialize and save
+				record.NewTask(supplierID, framework, task, types.EpochStart.UTC(), l)
+				record.UpdateTask(supplierID, framework, task, mongoDB, l)
+			} else {
+				return nil, false
+			}
 		}
 		return &record, true
 	} else if taskType == SignatureTaskTypeName {
@@ -120,9 +165,13 @@ func GetTaskData(supplierID primitive.ObjectID, taskType string, framework strin
 			return nil, false
 		}
 		if !found {
-			// Initialize and save
-			record.NewTask(supplierID, framework, task, types.EpochStart.UTC(), l)
-			record.UpdateTask(supplierID, framework, task, mongoDB, l)
+			if create_new {
+				// Initialize and save
+				record.NewTask(supplierID, framework, task, types.EpochStart.UTC(), l)
+				record.UpdateTask(supplierID, framework, task, mongoDB, l)
+			} else {
+				return nil, false
+			}
 		}
 		return &record, true
 	}
@@ -155,6 +204,104 @@ func GetTaskType(framework string, task string, configMap map[string]types.Frame
 	}
 
 	return taskType, nil
+}
+
+// Analyzes the taxonomy dependencies and returns if it is possible to proceed with this task triggering/analysis
+// A task can depend on some taxonomies to be passed at a certain level, here we check for that
+func CheckTaxonomyDependency(
+	supplierData *SupplierRecord,
+	framework string,
+	task string,
+	configMap map[string]types.FrameworkConfig,
+	mongoDB mongodb.MongoDb, l *zerolog.Logger) (bool, error) {
+
+	// Get Framework config
+	frameworkCfg, ok := configMap[framework]
+	if !ok {
+		l.Error().Str("framework", framework).Msg("framework config not found")
+		err := fmt.Errorf("framework config not found")
+		return false, err
+	}
+
+	// Get taxonomy dependency
+	taskDep, ok := frameworkCfg.TaxonomyDependency[task]
+	if !ok {
+		// Search for the "any" field
+		taskDep, ok = frameworkCfg.TaxonomyDependency["any"]
+		if !ok {
+			l.Error().Str("framework", framework).Str("task", task).Msg("cannot find default (or specific) value for task type")
+			err := fmt.Errorf("cannot find default (or specific) value for task type")
+			return false, err
+		}
+		if len(taskDep) == 0 {
+			l.Error().Str("framework", framework).Str("task", task).Msg("malformed dependency array for task type")
+			err := fmt.Errorf("malformed dependency array for task type")
+			return false, err
+		}
+	}
+
+	// Check dependency
+	depOK := true
+	for idxDep := 0; idxDep < len(taskDep); idxDep++ {
+		// get data from entry
+		frameworkTaxonomyAndStatus := strings.Split(taskDep[idxDep], ":")
+		if len(frameworkTaxonomyAndStatus) != 4 {
+			l.Error().Str("framework", framework).Str("task", task).Msg("malformed taxonomy dependency configuration, expected four elements separated by \":\" ")
+			depOK = false
+			break
+		}
+		if frameworkTaxonomyAndStatus[0] == "none" {
+			// No dependencies
+			l.Debug().Str("address", supplierData.Address).Str("service", supplierData.Service).Str("framework", framework).Str("task", task).Msg("No taxonomy dependency: Dependency OK")
+			continue
+		}
+		// All other three must be numerical entries
+		scoreMin, err := strconv.ParseFloat(frameworkTaxonomyAndStatus[1], 64)
+		if err != nil {
+			l.Error().Str("framework", framework).Str("task", task).Str("taxonomy", frameworkTaxonomyAndStatus[0]).Msg("malformed taxonomy dependency configuration, cannot convert string to float for first element.")
+			depOK = false
+			break
+		}
+		// TODO : Implement success rate tracking
+		// successRateMin, err := strconv.ParseFloat(frameworkTaxonomyAndStatus[2], 64)
+		// if err != nil {
+		// 	l.Error().Str("framework", framework).Str("task", task).Str("taxonomy", frameworkTaxonomyAndStatus[0]).Msg("malformed taxonomy dependency configuration, cannot convert string to float for second element.")
+		// 	depOK = false
+		// 	break
+		// }
+		samplesMin, err := strconv.ParseFloat(frameworkTaxonomyAndStatus[3], 64)
+		if err != nil {
+			l.Error().Str("framework", framework).Str("task", task).Str("taxonomy", frameworkTaxonomyAndStatus[0]).Msg("malformed taxonomy dependency configuration, cannot convert string to float for third element.")
+			depOK = false
+			break
+		}
+
+		// Get the taxonomy to evaluate
+		thisTaxonomySummary, found := GetTaxonomyData(supplierData.ID, frameworkTaxonomyAndStatus[0], mongoDB, l)
+		if !found {
+			// The task is not even created, we must fail
+			depOK = false
+			break
+		} else {
+			// Check the condition over the root_c node
+			taxonomyRootNode, found := thisTaxonomySummary.TaxonomyNodesScores["root_c"]
+			if !found {
+				l.Error().Str("framework", framework).Str("task", task).Str("taxonomy", frameworkTaxonomyAndStatus[0]).Msg("malformed taxonomy summary, no root_c node!")
+				depOK = false
+				break
+			}
+
+			if (taxonomyRootNode.Score < scoreMin) ||
+				// (taxonomyRootNode.ErrorRate > (1-successRateMin)) ||
+				(float64(taxonomyRootNode.SampleMin) < samplesMin) {
+				// Condition not met
+				depOK = false
+				break
+			}
+		}
+	}
+
+	return depOK, nil
 }
 
 // Analyzes the configuration and returns if it is possible to proceed with this task triggering/analysis
@@ -206,7 +353,7 @@ func CheckTaskDependency(supplierData *SupplierRecord, framework string, task st
 			l.Error().Str("framework", framework).Str("task", task).Str("task type", taskType).Msg("Error getting task type")
 			return false, err
 		}
-		thisTaskRecord, found := GetTaskData(supplierData.ID, taskType, frameworkTaskandStatus[0], frameworkTaskandStatus[1], mongoDB, l)
+		thisTaskRecord, found := GetTaskData(supplierData.ID, taskType, frameworkTaskandStatus[0], frameworkTaskandStatus[1], false, mongoDB, l)
 		if !found {
 			// The task is not even created, we must fail
 			depOK = false
@@ -405,7 +552,7 @@ func (record *NumericalTaskRecord) NewTask(supplierID primitive.ObjectID, framew
 	record.TaskData.SupplierID = supplierID
 	record.TaskData.Framework = framework
 	record.TaskData.Task = task
-	record.TaskData.LastSeen = date
+	record.TaskData.LastSeen = time.Now().UTC()
 
 	record.MeanScore = 0.0
 	record.MedianScore = 0.0

@@ -42,6 +42,7 @@ async def summarize_taxonomy(
     )
 
     # Fill with taxonomy nodes
+    valid_node_data = False
     for node in taxonomy_graph.nodes:
         running_score_total = 0
         running_score_square_dev = 0
@@ -49,20 +50,19 @@ async def summarize_taxonomy(
         running_time_square_dev = 0
         runnning_n = 0
         sample_min = np.inf
-
         if node == "root_c":
             continue
         for dataset in taxonomy_graph.nodes[node]["datasets"]:
             # Get data for this node and dataset
-            framework = "lmeh-generative"  # TODO : Remove hardcode
+            framework_subs = "lmeh"  # TODO : Remove hardcode, aggregation is matching any framework that contain this
             try:
                 docs = await mongo_operator.get_supplier_results_for_task(
-                    ObjectId(args.supplier_id), framework, dataset
+                    ObjectId(args.supplier_id), framework_subs, dataset
                 )
                 if len(docs) > 1:
                     return (
                         False,
-                        f"Found multiple buffers ({len(docs)}) for supplier {args.supplier_id}, in framework {framework} and task {dataset}.",
+                        f"Found multiple buffers ({len(docs)}) for supplier {args.supplier_id}, with framework substring {framework_subs} and task {dataset}.",
                     )
             except Exception as e:
                 return False, str(e)
@@ -72,7 +72,7 @@ async def summarize_taxonomy(
                 summary_logger.warn(
                     "No results found for supplier.",
                     supplier_id=args.supplier_id,
-                    framework=framework,
+                    framework=framework_subs,
                     task=dataset,
                 )
                 continue
@@ -108,10 +108,17 @@ async def summarize_taxonomy(
                 run_time_dev=np.sqrt(running_time_square_dev),
                 sample_min=sample_min,
             )
+            valid_node_data = True
         else:
             result.taxonomy_nodes_scores[node] = TaxonomyNodeSummary(
                 score=0, score_dev=0, run_time=0, run_time_dev=0, sample_min=0
             )
+
+    if not valid_node_data:
+        summary_logger.debug(
+            f"No data to process summary for {args.supplier_id} in taxonomy {args.taxonomy}"
+        )
+        return True, "No data to summarize"
 
     # Calculate root (grand average)
     running_score_total = 0
@@ -152,7 +159,10 @@ async def summarize_taxonomy(
                 await mongo_client.db[
                     mongo_operator.taxonomy_summaries
                 ].find_one_and_replace(
-                    {"supplier_id": ObjectId(args.supplier_id), "taxonomy_name": args.taxonomy},
+                    {
+                        "supplier_id": ObjectId(args.supplier_id),
+                        "taxonomy_name": args.taxonomy,
+                    },
                     result_dump,
                     upsert=True,
                     return_document=False,
