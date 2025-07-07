@@ -93,8 +93,7 @@ func (record *SupplierRecord) Init(
 
 	record.ID = hashObjectId
 	record.LastSeenHeight = 0
-	defaultDate := time.Date(2018, 1, 1, 00, 00, 00, 100, time.Local)
-	record.LastSeenTime = defaultDate
+	record.LastSeenTime = time.Now().UTC()
 
 	_, err = record.UpdateSupplier(mongoDB, l)
 

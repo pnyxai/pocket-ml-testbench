@@ -93,7 +93,7 @@ type TaskInterface interface {
 	UpdateTask(supplierID primitive.ObjectID, framework string, task string, mongoDB mongodb.MongoDb, l *zerolog.Logger) (bool, error)
 }
 
-// Get specific task data from a supplier record
+// Get specific taxonomy data from a supplier record
 func GetTaxonomyData(
 	supplierID primitive.ObjectID,
 	taxonomy string,
