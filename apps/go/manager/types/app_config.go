@@ -18,4 +18,5 @@ type App struct {
 	PocketBlocksPerSession int64
 	TemporalClient         client.Client
 	ExternalSuppliers      []string
+	TaxonomyTasks          map[string]string
 }

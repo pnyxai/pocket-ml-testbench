@@ -54,15 +54,15 @@ async def summarize_taxonomy(
             continue
         for dataset in taxonomy_graph.nodes[node]["datasets"]:
             # Get data for this node and dataset
-            framework = "lmeh-generative"  # TODO : Remove hardcode
+            framework_subs = "lmeh"  # TODO : Remove hardcode, aggregation is matching any framework that contain this
             try:
                 docs = await mongo_operator.get_supplier_results_for_task(
-                    ObjectId(args.supplier_id), framework, dataset
+                    ObjectId(args.supplier_id), framework_subs, dataset
                 )
                 if len(docs) > 1:
                     return (
                         False,
-                        f"Found multiple buffers ({len(docs)}) for supplier {args.supplier_id}, in framework {framework} and task {dataset}.",
+                        f"Found multiple buffers ({len(docs)}) for supplier {args.supplier_id}, with framework substring {framework_subs} and task {dataset}.",
                     )
             except Exception as e:
                 return False, str(e)
@@ -72,7 +72,7 @@ async def summarize_taxonomy(
                 summary_logger.warn(
                     "No results found for supplier.",
                     supplier_id=args.supplier_id,
-                    framework=framework,
+                    framework=framework_subs,
                     task=dataset,
                 )
                 continue
@@ -120,6 +120,7 @@ async def summarize_taxonomy(
     running_time_square_dev = 0
     runnning_n = 0
     sample_min = np.inf
+    sample_max = 0
     for edge in taxonomy_graph.edges("root_c"):
         assert "root_c" == edge[0]  # Otherwise the taxonomy is malformed
 
@@ -134,6 +135,9 @@ async def summarize_taxonomy(
         runnning_n += 1
         if sample_min > result.taxonomy_nodes_scores[edge[1]].sample_min:
             sample_min = result.taxonomy_nodes_scores[edge[1]].sample_min
+        if sample_max < result.taxonomy_nodes_scores[edge[1]].sample_min:
+            sample_max = result.taxonomy_nodes_scores[edge[1]].sample_min
+
 
     result.taxonomy_nodes_scores["root_c"] = TaxonomyNodeSummary(
         score=running_score_total / runnning_n,
@@ -142,6 +146,12 @@ async def summarize_taxonomy(
         run_time_dev=np.sqrt(running_time_square_dev),
         sample_min=sample_min,
     )
+
+    if sample_max == 0:
+        summary_logger.debug(
+            f"No data to process summary for {args.supplier_id} in taxonomy {args.taxonomy}"
+        )
+        return True, "No data to summarize"
 
     # Save result to mongo
     try:

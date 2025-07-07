@@ -106,7 +106,7 @@ def aggregate_supplier_task_results(supplier_id: ObjectId, framework: str, task:
         {
             "$match": {
                 "task_data.supplier_id": supplier_id,
-                "task_data.framework": framework,
+                "task_data.framework": { "$regex": framework, "$options": "i" },
                 "task_data.task": task,
             }
         },

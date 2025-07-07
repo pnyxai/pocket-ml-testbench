@@ -29,6 +29,11 @@ spec:
                 secretKeyRef:
                   name: temporal-secret
                   key: TEMPORAL_CORS_ORIGINS
+            - name: TEMPORAL_CSRF_COOKIE_INSECURE
+              valueFrom:
+                secretKeyRef:
+                  name: temporal-secret
+                  key: TEMPORAL_CSRF_COOKIE_INSECURE
             - name: TEMPORAL_DEFAULT_NAMESPACE
               valueFrom:
                 secretKeyRef:
