@@ -42,6 +42,7 @@ async def summarize_taxonomy(
     )
 
     # Fill with taxonomy nodes
+    valid_node_data = False
     for node in taxonomy_graph.nodes:
         running_score_total = 0
         running_score_square_dev = 0
@@ -49,7 +50,6 @@ async def summarize_taxonomy(
         running_time_square_dev = 0
         runnning_n = 0
         sample_min = np.inf
-
         if node == "root_c":
             continue
         for dataset in taxonomy_graph.nodes[node]["datasets"]:
@@ -108,11 +108,18 @@ async def summarize_taxonomy(
                 run_time_dev=np.sqrt(running_time_square_dev),
                 sample_min=sample_min,
             )
+            valid_node_data = True
         else:
             result.taxonomy_nodes_scores[node] = TaxonomyNodeSummary(
                 score=0, score_dev=0, run_time=0, run_time_dev=0, sample_min=0
             )
 
+    if not valid_node_data:
+        summary_logger.debug(
+            f"No data to process summary for {args.supplier_id} in taxonomy {args.taxonomy}"
+        )
+        return True, "No data to summarize"
+    
     # Calculate root (grand average)
     running_score_total = 0
     running_score_square_dev = 0
@@ -120,7 +127,6 @@ async def summarize_taxonomy(
     running_time_square_dev = 0
     runnning_n = 0
     sample_min = np.inf
-    sample_max = 0
     for edge in taxonomy_graph.edges("root_c"):
         assert "root_c" == edge[0]  # Otherwise the taxonomy is malformed
 
@@ -135,9 +141,6 @@ async def summarize_taxonomy(
         runnning_n += 1
         if sample_min > result.taxonomy_nodes_scores[edge[1]].sample_min:
             sample_min = result.taxonomy_nodes_scores[edge[1]].sample_min
-        if sample_max < result.taxonomy_nodes_scores[edge[1]].sample_min:
-            sample_max = result.taxonomy_nodes_scores[edge[1]].sample_min
-
 
     result.taxonomy_nodes_scores["root_c"] = TaxonomyNodeSummary(
         score=running_score_total / runnning_n,
@@ -146,12 +149,6 @@ async def summarize_taxonomy(
         run_time_dev=np.sqrt(running_time_square_dev),
         sample_min=sample_min,
     )
-
-    if sample_max == 0:
-        summary_logger.debug(
-            f"No data to process summary for {args.supplier_id} in taxonomy {args.taxonomy}"
-        )
-        return True, "No data to summarize"
 
     # Save result to mongo
     try:
