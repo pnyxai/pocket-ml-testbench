@@ -119,7 +119,7 @@ async def summarize_taxonomy(
             f"No data to process summary for {args.supplier_id} in taxonomy {args.taxonomy}"
         )
         return True, "No data to summarize"
-    
+
     # Calculate root (grand average)
     running_score_total = 0
     running_score_square_dev = 0
@@ -159,7 +159,10 @@ async def summarize_taxonomy(
                 await mongo_client.db[
                     mongo_operator.taxonomy_summaries
                 ].find_one_and_replace(
-                    {"supplier_id": ObjectId(args.supplier_id), "taxonomy_name": args.taxonomy},
+                    {
+                        "supplier_id": ObjectId(args.supplier_id),
+                        "taxonomy_name": args.taxonomy,
+                    },
                     result_dump,
                     upsert=True,
                     return_document=False,

@@ -444,7 +444,8 @@ def main():
         help='A dictionary in JSON format (e.g., \'{"lm": ["pokt1wkra80yv9zv69y2rgkmc69jfqph6053dwn47vx"]}\')',
     )
     parser.add_argument(
-        "--framework-postfix", help="Optional: Framework postfix to use, the final framework name will be \"lmeh-THISVALUE\""
+        "--framework-postfix",
+        help='Optional: Framework postfix to use, the final framework name will be "lmeh-THISVALUE"',
     )
 
     args = parser.parse_args()
