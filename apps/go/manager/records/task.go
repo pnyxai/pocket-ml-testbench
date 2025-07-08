@@ -118,7 +118,7 @@ func GetTaxonomyData(
 	if err != nil {
 		found = false
 		if err == mongo.ErrNoDocuments {
-			l.Warn().Str("supplier_id", supplierID.String()).Str("taxonomy", taxonomy).Msg("Taxonomy summary not found")
+			l.Debug().Str("supplier_id", supplierID.String()).Str("taxonomy", taxonomy).Msg("Taxonomy summary not found")
 		} else {
 			l.Error().Err(err).Str("supplierID", supplierID.String()).Str("taxonomy", taxonomy).Msg("Could not retrieve taxonomy summary data from MongoDB")
 		}
@@ -420,7 +420,7 @@ func CheckTaskSchedule(taskData TaskInterface, block types.BlockData, configMap 
 	}
 	if frameworkTaskandSchedule[0] == "none" {
 		// No dependencies
-		l.Debug().Str("framework", framework).Str("task", task).Msg("No schedule: Dchedule OK")
+		l.Debug().Str("framework", framework).Str("task", task).Msg("No schedule: Schedule OK")
 		return true, nil
 	}
 	value, err := strconv.ParseInt(frameworkTaskandSchedule[0], 10, 32)
@@ -592,7 +592,7 @@ func (record *NumericalTaskRecord) LoadTask(supplierID primitive.ObjectID, frame
 	err := cursor.Decode(record)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-			l.Warn().Str("supplier_id", supplierID.String()).Str("framework", framework).Str("task", task).Msg("Numerical Task not found")
+			l.Debug().Str("supplier_id", supplierID.String()).Str("framework", framework).Str("task", task).Msg("Numerical Task not found")
 			found = false
 		} else {
 			l.Error().Msg("Could not retrieve task data from MongoDB.")

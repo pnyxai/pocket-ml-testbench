@@ -179,9 +179,9 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
-	github.com/pokt-network/poktroll v0.1.20 // indirect
+	github.com/pokt-network/poktroll v0.1.26 // indirect
 	github.com/pokt-network/ring-go v0.1.0 // indirect
-	github.com/pokt-network/shannon-sdk v0.0.0-20250615013032-bbc533b256f4 // indirect
+	github.com/pokt-network/shannon-sdk v0.0.0-20250704180202-e527d4172770 // indirect
 	github.com/pokt-network/smt v0.13.0 // indirect
 	github.com/pokt-network/smt/kvstore/pebble v0.0.0-20240822175047-21ea8639c188 // indirect
 	github.com/prometheus/client_golang v1.22.0 // indirect
