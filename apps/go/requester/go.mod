@@ -6,7 +6,7 @@ toolchain go1.24.4
 
 require (
 	github.com/pokt-foundation/pocket-go v0.17.0
-	github.com/pokt-network/poktroll v0.1.20
+	github.com/pokt-network/poktroll v0.1.26
 	github.com/rs/zerolog v1.34.0
 	go.mongodb.org/mongo-driver v1.15.0
 	go.temporal.io/api v1.32.0
@@ -183,7 +183,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/pokt-foundation/utils-go v0.7.0 // indirect
 	github.com/pokt-network/ring-go v0.1.0 // indirect
-	github.com/pokt-network/shannon-sdk v0.0.0-20250615013032-bbc533b256f4 // indirect
+	github.com/pokt-network/shannon-sdk v0.0.0-20250704180202-e527d4172770 // indirect
 	github.com/pokt-network/smt v0.13.0 // indirect
 	github.com/pokt-network/smt/kvstore/pebble v0.0.0-20240822175047-21ea8639c188 // indirect
 	github.com/prometheus/client_golang v1.22.0 // indirect
