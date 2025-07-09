@@ -379,7 +379,13 @@ class ChatCompletionRequest(OpenAIBaseModel):
     # NOTE this will be ignored by vLLM -- the model determines the behavior
     parallel_tool_calls: Optional[bool] = False
     user: Optional[str] = None
-    # Fields to avoid futures tokenizer's call
+    # --8<-- [start:chat-completion-sampling-params]
+    # NOTE (nicolas) Do not considered.
+    # --8<-- [end:chat-completion-sampling-params]
+
+    # NOTE (nicolas) Fields to avoid futures tokenizer's call
+    # ctxlen, context_enc & continuation_enc are specific for
+    # the pocket-ml-testbench
     ctxlen: Optional[int] = None
     context_enc: Optional[List[int]] = None
     continuation_enc: Optional[List[int]] = None

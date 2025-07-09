@@ -42,6 +42,22 @@ from packages.python.protocol.protocol import (
 )
 
 
+def validate_task_output_type(task_dict, logger):
+    """
+    Function to avoid running tasks with output_type other than 'generate_until'.
+    """
+    for task_name, task_obj in task_dict.items():
+        if task_obj.get_config("output_type") != "generate_until":
+            logger.error(
+                f"Task {task_name} has output_type {task_obj.get_config('output_type')}. Currently only 'generate_until' output_type is supported"
+            )
+            raise ApplicationError(
+                f"Task {task_name} has output_type {task_obj.get_config('output_type')}. Currently only 'generate_until' output_type is supported",
+                non_retryable=True,
+            )
+    return
+
+
 # adapted from evaluator.py # def simple_evaluate(..) from lm-eval-harness to generate config task
 @positional_deprecated
 def get_configurable_task(
@@ -165,6 +181,9 @@ def get_configurable_task(
         return adjusted_task_dict
 
     task_dict = _adjust_config(task_dict)
+
+    # validate task output type
+    validate_task_output_type(task_dict, eval_logger)
 
     if check_integrity:
         run_task_tests(task_list=tasks)
