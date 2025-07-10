@@ -32,6 +32,9 @@ eval_logger = get_app_logger("sample")
 evaluation_logger = get_app_logger("evaluation")
 summarization_logger = get_app_logger("summarize_taxonomy")
 
+SUPPLIER_ERROR = 2
+EVALUATION_ERROR = 12
+
 # Mapping of request and response types based on the API path
 request_mapping: dict = {
     "/v1/completions": CompletionRequest,
@@ -422,14 +425,16 @@ class MongoOperator:
                     ms = int(doc["response"]["ms"])
                 except Exception as e:
                     remove_doc_ids.add(i["doc_id"])
-                    error_str = "Bad JSON data format (response)"
+                    error_str = (
+                        "Bad JSON data format (response): "
+                        + doc["response"]["response"]
+                    )
                     eval_logger.error(
                         error_str,
-                        # response=doc["response"]["response"], # Spams log
                         errpr=str(e),
                     )
                     failed_instances.append(
-                        {"id": i["doc_id"], "code": 11, "error": error_str}
+                        {"id": i["doc_id"], "code": SUPPLIER_ERROR, "error": error_str}
                     )
                     continue
             instance_dict = {
@@ -457,7 +462,7 @@ class MongoOperator:
                     error=str(e),
                 )
                 failed_instances.append(
-                    {"id": i["doc_id"], "code": 11, "error": error_str}
+                    {"id": i["doc_id"], "code": EVALUATION_ERROR, "error": error_str}
                 )
                 continue
             instance.prompt.data = req_class(**request_data)
@@ -476,7 +481,7 @@ class MongoOperator:
                     error=str(e),
                 )
                 failed_instances.append(
-                    {"id": i["doc_id"], "code": 11, "error": error_str}
+                    {"id": i["doc_id"], "code": EVALUATION_ERROR, "error": error_str}
                 )
                 continue
 
@@ -501,7 +506,7 @@ class MongoOperator:
         empty_result = PocketNetworkMongoDBResultNumerical(
             result_data=PocketNetworkMongoDBResultBase(
                 task_id=task_id,
-                status=11,
+                status=EVALUATION_ERROR,
                 num_samples=0,
                 result_height=-1,
             ),

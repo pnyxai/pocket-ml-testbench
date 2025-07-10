@@ -49,7 +49,7 @@ This command will execute all the tasks included in the `liveness`  taxonomy and
 
 After this task is working, you can trigger any additional task, such as:
 ```bash
-python3 trigger_tasks.py --k8s-namespace temporal --temporal-namespace testbench-testnet --pokt-service-apps '{"text-to-text": ["pokt---APP-ADDRESS"]}' --generative --task mmlu_moral_disputes_generative 
+python3 trigger_tasks.py --pokt-service-apps '{"text-to-text": ["pokt---APP-ADDRESS"]}' --generative --task mmlu_moral_disputes_generative
 ```
 This command will create the schedule for task `mmlu_moral_disputes_generative` under the `lmeh-generative` framework which will only be executed if the `liveness_v0` taxonomy is wokring.
 

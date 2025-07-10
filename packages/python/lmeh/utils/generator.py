@@ -826,6 +826,14 @@ async def evaluate(
                         "prompt_hash": hash_string(requests[0].arguments[0]),
                         "target_hash": hash_string(str(target)),
                     }
+                    eval_logger.debug(
+                        "Example for logging",
+                        doc_id=doc_id_true,
+                        target=example["target"],
+                        resps=example["resps"],
+                        filtered_resps=example["filtered_resps"],
+                        metrics=example["metrics"],
+                    )
                     example.update(metrics)
                     task_output.logged_samples.append(example)
                 for (metric, value), ms in zip(metrics.items(), response_times):
