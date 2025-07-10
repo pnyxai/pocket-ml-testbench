@@ -858,6 +858,11 @@ class EvaluatorAPI(TemplateAPI):
             elif isinstance(messages, list):
                 response = [msg.model_dump() for msg in messages]
             else:
+                evaluation_logger.error(
+                    "Invalid type for messages. Expected CompletionResponse or ChatCompletionResponse or list of them.",
+                    messages_type=type(messages),
+                    messages=messages,
+                )
                 raise ApplicationError(
                     "Invalid type for messages. Expected CompletionResponse or ChatCompletionResponse or list of them.",
                     non_retryable=True,
