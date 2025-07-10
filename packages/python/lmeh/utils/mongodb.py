@@ -2,7 +2,7 @@ import json
 import logging
 from copy import deepcopy
 from dataclasses import asdict
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Tuple
 
 from app.app import get_app_logger
@@ -109,6 +109,7 @@ class MongoOperator:
         instance_mongo["task_id"] = task_id
         instance_mongo["_id"] = ObjectId()
         instance_mongo["done"] = False
+        instance_mongo["creation_date"] = datetime.now(timezone.utc)
 
         # Flatten arguments structure to match expected Instance.args format
         # ref: lm-eval/docs/model_guide.md
@@ -436,7 +437,7 @@ class MongoOperator:
             }
             instance = Instance(**instance_dict)
             instance.repeats = 1  # to avoid double evaluation for each instance
-            # NOTE(nicolas) :
+            # NOTE (nicolas)
             # Convert the list back to tuple for proper args property access
             # see instance_to_dict to undo serialization issues.
             if isinstance(instance.arguments, list):
@@ -503,7 +504,7 @@ class MongoOperator:
                 status=11,
                 num_samples=0,
                 result_height=-1,
-                result_time=datetime.today().isoformat(),
+                # result_time=datetime.today().isoformat(),
             ),
             scores=[],
         ).model_dump(by_alias=True)

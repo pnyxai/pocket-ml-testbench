@@ -1,6 +1,6 @@
 import time
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, ClassVar, Callable, Dict, List, Literal, Optional, Union
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -425,6 +425,7 @@ class PocketNetworkMongoDBInstance(BaseModel):
     done: bool = False
     # -- Relations Below --
     task_id: ObjectId
+    creation_date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     class Config:
         arbitrary_types_allowed = True
@@ -439,6 +440,7 @@ class PocketNetworkMongoDBPrompt(BaseModel):
     timeout: int = 0
     done: bool = False
     trigger_session: int = 0  # This is filled by the relayer when triggered
+    creation_date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     # Fields to avoid futures tokenizer's call
     ctxlen: Optional[int] = None
     context_enc: Optional[List[int]] = None
@@ -469,6 +471,7 @@ class PocketNetworkMongoDBTask(BaseModel):
     done: bool = False
     evaluated: bool = False
     drop: bool = False
+    creation_date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     class Config:
         populate_by_name = True
@@ -654,7 +657,7 @@ class PocketNetworkMongoDBResultBase(BaseModel):
     num_samples: int
     status: int
     result_height: int
-    result_time: datetime
+    result_time: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     class Config:
         arbitrary_types_allowed = True

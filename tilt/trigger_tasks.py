@@ -12,7 +12,12 @@ BASE_COMMAND = ["kubectl", "exec", "-it", "deploy/temporal-admintools"]
 
 LMEH_TYPE = "lmeh"
 
-all_taxonomy_tasks = [
+
+liveness_taxonomy = [
+    "babi-task_01-single_supporting_fact",
+]
+
+general_taxonomy = [
     "mmlu_anatomy_generative",
     "mmlu_medical_genetics_generative",
     "mmlu_human_aging_generative",
@@ -116,7 +121,6 @@ all_taxonomy_tasks = [
     "bbh_cot_fewshot_web_of_lies",
     "bbh_cot_fewshot_ruin_names",
     # bAbI
-    "babi-task_01-single_supporting_fact",
     "babi-task_02-two_supporting_facts",
     "babi-task_03-three_supporting_facts",
     "babi-task_04-two_argument_relations",
@@ -138,26 +142,26 @@ all_taxonomy_tasks = [
     "babi-task_20-agents_motivations",
 ]
 
-babisteps_taxonomy_tasks = [
+babisteps_taxonomy = [
     "babisteps-task_01-simpletracking",
     "babisteps-task_02-immediateorder",
     "babisteps-task_03-complextracking",
-    "babisteps-task_04-listing",
+    # "babisteps-task_04-listing",
     "babisteps-task_05-sizeorder",
     "babisteps-task_06-spatialorder",
     "babisteps-task_07-temporalorder",
 ]
 
-babisteps_chat_taxonomy_tasks = [
+babisteps_chat_taxonomy = [
     "babisteps-chat-cot-task_01-simpletracking",
     "babisteps-chat-cot-task_02-immediateorder",
     "babisteps-chat-cot-task_03-complextracking",
-    "babisteps-chat-cot-task_04-listing",
+    # "babisteps-chat-cot-task_04-listing",
     "babisteps-chat-cot-task_05-sizeorder",
     "babisteps-chat-cot-task_06-spatialorder",
     "babisteps-chat-cot-task_07-temporalorder",
 ]
-all_leaderboard_tasks = [
+all_leaderboard_taxonomy = [
     # # MATH TODO : Abuse of splits probably...
     "leaderboard_math_algebra_hard",
     "leaderboard_math_counting_and_prob_hard",
@@ -205,6 +209,14 @@ all_leaderboard_tasks = [
     # "leaderboard_bbh_causal_judgement",
     # "leaderboard_bbh_disambiguation_qa",
 ]
+
+taxonomy_dict = {
+    "general": general_taxonomy,
+    "babisteps": babisteps_taxonomy,
+    "babisteps-chat": babisteps_chat_taxonomy,
+    "liveness": liveness_taxonomy,
+    "leaderboard": all_leaderboard_taxonomy,
+}
 
 
 def run_command(command):
@@ -454,6 +466,9 @@ def main():
         "--task", help="optionally pass a task identifier, e.g. --task ifeval-fix"
     )
     parser.add_argument(
+        "--taxonomy", help="optionally pass a taxonomy name, e.g. --taxonomy general"
+    )
+    parser.add_argument(
         "--k8s-namespace", help="Namespace of the k8s deployment, defaults to default"
     )
     parser.add_argument(
@@ -471,6 +486,29 @@ def main():
     )
 
     args = parser.parse_args()
+
+    # Validate taxonomy if provided
+    if args.taxonomy:
+        if args.taxonomy not in taxonomy_dict:
+            print(f"Error: Taxonomy '{args.taxonomy}' not found in taxonomy_dict.")
+            print(f"Available taxonomies: {list(taxonomy_dict.keys())}")
+            return
+
+    # Check for conflicting arguments
+    if args.task and args.taxonomy:
+        print("Error: --task and --taxonomy arguments cannot be used together.")
+        print(
+            "Please specify either a single task with --task or a taxonomy with --taxonomy."
+        )
+        return
+
+    # Require at least one of --task or --taxonomy
+    if not args.task and not args.taxonomy:
+        print("Error: Either --task or --taxonomy must be specified.")
+        print(
+            "Please specify either a single task with --task or a taxonomy with --taxonomy."
+        )
+        return
 
     if args.pokt_service_apps:
         print("Received services and apps:", args.pokt_service_apps)
@@ -490,12 +528,13 @@ def main():
     total_requesters = 0
     total_benchmarks = 0
 
-    all_tasks = (
-        all_taxonomy_tasks + all_leaderboard_tasks + babisteps_chat_taxonomy_tasks
-    )
+    # Determine which tasks to process
     if args.task:
-        print(f"Triggering only: {args.task}")
-        all_tasks = [args.task]
+        print(f"Triggering only task: {args.task}")
+        tasks_to_process = [args.task]
+    elif args.taxonomy:
+        print(f"Triggering taxonomy: {args.taxonomy}")
+        tasks_to_process = taxonomy_dict[args.taxonomy]
 
     if args.framework_postfix:
         LMEH_TYPE += "-" + args.framework_postfix
@@ -504,7 +543,7 @@ def main():
 
     if args.only_registers:
         print("Setting-up registers only:")
-        for task in all_tasks:
+        for task in tasks_to_process:
             # Register dataset
             print(f"\t{task}")
             ok = execute_register_task(task, execution_timeout=7200, task_timeout=3600)
@@ -576,7 +615,7 @@ def main():
         print("Requesters scheduled.")
 
         # Create all tasks for all chains
-        for task in all_tasks:
+        for task in tasks_to_process:
             print(f"Setting-up task: {task}")
             # Register dataset
             ok = execute_register_task(task, execution_timeout=7200, task_timeout=3600)

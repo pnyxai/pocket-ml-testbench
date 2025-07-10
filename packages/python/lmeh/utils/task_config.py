@@ -37,12 +37,6 @@ task_cnfg = {
     "leaderboard_math": {
         "metrics": ["exact_match"],
         "num_fewshot": 4,
-        "gen_kwargs": {
-            "until": ["Problem:"],
-            "do_sample": False,
-            "temperature": 0,
-            "max_gen_toks": 8192,
-        },
     },
     "leaderboard_mmlu_pro": {
         "metrics": ["acc"],
@@ -65,13 +59,12 @@ task_cnfg = {
     # Uses: Taxonomy [Alpha]
     "bbh_cot_fewshot_": {
         "metrics": ["exact_match"],
-        #        "num_fewshot": 3,
         "filters": ["get-answer"],
     },
     "mmlu_pro": {
         "metrics": ["exact_match"],
         "num_fewshot": 3,
-        "filters": ["custom-extract", "get_response"],
+        "filters": ["custom-extract"],
     },
     "babisteps-chat": {
         "metrics": ["exact_match"],

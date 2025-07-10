@@ -1,7 +1,6 @@
 import json
 import logging
 from collections import defaultdict
-from datetime import datetime
 from typing import TYPE_CHECKING, List, Optional, Union
 
 from lm_eval.evaluator_utils import (
@@ -660,7 +659,6 @@ async def evaluate(
                     status=1,
                     num_samples=0,
                     result_height=task.result_height,
-                    result_time=datetime.today().isoformat(),
                 )
                 num_result = PocketNetworkMongoDBResultNumerical(
                     result_data=base_result, scores=[]
@@ -683,7 +681,7 @@ async def evaluate(
                     status=0,
                     num_samples=len(task.failed_instances),
                     result_height=task.result_height,
-                    result_time=datetime.today().isoformat(),
+                    # result_time=datetime.today().isoformat(),
                 )
                 num_result = PocketNetworkMongoDBResultNumerical(
                     result_data=base_result, scores=scores
@@ -757,8 +755,6 @@ async def evaluate(
         scores = []
         result_num_samples = set()
         for filter_key in task.instances[0].filtered_resps.keys():
-            # NOTE (nicolas): selected_filters should be only the last filter key defined
-            # in the yaml of the task file ?
             if filter_key not in selected_filters:
                 eval_logger.warning(
                     "Skipping Filter Key. This can signal misconfiguration of task in `task_config.py`",
@@ -860,7 +856,7 @@ async def evaluate(
             status=0,
             num_samples=len(result_num_samples) + len(task.failed_instances),
             result_height=task.result_height,
-            result_time=datetime.today().isoformat(),
+            # result_time=datetime.today().isoformat(),
         )
         num_result = PocketNetworkMongoDBResultNumerical(
             result_data=base_result, scores=scores
