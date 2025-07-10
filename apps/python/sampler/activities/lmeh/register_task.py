@@ -40,7 +40,7 @@ async def register_task(args: PocketNetworkRegisterTaskRequest) -> bool:
         eval_logger.info(
             f"Using additional tasks from : {include_path}",
         )
-
+    metadata = None  # for register_task is not used this variable.
     # retrieve database connection
     eval_logger.debug("Acquiring Postgres Connection from pool")
     async with app_config["postgres"].acquire() as conn:
@@ -52,8 +52,9 @@ async def register_task(args: PocketNetworkRegisterTaskRequest) -> bool:
                 tasks=args.tasks,
                 include_path=include_path,
                 verbosity=str(args.verbosity),
-                logger=eval_logger,
                 postgres_conn=conn,
+                logger=eval_logger,
+                metadata=metadata,
                 stage=TASK_MANAGER_REGISTER_STAGE,
                 hf_token=hf_token,
             )
@@ -76,6 +77,7 @@ async def register_task(args: PocketNetworkRegisterTaskRequest) -> bool:
                             verbosity=str(args.verbosity),
                             predict_only=False,
                             eval_logger=eval_logger,
+                            metadata=metadata,
                         )
                     except ApplicationError as e:
                         raise e

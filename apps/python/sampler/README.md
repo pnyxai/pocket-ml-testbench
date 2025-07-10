@@ -4,19 +4,16 @@ The Sampler receives workflow requests from the Manager and creates the tasks th
 
 ## [From HF OpenLLM Leadeabord - FAQ](https://huggingface.co/spaces/HuggingFaceH4/open_llm_leaderboard)
 
-Selected Tasks were updated to follow the `lm-eval-harness` commit `7d9922c80114218eaf43975b7655bb48cda84f50`. In this sense, a closer version of `OpenLLM Leadeabord` would be as follow:
-
-* ARC: arc_challenge
-
-* HellaSwag: hellaswag
-
-* TruthfulQA:truthfulqa_mc2
+Selected Tasks were updated to follow the `lm-eval-harness` `v0.4.9` (commit `452749513f817315042df9286241a61051392470`).
+Task that require `loglikelihood` were not included. In this sense, the following task were selected to follow as close as possible the `HF OpenLLM Leadeabord`.
 
 * MMLU: mmlu_abstract_algebra,mmlu_anatomy,mmlu_astronomy,mmlu_business_ethics,mmlu_clinical_knowledge,mmlu_college_biology,mmlu_college_chemistry,mmlu_college_computer_science,mmlu_college_mathematics,mmlu_college_medicine,mmlu_college_physics,mmlu_computer_security,mmlu_conceptual_physics,mmlu_econometrics,mmlu_electrical_engineering,mmlu_elementary_mathematics,mmlu_formal_logic,mmlu_global_facts,mmlu_high_school_biology,mmlu_high_school_chemistry,mmlu_high_school_computer_science,mmlu_high_school_european_history,mmlu_high_school_geography,mmlu_high_school_government_and_politics,mmlu_high_school_macroeconomics,mmlu_high_school_mathematics,mmlu_high_school_microeconomics,mmlu_high_school_physics,mmlu_high_school_psychology,mmlu_high_school_statistics,mmlu_high_school_us_history,mmlu_high_school_world_history,mmlu_human_aging,mmlu_human_sexuality,mmlu_international_law,mmlu_jurisprudence,mmlu_logical_fallacies,mmlu_machine_learning,mmlu_management,mmlu_marketing,mmlu_medical_genetics,mmlu_miscellaneous,mmlu_moral_disputes,mmlu_moral_scenarios,mmlu_nutrition,mmlu_philosophy,mmlu_prehistory,mmlu_professional_accounting,mmlu_professional_law,mmlu_professional_medicine,mmlu_professional_psychology,mmlu_public_relations,mmlu_security_studies,mmlu_sociology,mmlu_us_foreign_policy,mmlu_virology,mmlu_world_religions
 
-* Winogrande: winogrande
+* MMLUP-PRO: mmlu_pro-category_other, mmlu_pro-category_physics, mmlu_pro-category_chemistry, mmlu_pro-category_biology, mmlu_pro-category_psychology, mmlu_pro-category_health, mmlu_pro-category_business, mmlu_pro-category_law, mmlu_pro-category_history, mmlu_pro-category_philosophy, mmlu_pro-category_economics, mmlu_pro-category_math, mmlu_pro-category_engineering, mmlu_pro-category_computer-science
 
-* GSM8k: gsm8k
+* BBH (CoT w/fewshots):bbh_cot_fewshot_tracking_shuffled_objects_three_objects, bbh_cot_fewshot_tracking_shuffled_objects_five_objects, bbh_cot_fewshot_tracking_shuffled_objects_seven_objects, bbh_cot_fewshot_dyck_languages, bbh_cot_fewshot_word_sorting, bbh_cot_fewshot_object_counting, bbh_cot_fewshot_reasoning_about_colored_objects, bbh_cot_fewshot_multistep_arithmetic_two, bbh_cot_fewshot_penguins_in_a_table, bbh_cot_fewshot_movie_recommendation, bbh_cot_fewshot_navigate, bbh_cot_fewshot_logical_deduction_three_objects, bbh_cot_fewshot_logical_deduction_five_objects, bbh_cot_fewshot_logical_deduction_seven_objects, bbh_cot_fewshot_causal_judgement, bbh_cot_fewshot_date_understanding, bbh_cot_fewshot_temporal_sequences, bbh_cot_fewshot_formal_fallacies, bbh_cot_fewshot_boolean_expressions, bbh_cot_fewshot_sports_understanding, bbh_cot_fewshot_disambiguation_qa, bbh_cot_fewshot_hyperbaton, bbh_cot_fewshot_salient_translation_error_detection, bbh_cot_fewshot_snarks, bbh_cot_fewshot_web_of_lies, bbh_cot_fewshot_ruin_names
+
+* leaderboard_math: leaderboard_math_algebra_hard, leaderboard_math_counting_and_prob_hard, leaderboard_math_geometry_hard, leaderboard_math_intermediate_algebra_hard, leaderboard_math_num_theory_hard, leaderboard_math_prealgebra_hard, leaderboard_math_precalculus_hard
 
 # Activities - lm-evaluation-harness (LMEH)
 
@@ -33,13 +30,18 @@ Files that follow the structure of `lm-eval-harness`. The intention, for instanc
     * `def build_all_requests` was modified in order to inject the Postgres document id into the `Instance.doc_id`.
 
 **models**
-* `PocketNetworkLM`:  A class that mimic partially `OpenaiChatCompletionsLM` from `lm-eval-harness`. Instead on generate request and take respobnses, both `loglikelihood` and `generate_until` methods instantiate `CompletionRequest`. The last is a class used as a proxy to generate the `data` field of a RPC request that is saved in Mongo.
+* `SamplerAPI` & `EvaluatorAPI`: Classe that mimic partially `TemplateAPI` from `lm-eval-harness`, depending the stage of the request (`sample` or `evaluate`) and the `path` of the request (`/v1/completions` or `/v1/chat/completions`).
+    * `SamplerAPI` is a base class that is used to generate the `SamplerCompletionAPI` and `SamplerChatCompletionAPI`. Where each one generates the request in the format of `CompletionRequest` or `ChatCompletionRequest` when `_create_payload_custom` is called.
+    * `EvaluatorAPI` similarly to `SamplerAPI` case that act as a base class for `EvaluatorCompletion` and `EvaluatorChatCompletion`. In `model_call` it convert the response in the format of `CompletionResponse` or `ChatCompletionResponse` into a dict. Then, responses are then parsed via `parse_generations`, a method inherited from `LocalCompletionsAPI` or `LocalChatCompletion`, depending if the request if the class is `EvaluatorCompletion` or `EvaluatorChatCompletion`.
+
+
+Instead on generate request and take responses, both `loglikelihood` (current not implemented) and `generate_until` methods instantiate `CompletionRequest` or `ChatCompletionRequest`. The lasts are classes used as a proxy to generate the `data` field of a RPC request that is saved in Mongo.
 
 **generator.py**
 * `get_configurable_task`: A function to return only `ConfigurableTask` based on the `task_manager`. 
     * If `task_manager` is `TaskManager`, then all samples from all splits are part of the dataset. 
     * If `task_manager` is `PocketNetworkTaskManager`, random samples are generated based on the configuration split and the blacklist provided in `pocket_args`.
-* `genererate_requests`: A functions that hierarchically save in MongoDB the structure of `Task`->`Instances`->`Prompts`.
+* `generate_requests`: A functions that hierarchically save in MongoDB the structure of `Task`->`Instances`->`Prompts`.
 
 
 ### Accessing the DB with PG Admin

@@ -12,7 +12,6 @@ generation_kwargs:
   until:
     - "\n"
     - "Passage:"
-    - "</s>"
 metric_list:
   - metric: exact_match
     aggregation: mean

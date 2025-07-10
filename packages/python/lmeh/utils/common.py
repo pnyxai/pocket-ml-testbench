@@ -20,11 +20,13 @@ def get_task_manager(
     verbosity: str,
     postgres_conn: asyncpg.Connection,
     logger: Optional[logging.Logger] = None,
+    metadata: Optional[dict] = None,
     pocket_args: Optional[PocketNetworkTaskRequest] = None,
     stage: Optional[STAGE_TYPING] = None,
     random_seed: Optional[int] = None,
     numpy_random_seed: Optional[int] = None,
     torch_random_seed: Optional[int] = None,
+    fewshot_random_seed: int = 1234,
     hf_token: Optional[str] = None,
 ):
     """
@@ -63,6 +65,9 @@ def get_task_manager(
         torch_random_seed = torch.randint(0, 2**32 - 1, (1,)).item()
         torch.manual_seed(torch_random_seed)
 
+    if fewshot_random_seed is not None:
+        seed_message.append(f"Setting fewshot manual seed to {fewshot_random_seed}")
+
     if seed_message:
         logger.info(" | ".join(seed_message))
 
@@ -70,6 +75,7 @@ def get_task_manager(
         postgres_conn=postgres_conn,
         verbosity=verbosity,
         include_path=include_path,
+        metadata=metadata,
         pocket_args=pocket_args,
         stage=stage,
         logger=logger,

@@ -8,7 +8,7 @@ package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.11"
-lm-eval = {version = "^0.4.2", extras = ["dev","openai","math"]}
+lm-eval = {version = "0.4.9", extras = ["dev","math"]}
 temporalio = "^1.10"
 structlog = "^24.1.0"
 pydantic = "^2.7.0"
@@ -21,10 +21,12 @@ immutabledict = "^4.2.1"
 torch = {version = "^2.5.1+cpu", source = "pytorch_cpu"}
 torchvision = {version = "^0.20.1+cpu", source = "pytorch_cpu"}
 transformers = "^4.48.0"
+openai = ">=1.52.0"
 
 
 [tool.poetry.group.dev.dependencies]
 ipykernel = "^6.29.4"
+pre-commit = "^4.2.0"
 
 
 [[tool.poetry.source]]

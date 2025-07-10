@@ -1,5 +1,4 @@
 import json
-from datetime import datetime
 from typing import Tuple
 from app.app import get_app_config, get_app_logger
 from bson import ObjectId
@@ -72,7 +71,6 @@ async def tokenizer_evaluate(
                 status=responses[0]["response"]["error_code"],
                 num_samples=0,
                 result_height=responses[0]["response"]["height"],
-                result_time=datetime.today().isoformat(),
             ),
             signatures=[],
         )
@@ -233,7 +231,6 @@ async def tokenizer_evaluate(
                 status=11,  # We failed to process
                 num_samples=0,
                 result_height=-1,
-                result_time=datetime.today().isoformat(),
             ),
             signatures=[],
         )

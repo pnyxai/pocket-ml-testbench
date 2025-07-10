@@ -12,65 +12,70 @@ BASE_COMMAND = ["kubectl", "exec", "-it", "deploy/temporal-admintools"]
 
 LMEH_TYPE = "lmeh"
 
-all_taxonomy_tasks = [
-    "mmlu_fix_anatomy_generative",
-    "mmlu_fix_medical_genetics_generative",
-    "mmlu_fix_human_aging_generative",
-    "mmlu_fix_nutrition_generative",
-    "mmlu_fix_human_sexuality_generative",
-    "mmlu_fix_sociology_generative",
-    "mmlu_fix_clinical_knowledge_generative",
-    "mmlu_fix_professional_psychology_generative",
-    "mmlu_fix_professional_medicine_generative",
-    "mmlu_fix_public_relations_generative",
-    "mmlu_fix_marketing_generative",
-    "mmlu_fix_management_generative",
-    "mmlu_fix_jurisprudence_generative",
-    "mmlu_fix_professional_law_generative",
-    "mmlu_fix_high_school_government_and_politics_generative",
-    "mmlu_fix_professional_accounting_generative",
-    "mmlu_fix_us_foreign_policy_generative",
-    "mmlu_fix_philosophy_generative",
-    "mmlu_fix_world_religions_generative",
-    "mmlu_fix_econometrics_generative",
-    "mmlu_fix_global_facts_generative",
-    "mmlu_fix_high_school_geography_generative",
-    "mmlu_fix_high_school_statistics_generative",
-    "mmlu_fix_high_school_us_history_generative",
-    "mmlu_fix_high_school_european_history_generative",
-    "mmlu_fix_high_school_world_history_generative",
-    "mmlu_fix_high_school_macroeconomics_generative",
-    "mmlu_fix_high_school_microeconomics_generative",
-    "mmlu_fix_high_school_psychology_generative",
-    "mmlu_fix_high_school_mathematics_generative",
-    "mmlu_fix_high_school_physics_generative",
-    "mmlu_fix_business_ethics_generative",
-    "mmlu_fix_moral_disputes_generative",
-    "mmlu_fix_moral_scenarios_generative",
-    "mmlu_fix_college_mathematics_generative",
-    "mmlu_fix_elementary_mathematics_generative",
-    "mmlu_fix_formal_logic_generative",
-    "mmlu_fix_abstract_algebra_generative",
-    "mmlu_fix_high_school_biology_generative",
-    "mmlu_fix_high_school_chemistry_generative",
-    "mmlu_fix_electrical_engineering_generative",
-    "mmlu_fix_college_chemistry_generative",
-    "mmlu_fix_college_physics_generative",
-    "mmlu_fix_college_biology_generative",
-    "mmlu_fix_college_medicine_generative",
-    "mmlu_fix_virology_generative",
-    "mmlu_fix_high_school_computer_science_generative",
-    "mmlu_fix_machine_learning_generative",
-    "mmlu_fix_computer_security_generative",
-    "mmlu_fix_college_computer_science_generative",
-    "mmlu_fix_miscellaneous_generative",
-    "mmlu_fix_conceptual_physics_generative",
-    "mmlu_fix_prehistory_generative",
-    "mmlu_fix_international_law_generative",
-    "mmlu_fix_human_aging_generative",
-    "mmlu_fix_security_studies_generative",
-    "mmlu_fix_astronomy_generative",
-    "mmlu_fix_logical_fallacies_generative",
+
+liveness_taxonomy = [
+    "babi-task_01-single_supporting_fact",
+]
+
+general_taxonomy = [
+    "mmlu_anatomy_generative",
+    "mmlu_medical_genetics_generative",
+    "mmlu_human_aging_generative",
+    "mmlu_nutrition_generative",
+    "mmlu_human_sexuality_generative",
+    "mmlu_sociology_generative",
+    "mmlu_clinical_knowledge_generative",
+    "mmlu_professional_psychology_generative",
+    "mmlu_professional_medicine_generative",
+    "mmlu_public_relations_generative",
+    "mmlu_marketing_generative",
+    "mmlu_management_generative",
+    "mmlu_jurisprudence_generative",
+    "mmlu_professional_law_generative",
+    "mmlu_high_school_government_and_politics_generative",
+    "mmlu_professional_accounting_generative",
+    "mmlu_us_foreign_policy_generative",
+    "mmlu_philosophy_generative",
+    "mmlu_world_religions_generative",
+    "mmlu_econometrics_generative",
+    "mmlu_global_facts_generative",
+    "mmlu_high_school_geography_generative",
+    "mmlu_high_school_statistics_generative",
+    "mmlu_high_school_us_history_generative",
+    "mmlu_high_school_european_history_generative",
+    "mmlu_high_school_world_history_generative",
+    "mmlu_high_school_macroeconomics_generative",
+    "mmlu_high_school_microeconomics_generative",
+    "mmlu_high_school_psychology_generative",
+    "mmlu_high_school_mathematics_generative",
+    "mmlu_high_school_physics_generative",
+    "mmlu_business_ethics_generative",
+    "mmlu_moral_disputes_generative",
+    "mmlu_moral_scenarios_generative",
+    "mmlu_college_mathematics_generative",
+    "mmlu_elementary_mathematics_generative",
+    "mmlu_formal_logic_generative",
+    "mmlu_abstract_algebra_generative",
+    "mmlu_high_school_biology_generative",
+    "mmlu_high_school_chemistry_generative",
+    "mmlu_electrical_engineering_generative",
+    "mmlu_college_chemistry_generative",
+    "mmlu_college_physics_generative",
+    "mmlu_college_biology_generative",
+    "mmlu_college_medicine_generative",
+    "mmlu_virology_generative",
+    "mmlu_high_school_computer_science_generative",
+    "mmlu_machine_learning_generative",
+    "mmlu_computer_security_generative",
+    "mmlu_college_computer_science_generative",
+    "mmlu_miscellaneous_generative",
+    "mmlu_conceptual_physics_generative",
+    "mmlu_prehistory_generative",
+    "mmlu_international_law_generative",
+    "mmlu_human_aging_generative",
+    "mmlu_security_studies_generative",
+    "mmlu_astronomy_generative",
+    "mmlu_logical_fallacies_generative",
     # MMLU PRO
     "mmlu_pro-category_other",
     "mmlu_pro-category_physics",
@@ -87,36 +92,35 @@ all_taxonomy_tasks = [
     "mmlu_pro-category_engineering",
     "mmlu_pro-category_computer-science",
     # IFEVAL
-    "ifeval_fix",
+    "ifeval",
     # BBH
-    "bbh_fix_fewshot_tracking_shuffled_objects_three_objects",
-    "bbh_fix_fewshot_tracking_shuffled_objects_five_objects",
-    "bbh_fix_fewshot_tracking_shuffled_objects_seven_objects",
-    "bbh_fix_fewshot_dyck_languages",
-    "bbh_fix_fewshot_word_sorting",
-    "bbh_fix_fewshot_object_counting",
-    "bbh_fix_fewshot_reasoning_about_colored_objects",
-    "bbh_fix_fewshot_multistep_arithmetic_two",
-    "bbh_fix_fewshot_penguins_in_a_table",
-    "bbh_fix_fewshot_movie_recommendation",
-    "bbh_fix_fewshot_navigate",
-    "bbh_fix_fewshot_logical_deduction_three_objects",
-    "bbh_fix_fewshot_logical_deduction_five_objects",
-    "bbh_fix_fewshot_logical_deduction_seven_objects",
-    "bbh_fix_fewshot_causal_judgement",
-    "bbh_fix_fewshot_date_understanding",
-    "bbh_fix_fewshot_temporal_sequences",
-    "bbh_fix_fewshot_formal_fallacies",
-    "bbh_fix_fewshot_boolean_expressions",
-    "bbh_fix_fewshot_sports_understanding",
-    "bbh_fix_fewshot_disambiguation_qa",
-    "bbh_fix_fewshot_hyperbaton",
-    "bbh_fix_fewshot_salient_translation_error_detection",
-    "bbh_fix_fewshot_snarks",
-    "bbh_fix_fewshot_web_of_lies",
-    "bbh_fix_fewshot_ruin_names",
+    "bbh_cot_fewshot_tracking_shuffled_objects_three_objects",
+    "bbh_cot_fewshot_tracking_shuffled_objects_five_objects",
+    "bbh_cot_fewshot_tracking_shuffled_objects_seven_objects",
+    "bbh_cot_fewshot_dyck_languages",
+    "bbh_cot_fewshot_word_sorting",
+    "bbh_cot_fewshot_object_counting",
+    "bbh_cot_fewshot_reasoning_about_colored_objects",
+    "bbh_cot_fewshot_multistep_arithmetic_two",
+    "bbh_cot_fewshot_penguins_in_a_table",
+    "bbh_cot_fewshot_movie_recommendation",
+    "bbh_cot_fewshot_navigate",
+    "bbh_cot_fewshot_logical_deduction_three_objects",
+    "bbh_cot_fewshot_logical_deduction_five_objects",
+    "bbh_cot_fewshot_logical_deduction_seven_objects",
+    "bbh_cot_fewshot_causal_judgement",
+    "bbh_cot_fewshot_date_understanding",
+    "bbh_cot_fewshot_temporal_sequences",
+    "bbh_cot_fewshot_formal_fallacies",
+    "bbh_cot_fewshot_boolean_expressions",
+    "bbh_cot_fewshot_sports_understanding",
+    "bbh_cot_fewshot_disambiguation_qa",
+    "bbh_cot_fewshot_hyperbaton",
+    "bbh_cot_fewshot_salient_translation_error_detection",
+    "bbh_cot_fewshot_snarks",
+    "bbh_cot_fewshot_web_of_lies",
+    "bbh_cot_fewshot_ruin_names",
     # bAbI
-    "babi-task_01-single_supporting_fact",
     "babi-task_02-two_supporting_facts",
     "babi-task_03-three_supporting_facts",
     "babi-task_04-two_argument_relations",
@@ -138,15 +142,37 @@ all_taxonomy_tasks = [
     "babi-task_20-agents_motivations",
 ]
 
-all_leaderboard_tasks = [
+babisteps_taxonomy = [
+    "babisteps-task_01-simpletracking",
+    "babisteps-task_02-immediateorder",
+    "babisteps-task_03-complextracking",
+    # "babisteps-task_04-listing",
+    "babisteps-task_05-sizeorder",
+    "babisteps-task_06-spatialorder",
+    "babisteps-task_07-temporalorder",
+]
+
+babisteps_chat_taxonomy = [
+    "babisteps-chat-cot-task_01-simpletracking",
+    "babisteps-chat-cot-task_02-immediateorder",
+    "babisteps-chat-cot-task_03-complextracking",
+    # "babisteps-chat-cot-task_04-listing",
+    "babisteps-chat-cot-task_05-sizeorder",
+    "babisteps-chat-cot-task_06-spatialorder",
+    "babisteps-chat-cot-task_07-temporalorder",
+]
+all_leaderboard_taxonomy = [
     # # MATH TODO : Abuse of splits probably...
-    # "leaderboard_math_algebra_hard",
-    # "leaderboard_math_counting_and_prob_hard",
-    # "leaderboard_math_geometry_hard",
-    # "leaderboard_math_intermediate_algebra_hard",
-    # "leaderboard_math_num_theory_hard",
-    # "leaderboard_math_prealgebra_hard",
-    # "leaderboard_math_precalculus_hard",
+    "leaderboard_math_algebra_hard",
+    "leaderboard_math_counting_and_prob_hard",
+    "leaderboard_math_geometry_hard",
+    "leaderboard_math_intermediate_algebra_hard",
+    "leaderboard_math_num_theory_hard",
+    "leaderboard_math_prealgebra_hard",
+    "leaderboard_math_precalculus_hard",
+    # NOTE: All the others `leaderboard_<task>` are the `multiple_choice` tasks and then require
+    # the loglikelihoods/tokenizers to compute the scores.
+    # For now, we will not trigger them.
     # GPQA TODO : Checkear abuso aca tambien
     # "leaderboard_gpqa_main",
     # "leaderboard_gpqa_extended",
@@ -183,6 +209,14 @@ all_leaderboard_tasks = [
     # "leaderboard_bbh_causal_judgement",
     # "leaderboard_bbh_disambiguation_qa",
 ]
+
+taxonomy_dict = {
+    "general": general_taxonomy,
+    "babisteps": babisteps_taxonomy,
+    "babisteps-chat": babisteps_chat_taxonomy,
+    "liveness": liveness_taxonomy,
+    "leaderboard": all_leaderboard_taxonomy,
+}
 
 
 def run_command(command):
@@ -432,6 +466,9 @@ def main():
         "--task", help="optionally pass a task identifier, e.g. --task ifeval-fix"
     )
     parser.add_argument(
+        "--taxonomy", help="optionally pass a taxonomy name, e.g. --taxonomy general"
+    )
+    parser.add_argument(
         "--k8s-namespace", help="Namespace of the k8s deployment, defaults to default"
     )
     parser.add_argument(
@@ -449,6 +486,29 @@ def main():
     )
 
     args = parser.parse_args()
+
+    # Validate taxonomy if provided
+    if args.taxonomy:
+        if args.taxonomy not in taxonomy_dict:
+            print(f"Error: Taxonomy '{args.taxonomy}' not found in taxonomy_dict.")
+            print(f"Available taxonomies: {list(taxonomy_dict.keys())}")
+            return
+
+    # Check for conflicting arguments
+    if args.task and args.taxonomy:
+        print("Error: --task and --taxonomy arguments cannot be used together.")
+        print(
+            "Please specify either a single task with --task or a taxonomy with --taxonomy."
+        )
+        return
+
+    # Require at least one of --task or --taxonomy
+    if not args.task and not args.taxonomy:
+        print("Error: Either --task or --taxonomy must be specified.")
+        print(
+            "Please specify either a single task with --task or a taxonomy with --taxonomy."
+        )
+        return
 
     if args.pokt_service_apps:
         print("Received services and apps:", args.pokt_service_apps)
@@ -468,10 +528,13 @@ def main():
     total_requesters = 0
     total_benchmarks = 0
 
-    all_tasks = all_taxonomy_tasks + all_leaderboard_tasks
+    # Determine which tasks to process
     if args.task:
-        print(f"Triggering only: {args.task}")
-        all_tasks = [args.task]
+        print(f"Triggering only task: {args.task}")
+        tasks_to_process = [args.task]
+    elif args.taxonomy:
+        print(f"Triggering taxonomy: {args.taxonomy}")
+        tasks_to_process = taxonomy_dict[args.taxonomy]
 
     if args.framework_postfix:
         LMEH_TYPE += "-" + args.framework_postfix
@@ -480,7 +543,7 @@ def main():
 
     if args.only_registers:
         print("Setting-up registers only:")
-        for task in all_tasks:
+        for task in tasks_to_process:
             # Register dataset
             print(f"\t{task}")
             ok = execute_register_task(task, execution_timeout=7200, task_timeout=3600)
@@ -552,7 +615,7 @@ def main():
         print("Requesters scheduled.")
 
         # Create all tasks for all chains
-        for task in all_tasks:
+        for task in tasks_to_process:
             print(f"Setting-up task: {task}")
             # Register dataset
             ok = execute_register_task(task, execution_timeout=7200, task_timeout=3600)

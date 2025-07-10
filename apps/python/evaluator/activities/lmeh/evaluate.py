@@ -4,7 +4,11 @@ from temporalio.exceptions import ApplicationError
 from typing import Tuple
 
 from app.app import get_app_logger, get_app_config
-from packages.python.lmeh.pocket_lm_eval.models.pocket_network import EvaluatorLM
+from lm_eval.utils import simple_parse_args_string
+from packages.python.lmeh.pocket_lm_eval.models.pocket_network import (
+    EvaluatorCompletion,
+    EvaluatorChatCompletion,
+)
 from packages.python.lmeh.utils.common import get_task_manager
 from packages.python.lmeh.utils import generator as lmeh_generator
 from packages.python.lmeh.utils import task_config as open_llm_config
@@ -64,10 +68,17 @@ async def lmeh_evaluate(args: PocketNetworkEvaluationTaskRequest) -> Tuple[bool,
         args.requester_args = task_mongo.requester_args
         if task_mongo.gen_kwargs is not None:
             args.gen_kwargs = task_mongo.gen_kwargs
-        if args.llm_args is None:
-            args.llm_args = {}
-
-        args.requester_args = task_mongo.requester_args
+        if task_mongo.system_instruction is not None:
+            args.system_instruction = task_mongo.system_instruction
+        if task_mongo.apply_chat_template is not None:
+            args.apply_chat_template = task_mongo.apply_chat_template
+        if task_mongo.fewshot_as_multiturn is not None:
+            args.fewshot_as_multiturn = task_mongo.fewshot_as_multiturn
+        if task_mongo.confirm_run_unsafe_code is not None:
+            args.confirm_run_unsafe_code = task_mongo.confirm_run_unsafe_code
+        if task_mongo.llm_args is not None:
+            args.llm_args = task_mongo.llm_args
+        # args.requester_args = task_mongo.requester_args
         if args.tasks is None:
             eval_logger.error("Need to specify task to evaluate.", task=args.task_id)
             return False, "Need to specify task to evaluate."
@@ -116,6 +127,18 @@ async def lmeh_evaluate(args: PocketNetworkEvaluationTaskRequest) -> Tuple[bool,
                 f"Using additional tasks from : {include_path}",
             )
 
+        metadata = (
+            simple_parse_args_string(args.llm_args)
+            if isinstance(args.llm_args, str)
+            else args.llm_args
+            if isinstance(args.llm_args, dict)
+            else {}
+            # ) | (
+            #     args.metadata
+            #     if isinstance(args.metadata, dict)
+            #     else simple_parse_args_string(args.metadata)
+        )
+
         # retrieve database connection
         eval_logger.debug("Acquiring Postgres Connection from pool")
         async with app_config["postgres"].acquire() as conn:
@@ -124,8 +147,9 @@ async def lmeh_evaluate(args: PocketNetworkEvaluationTaskRequest) -> Tuple[bool,
                     tasks=args.tasks,
                     include_path=include_path,
                     verbosity=str(args.verbosity),
-                    logger=eval_logger,
                     postgres_conn=conn,
+                    logger=eval_logger,
+                    metadata=metadata,
                     pocket_args=args,
                     stage=TASK_MANAGER_EVALUATE_STAGE,
                 )
@@ -159,6 +183,7 @@ async def lmeh_evaluate(args: PocketNetworkEvaluationTaskRequest) -> Tuple[bool,
                             verbosity=str(args.verbosity),
                             predict_only=False,
                             eval_logger=eval_logger,
+                            metadata=metadata,
                         )
                     except ApplicationError as e:
                         eval_logger.error(
@@ -238,12 +263,26 @@ async def lmeh_evaluate(args: PocketNetworkEvaluationTaskRequest) -> Tuple[bool,
                         # raise ApplicationError(
                         #     error_msg, str(error), type="SQLError", non_retryable=True
                         # )
-
                     try:
                         # Instance LM
                         eval_logger.debug("Generating LM")
-                        lm = EvaluatorLM(**args.llm_args)
-                        eval_logger.debug("LM generated successfully.")
+                        if args.requester_args.path == "/v1/completions":
+                            lm = EvaluatorCompletion(
+                                **args.llm_args,
+                            )
+                        elif args.requester_args.path == "/v1/chat/completions":
+                            lm = EvaluatorChatCompletion(
+                                **args.llm_args,
+                            )
+                        # LM Setup (end)
+                        else:
+                            raise ApplicationError(
+                                "Unsupported path for LLM API",
+                                args.requester_args.path,
+                                type="UnsupportedPath",
+                                non_retryable=True,
+                            )
+                        eval_logger.debug("LM generated successfully.", lm=type(lm))
                         result = await lmeh_generator.evaluate(
                             lm=lm,
                             task_dict=task_dict,
@@ -251,6 +290,10 @@ async def lmeh_evaluate(args: PocketNetworkEvaluationTaskRequest) -> Tuple[bool,
                             mongo_client=mongo_client,
                             selected_filters=open_llm_filters,
                             selected_metrics=open_llm_metrics,
+                            system_instruction=args.system_instruction,
+                            apply_chat_template=args.apply_chat_template,
+                            fewshot_as_multiturn=args.fewshot_as_multiturn,
+                            confirm_run_unsafe_code=args.confirm_run_unsafe_code,
                             eval_logger=eval_logger,
                         )
                         eval_logger.info(

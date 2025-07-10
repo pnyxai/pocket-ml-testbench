@@ -1,15 +1,39 @@
 # Adapted from lm_eval/models/openai_completions.py
 import copy
-from typing import Dict, List, Optional, Tuple, Union
-
-import lm_eval.models.utils
-from app.app import get_app_logger
-from lm_eval import utils
-from lm_eval.api.instance import Instance
-from lm_eval.api.model import TemplateLM
-from lm_eval.models.utils import (
-    configure_pad_token,
+import json
+from functools import cached_property
+from typing import (
+    Dict,
+    List,
+    Literal,
+    Optional,
+    Tuple,
+    Union,
 )
+
+
+try:
+    #    import requests
+    #    from aiohttp import ClientSession, ClientTimeout, TCPConnector
+    from tenacity import RetryError, retry, stop_after_attempt, wait_exponential
+    from tqdm import tqdm
+except ModuleNotFoundError:
+    pass
+from app.app import get_app_logger
+from lm_eval.api.instance import Instance
+from lm_eval.models.api_models import (
+    TemplateAPI,
+    JsonChatStr,
+    LogLikelihoodInputs,
+    create_image_prompt,
+)
+from lm_eval.models.openai_completions import (
+    LocalCompletionsAPI,
+    LocalChatCompletion,
+)
+from lm_eval.models.utils import configure_pad_token
+from lm_eval.models.utils import Collator
+from importlib.util import find_spec
 from temporalio.exceptions import ApplicationError
 from tqdm import tqdm
 
@@ -20,7 +44,13 @@ from packages.python.common.mongodb import MongoClient
 # stop_sequences_criteria,
 from packages.python.lmeh.utils.mongodb import MongoOperator
 from packages.python.lmeh.utils.tokenizers import load_config, load_tokenizer
-from packages.python.protocol.protocol import CompletionRequest, RequesterArgs
+from packages.python.protocol.protocol import (
+    CompletionRequest,
+    ChatCompletionRequest,
+    RequesterArgs,
+    CompletionResponse,
+    ChatCompletionResponse,
+)
 
 eval_logger = get_app_logger("sample")
 evaluation_logger = get_app_logger("evaluation")
@@ -62,7 +92,7 @@ def get_result(response, ctxlen: int) -> Tuple[float, bool]:
     return continuation_logprobs, is_greedy
 
 
-class PocketNetworkLM(TemplateLM):
+class SamplerAPI(TemplateAPI):
     _DEFAULT_MAX_LENGTH = 8192
 
     def __init__(
@@ -72,48 +102,175 @@ class PocketNetworkLM(TemplateLM):
         wf_id: str,
         model: str = "pocket_network",
         base_url: str = None,
+        # Loglikelihood tasks require a tokenizer to calculate context lengths,
+        # however the requests can be sent as a string if the API doesn't support token inputs.
+        # use tokenized_requests=False
+        tokenizer_backend: Optional[
+            Literal["huggingface", "None", "none"]
+        ] = "huggingface",
         truncate: bool = False,
-        max_gen_toks: int = 256,
-        batch_size: int = 1,
+        # number of concurrent requests. More useful if not batching
+        num_concurrent: int = 1,
+        max_retries: int = 3,
+        max_gen_toks: int = 1024,
+        batch_size: Union[str, int] = 1,
         seed: int = 1234,
         max_length: Optional[int] = None,
-        prefix_token_id: Optional[int] = None,
-        add_bos_token: Optional[bool] = False,
+        add_bos_token: bool = False,
+        custom_prefix_token_id: int = None,
+        # send the requests as tokens or strings
+        tokenized_requests: bool = False,
         trust_remote_code: bool = False,
+        revision: Optional[str] = "main",
+        use_fast_tokenizer: bool = True,
+        verify_certificate: bool = True,
+        eos_string: str = None,
+        # timeout in seconds
+        timeout: int = 300,
+        max_images: int = 1,
+        **kwargs,
     ) -> None:
-        """
-
-        :param truncate: bool
-            Truncate input if too long (if False and input is too long, throw error)
-        """
-        super().__init__()
-        self.seed = seed
-        self.model = model
-        self.base_url = base_url
-        self.truncate = truncate
-        self._batch_size = batch_size
-        self._max_gen_toks = max_gen_toks
-        self._max_length = max_length
-        self.wf_id = wf_id
+        # super().__init__()
+        missing_packages = [
+            pkg
+            for pkg in ["aiohttp", "tqdm", "tenacity", "requests"]
+            if find_spec(pkg) is None
+        ]
+        if missing_packages:
+            raise ModuleNotFoundError(
+                f"Attempted to use an API model, but the required packages {missing_packages} are not installed. "
+                'Please install these via `pip install lm-eval[api]` or `pip install -e ."[api]"`'
+            )
         self.requester_args = requester_args
         self.mongo_client = mongo_client
         self.mongo_operator = MongoOperator(client=mongo_client)
-        self.init_prefix_token_id = prefix_token_id
+        self.wf_id = wf_id
+        self.model = model
+        self.base_url = base_url
+        if not isinstance(batch_size, int) and "auto" in batch_size:
+            eval_logger.warning(
+                "Automatic batch size is not supported for API models. Defaulting to batch size 1."
+            )
+        elif int(batch_size) > 1:
+            eval_logger.warning(
+                "Batch size > 1 detected. Ensure your API supports batched requests with varying total sequence lengths."
+            )
+        self._batch_size = int(batch_size) if batch_size != "auto" else 1
+        self._truncate = truncate
+        self._max_gen_toks = int(max_gen_toks)
+        self._seed = int(seed)
+        # max_length - 1 as we always have 1 token for generation
+        eval_logger.info(f"Using max length {max_length} - 1")
+        # NOTE (Nicolas): In the TemplateAPI, the it's defined as `self.max_length`, but here we use `_max_length`
+        # in order to conciliate with the @property `def max_length` defined in the HFLM class.
+        self._max_length = max_length
+        if int(num_concurrent) <= 1:
+            eval_logger.info(
+                "Concurrent requests are disabled. To enable concurrent requests, set `num_concurrent` > 1."
+            )
+        self._concurrent = int(num_concurrent)
+        self.tokenizer_backend = (
+            None if tokenizer_backend in ("None", "none") else tokenizer_backend
+        )
         self.add_bos_token = add_bos_token
-        self.trust_remote_code = trust_remote_code
+        self.custom_prefix_token_id = custom_prefix_token_id
+        self.tokenized_requests = tokenized_requests
+        self.max_retries = int(max_retries)
+        self.verify_certificate = verify_certificate
+        self._eos_string = eos_string
+        self.timeout = int(timeout)
+        self.max_images = int(max_images)
+
+        # NOTE (nicolas): Due to super.init() is currently not called, we need to set these attributes manually.
+        self._rank = 0
+        self._world_size = 1
+
+        eval_logger.info(f"Using tokenizer {self.tokenizer_backend}")
+        if self.tokenizer_backend is None:
+            self.tokenizer = None
+            self.tokenized_requests = False
+        else:
+            eval_logger.info(
+                "LM loaded, tokenizer not loaded yet. Will load it from the database."
+            )
+            ##########################################################
+            # Section from TemplateAPI(lm-eval-harness 0.4.9) removed
+            #########################################################
+            # NOTE (nicolas):
+            # When the probabilities are back, then the code related to the tokenizer initialization should go to `load_tokenizer`.
+
+    @cached_property
+    def eot_token_id(self) -> Optional[int]:
+        if self.tokenizer is None:
+            return None
+        else:
+            if self.tokenizer_backend == "huggingface":
+                return self.tokenizer.eos_token_id
+            else:
+                # raise error
+                eval_logger.error(
+                    "tokenizer_backend do not supported  (in def eot_token_id)",
+                    tokenizer_backend=self.tokenizer_backend,
+                )
+                raise ApplicationError(
+                    "tokenizer_backend do not supported  (in def eot_token_id)",
+                    tokenizer_backend=self.tokenizer_backend,
+                    non_retryable=True,
+                )
+
+    @cached_property
+    def eos_string(self) -> Optional[str]:
+        if self._eos_string:
+            return self._eos_string
+        elif self.tokenizer is not None:
+            if self.tokenizer_backend == "huggingface":
+                return self.tokenizer.eos_token
+            # elif self.tokenizer_backend == "tiktoken":
+            #    return self.tokenizer.decode([self.tokenizer.eot_token])
+            else:
+                # raise error
+                eval_logger.error(
+                    "tokenizer_backend do not supported (in def eos_string)",
+                    tokenizer_backend=self.tokenizer_backend,
+                )
+                raise ApplicationError(
+                    "tokenizer_backend do not supported (in def eos_string)",
+                    tokenizer_backend=self.tokenizer_backend,
+                    non_retryable=True,
+                )
+        else:
+            eval_logger.warning(
+                "Cannot determine EOS string to pass to stop sequence. Manually set by passing `eos_string` to model_args."
+            )
+            return None
 
     @property
-    def eot_token_id(self):
-        return self.end_of_text_token_id
+    def max_gen_toks(self) -> int:
+        """Maximum number of tokens to generate."""
+        return self._max_gen_toks
 
-    @property
-    def prefix_token_id(self):
-        # it is used as prefix for loglikelihood
-        if self.custom_prefix_token_id is not None:
-            return self.custom_prefix_token_id
-        if self.tokenizer.bos_token_id is not None:
-            return self.tokenizer.bos_token_id
-        return self.tokenizer.eos_token_id
+    @cached_property
+    def prefix_token_id(self) -> Optional[int]:
+        if self.tokenizer is None:
+            return None
+        else:
+            if self.custom_prefix_token_id is not None:
+                return self.custom_prefix_token_id
+            if self.tokenizer_backend == "huggingface":
+                if self.tokenizer.bos_token_id is not None:
+                    return self.tokenizer.bos_token_id
+                return self.tokenizer.eos_token_id
+            else:
+                # raise error
+                eval_logger.error(
+                    "tokenizer_backend do not supported (in def prefix_token_id)",
+                    tokenizer_backend=self.tokenizer_backend,
+                )
+                raise ApplicationError(
+                    "tokenizer_backend do not supported (in def prefix_token_id)",
+                    tokenizer_backend=self.tokenizer_backend,
+                    non_retryable=True,
+                )
 
     @property
     def max_length(self):
@@ -137,24 +294,6 @@ class PocketNetworkLM(TemplateLM):
             return self._DEFAULT_MAX_LENGTH
 
     @property
-    def max_gen_toks(self) -> int:
-        return self._max_gen_toks
-
-    def apply_chat_template(self, chat_history: List[Dict[str, str]]) -> str:
-        """
-        Method to apply a chat template to a list of chat history between user and model.
-        """
-        return self.tokenizer.apply_chat_template(
-            chat_history, tokenize=False, add_generation_prompt=True
-        )
-
-    @property
-    def chat_template(self) -> str:
-        if self.tokenizer.chat_template is not None:
-            return self.tokenizer.chat_template
-        return self.tokenizer.default_chat_template
-
-    @property
     def tokenizer_name(self) -> str:
         return self.tokenizer.name_or_path.replace("/", "__")
 
@@ -162,60 +301,61 @@ class PocketNetworkLM(TemplateLM):
     def batch_size(self) -> int:
         return self._batch_size
 
-    @property
-    def device(self):
-        # Isn't used because we override _loglikelihood_tokens
-        raise NotImplementedError()
-
     async def load_tokenizer(self) -> bool:
         # -------------------- Load Tokenizer ----------------------------------
-        try:
-            (
-                has_tokenizer,
-                tokenizer_objects,
-            ) = await self.mongo_operator.get_tokenizer_objects(
-                address=self.requester_args.address,
-                service=self.requester_args.service,
-            )
-
-        except Exception as e:
-            eval_logger.error(
-                "Error loading tokenizer objects",
-                error=str(e),
-                address=self.requester_args.address,
-                service=self.requester_args.service,
-            )
-            raise ApplicationError(
-                "Error loading tokenizer objects",
-                error=str(e),
-                address=self.requester_args.address,
-                service=self.requester_args.service,
-                non_retryable=True,
-            )
-
-        if has_tokenizer:
+        eval_logger.info(f"Using tokenizer {self.tokenizer_backend}")
+        if self.tokenizer_backend is None:
+            has_tokenizer = False
+            self.tokenizer = None
+            self.tokenized_requests = False
+        else:
             try:
-                self.tokenizer = load_tokenizer(
-                    tokenizer_objects=tokenizer_objects,
-                    wf_id=self.wf_id,
-                    trust_remote_code=self.trust_remote_code,
+                (
+                    has_tokenizer,
+                    tokenizer_objects,
+                ) = await self.mongo_operator.get_tokenizer_objects(
+                    address=self.requester_args.address,
+                    service=self.requester_args.service,
                 )
+
             except Exception as e:
                 eval_logger.error(
-                    "Error loading tokenizer from database",
+                    "Error loading tokenizer objects",
                     error=str(e),
                     address=self.requester_args.address,
                     service=self.requester_args.service,
                 )
                 raise ApplicationError(
-                    "Error loading tokenizer from database",
+                    "Error loading tokenizer objects",
                     error=str(e),
                     address=self.requester_args.address,
                     service=self.requester_args.service,
                     non_retryable=True,
                 )
-        else:
-            self.tokenizer = None
+
+            if has_tokenizer:
+                try:
+                    self.tokenizer = load_tokenizer(
+                        tokenizer_objects=tokenizer_objects,
+                        wf_id=self.wf_id,
+                        trust_remote_code=self.trust_remote_code,
+                    )
+                except Exception as e:
+                    eval_logger.error(
+                        "Error loading tokenizer from database",
+                        error=str(e),
+                        address=self.requester_args.address,
+                        service=self.requester_args.service,
+                    )
+                    raise ApplicationError(
+                        "Error loading tokenizer from database",
+                        error=str(e),
+                        address=self.requester_args.address,
+                        service=self.requester_args.service,
+                        non_retryable=True,
+                    )
+            else:
+                self.tokenizer = None
 
         # -------------------- Load Configuration ------------------------------
         try:
@@ -287,455 +427,549 @@ class PocketNetworkLM(TemplateLM):
         # True if tokenizer and config are present, false otherwise
         return has_tokenizer and has_config
 
-    def tok_encode(
+    # NOTE (nicolas) `tok_encode` method is now implemented into TemplateAPI`
+    # NOTE (nicolas) tok_decode method is now implementd into TemplateAPI, by the name
+    # decode_batch
+
+    def model_call(
         self,
-        string: Union[str, List[str]],
-        left_truncate_len: int = None,
-        add_special_tokens: bool = False,
-        truncation: bool = False,
-    ) -> Union[List[int], List[List[int]]]:
-        if not add_special_tokens:
-            add_special_tokens = False or self.add_bos_token
-        encoding: Union[List[List[int]], List[int]] = self.tokenizer(
-            string,
-            add_special_tokens=add_special_tokens,
-            truncation=truncation,
-            return_attention_mask=False,
-        ).input_ids
-
-        # left-truncate the encoded context to be at most `left_truncate_len` tokens long
-        if left_truncate_len:
-            if not isinstance(string, str):
-                encoding = [enc[-left_truncate_len:] for enc in encoding]
-            else:
-                encoding = encoding[-left_truncate_len:]
-
-        return encoding
-
-    def tok_decode(self, tokens: List[int]) -> str:
-        if not self.tokenizer:
-            raise "must call await <instance>.load_tokenizer()"
-        return self.tokenizer.decode(tokens)
-
-    def _loglikelihood_tokens(
-        self, requests, disable_tqdm: bool = True
-    ) -> List[CompletionRequest]:
-        res = []
-
-        def _collate(x):
-            # this doesn't efficiently handle last-token differences yet, but those are kinda annoying because
-            # it's not guaranteed that the 100 or so logprobs we get to see actually contain all the continuations
-            # we care about, and so we need some kind of backup for when it isn't
-            toks = x[1] + x[2]
-            return -len(toks), tuple(toks)
-
-        re_ord = utils.Reorderer(requests, _collate)
-
-        for chunk in tqdm(
-            list(lm_eval.models.utils.chunks(re_ord.get_reordered(), self.batch_size)),
-            disable=disable_tqdm,
-        ):
-            inps = []
-            ctxlens = []
-            for cache_key, context_enc, continuation_enc in chunk:
-                # max_length+1 because the API takes up to 2049 tokens, including the first context token
-                inp = (context_enc + continuation_enc)[-(self.max_length + 1) :]
-                # TODO: the logic is much simpler if we just look at the length of continuation tokens
-                ctxlen = len(context_enc) - max(
-                    0, len(context_enc) + len(continuation_enc) - (self.max_length + 1)
-                )
-
-                inps.append(inp)
-                ctxlens.append(ctxlen)
-            ############################################################
-            # START: POCKET NETWORK CODE
-            ############################################################
-            request = CompletionRequest(
-                model=self.model,
-                prompt=inps,
-                echo=True,
-                max_tokens=0,
-                temperature=0.0,
-                logprobs=5,
-                seed=self.seed,
+        messages: Union[List[List[int]], List[str], List[JsonChatStr]],
+        *,
+        generate: bool = True,
+        gen_kwargs: Optional[Dict] = None,
+        **kwargs,
+    ) -> Optional[Union[CompletionRequest, ChatCompletionRequest]]:
+        # !!! Copy: shared dict for each request, need new object !!!
+        gen_kwargs = copy.deepcopy(gen_kwargs)
+        try:
+            # NOTE: Removed the part related to the request.
+            # This class do not performs it, just creates instantes of
+            # CompletionRequest or ChatCompletionRequest.
+            # response = requests.post(
+            # ...
+            # return response.json()
+            request = self._create_payload_custom(
+                messages=messages,
+                generate=generate,
+                gen_kwargs=gen_kwargs,
+                seed=self._seed,
+                eos=self.eos_string,
+                **kwargs,
             )
 
-            for prompt_i, ctxlen, (cache_key, context_enc, continuation_enc) in zip(
-                request.prompt, ctxlens, chunk
-            ):
-                req_dict = request.to_dict(remove_fields=["prompt"])
-                req_dict["prompt"] = prompt_i
-                req_dict["ctxlen"] = ctxlen
-                req_dict["context_enc"] = context_enc
-                req_dict["continuation_enc"] = continuation_enc
-                req_i = CompletionRequest(**req_dict)
-                res.append(req_i)
-            ############################################################
-            # END: POCKET NETWORK CODE
-            ############################################################
+            return request
+        except RetryError:
+            eval_logger.error(
+                "API request failed after multiple retries. Please check the API status."
+            )
+            return None
+
+    def _loglikelihood_tokens(
+        self, requests, **kwargs
+    ) -> List[Union[ChatCompletionRequest, CompletionRequest]]:
+        assert (
+            self.tokenizer is not None
+        ), "Tokenizer is required for loglikelihood tasks to compute context lengths."
+        res = []
+
+        def _collate(req: LogLikelihoodInputs):
+            """Defines the key for the sorted method"""
+            # the negative sign on len(toks) sorts descending - this has a few advantages:
+            # - time estimates will always be over not underestimates, which is more useful for planning
+            # - to know the size of a batch when going through the list, you know the first one is always the batch
+            #   padded context length. this is useful to simplify the batching logic and more importantly to make
+            #   automatic adaptive batches much much easier to implement
+            # - any OOMs will happen right away rather than near the end
+
+            toks = req[1] + req[2]
+            return -len(toks), tuple(toks)
+
+        re_ord = Collator(
+            requests,
+            sort_fn=_collate,
+            group_by=None,
+        )
+        # if concurrent then we'll batch in the async context
+        chunked = re_ord.get_batched(n=self._batch_size if self._concurrent <= 1 else 0)
+        if self._concurrent <= 1:
+            pbar = tqdm(desc="Creating requests", total=len(requests))
+            for chunk in chunked:
+                inputs, ctxlens, _ = self.batch_loglikelihood_requests([chunk])
+                eval_logger.error(
+                    "Loglikelihood inputs",
+                    inputs=inputs,
+                    ctxlens=ctxlens,
+                )
+                outputs = retry(
+                    stop=stop_after_attempt(self.max_retries),
+                    wait=wait_exponential(multiplier=0.5, min=1, max=10),
+                    reraise=True,
+                )(self.model_call)(messages=inputs, generate=False)
+                if isinstance(outputs, dict):
+                    outputs = [outputs]
+                # parase log_probs deleted here, do not apply
+                for answer_, _ in zip(outputs, inputs, ctxlens):
+                    if answer_ is not None:
+                        res.append(answer_)
+                        pbar.update(1)
+        else:
+            # For now, raise application error:
+            eval_logger.error(
+                "Currently, only synchronous requests are supported, please set `num_concurrent=1`."
+            )
+            return ApplicationError(
+                "Currently, only synchronous requests are supported, please set `num_concurrent=1`.",
+                non_retryable=True,
+            )
 
         return re_ord.get_original(res)
 
+        # TODO Old code related to _loglikelihood_tokens
+        # The logic below should then be addapted into the newer _loglikelihood_tokens method
+
+        # for chunk in tqdm(
+        #     list(lm_eval.models.utils.chunks(re_ord.get_reordered(), self.batch_size)),
+        #     disable=disable_tqdm,
+        # ):
+        #     inps = []
+        #     ctxlens = []
+        #     for cache_key, context_enc, continuation_enc in chunk:
+        #         # max_length+1 because the API takes up to 2049 tokens, including the first context token
+        #         inp = (context_enc + continuation_enc)[-(self.max_length + 1) :]
+        #         # TODO: the logic is much simpler if we just look at the length of continuation tokens
+        #         ctxlen = len(context_enc) - max(
+        #             0, len(context_enc) + len(continuation_enc) - (self.max_length + 1)
+        #         )
+
+        #         inps.append(inp)
+        #         ctxlens.append(ctxlen)
+        #     ############################################################
+        #     # START: POCKET NETWORK CODE
+        #     ############################################################
+        #     request = CompletionRequest(
+        #         model=self.model,
+        #         prompt=inps,
+        #         echo=True,
+        #         max_tokens=0,
+        #         temperature=0.0,
+        #         logprobs=5,
+        #         seed=self.seed,
+        #     )
+
+        #     for prompt_i, ctxlen, (cache_key, context_enc, continuation_enc) in zip(
+        #         request.prompt, ctxlens, chunk
+        #     ):
+        #         req_dict = request.to_dict(remove_fields=["prompt"])
+        #         req_dict["prompt"] = prompt_i
+        #         req_dict["ctxlen"] = ctxlen
+        #         req_dict["context_enc"] = context_enc
+        #         req_dict["continuation_enc"] = continuation_enc
+        #         req_i = CompletionRequest(**req_dict)
+        #         res.append(req_i)
+        #     ############################################################
+        #     # END: POCKET NETWORK CODE
+        #     ############################################################
+
+        # return re_ord.get_original(res)
+
     def generate_until(
-        self, requests, disable_tqdm: bool = True
-    ) -> List[CompletionRequest]:
+        self, requests: List[Instance], disable_tqdm: bool = False
+    ) -> List[Union[ChatCompletionRequest, CompletionRequest]]:
         """
         Mix of OpenAI's generate_until and VLLM generate_until
         """
-        if not requests:
-            return []
         res = []
-        requests = [req.args for req in requests]
 
-        def _collate(x):
-            if self.tokenizer is not None:
-                toks = self.tok_encode(x[0])
-                feat = len(toks)
-            else:
-                feat = len(x[0])
-            return feat, x[0]
+        def _collate_gen(_requests):
+            # sort by the length of the non-tokenized contexts
+            return -len(_requests[0])
 
-        re_ord = utils.Reorderer(requests, _collate)
-
-        def sameuntil_chunks(xs, size):
-            ret = []
-            lastuntil = xs[0][1]
-            for x in xs:
-                if len(ret) >= size or x[1] != lastuntil:
-                    yield ret, lastuntil
-                    ret = []
-                    lastuntil = x[1]
-                ret.append(x)
-
-            if ret:
-                yield ret, lastuntil
-
-        # todo: more intelligent batching for heterogeneous `until`
-        for chunk, request_args in tqdm(
-            list(sameuntil_chunks(re_ord.get_reordered(), self.batch_size)),
-            disable=disable_tqdm,
-        ):
-            inps = []
-            self._max_gen_toks = request_args.get("max_gen_toks", self.max_gen_toks)
-
-            ############################################################
-            # START: POCKET NETWORK CODE
-            ############################################################
-            if self.tokenizer is not None:
-                for context, _ in chunk:
-                    context_enc = self.tok_encode(context)
-                    inp = context_enc[-(self.max_length - self.max_gen_toks) :]
-                    inps.append(inp)
-            else:
-                # No chunking, hope for the best
-                for context, _ in chunk:
-                    inps.append(context)
-            ############################################################
-            # END: POCKET NETWORK CODE
-            ############################################################
-
-            gen_kwargs = request_args
-            until = None
-            if isinstance(gen_kwargs, dict):
-                kwargs = copy.deepcopy(gen_kwargs)  # edge case for repeats > 1
-                if "until" in kwargs.keys():
-                    until = kwargs.pop("until")
-                    if isinstance(until, str):
-                        until = [until]
-                    elif not isinstance(until, list):
-                        raise ValueError(
-                            f"Expected `kwargs['until']` to be of type Union[str,list] but got {until}"
+        # Let the API deal with tokenization
+        if len(requests[0].args) > 2:
+            assert (
+                self.tokenizer is None
+            ), "tokenizer is not supported for multimodal requests yet!"
+            eval_logger.info(
+                f"Using max_images {self.max_images}. Set in the model args."
+            )
+            requests, all_gen_kwargs, auxiliary_args = zip(
+                *(req.args for req in requests)
+            )
+            requests = tuple(
+                JsonChatStr(
+                    json.dumps(
+                        create_image_prompt(
+                            y["visual"][: self.max_images], json.loads(x.prompt)
                         )
-            else:
-                raise ValueError(
-                    f"Expected `kwargs` to be of type `dict` but got {gen_kwargs}"
+                    )
                 )
-            ############################################################
-            # START: POCKET NETWORK CODE
-            ############################################################
-            if self.tokenizer is not None:
-                # add EOS token to stop sequences
-                eos = self.tokenizer.decode(self.eot_token_id)
-                if not until:
-                    until = [eos]
-                else:
-                    until.append(eos)
-            ############################################################
-            # END: POCKET NETWORK CODE
-            ############################################################
+                for x, y in zip(requests, auxiliary_args)
+            )
+        else:
+            requests, all_gen_kwargs = zip(*(req.args for req in requests))
 
-            request_args["temperature"] = request_args.get("temperature", 0)
-            ############################################################
-            # START: POCKET NETWORK CODE
-            ############################################################
-            extra_args = {
-                k: v
-                for k, v in request_args.items()
-                if k not in {"do_sample", "max_gen_toks", "until"}
-            }
+        if self.tokenized_requests:
+            encodings_list = self.tok_encode(
+                requests, add_special_tokens=self.add_bos_token
+            )
+        else:
+            encodings_list = [None] * len(requests)
+        requests = [
+            (a, b, c) for a, b, c in zip(requests, all_gen_kwargs, encodings_list)
+        ]
+
+        re_ord = Collator(
+            requests,
+            sort_fn=_collate_gen,
+            group_by="gen_kwargs",
+        )
+        chunked = re_ord.get_batched(
+            n=self._batch_size if self._concurrent <= 1 else 0, batch_fn=None
+        )
+        if not self.tokenized_requests:
             eval_logger.debug(
-                "CompletionRequest: ",
-                model=self.model,
-                prompt=inps,
-                max_tokens=self.max_gen_toks,
-                stop=until,
-                seed=self.seed,
+                "Tokenized requests are disabled. Context + generation length is not checked."
             )
-            eval_logger.debug("Extra args: ", **extra_args)
-            request = CompletionRequest(
-                model=self.model,
-                prompt=inps,
-                max_tokens=self.max_gen_toks,
-                stop=until,
-                seed=self.seed,
-                **extra_args,
+        if self._concurrent <= 1:
+            eval_logger.debug(
+                "In generate_until, num_concurrent <= 1",
+                num_concurrent=self._concurrent,
             )
-            for prompt_i, (context, args_) in zip(request.prompt, chunk):
-                req_dict = request.to_dict(remove_fields=["prompt"])
-                # context is a string
-                req_dict["prompt"] = prompt_i
+            # pbar = tqdm(desc="Requesting API", total=len(requests))
+            for chunk in chunked:
+                contexts, all_gen_kwargs, encodings_list = zip(*chunk)
+                if self.tokenized_requests:
+                    max_gen_toks = all_gen_kwargs[0].get(
+                        "max_gen_toks", self._max_gen_toks
+                    )
+                    max_context_len = self.max_length - max_gen_toks
 
+                    encodings_list = [x[-max_context_len:] for x in encodings_list]
+
+                    if any(
+                        len(x) + max_gen_toks > self.max_length for x in encodings_list
+                    ):
+                        eval_logger.warning(
+                            f"Some contexts exceeded (max length: ({self.max_length}) - max_gen_toks: ({max_gen_toks}). They were left truncated."
+                        )
+
+                req = encodings_list if self.tokenized_requests else contexts
+                outputs = retry(
+                    stop=stop_after_attempt(self.max_retries),
+                    wait=wait_exponential(multiplier=0.5, min=1, max=10),
+                    reraise=True,
+                )(self.model_call)(
+                    messages=req,
+                    generate=True,
+                    gen_kwargs=copy.deepcopy(all_gen_kwargs[0]),
+                )
+                eval_logger.debug("generate_until `outputs`", output_type=type(outputs))
                 if self.tokenizer is not None:
-                    req_dict["ctxlen"] = len(prompt_i)
-                    req_dict["context_enc"] = prompt_i
+                    outputs.ctxlen = len(encodings_list)
+                    outputs.context_enc = encodings_list
                 else:
                     # This is used later to calculate the timeout for the request,
                     # we use an approximation from string to token
-                    req_dict["ctxlen"] = int(len(prompt_i.split(" ")) / 0.75)
+                    outputs.estimate_ctxlen()
+                res.append(outputs)
+                # for generated_text, context in zip(outputs, contexts):
+                #     if generated_text is not None:
+                #         eval_logger.debug(
+                #             "This is what is beeing accumulated in `res`",
+                #             generated_text=generated_text,
+                #         )
+                #         res.append(generated_text)
 
-                req_i = CompletionRequest(**req_dict)
-                res.append(req_i)
-            ############################################################
-            # END: POCKET NETWORK CODE
-            ############################################################
+                #         # partial caching
+                #         if context is not None:
+                #             # self.cache_hook.add_partial(
+                #             #     "generate_until",
+                #             #     (context, all_gen_kwargs[0]),
+                #             #     generated_text,
+                #             # )
+                #             pbar.update(1)
+        else:
+            # For now, raise application error:
+            eval_logger.error(
+                "Currently, only synchronous requests are supported, please set `num_concurrent=1`."
+            )
+            return ApplicationError(
+                "Currently, only synchronous requests are supported, please set `num_concurrent=1`.",
+                non_retryable=True,
+            )
+
         return re_ord.get_original(res)
-
-    def _model_call(self, inps):
-        # Isn't used because we override _loglikelihood_tokens
-        raise NotImplementedError()
-
-    def _model_generate(self, context, max_length, eos_token_id):
-        # Isn't used because we override generate_until
-        raise NotImplementedError()
-
-    def loglikelihood_rolling(
-        self, requests: List[Instance], disable_tqdm: bool = False
-    ) -> List[float]:
-        loglikelihoods = []
-
-        for (string,) in tqdm([req.args for req in requests], disable=disable_tqdm):
-            rolling_token_windows = list(
-                map(
-                    utils.make_disjoint_window,
-                    utils.get_rolling_token_windows(
-                        token_list=self.tok_encode(string),
-                        prefix_token=self.prefix_token_id,
-                        max_seq_len=self.max_length,
-                        context_len=1,
-                    ),
-                )
-            )
-
-            # TODO: Right now, we pass single EOT token to the Encoder and the full context to the decoder, in seq2seq case
-            rolling_token_windows = [(None,) + x for x in rolling_token_windows]
-
-            string_nll = self._loglikelihood_tokens(
-                rolling_token_windows,
-                disable_tqdm=True,
-            )
-
-            # discard is_greedy
-            string_nll = [x[0] for x in string_nll]
-
-            string_nll = sum(string_nll)
-            loglikelihoods.append(string_nll)
-        return loglikelihoods
 
     def loglikelihood(
         self, requests, disable_tqdm: bool = True
     ) -> List[CompletionRequest]:
-        new_reqs = []
-        for context, continuation in [req.args for req in requests]:
-            if context == "":
-                # BOS or EOS as context
-                context_enc, continuation_enc = (
-                    [self.prefix_token_id],
-                    self.tok_encode(continuation),
-                )
-            else:
-                context_enc, continuation_enc = self._encode_pair(context, continuation)
+        # TODO: Currently loglikelihood is not supporteed
+        # In the future re-adapt the logic to the new API
+        # new_reqs = []
+        # for context, continuation in [req.args for req in requests]:
+        #     if context == "":
+        #         # BOS or EOS as context
+        #         context_enc, continuation_enc = (
+        #             [self.prefix_token_id],
+        #             self.tok_encode(continuation),
+        #         )
+        #     else:
+        #         context_enc, continuation_enc = self._encode_pair(context, continuation)
 
-            new_reqs.append(((context, continuation), context_enc, continuation_enc))
+        #     new_reqs.append(((context, continuation), context_enc, continuation_enc))
 
-        return self._loglikelihood_tokens(new_reqs, disable_tqdm=disable_tqdm)
+        # return self._loglikelihood_tokens(new_reqs, disable_tqdm=disable_tqdm)
+
+        # Raise error if loglikelihood is not supported
+        self.eval_logger.error("Loglikelihood `output_type` currently is not supported")
+        raise ApplicationError(
+            "Loglikelihood `output_type` currently is not supported",
+            non_retryable=True,
+        )
 
 
-class EvaluatorLM(TemplateLM):
+class SamplerCompletionAPI(SamplerAPI, LocalCompletionsAPI):
+    def __init__(
+        self,
+        requester_args: RequesterArgs,
+        mongo_client: MongoClient,
+        wf_id: str,
+        **kwargs,
+    ):
+        super().__init__(
+            requester_args=requester_args,
+            mongo_client=mongo_client,
+            wf_id=wf_id,
+            **kwargs,
+        )
+
+    def _create_payload_custom(
+        self,
+        messages: Union[List[List[int]], List[dict], List[str], str],
+        generate=False,
+        gen_kwargs: Optional[dict] = None,
+        seed: int = 1234,
+        eos=None,
+        **kwargs,
+    ) -> CompletionRequest:
+        request = self._create_payload(
+            self.create_message(messages),
+            generate=generate,
+            gen_kwargs=gen_kwargs,
+            seed=self._seed,
+            eos=self.eos_string,
+            **kwargs,
+        )
+        # Return CompletionRequest instance
+        return CompletionRequest(**request)
+
+
+class SamplerChatCompletionAPI(SamplerAPI, LocalChatCompletion):
+    def __init__(
+        self,
+        requester_args: RequesterArgs,
+        mongo_client: MongoClient,
+        wf_id: str,
+        **kwargs,
+    ):
+        super().__init__(
+            requester_args=requester_args,
+            mongo_client=mongo_client,
+            wf_id=wf_id,
+            **kwargs,
+        )
+
+    def _create_payload_custom(
+        self,
+        messages: List[Dict],
+        generate=False,
+        gen_kwargs: dict = None,
+        seed=1234,
+        eos=None,
+        **kwargs,
+    ) -> ChatCompletionRequest:
+        request = self._create_payload(
+            self.create_message(messages),
+            generate=generate,
+            gen_kwargs=gen_kwargs,
+            seed=self._seed,
+            eos=self.eos_string,
+            **kwargs,
+        )
+        # Return CompletionRequest instance
+        return ChatCompletionRequest(**request)
+
+
+class EvaluatorAPI(TemplateAPI):
     _DEFAULT_MAX_LENGTH = 8192
 
     def __init__(
         self,
         truncate: bool = False,
-        max_gen_toks: int = 256,
+        max_gen_toks: int = 1024,
         batch_size: int = 1,
         seed: int = 1234,
         max_length: Optional[int] = None,
+        num_concurrent: int = 1,
+        max_retries: int = 3,
+        tokenized_requests: bool = False,
+        tokenizer_backend: Optional[
+            Literal["huggingface", "None", "none"]
+        ] = "huggingface",
+        trust_remote_code: bool = False,
     ) -> None:
         """
         :param truncate: bool
             Truncate input if too long (if False and input is too long, throw error)
         """
-        super().__init__()
+        # super().__init__()
         self.seed = seed
         self.truncate = truncate
         self._batch_size = batch_size
         self._max_gen_toks = max_gen_toks
         self._max_length = max_length
+        # Others params needeed for the API
+        self._concurrent = int(num_concurrent)
+        self.max_retries = int(max_retries)
+        self.tokenized_requests = tokenized_requests
+        self.tokenizer_backend = (
+            None if tokenizer_backend in ("None", "none") else tokenizer_backend
+        )
+        self.trust_remote_code = trust_remote_code
 
-    @property
-    def eot_token_id(self):
-        return self.end_of_text_token_id
-
-    @property
-    def max_length(self) -> int:
-        if self._max_length:
-            return self._max_length
-        else:
-            return self._DEFAULT_MAX_LENGTH
-
-    @property
-    def max_gen_toks(self) -> int:
-        return self._max_gen_toks
-
-    @property
-    def batch_size(self) -> int:
-        return self._batch_size
-
-    @property
-    def device(self):
-        # Isn't used because we override _loglikelihood_tokens
-        raise NotImplementedError()
-
-    def tok_encode(self, string: str, **kwargs) -> List[int]:
-        return self.tokenizer.encode(string)
-
-    def tok_decode(self, tokens: List[int]) -> str:
-        return self.tokenizer.decode(tokens)
-
-    def _loglikelihood_tokens(
-        self, requests, disable_tqdm: bool = True
-    ) -> List[Tuple[float, bool]]:
-        res = []
-
-        def _collate(x):
-            # this doesn't efficiently handle last-token differences yet, but those are kinda annoying because
-            # it's not guaranteed that the 100 or so logprobs we get to see actually contain all the continuations
-            # we care about, and so we need some kind of backup for when it isn't
-            toks = x[1] + x[2]
-            return -len(toks), tuple(toks)
-
-        re_ord = utils.Reorderer(requests, _collate)
-
-        for chunk in tqdm(
-            list(lm_eval.models.utils.chunks(re_ord.get_reordered(), self.batch_size)),
-            disable=disable_tqdm,
-        ):
-            inps = []
-            ctxlens = []
-            response = []
-            for cache_key, context_enc, continuation_enc, resp in chunk:
-                # max_length+1 because the API takes up to 2049 tokens, including the first context token
-                inp = (context_enc + continuation_enc)[-(self.max_length + 1) :]
-                # TODO: the logic is much simpler if we just look at the length of continuation tokens
-                ctxlen = len(context_enc) - max(
-                    0, len(context_enc) + len(continuation_enc) - (self.max_length + 1)
+    def model_call(
+        self,
+        messages: Union[
+            List[CompletionResponse],
+            List[ChatCompletionResponse],
+            CompletionResponse,
+            ChatCompletionResponse,
+        ],
+        *,
+        generate: bool = True,
+        gen_kwargs: Optional[Dict] = None,
+        **kwargs,
+    ) -> Optional[dict]:
+        # !!! Copy: shared dict for each request, need new object !!!
+        gen_kwargs = copy.deepcopy(gen_kwargs)
+        try:
+            if isinstance(messages, (CompletionResponse, ChatCompletionResponse)):
+                response = messages.model_dump()
+            elif isinstance(messages, list):
+                response = [msg.model_dump() for msg in messages]
+            else:
+                evaluation_logger.error(
+                    "Invalid type for messages. Expected CompletionResponse or ChatCompletionResponse or list of them.",
+                    messages_type=type(messages),
+                    messages=messages,
                 )
-                inps.append(inp)
-                ctxlens.append(ctxlen)
-                response.append(resp)
+                raise ApplicationError(
+                    "Invalid type for messages. Expected CompletionResponse or ChatCompletionResponse or list of them.",
+                    non_retryable=True,
+                )
+            return response
 
-            for resp, ctxlen, (cache_key, context_enc, continuation_enc, resp) in zip(
-                response, ctxlens, chunk
-            ):
-                answer = get_result(resp.choices[0], ctxlen)
-
-                res.append(answer)
-        return re_ord.get_original(res)
+        except RetryError:
+            evaluation_logger.error(
+                "API request failed after multiple retries. Please check the API status."
+            )
+            return None
 
     def generate_until(
-        self, requests, disable_tqdm: bool = True
-    ) -> List[CompletionRequest]:
-        if not requests:
-            return []
+        self, requests: List[Instance], disable_tqdm: bool = False
+    ) -> List[str]:
         res = []
-        # batch tokenize contexts
-        context, all_gen_kwargs = zip(*(req.args[0] for req in requests))
-        context_encoding = [req.prompt.context_enc for req in requests]
-        responses = [req.resp for req in requests]
-        completion_requests = [req.prompt.data for req in requests]
-        requests = [
-            ((a, b, cr, r), c)
-            for a, b, cr, r, c in zip(
-                context,
-                context_encoding,
-                completion_requests,
-                responses,
-                all_gen_kwargs,
+
+        def _collate_gen(_requests):
+            # sort by the length of the non-tokenized contexts
+            return -len(_requests[0])
+
+        # Let the API deal with tokenization
+        if len(requests[0].args) > 2:
+            pass
+            # This should be handleed previously in the sampler.
+        else:
+            # NOTE: This line was modified w.r.t to the Sampler due to
+            # when saved into mongo, the arguments add one extra dim into the list.
+            # So, we remove them, and also incorporate the responses
+            # Extract data from requests properly
+            requests, all_gen_kwargs, resps = zip(
+                *((*req.args, req.resp) for req in requests)
             )
+            evaluation_logger.debug(
+                "generate_until `requests`",
+                requests=requests,
+                all_gen_kwargs=all_gen_kwargs,
+                resps=resps,
+            )
+
+        # NOTE: in generate_until we do not use tokenization, so
+        # encodings_list is not used a list of Nones.
+        if self.tokenized_requests:
+            encodings_list = self.tok_encode(
+                requests, add_special_tokens=self.add_bos_token
+            )
+        else:
+            encodings_list = [None] * len(requests)
+
+        requests = [
+            (a, b, c, d)
+            for a, b, c, d in zip(requests, all_gen_kwargs, encodings_list, resps)
         ]
-        evaluation_logger.debug("Qty of requests: ", qty_req=len(requests))
 
-        def _collate(x):
-            toks = x[0][1]
-            if toks is not None:
-                # Normal behavior of lmeh
-                feat = len(toks)
-            else:
-                # Not tokenized input available, we use prompt string length instead
-                feat = len(x[0][0])
-            return feat, x[0][0]
+        re_ord = Collator(
+            requests,
+            sort_fn=_collate_gen,
+            group_by="gen_kwargs",
+        )
+        chunked = re_ord.get_batched(
+            n=self._batch_size if self._concurrent <= 1 else 0, batch_fn=None
+        )
+        if not self.tokenized_requests:
+            evaluation_logger.debug(
+                "Tokenized requests are disabled. Context + generation length is not checked."
+            )
+        if self._concurrent <= 1:
+            for chunk in chunked:
+                contexts, all_gen_kwargs, encodings_list, resp = zip(*chunk)
+                ####################################
+                # Section w.r.t to tokenizer removed
+                ####################################
+                # NOTE: At this point, the req variable should be directly the .resp attr of the isntance.
+                # req = encodings_list if self.tokenized_requests else contexts
+                req = list(resp)
+                outputs = retry(
+                    stop=stop_after_attempt(self.max_retries),
+                    wait=wait_exponential(multiplier=0.5, min=1, max=3),
+                    reraise=True,
+                )(self.model_call)(
+                    messages=req,
+                    generate=True,
+                    gen_kwargs=copy.deepcopy(all_gen_kwargs[0]),
+                )
+                for generated_text, _ in zip(
+                    self.parse_generations(
+                        outputs=outputs,
+                        contexts=contexts,
+                    ),
+                    contexts,
+                ):
+                    if generated_text is not None:
+                        res.append(generated_text)
+                    ####################################
+                    # section w.r.t to caching removed
+                    ####################################
+        else:
+            # For now, raise application error:
+            evaluation_logger.error(
+                "Currently, only synchronous requests are supported, please set `num_concurrent=1`."
+            )
+            return ApplicationError(
+                "Currently, only synchronous requests are supported, please set `num_concurrent=1`.",
+                non_retryable=True,
+            )
 
-        re_ord = utils.Reorderer(requests, _collate)
-
-        def sameuntil_chunks(xs, size):
-            ret = []
-            lastuntil = xs[0][1]
-            for x in xs:
-                if len(ret) >= size or x[1] != lastuntil:
-                    yield ret, lastuntil
-                    ret = []
-                    lastuntil = x[1]
-                ret.append(x)
-
-            if ret:
-                yield ret, lastuntil
-
-        # todo: more intelligent batching for heterogeneous `until`
-        for chunk, request_args in tqdm(
-            list(sameuntil_chunks(re_ord.get_reordered(), self.batch_size)),
-            disable=disable_tqdm,
-        ):
-            context, _, completion_request, response = chunk[0][0]
-
-            until = completion_request.stop
-            for resp, (context, args_) in zip(response.choices, chunk):
-                s = getattr(resp, "text")
-
-                until_ = until
-
-                for term in until_:
-                    if len(term) > 0:
-                        s = s.split(term)[0]
-                res.append(s)  #
         return re_ord.get_original(res)
-
-    def _model_call(self, inps):
-        # Isn't used because we override _loglikelihood_tokens
-        raise NotImplementedError()
-
-    def _model_generate(self, context, max_length, eos_token_id):
-        # Isn't used because we override generate_until
-        raise NotImplementedError()
 
     def loglikelihood_rolling(self, requests, disable_tqdm: bool = True) -> List[float]:
         # TODO: Update this method in order to be available for the Pocket Network
@@ -767,3 +1001,87 @@ class EvaluatorLM(TemplateLM):
 
     def _encode_pair(self, context_enc, continuation_enc):
         return context_enc, continuation_enc
+
+
+class EvaluatorCompletion(EvaluatorAPI, LocalCompletionsAPI):
+    """
+    Evaluator for completion models, that define the 'self.parse_generations' method.
+    """
+
+    MULTIMODAL = False
+
+    def __init__(
+        self,
+        truncate: bool = False,
+        max_gen_toks: int = 1024,
+        batch_size: int = 1,
+        seed: int = 1234,
+        max_length: Optional[int] = None,
+        num_concurrent: int = 1,
+        max_retries: int = 3,
+        tokenized_requests: bool = False,
+        tokenizer_backend: Optional[
+            Literal["huggingface", "None", "none"]
+        ] = "huggingface",
+        trust_remote_code: bool = False,
+    ) -> None:
+        # Only initialize EvaluatorAPI to avoid conflicts.
+        # The herency of LocalCompletionsAPI is only to use the `parse_generations` and `parse_logprobs`
+        #  methods.
+        EvaluatorAPI.__init__(
+            self,
+            truncate=truncate,
+            max_gen_toks=max_gen_toks,
+            batch_size=batch_size,
+            seed=seed,
+            max_length=max_length,
+            num_concurrent=num_concurrent,
+            max_retries=max_retries,
+            tokenized_requests=tokenized_requests,
+            tokenizer_backend=tokenizer_backend,
+            trust_remote_code=trust_remote_code,
+        )
+
+        self._rank = 0
+        self._world_size = 1
+
+
+class EvaluatorChatCompletion(EvaluatorAPI, LocalChatCompletion):
+    MULTIMODAL = False
+
+    """
+    Evaluator for chat models, that define the 'self.parse_generations' method.
+    """
+
+    def __init__(
+        self,
+        truncate: bool = False,
+        max_gen_toks: int = 1024,
+        batch_size: int = 1,
+        seed: int = 1234,
+        max_length: Optional[int] = None,
+        num_concurrent: int = 1,
+        max_retries: int = 3,
+        tokenized_requests: bool = False,
+        tokenizer_backend: Optional[
+            Literal["huggingface", "None", "none"]
+        ] = "huggingface",
+        trust_remote_code: bool = False,
+    ) -> None:
+        # Only initialize EvaluatorAPI to avoid conflicts.
+        # The herency of LocalChatCompletion is only to use the parse_generations method.
+        EvaluatorAPI.__init__(
+            self,
+            truncate=truncate,
+            max_gen_toks=max_gen_toks,
+            batch_size=batch_size,
+            seed=seed,
+            max_length=max_length,
+            num_concurrent=num_concurrent,
+            max_retries=max_retries,
+            tokenized_requests=tokenized_requests,
+            tokenizer_backend=tokenizer_backend,
+            trust_remote_code=trust_remote_code,
+        )
+        self._rank = 0
+        self._world_size = 1

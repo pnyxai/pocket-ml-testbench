@@ -89,8 +89,16 @@ class SqlDatasetSaver:
     }
 
     def __init__(
-        self, table_name, dataset_path, dataset_name, connection, logger, hf_token=None
+        self,
+        task_name,
+        table_name,
+        dataset_path,
+        dataset_name,
+        connection,
+        logger,
+        hf_token=None,
     ):
+        self.task_name = task_name
         self.table_name = table_name
         self.dataset_path = dataset_path
         self.dataset_name = dataset_name
@@ -142,6 +150,46 @@ class SqlDatasetSaver:
         )
         await self._conn.execute(create_table)
 
+    def _apply_dataset_filters(self, task_name: str, data: DatasetDict) -> DatasetDict:
+        """
+        Apply dataset-specific filters before saving to SQL.
+
+        Args:
+        - table_name: Name of the table to determine which filters to apply
+        - data: DatasetDict to filter
+
+        Returns:
+        - Filtered DatasetDict
+        """
+        # Math leaderboard filter - only Level 5 problems for test split
+        if "leaderboard_math" in task_name.lower():
+            self._logger.info(
+                f"Applying Level 5 filter for math leaderboard task: {task_name}"
+            )
+            filtered_data = DatasetDict()
+            for split_name, dataset in data.items():
+                if split_name == "test":
+                    # Apply Level 5 filter only to test split
+                    filtered_dataset = dataset.filter(
+                        lambda x: x.get("level") == "Level 5"
+                    )
+                    self._logger.debug(
+                        f"Test split: {len(dataset)} -> {len(filtered_dataset)} documents after Level 5 filter"
+                    )
+                else:
+                    # Keep all other splits unchanged
+                    filtered_dataset = dataset
+                    self._logger.debug(
+                        f"Split '{split_name}': {len(dataset)} documents (no filter applied)"
+                    )
+
+                filtered_data[split_name] = filtered_dataset
+            return filtered_data
+
+        # No filter needed - return original data
+        self._logger.debug(f"No pre-filtering applied for task: {task_name}")
+        return data
+
     async def transfer(self, dataset_kwargs: Optional[Dict[str, Any]] = None):
         self._logger.info(
             "Starting dataset transfer",
@@ -155,7 +203,10 @@ class SqlDatasetSaver:
             name=self.dataset_name,
             token=self.hf_token,
             **dataset_kwargs if dataset_kwargs is not None else {},
-        ).flatten_indices()
+        )
+        # Apply dataset-specific filters BEFORE flatten_indices()
+        self.dataset = self._apply_dataset_filters(self.task_name, self.dataset)
+
         for split in self.dataset:
             self.splits.append(split)
         ds = self.dataset[self.splits[self.split_index]].to_iterable_dataset()
@@ -262,6 +313,8 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
         self.eval_logger = eval_logger
         # Use new configurations if there was no preconfiguration
         if self.config is None:
+            # Note: Taskconfig is saved as a dataclass, and is not printed in the logger if
+            # not is used the `to_dict()` method.
             self._config = TaskConfig(**config)
         # Overwrite configs
         else:
@@ -283,6 +336,17 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
                     f"Got invalid output_type '{self.config.output_type}', must be in '{','.join(ALL_OUTPUT_TYPES)}'"
                 )
             self.OUTPUT_TYPE = self.config.output_type
+
+        if self.config.doc_to_image is not None:
+            # mark the task as requiring multimodality.
+            self.MULTIMODAL = True
+
+        if self.config.doc_to_audio:
+            # mark the task as requiring multimodality.
+            self.MULTIMODAL = True
+
+        if self.config.unsafe_code is not False:
+            self.UNSAFE_CODE = True
 
         if self.config.dataset_path is not None:
             self.DATASET_PATH = self.config.dataset_path
@@ -383,6 +447,7 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
 
     async def save_to_sql(self) -> None:
         streamer = SqlDatasetSaver(
+            task_name=self.config.task,
             table_name=self.TABLE_NAME,
             dataset_path=self._config["dataset_path"],
             dataset_name=self._config["dataset_name"],
@@ -494,6 +559,10 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
                 filter_pipeline = build_filter_ensemble(filter_name, components)
                 self._filters.append(filter_pipeline)
         else:
+            # TODO: handle repeats in a more general way rather than just discarding
+            self.eval_logger.debug(
+                "No custom filters defined. Using default 'take_first' filter for handling repeats."
+            )
             self._filters = [build_filter_ensemble("none", [["take_first", None]])]
 
         if self.config.use_prompt is not None:
@@ -547,11 +616,17 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
                 num_choice = len(test_choice)
 
             if isinstance(test_text, int):
+                self.eval_logger.debug(
+                    "doc_to_text returned an int. Assuming multiple inputs."
+                )
                 self.multiple_input = num_choice
         else:
             test_choice = None
 
         if isinstance(test_target, list):
+            self.eval_logger.debug(
+                "doc_to_target returned a list. Assuming multiple targets."
+            )
             self.multiple_target = len(test_target)
         else:
             if (isinstance(test_target, int)) and (test_choice is not None):
@@ -588,6 +663,7 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
         self,
         *,
         limit: Union[int, None] = None,
+        samples: Optional[List[int]] = None,
         rank: int = 0,
         world_size: int = 1,
         cache_requests: bool = False,
@@ -613,7 +689,7 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
         )
         cache_key += f"-tokenizer{tokenizer_name}"
 
-        cached_instances = load_from_cache(file_name=cache_key)
+        cached_instances = load_from_cache(file_name=cache_key, cache=cache_requests)
 
         if cache_requests and cached_instances and not rewrite_requests_cache:
             cached_instances = cached_instances[:limit]
@@ -642,9 +718,10 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
             limit = None
 
         doc_id_docs = list(
-            self.doc_iterator(rank=rank, limit=limit, world_size=world_size)
+            self.doc_iterator(
+                rank=rank, limit=limit, samples=samples, world_size=world_size
+            )
         )
-
         num_docs = len(doc_id_docs)
 
         for doc_id, doc in tqdm(
@@ -659,6 +736,7 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
                 apply_chat_template,
                 fewshot_as_multiturn,
                 chat_template,
+                gen_prefix=self.doc_to_prefix(doc),
             )
 
             # TODO: we should override self.config.repeats if doing greedy gen so users don't waste time+compute
@@ -667,6 +745,8 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
                 doc=doc,
                 ctx=fewshot_ctx,
                 metadata=(self.config["task"], pocket_id, self.config.repeats),
+                apply_chat_template=apply_chat_template,
+                chat_template=chat_template,
             )
 
             if not isinstance(inst, list):
@@ -1013,7 +1093,9 @@ class EvaluatePocketNetworkConfigurableTask(PocketNetworkConfigurableTask):
             self.result_height,
             self.failed_instances,
         ) = await MongoOperator(client=mongo_client).reconstruct_instances(
-            task_id=task_id, eval_logger=self.eval_logger
+            task_id=task_id,
+            eval_logger=self.eval_logger,
+            path=self.config.metadata["pocket_args"].requester_args.path,
         )
         # Kept only those docs_ids filled by all its instances/responses
         if kept_doc_ids:
