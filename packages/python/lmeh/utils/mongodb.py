@@ -504,7 +504,6 @@ class MongoOperator:
                 status=11,
                 num_samples=0,
                 result_height=-1,
-                # result_time=datetime.today().isoformat(),
             ),
             scores=[],
         ).model_dump(by_alias=True)

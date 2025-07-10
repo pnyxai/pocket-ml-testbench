@@ -228,7 +228,6 @@ async def model_config_evaluate(
                 status=11,  # We failed to process
                 num_samples=0,
                 result_height=-1,
-                # result_time=datetime.today().isoformat(),
             ),
             signatures=[],
         )

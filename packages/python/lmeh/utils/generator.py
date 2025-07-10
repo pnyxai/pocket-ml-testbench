@@ -681,7 +681,6 @@ async def evaluate(
                     status=0,
                     num_samples=len(task.failed_instances),
                     result_height=task.result_height,
-                    # result_time=datetime.today().isoformat(),
                 )
                 num_result = PocketNetworkMongoDBResultNumerical(
                     result_data=base_result, scores=scores
@@ -856,7 +855,6 @@ async def evaluate(
             status=0,
             num_samples=len(result_num_samples) + len(task.failed_instances),
             result_height=task.result_height,
-            # result_time=datetime.today().isoformat(),
         )
         num_result = PocketNetworkMongoDBResultNumerical(
             result_data=base_result, scores=scores
