@@ -552,7 +552,7 @@ def main():
 
     else:
         # Start the base task lookup
-        schedule_lookup_task(interval="1m", execution_timeout=350, task_timeout=175)
+        schedule_lookup_task(interval="1m", execution_timeout=55, task_timeout=50)
         print("Lookup scheduled.")
         time.sleep(0.25)
 

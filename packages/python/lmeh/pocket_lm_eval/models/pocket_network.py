@@ -55,6 +55,8 @@ from packages.python.protocol.protocol import (
 eval_logger = get_app_logger("sample")
 evaluation_logger = get_app_logger("evaluation")
 
+INVALID_ANSWER = "[invalidanswer]"
+
 
 # this fuction change its behavior in 0.4.3.
 # Currently we will mantain the previous behavior to be compatible with vLLM.
@@ -1045,6 +1047,28 @@ class EvaluatorCompletion(EvaluatorAPI, LocalCompletionsAPI):
         self._rank = 0
         self._world_size = 1
 
+    @staticmethod
+    def parse_generations(outputs: Union[Dict, List[Dict]], **kwargs) -> List[str]:
+        res = []
+        if not isinstance(outputs, list):
+            outputs = [outputs]
+        for out in outputs:
+            tmp = [None] * len(out["choices"])
+            for choices in out["choices"]:
+                #########################################
+                # START: CUSTOM CODE
+                #########################################
+                # NOTE (nicolas) See comments in EvaluatorChatCompletion.parse_generations
+                content = choices["text"]
+                if content is None or content == "":
+                    content = INVALID_ANSWER
+                tmp[choices["index"]] = content
+                ######################################
+                # END: CUSTOM CODE
+                ######################################
+            res = res + tmp
+        return res
+
 
 class EvaluatorChatCompletion(EvaluatorAPI, LocalChatCompletion):
     MULTIMODAL = False
@@ -1085,3 +1109,36 @@ class EvaluatorChatCompletion(EvaluatorAPI, LocalChatCompletion):
         )
         self._rank = 0
         self._world_size = 1
+
+    # from LocalChatCompletion.parse_generations
+    @staticmethod
+    def parse_generations(outputs: Union[Dict, List[Dict]], **kwargs) -> List[str]:
+        evaluation_logger.debug(
+            "Parsing generations from outputs",
+            outputs=outputs,
+            kwargs=kwargs,
+        )
+        res = []
+        if not isinstance(outputs, list):
+            outputs = [outputs]
+        for out in outputs:
+            tmp = [None] * len(out["choices"])
+            for choices in out["choices"]:
+                #########################################
+                # START: CUSTOM CODE
+                #########################################
+                # NOTE (nicolas) This sections handle
+                # cases where content could be in
+                # * `reasoning content`, or in response
+                # where the first generation code whas a stop secuences of character and then
+                # the content is empty (probably abusing the stop sequence).
+                # `stop_reason field
+                content = choices["message"]["content"]
+                if content is None or content == "":
+                    content = INVALID_ANSWER
+                tmp[choices["index"]] = content
+                ######################################
+                # END: CUSTOM CODE
+                ######################################
+            res = res + tmp
+        return res
