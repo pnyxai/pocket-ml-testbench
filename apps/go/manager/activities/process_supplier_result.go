@@ -36,7 +36,7 @@ func (aCtx *Ctx) AnalyzeResult(ctx context.Context, params types.AnalyzeResultPa
 	//------------------------------------------------------------------
 	taskData, err := retrieveTaskData(params.TaskID, aCtx.App.Mongodb, l)
 	if err != nil {
-		err = temporal.NewNonRetryableApplicationError("unable to get task data", "retrieveTaskData", fmt.Errorf("Task %s not found", params.TaskID.String()))
+		err = temporal.NewApplicationErrorWithCause("unable to get task data", "retrieveTaskData", fmt.Errorf("Task %s not found", params.TaskID.String()))
 		return nil, err
 	}
 	if taskData.Drop {
@@ -89,8 +89,8 @@ func (aCtx *Ctx) AnalyzeResult(ctx context.Context, params types.AnalyzeResultPa
 	}
 	thisTaskRecord, found := records.GetTaskData(supplierData.ID, taskType, taskData.Framework, taskData.Task, true, aCtx.App.Mongodb, l)
 	if !found {
-		// Data should be found because we are creating it in the last call...
-		err = temporal.NewApplicationErrorWithCause("unable to get task data", "GetTaskData", fmt.Errorf("Task %s not found", taskData.Task))
+		// Data should be found because we are creating it in the last
+		err = temporal.NewApplicationErrorWithCause("unable to get task buffer data", "GetTaskData", fmt.Errorf("Task %s not found", taskData.Task))
 		l.Error().
 			Str("address", supplierData.Address).
 			Str("service", supplierData.Service).

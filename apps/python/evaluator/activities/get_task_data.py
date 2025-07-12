@@ -32,7 +32,12 @@ async def get_task_data(args: PocketNetworkEvaluationTaskRequest) -> tuple[str, 
             non_retryable=True,
         )
 
-    task_mongo = await mongo_operator.get_task(args.task_id)
+    try:
+        task_mongo = await mongo_operator.get_task(args.task_id)
+    except Exception as e:
+        eval_logger.warn(f"Task not found {args.task_id}.")
+        return "", ""
+
 
     eval_logger.debug(
         f"Found! Evaluating [{task_mongo.framework}][{task_mongo.tasks}]."

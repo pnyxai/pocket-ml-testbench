@@ -61,7 +61,10 @@ async def lmeh_evaluate(args: PocketNetworkEvaluationTaskRequest) -> Tuple[bool,
         args.doc_ids = doc_ids
 
         # Recreate Task request.
-        task_mongo = await mongo_operator.get_task(args.task_id)
+        try:
+            task_mongo = await mongo_operator.get_task(args.task_id)
+        except Exception as e:
+            return False, f"Cannot evaluate: {str(e)}"
         args.tasks = task_mongo.tasks
         args.blacklist = task_mongo.blacklist
         args.qty = task_mongo.qty
