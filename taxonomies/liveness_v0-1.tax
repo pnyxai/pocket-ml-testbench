@@ -6,5 +6,6 @@ liveness_v0 {
 }
 
 liveness_v0_labeling {
-    liveness -> babi-task_01-single_supporting_fact;
+    liveness -> babisteps-chat-cot-task_01-simpletracking;
+    liveness -> babisteps-chat-cot-task_02-immediateorder;
 }

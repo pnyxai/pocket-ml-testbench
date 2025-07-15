@@ -312,9 +312,6 @@ general_skills_v0_labeling {
     //--------------------------------------------------------------------------
 
     //--------------------------------------------------------------------------
-    // --- bAbI
-    // motivation
-    creative_scenario_based -> babi-task_20-agents_motivations;
     // --- BBH
     creative_scenario_based -> bbh_cot_fewshot_penguins_in_a_table;
     creative_scenario_based -> bbh_cot_fewshot_movie_recommendation;
@@ -323,15 +320,9 @@ general_skills_v0_labeling {
     //--------------------------------------------------------------------------
 
     //--------------------------------------------------------------------------
-    // --- bAbI
-    // deduction
-    complex_deductive_and_inductive_reasoning -> babi-task_15-basic_deduction;
-    // induction
-    complex_deductive_and_inductive_reasoning -> babi-task_16-basic_induction;
-    // path_finding
-    complex_deductive_and_inductive_reasoning -> babi-task_19-path_finding;
-    // indefinite knowledge
-    complex_deductive_and_inductive_reasoning -> babi-task_10-indefinite_knowledge;
+    // --- bAbI-Steps
+    // Temporal Tracking
+    complex_deductive_and_inductive_reasoning -> babisteps-chat-cot-task_09-timetracking;
     // --- BBH
     complex_deductive_and_inductive_reasoning -> bbh_cot_fewshot_logical_deduction_three_objects;
     complex_deductive_and_inductive_reasoning -> bbh_cot_fewshot_logical_deduction_five_objects;
@@ -340,48 +331,35 @@ general_skills_v0_labeling {
     //--------------------------------------------------------------------------
 
     //--------------------------------------------------------------------------
-    // --- bAbI
-    // basic_coreference
-    coreference_and_temporal_reasoning -> babi-task_11-basic_coreference;
-    // compound_coreference
-    coreference_and_temporal_reasoning -> babi-task_13-compound_coreference;
-    // temporal_reasoning
-    coreference_and_temporal_reasoning -> babi-task_14-time_reasoning;
-    // lists-sets 
-    coreference_and_temporal_reasoning -> babi-task_08-lists_sets;
+    // --- bAbI-Steps
+    // path_finding
+    coreference_and_temporal_reasoning -> babisteps-chat-cot-task_08-pathfinding;
     // --- BBH
     coreference_and_temporal_reasoning -> bbh_cot_fewshot_date_understanding;
     coreference_and_temporal_reasoning -> bbh_cot_fewshot_temporal_sequences;
     //--------------------------------------------------------------------------
 
     //--------------------------------------------------------------------------
-    // --- bAbI
-    // two_facts
-    relational_reasoning -> babi-task_02-two_supporting_facts;
-    // three_facts
-    relational_reasoning -> babi-task_03-three_supporting_facts;
-    // ternary_relation
-    relational_reasoning -> babi-task_05-three_argument_relations;
-    // spatial_reasoning
-    relational_reasoning -> babi-task_17-positional_reasoning;
-    // size_reasoning
-    relational_reasoning -> babi-task_18-size_reasoning;
+    // --- bAbI-Steps
+    // Complex Tracking
+    relational_reasoning -> babisteps-chat-cot-task_03-complextracking;
+    // Listing
+    relational_reasoning -> babisteps-chat-cot-task_04-listing;
+    // Size Order
+    relational_reasoning -> babisteps-chat-cot-task_05-sizeorder;
+    // Spatial Order
+    relational_reasoning -> babisteps-chat-cot-task_06-spatialorder;
+    // Temporal Order
+    relational_reasoning -> babisteps-chat-cot-task_07-temporalorder;
+    
     //--------------------------------------------------------------------------
 
     //--------------------------------------------------------------------------
-    // --- bAbI
-    // one_fact
-    foundational_reasoning_skills -> babi-task_01-single_supporting_fact;
-    // yes_no
-    foundational_reasoning_skills -> babi-task_06-yes_no_questions;
-    // counting
-    foundational_reasoning_skills -> babi-task_07-counting;
-    // negation
-    foundational_reasoning_skills -> babi-task_09-simple_negation;
-    // conjunction
-    foundational_reasoning_skills -> babi-task_12-conjunction;
-    // binary_relation
-    foundational_reasoning_skills -> babi-task_04-two_argument_relations;
+    // --- bAbI-Steps
+    // Simple Tracking
+    foundational_reasoning_skills -> babisteps-chat-cot-task_01-simpletracking;
+    // Immediate Order
+    foundational_reasoning_skills -> babisteps-chat-cot-task_02-immediateorder;
     //--------------------------------------------------------------------------
 
     //--------------------------------------------------------------------------
