@@ -167,11 +167,13 @@ func (aCtx *Ctx) AnalyzeResult(ctx context.Context, params types.AnalyzeResultPa
 				}
 			}
 			if total_ok > 0 {
-				// Update the last seen fields, because we have seen the supplier
+				// Update the last OK fields, because we have seen the supplier
 				// responding to a call successfully at least once.
-				thisTaskRecord.UpdateLastHeight(thisTaskResults.GetResultHeight())
-				thisTaskRecord.UpdateLastSeen(thisTaskResults.GetResultTime())
+				thisTaskRecord.UpdateLastOkHeight(thisTaskResults.GetResultHeight())
+				thisTaskRecord.UpdateLastOk(thisTaskResults.GetResultTime())
 			}
+			thisTaskRecord.UpdateLastHeight(thisTaskResults.GetResultHeight())
+			thisTaskRecord.UpdateLastSeen(thisTaskResults.GetResultTime())
 
 		}
 

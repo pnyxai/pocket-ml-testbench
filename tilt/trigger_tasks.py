@@ -14,7 +14,8 @@ LMEH_TYPE = "lmeh"
 
 
 liveness_taxonomy = [
-    "babi-task_01-single_supporting_fact",
+    "babisteps-chat-cot-task_01-simpletracking",
+    "babisteps-chat-cot-task_02-immediateorder",
 ]
 
 general_taxonomy = [
@@ -120,26 +121,38 @@ general_taxonomy = [
     "bbh_cot_fewshot_snarks",
     "bbh_cot_fewshot_web_of_lies",
     "bbh_cot_fewshot_ruin_names",
+
+    # bAbI-Steps
+    # "babisteps-chat-cot-task_01-simpletracking", # Part of liveness
+    # "babisteps-chat-cot-task_02-immediateorder", # PArt of liveness
+    "babisteps-chat-cot-task_03-complextracking",
+    # "babisteps-chat-cot-task_04-listing",
+    "babisteps-chat-cot-task_05-sizeorder",
+    "babisteps-chat-cot-task_06-spatialorder",
+    "babisteps-chat-cot-task_07-temporalorder",
+]
+
+babi_taxonomy = [
     # bAbI
-    # "babi-task_02-two_supporting_facts",
-    # "babi-task_03-three_supporting_facts",
-    # "babi-task_04-two_argument_relations",
-    # "babi-task_05-three_argument_relations",
-    # "babi-task_06-yes_no_questions",
-    # "babi-task_07-counting",
-    # "babi-task_08-lists_sets",
-    # "babi-task_09-simple_negation",
-    # "babi-task_10-indefinite_knowledge",
-    # "babi-task_11-basic_coreference",
-    # "babi-task_12-conjunction",
-    # "babi-task_13-compound_coreference",
-    # "babi-task_14-time_reasoning",
-    # "babi-task_15-basic_deduction",
-    # "babi-task_16-basic_induction",
-    # "babi-task_17-positional_reasoning",
-    # "babi-task_18-size_reasoning",
-    # "babi-task_19-path_finding",
-    # "babi-task_20-agents_motivations",
+    "babi-task_02-two_supporting_facts",
+    "babi-task_03-three_supporting_facts",
+    "babi-task_04-two_argument_relations",
+    "babi-task_05-three_argument_relations",
+    "babi-task_06-yes_no_questions",
+    "babi-task_07-counting",
+    "babi-task_08-lists_sets",
+    "babi-task_09-simple_negation",
+    "babi-task_10-indefinite_knowledge",
+    "babi-task_11-basic_coreference",
+    "babi-task_12-conjunction",
+    "babi-task_13-compound_coreference",
+    "babi-task_14-time_reasoning",
+    "babi-task_15-basic_deduction",
+    "babi-task_16-basic_induction",
+    "babi-task_17-positional_reasoning",
+    "babi-task_18-size_reasoning",
+    "babi-task_19-path_finding",
+    "babi-task_20-agents_motivations",
 ]
 
 babisteps_taxonomy = [
@@ -216,6 +229,7 @@ taxonomy_dict = {
     "babisteps-chat": babisteps_chat_taxonomy,
     "liveness": liveness_taxonomy,
     "leaderboard": all_leaderboard_taxonomy,
+    "babi": babi_taxonomy,
 }
 
 
@@ -628,9 +642,9 @@ def main():
                 ok = schedule_benchmark_task(
                     task,
                     chain_id,
-                    interval="2m",
-                    execution_timeout=120,
-                    task_timeout=120,
+                    interval="5m",
+                    execution_timeout=240,
+                    task_timeout=240,
                 )
                 print("\tTask triggered.")
                 time.sleep(0.25)
