@@ -304,7 +304,7 @@ general_skills_v0_labeling {
 
     //--------------------------------------------------------------------------
     // --- MMLU
-    computer_science -> mmlu_pro-category_computer-science;
+    computer_science -> mmlu_pro-category_computer_science;
     computer_science -> mmlu_high_school_computer_science_generative;
     computer_science -> mmlu_machine_learning_generative;
     computer_science -> mmlu_computer_security_generative;
