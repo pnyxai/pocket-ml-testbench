@@ -57,6 +57,8 @@ evaluation_logger = get_app_logger("evaluation")
 
 INVALID_ANSWER = "[invalidanswer]"
 
+GENERATION_MAX_LENGHT = 16000
+
 
 # this fuction change its behavior in 0.4.3.
 # Currently we will mantain the previous behavior to be compatible with vLLM.
@@ -95,7 +97,7 @@ def get_result(response, ctxlen: int) -> Tuple[float, bool]:
 
 
 class SamplerAPI(TemplateAPI):
-    _DEFAULT_MAX_LENGTH = 8192
+    _DEFAULT_MAX_LENGTH = GENERATION_MAX_LENGHT
 
     def __init__(
         self,
@@ -803,7 +805,7 @@ class SamplerChatCompletionAPI(SamplerAPI, LocalChatCompletion):
 
 
 class EvaluatorAPI(TemplateAPI):
-    _DEFAULT_MAX_LENGTH = 8192
+    _DEFAULT_MAX_LENGTH = GENERATION_MAX_LENGHT
 
     def __init__(
         self,
