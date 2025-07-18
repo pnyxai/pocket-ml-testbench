@@ -342,6 +342,7 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 
 	// Analyze successful response
 	response.Ok = true
+	// TODO : Make sure that the string being written is utf8 compat
 	response.Response = responseString
 	if statusCode == 200 {
 		// All ok

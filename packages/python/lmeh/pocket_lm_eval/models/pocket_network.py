@@ -57,11 +57,11 @@ evaluation_logger = get_app_logger("evaluation")
 
 INVALID_ANSWER = "[invalidanswer]"
 
-GENERATION_MAX_LENGHT = 8192
+DEFAULT_MAX_LENGTH = 16000
+DEFAULT_GEN_TOKS = 8192
 
-
-# this fuction change its behavior in 0.4.3.
-# Currently we will mantain the previous behavior to be compatible with vLLM.
+# this function change its behavior in 0.4.3.
+# Currently we will maintain the previous behavior to be compatible with vLLM.
 # ref:
 # https://github.com/EleutherAI/lm-evaluation-harness/pull/1779#issuecomment-2161323224
 # &
@@ -97,7 +97,7 @@ def get_result(response, ctxlen: int) -> Tuple[float, bool]:
 
 
 class SamplerAPI(TemplateAPI):
-    _DEFAULT_MAX_LENGTH = GENERATION_MAX_LENGHT
+    _DEFAULT_MAX_LENGTH = DEFAULT_MAX_LENGTH
 
     def __init__(
         self,
@@ -116,7 +116,7 @@ class SamplerAPI(TemplateAPI):
         # number of concurrent requests. More useful if not batching
         num_concurrent: int = 1,
         max_retries: int = 3,
-        max_gen_toks: int = GENERATION_MAX_LENGHT,
+        max_gen_toks: int = DEFAULT_GEN_TOKS,
         batch_size: Union[str, int] = 1,
         seed: int = 1234,
         max_length: Optional[int] = None,
@@ -805,12 +805,12 @@ class SamplerChatCompletionAPI(SamplerAPI, LocalChatCompletion):
 
 
 class EvaluatorAPI(TemplateAPI):
-    _DEFAULT_MAX_LENGTH = GENERATION_MAX_LENGHT
+    _DEFAULT_MAX_LENGTH = DEFAULT_MAX_LENGTH
 
     def __init__(
         self,
         truncate: bool = False,
-        max_gen_toks: int = GENERATION_MAX_LENGHT,
+        max_gen_toks: int = 1024,
         batch_size: int = 1,
         seed: int = 1234,
         max_length: Optional[int] = None,
@@ -1017,7 +1017,7 @@ class EvaluatorCompletion(EvaluatorAPI, LocalCompletionsAPI):
     def __init__(
         self,
         truncate: bool = False,
-        max_gen_toks: int = GENERATION_MAX_LENGHT,
+        max_gen_toks: int = 1024,
         batch_size: int = 1,
         seed: int = 1234,
         max_length: Optional[int] = None,
@@ -1082,7 +1082,7 @@ class EvaluatorChatCompletion(EvaluatorAPI, LocalChatCompletion):
     def __init__(
         self,
         truncate: bool = False,
-        max_gen_toks: int = GENERATION_MAX_LENGHT,
+        max_gen_toks: int = 1024,
         batch_size: int = 1,
         seed: int = 1234,
         max_length: Optional[int] = None,
