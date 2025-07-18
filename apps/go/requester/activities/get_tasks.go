@@ -161,25 +161,23 @@ func (aCtx *Ctx) GetTasks(ctx context.Context, params GetTasksParams) (result *G
 	return
 }
 
-func SplitByUniqueAddress(input []TaskRequest) [][]TaskRequest {
+func SplitByUniqueAddress(input []TaskRequest) map[string][]TaskRequest {
 	// Create a map to store requests with the same address
 	nameToStructs := make(map[string][]TaskRequest)
 
 	// Iterate through the input list
 	for _, s := range input {
-		// Add the request to the corresponding slice in the map
+		// Check if this supplier name is already in the list
+		_, ok := nameToStructs[s.Supplier]
+		if !ok {
+			// This is a new address, create an empty list of tasks
+			nameToStructs[s.Supplier] = make([]TaskRequest, 0)
+		}
+		// Append this task to this supplier list
 		nameToStructs[s.Supplier] = append(nameToStructs[s.Supplier], s)
 	}
 
-	// Create a slice to store the resulting lists
-	var result [][]TaskRequest
-
-	// Iterate through the map and append each slice to the result
-	for _, structs := range nameToStructs {
-		result = append(result, structs)
-	}
-
-	return result
+	return nameToStructs
 }
 
 func (aCtx *Ctx) SetPromptTriggerSession(ctx context.Context, params SetPromptTriggerSessionParams) (err error) {

@@ -32,7 +32,10 @@ func (aCtx *Ctx) AnalyzeSupplier(ctx context.Context, params types.AnalyzeSuppli
 	// Get current height and time
 	currHeight, err := aCtx.App.PocketFullNode.GetLatestBlockHeight()
 	if err != nil {
-		l.Error().Str("supplier", params.Supplier.Address).Str("service", params.Supplier.Service).Msg("Could not retrieve latest block height.")
+		l.Error().
+			Str("supplier", params.Supplier.Address).
+			Str("service", params.Supplier.Service).
+			Msg("Could not retrieve latest block height.")
 		return nil, err
 	}
 	currTime := time.Now()
@@ -41,7 +44,11 @@ func (aCtx *Ctx) AnalyzeSupplier(ctx context.Context, params types.AnalyzeSuppli
 	var thisSupplierData records.SupplierRecord
 	found, err := thisSupplierData.FindAndLoadSupplier(params.Supplier, aCtx.App.Mongodb, l)
 	if err != nil {
-		l.Error().Err(err).Str("address", params.Supplier.Address).Str("service", params.Supplier.Service).Msg("Failed to load supplier data.")
+		l.Error().
+			Err(err).
+			Str("address", params.Supplier.Address).
+			Str("service", params.Supplier.Service).
+			Msg("Failed to load supplier data.")
 		return nil, err
 	}
 
@@ -55,7 +62,10 @@ func (aCtx *Ctx) AnalyzeSupplier(ctx context.Context, params types.AnalyzeSuppli
 		l.Debug().Bool("found", found).Msg("Creating empty supplier entry.")
 		err = thisSupplierData.Init(params, aCtx.App.Config.Frameworks, aCtx.App.Mongodb, l)
 		if err != nil {
-			l.Error().Err(err).Str("address", params.Supplier.Address).Str("service", params.Supplier.Service).Msg("Failed to create supplier entry.")
+			l.Error().Err(err).
+				Str("address", params.Supplier.Address).
+				Str("service", params.Supplier.Service).
+				Msg("Failed to create supplier entry.")
 			return nil, err
 		}
 		result.IsNew = true
@@ -66,7 +76,11 @@ func (aCtx *Ctx) AnalyzeSupplier(ctx context.Context, params types.AnalyzeSuppli
 		// If the supplier entry exist we must cycle and check for pending results
 		LastSeenHeight, LastSeenTime, err = updateTasksSupplier(&thisSupplierData, params.Tests, aCtx.App.Config.Frameworks, aCtx.App.Mongodb, l)
 		if err != nil {
-			l.Error().Err(err).Str("address", params.Supplier.Address).Str("service", params.Supplier.Service).Msg("Failed to create update supplier.")
+			l.Error().
+				Err(err).
+				Str("address", params.Supplier.Address).
+				Str("service", params.Supplier.Service).
+				Msg("Failed to create update supplier.")
 			return nil, err
 		}
 	}

@@ -24,12 +24,12 @@ type RequesterParams struct {
 }
 
 type RequesterResults struct {
-	App                string   `json:"app"`
-	Service            string   `json:"service"`
-	Suppliers          []string `json:"suppliers"`
-	Height             int64    `json:"height"`
-	SessionHeight      int64    `json:"session_height"`
-	TriggeredWorkflows []string `json:"workflows"`
+	App                string         `json:"app"`
+	Service            string         `json:"service"`
+	TriggersBySupplier map[string]int `json:"triggers_by_suppliers"`
+	Height             int64          `json:"height"`
+	SessionHeight      int64          `json:"session_height"`
+	TriggeredWorkflows []string       `json:"workflows"`
 	// somehow, maybe we could identify when workflow trigger fail because it is already waiting
 	SkippedWorkflows []string `json:"skipped_workflows"`
 }
@@ -147,6 +147,25 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 		blocksPerSession = wCtx.App.PocketBlocksPerSession
 	}
 
+	// Select the workflow policy:
+	// - enums.WORKFLOW_ID_REUSE_POLICY_TERMINATE_IF_RUNNING : This will discard any running relayer and
+	// 			recreate the relayer task, this ensures that we get fresh tasks when the session changes
+	// 			and avoids bad-requests due to old sessions. The flip side is that we can get lots of
+	// 			"terminated" relayer tasks in the logs and we can also break the delay, since the delay is
+	// 			calculated each time this function is executed.
+	// - enums.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE : This will only re-execute the the relayer if the
+	// 			task is already terminated, whether due to error or success. Requests that are queued or
+	// 			running will not be affected. This is useful when the session does not matter (external
+	// 			services) but can lead to bad requests for Pocket requests.
+
+	// Best for POKT, given that when we pool MongoDB we explicitly search for prompts who's `trigger_session` is lower
+	// than the current session, meaning, all new and all invalid sessions.
+	use_policy := enums.WORKFLOW_ID_REUSE_POLICY_TERMINATE_IF_RUNNING
+	if params.Service == types.ExternalServiceName {
+		// Best for external, as we don't observe sessions here and we don't want to modify the delays without a reason.
+		use_policy = enums.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE
+	}
+
 	// For these suppliers, get the pending tasks
 	l.Debug("Calling GetTasks activity")
 	request := activities.GetTasksParams{
@@ -175,23 +194,25 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 	l.Debug("GetTasks activity ends", "tasks_found", len(ltr.TaskRequests))
 
 	// With all the data, we will proceed to trigger the relaying workflow
-	triggeredSupplierAddresses := make([]string, 0)
+	triggeredSupplierAddresses := make(map[string]int, 0)
 	skippedWorkflows := make([]string, 0)
 	triggeredWorkflows := make([]string, 0)
 
 	// Now we must divide tasks into groups of tasks with the same ADDRESS
 	reqMap := activities.SplitByUniqueAddress(ltr.TaskRequests)
 
-	// For each group of tasks:
-	for _, theseSupplierReq := range reqMap {
-		l.Debug("Processing group.", "supplier", theseSupplierReq[0].Supplier, "number of elements", len(theseSupplierReq))
-
-		// For each address
+	// For each Supplier:
+	for thisSupplier, theseSupplierReq := range reqMap {
+		l.Debug("Processing group.", "supplier", thisSupplier, "number of elements", len(theseSupplierReq))
+		// add only those suppliers that get pending tasks
+		triggeredSupplierAddresses[thisSupplier] = 0
+		// For each prompt request assigned to this supplier
 		for reqIdx, tr := range theseSupplierReq {
 			// Create a random timeout with a fixed time that marks the rate: 0+1 sec; 2 +- 1 sec ; 4 +- 1 sec ; etc...
-			randomDelay := (rand.Float64() * wCtx.App.Config.Relay.TimeDispersion) + (float64(reqIdx) * wCtx.App.Config.Relay.TimeBetweenRelays)
-			// add only those suppliers that get pending tasks
-			triggeredSupplierAddresses = append(triggeredSupplierAddresses, tr.Supplier)
+			randomDelay := (rand.Float64() * wCtx.App.Config.Relay.TimeDispersion) +
+				(float64(reqIdx) * wCtx.App.Config.Relay.TimeBetweenRelays)
+			// Track triggered
+			triggeredSupplierAddresses[tr.Supplier] += 1
 			// Create target endpoint, which already contains the session
 			targetEndpoint := suppliers[tr.Supplier]
 			// You can access desired attributes here.
@@ -209,7 +230,7 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 
 			//  Here we start the workflow that will ultimately dispatch the relays to the supplier
 			workflowOptions := client.StartWorkflowOptions{
-				// with this format: "app-supplier-service-taskId-instanceId-promptId"
+				// with this format: "service-supplier-app-promptId"
 				// we are sure that when its workflow runs again inside the same session and the task is still not done,
 				// we will not get the same relayer workflow executed twice
 				ID: fmt.Sprintf(
@@ -219,7 +240,7 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 				),
 				TaskQueue:                                wCtx.App.Config.Temporal.TaskQueue,
 				WorkflowExecutionErrorWhenAlreadyStarted: true,
-				WorkflowIDReusePolicy:                    enums.WORKFLOW_ID_REUSE_POLICY_TERMINATE_IF_RUNNING,
+				WorkflowIDReusePolicy:                    use_policy,
 				WorkflowTaskTimeout:                      (time.Duration(tr.RelayTimeout) * time.Second) + time.Duration(randomDelay*1000)*time.Millisecond + (time.Duration(30) * time.Second),
 				RetryPolicy: &temporal.RetryPolicy{
 					MaximumAttempts: 3,
@@ -248,6 +269,8 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 			// Update the prompt entry
 			if params.Service == types.ExternalServiceName {
 				// patch session height since it will never change in external services
+				// This will make all external services to be re-triggered every time we
+				// execute this workflow, but the special re-use policy will prevent terminations.
 				sessionHeight = 9
 			}
 			l.Debug("Calling SetPromptTriggerSession activity")
@@ -274,9 +297,9 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 	}
 
 	result := RequesterResults{
-		App:       params.App,
-		Service:   params.Service,
-		Suppliers: triggeredSupplierAddresses,
+		App:                params.App,
+		Service:            params.Service,
+		TriggersBySupplier: triggeredSupplierAddresses,
 		// check if this is the height of the block when the session is get or what
 		Height:             currHeight,
 		SessionHeight:      sessionHeight,

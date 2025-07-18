@@ -55,9 +55,13 @@ from packages.python.protocol.protocol import (
 eval_logger = get_app_logger("sample")
 evaluation_logger = get_app_logger("evaluation")
 
+INVALID_ANSWER = "[invalidanswer]"
 
-# this fuction change its behavior in 0.4.3.
-# Currently we will mantain the previous behavior to be compatible with vLLM.
+DEFAULT_MAX_LENGTH = 16000
+DEFAULT_GEN_TOKS = 8192
+
+# this function change its behavior in 0.4.3.
+# Currently we will maintain the previous behavior to be compatible with vLLM.
 # ref:
 # https://github.com/EleutherAI/lm-evaluation-harness/pull/1779#issuecomment-2161323224
 # &
@@ -93,7 +97,7 @@ def get_result(response, ctxlen: int) -> Tuple[float, bool]:
 
 
 class SamplerAPI(TemplateAPI):
-    _DEFAULT_MAX_LENGTH = 8192
+    _DEFAULT_MAX_LENGTH = DEFAULT_MAX_LENGTH
 
     def __init__(
         self,
@@ -112,7 +116,7 @@ class SamplerAPI(TemplateAPI):
         # number of concurrent requests. More useful if not batching
         num_concurrent: int = 1,
         max_retries: int = 3,
-        max_gen_toks: int = 1024,
+        max_gen_toks: int = DEFAULT_GEN_TOKS,
         batch_size: Union[str, int] = 1,
         seed: int = 1234,
         max_length: Optional[int] = None,
@@ -801,7 +805,7 @@ class SamplerChatCompletionAPI(SamplerAPI, LocalChatCompletion):
 
 
 class EvaluatorAPI(TemplateAPI):
-    _DEFAULT_MAX_LENGTH = 8192
+    _DEFAULT_MAX_LENGTH = DEFAULT_MAX_LENGTH
 
     def __init__(
         self,
@@ -1045,6 +1049,28 @@ class EvaluatorCompletion(EvaluatorAPI, LocalCompletionsAPI):
         self._rank = 0
         self._world_size = 1
 
+    @staticmethod
+    def parse_generations(outputs: Union[Dict, List[Dict]], **kwargs) -> List[str]:
+        res = []
+        if not isinstance(outputs, list):
+            outputs = [outputs]
+        for out in outputs:
+            tmp = [None] * len(out["choices"])
+            for choices in out["choices"]:
+                #########################################
+                # START: CUSTOM CODE
+                #########################################
+                # NOTE (nicolas) See comments in EvaluatorChatCompletion.parse_generations
+                content = choices["text"]
+                if content is None or content == "":
+                    content = INVALID_ANSWER
+                tmp[choices["index"]] = content
+                ######################################
+                # END: CUSTOM CODE
+                ######################################
+            res = res + tmp
+        return res
+
 
 class EvaluatorChatCompletion(EvaluatorAPI, LocalChatCompletion):
     MULTIMODAL = False
@@ -1085,3 +1111,36 @@ class EvaluatorChatCompletion(EvaluatorAPI, LocalChatCompletion):
         )
         self._rank = 0
         self._world_size = 1
+
+    # from LocalChatCompletion.parse_generations
+    @staticmethod
+    def parse_generations(outputs: Union[Dict, List[Dict]], **kwargs) -> List[str]:
+        evaluation_logger.debug(
+            "Parsing generations from outputs",
+            outputs=outputs,
+            kwargs=kwargs,
+        )
+        res = []
+        if not isinstance(outputs, list):
+            outputs = [outputs]
+        for out in outputs:
+            tmp = [None] * len(out["choices"])
+            for choices in out["choices"]:
+                #########################################
+                # START: CUSTOM CODE
+                #########################################
+                # NOTE (nicolas) This sections handle
+                # cases where content could be in
+                # * `reasoning content`, or in response
+                # where the first generation code whas a stop secuences of character and then
+                # the content is empty (probably abusing the stop sequence).
+                # `stop_reason field
+                content = choices["message"]["content"]
+                if content is None or content == "":
+                    content = INVALID_ANSWER
+                tmp[choices["index"]] = content
+                ######################################
+                # END: CUSTOM CODE
+                ######################################
+            res = res + tmp
+        return res

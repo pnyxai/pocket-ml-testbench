@@ -29,7 +29,14 @@ class Evaluator:
         )
 
         # Perform the corresponding evaluation
-        if "lmeh" in framework:
+        if len(framework) == 0:
+            # We could not retrieve the data to start the evaluation
+            # this can happen due to a race condition between the task trigger
+            # after the relayer ends and the lookup tasks schedule.
+            eval_logger.warn("Workflow Evaluator not able to execute due to missing task data.")
+            return False
+
+        elif "lmeh" in framework:
             eval_OK, msg_str = await workflow.execute_activity(
                 lmeh_evaluate,
                 args,
