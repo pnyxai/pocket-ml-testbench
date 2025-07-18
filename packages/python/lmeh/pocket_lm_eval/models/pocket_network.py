@@ -57,7 +57,7 @@ evaluation_logger = get_app_logger("evaluation")
 
 INVALID_ANSWER = "[invalidanswer]"
 
-GENERATION_MAX_LENGHT = 16000
+GENERATION_MAX_LENGHT = 8192
 
 
 # this fuction change its behavior in 0.4.3.
@@ -116,7 +116,7 @@ class SamplerAPI(TemplateAPI):
         # number of concurrent requests. More useful if not batching
         num_concurrent: int = 1,
         max_retries: int = 3,
-        max_gen_toks: int = 1024,
+        max_gen_toks: int = GENERATION_MAX_LENGHT,
         batch_size: Union[str, int] = 1,
         seed: int = 1234,
         max_length: Optional[int] = None,
@@ -810,7 +810,7 @@ class EvaluatorAPI(TemplateAPI):
     def __init__(
         self,
         truncate: bool = False,
-        max_gen_toks: int = 1024,
+        max_gen_toks: int = GENERATION_MAX_LENGHT,
         batch_size: int = 1,
         seed: int = 1234,
         max_length: Optional[int] = None,
@@ -1017,7 +1017,7 @@ class EvaluatorCompletion(EvaluatorAPI, LocalCompletionsAPI):
     def __init__(
         self,
         truncate: bool = False,
-        max_gen_toks: int = 1024,
+        max_gen_toks: int = GENERATION_MAX_LENGHT,
         batch_size: int = 1,
         seed: int = 1234,
         max_length: Optional[int] = None,
@@ -1082,7 +1082,7 @@ class EvaluatorChatCompletion(EvaluatorAPI, LocalChatCompletion):
     def __init__(
         self,
         truncate: bool = False,
-        max_gen_toks: int = 1024,
+        max_gen_toks: int = GENERATION_MAX_LENGHT,
         batch_size: int = 1,
         seed: int = 1234,
         max_length: Optional[int] = None,
