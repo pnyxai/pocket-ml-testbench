@@ -88,6 +88,7 @@ task_cnfg = {
         "metrics": ["exact_match"],
         "num_fewshot": 3,
         "filters": ["get_response"],
+        "gen_kwargs": {"until": ["</s>"]},
     },
     # "humaneval": {
     #     "metrics": ["!function utils.pass_at_1"],
