@@ -3,7 +3,7 @@
 // The datasets corresponding to each node were manually selected from a those
 // used in the open leaderboards and some extra to fill gaps in basic abilities.
 
-general_skills_v0 {
+general_skills_v1 {
 
     //--------------------------------------------------------------------------
     relational_reasoning -> foundational_reasoning_skills;
@@ -108,21 +108,10 @@ general_skills_v0 {
     //--------------------------------------------------------------------------
 
     //--------------------------------------------------------------------------
-    advanced_math_and_computational_reasoning -> foundational_math_and_logic;
-    advanced_math_and_computational_reasoning -> complex_deductive_and_inductive_reasoning;
-    //--------------------------------------------------------------------------
-
-    //--------------------------------------------------------------------------
     logical_and_object_tracking_reasoning -> formal_logic_and_fallacies;
     logical_and_object_tracking_reasoning -> coreference_and_temporal_reasoning;
     //--------------------------------------------------------------------------
     
-    //--------------------------------------------------------------------------
-    computational_coding_and_synthesis -> advanced_math_and_computational_reasoning;
-    computational_coding_and_synthesis -> computer_science;
-    computational_coding_and_synthesis -> foundational_math_and_logic;
-    computational_coding_and_synthesis -> instruction_comprehension_and_execution;
-    //--------------------------------------------------------------------------
     
     //--------------------------------------------------------------------------
     business_and_public_interaction -> foundational_language_skills;
@@ -139,19 +128,13 @@ general_skills_v0 {
     root_c -> general_knowledge;
     root_c -> clinical_and_prof_medical_knowledge;
     root_c -> advanced_interpretation_and_rhetorical_analysis;
-    root_c -> computational_coding_and_synthesis;
+    root_c -> computer_science;
     root_c -> business_and_public_interaction;
-    root_c -> logical_and_object_tracking_reasoning
+    root_c -> instruction_comprehension_and_execution;
 
 }
 
-general_skills_v0_labeling {
-
-    //--------------------------------------------------------------------------
-    // --- HUMANEVAL
-    // coding
-    computational_coding_and_synthesis -> humaneval;
-    //--------------------------------------------------------------------------
+general_skills_v1_labeling {
 
     //--------------------------------------------------------------------------
     // --- BBH
@@ -162,12 +145,6 @@ general_skills_v0_labeling {
     logical_and_object_tracking_reasoning -> bbh_cot_fewshot_word_sorting;
     //--------------------------------------------------------------------------
 
-    //--------------------------------------------------------------------------
-    // --- BBH
-    advanced_math_and_computational_reasoning -> bbh_cot_fewshot_object_counting;
-    advanced_math_and_computational_reasoning -> bbh_cot_fewshot_reasoning_about_colored_objects;
-    advanced_math_and_computational_reasoning -> bbh_cot_fewshot_multistep_arithmetic_two;
-    //--------------------------------------------------------------------------
 
     //--------------------------------------------------------------------------
     // --- IFEVAL
@@ -253,6 +230,10 @@ general_skills_v0_labeling {
     //--------------------------------------------------------------------------
 
     //--------------------------------------------------------------------------
+    // --- BBH
+    foundational_math_and_logic -> bbh_cot_fewshot_object_counting;
+    foundational_math_and_logic -> bbh_cot_fewshot_reasoning_about_colored_objects;
+    foundational_math_and_logic -> bbh_cot_fewshot_multistep_arithmetic_two;
     // --- MMLU
     foundational_math_and_logic -> mmlu_pro-category_math;
     foundational_math_and_logic -> mmlu_college_mathematics_generative;
@@ -304,7 +285,7 @@ general_skills_v0_labeling {
 
     //--------------------------------------------------------------------------
     // --- MMLU
-    computer_science -> mmlu_pro-category_computer-science;
+    computer_science -> mmlu_pro-category_computer_science;
     computer_science -> mmlu_high_school_computer_science_generative;
     computer_science -> mmlu_machine_learning_generative;
     computer_science -> mmlu_computer_security_generative;
@@ -312,9 +293,6 @@ general_skills_v0_labeling {
     //--------------------------------------------------------------------------
 
     //--------------------------------------------------------------------------
-    // --- bAbI
-    // motivation
-    creative_scenario_based -> babi-task_20-agents_motivations;
     // --- BBH
     creative_scenario_based -> bbh_cot_fewshot_penguins_in_a_table;
     creative_scenario_based -> bbh_cot_fewshot_movie_recommendation;
@@ -323,15 +301,9 @@ general_skills_v0_labeling {
     //--------------------------------------------------------------------------
 
     //--------------------------------------------------------------------------
-    // --- bAbI
-    // deduction
-    complex_deductive_and_inductive_reasoning -> babi-task_15-basic_deduction;
-    // induction
-    complex_deductive_and_inductive_reasoning -> babi-task_16-basic_induction;
-    // path_finding
-    complex_deductive_and_inductive_reasoning -> babi-task_19-path_finding;
-    // indefinite knowledge
-    complex_deductive_and_inductive_reasoning -> babi-task_10-indefinite_knowledge;
+    // --- bAbI-Steps
+    // Temporal Tracking
+    complex_deductive_and_inductive_reasoning -> babisteps-chat-cot-task_09-timetracking;
     // --- BBH
     complex_deductive_and_inductive_reasoning -> bbh_cot_fewshot_logical_deduction_three_objects;
     complex_deductive_and_inductive_reasoning -> bbh_cot_fewshot_logical_deduction_five_objects;
@@ -340,48 +312,35 @@ general_skills_v0_labeling {
     //--------------------------------------------------------------------------
 
     //--------------------------------------------------------------------------
-    // --- bAbI
-    // basic_coreference
-    coreference_and_temporal_reasoning -> babi-task_11-basic_coreference;
-    // compound_coreference
-    coreference_and_temporal_reasoning -> babi-task_13-compound_coreference;
-    // temporal_reasoning
-    coreference_and_temporal_reasoning -> babi-task_14-time_reasoning;
-    // lists-sets 
-    coreference_and_temporal_reasoning -> babi-task_08-lists_sets;
+    // --- bAbI-Steps
+    // path_finding
+    coreference_and_temporal_reasoning -> babisteps-chat-cot-task_08-pathfinding;
     // --- BBH
     coreference_and_temporal_reasoning -> bbh_cot_fewshot_date_understanding;
     coreference_and_temporal_reasoning -> bbh_cot_fewshot_temporal_sequences;
     //--------------------------------------------------------------------------
 
     //--------------------------------------------------------------------------
-    // --- bAbI
-    // two_facts
-    relational_reasoning -> babi-task_02-two_supporting_facts;
-    // three_facts
-    relational_reasoning -> babi-task_03-three_supporting_facts;
-    // ternary_relation
-    relational_reasoning -> babi-task_05-three_argument_relations;
-    // spatial_reasoning
-    relational_reasoning -> babi-task_17-positional_reasoning;
-    // size_reasoning
-    relational_reasoning -> babi-task_18-size_reasoning;
+    // --- bAbI-Steps
+    // Complex Tracking
+    relational_reasoning -> babisteps-chat-cot-task_03-complextracking;
+    // Listing
+    relational_reasoning -> babisteps-chat-cot-task_04-listing;
+    // Size Order
+    relational_reasoning -> babisteps-chat-cot-task_05-sizeorder;
+    // Spatial Order
+    relational_reasoning -> babisteps-chat-cot-task_06-spatialorder;
+    // Temporal Order
+    relational_reasoning -> babisteps-chat-cot-task_07-temporalorder;
+    
     //--------------------------------------------------------------------------
 
     //--------------------------------------------------------------------------
-    // --- bAbI
-    // one_fact
-    foundational_reasoning_skills -> babi-task_01-single_supporting_fact;
-    // yes_no
-    foundational_reasoning_skills -> babi-task_06-yes_no_questions;
-    // counting
-    foundational_reasoning_skills -> babi-task_07-counting;
-    // negation
-    foundational_reasoning_skills -> babi-task_09-simple_negation;
-    // conjunction
-    foundational_reasoning_skills -> babi-task_12-conjunction;
-    // binary_relation
-    foundational_reasoning_skills -> babi-task_04-two_argument_relations;
+    // --- bAbI-Steps
+    // Simple Tracking
+    foundational_reasoning_skills -> babisteps-chat-cot-task_01-simpletracking;
+    // Immediate Order
+    foundational_reasoning_skills -> babisteps-chat-cot-task_02-immediateorder;
     //--------------------------------------------------------------------------
 
     //--------------------------------------------------------------------------
