@@ -28,8 +28,15 @@ type BaseTaskRecord struct {
 	Framework  string             `bson:"framework"`
 	Task       string             `bson:"task"`
 
+	// This are the time and block from the last request and response processing
+	// of the supplier
 	LastSeen   time.Time `bson:"last_seen"`
 	LastHeight int64     `bson:"last_height"`
+
+	// These are the time and block of the last successful response from the
+	// supplier
+	LastOk       time.Time `bson:"last_ok"`
+	LastOkHeight int64     `bson:"last_ok_height"`
 }
 
 func (record *BaseTaskRecord) GetSupplierID() primitive.ObjectID {
@@ -52,6 +59,14 @@ func (record *BaseTaskRecord) GetLastHeight() int64 {
 	return record.LastHeight
 }
 
+func (record *BaseTaskRecord) GetLastOk() time.Time {
+	return record.LastOk
+}
+
+func (record *BaseTaskRecord) GetLastOkHeight() int64 {
+	return record.LastOkHeight
+}
+
 func (record *BaseTaskRecord) UpdateLastSeen(timeSample time.Time) (err error) {
 	record.LastSeen = timeSample
 	return nil
@@ -59,6 +74,16 @@ func (record *BaseTaskRecord) UpdateLastSeen(timeSample time.Time) (err error) {
 
 func (record *BaseTaskRecord) UpdateLastHeight(height int64) (err error) {
 	record.LastHeight = height
+	return nil
+}
+
+func (record *BaseTaskRecord) UpdateLastOk(timeSample time.Time) (err error) {
+	record.LastOk = timeSample
+	return nil
+}
+
+func (record *BaseTaskRecord) UpdateLastOkHeight(height int64) (err error) {
+	record.LastOkHeight = height
 	return nil
 }
 
@@ -85,8 +110,12 @@ type TaskInterface interface {
 	GetResultStruct() ResultInterface
 	GetLastSeen() time.Time
 	GetLastHeight() int64
+	GetLastOk() time.Time
+	GetLastOkHeight() int64
 	UpdateLastSeen(timeSample time.Time) (err error)
 	UpdateLastHeight(height int64) (err error)
+	UpdateLastOk(timeSample time.Time) (err error)
+	UpdateLastOkHeight(height int64) (err error)
 	IsOK() bool
 	NewTask(supplierID primitive.ObjectID, framework string, task string, date time.Time, l *zerolog.Logger)
 	LoadTask(supplierID primitive.ObjectID, framework string, task string, mongoDB mongodb.MongoDb, l *zerolog.Logger) (bool, error)
@@ -143,7 +172,11 @@ func GetTaskData(
 		var record NumericalTaskRecord
 		found, err := record.LoadTask(supplierID, framework, task, mongoDB, l)
 		if err != nil {
-			l.Error().Str("supplierID", supplierID.String()).Str("framework", framework).Str("task", task).Msg("cannot find default task buffer")
+			l.Error().
+				Str("supplierID", supplierID.String()).
+				Str("framework", framework).
+				Str("task", task).
+				Msg("cannot find default task buffer")
 			return nil, false
 		}
 		if !found {
@@ -161,7 +194,11 @@ func GetTaskData(
 		var record SignatureTaskRecord
 		found, err := record.LoadTask(supplierID, framework, task, mongoDB, l)
 		if err != nil {
-			l.Error().Str("supplierID", supplierID.String()).Str("framework", framework).Str("task", task).Msg("cannot find default task buffer")
+			l.Error().
+				Str("supplierID", supplierID.String()).
+				Str("framework", framework).
+				Str("task", task).
+				Msg("cannot find default task buffer")
 			return nil, false
 		}
 		if !found {
@@ -429,30 +466,33 @@ func CheckTaskSchedule(taskData TaskInterface, block types.BlockData, configMap 
 		return false, nil
 	}
 
-	if frameworkTaskandSchedule[1] == "session" {
+	lastHeight := taskData.GetLastHeight()
+	switch frameworkTaskandSchedule[1] {
+	case "session":
 		// Check if session is within minimum schedule
-		lastHeight := taskData.GetLastHeight()
 		if (block.Height - lastHeight) >= (value * block.BlocksPerSession) {
 			return true, nil
 		} else {
 			return false, nil
 		}
 
-	} else if frameworkTaskandSchedule[1] == "block" {
+	case "block":
 		// Check if amount of blocks have passed
-		lastHeight := taskData.GetLastHeight()
 		if (block.Height - lastHeight) >= value {
 			return true, nil
 		} else {
 			return false, nil
 		}
 
-	} else {
-		l.Error().Str("framework", framework).Str("task", task).Str("second_element", frameworkTaskandSchedule[1]).Msg("schedule configuration cannot be processed (second element type unknown)")
+	default:
+		l.Error().
+			Str("framework", framework).
+			Str("task", task).
+			Str("second_element", frameworkTaskandSchedule[1]).
+			Msg("schedule configuration cannot be processed (second element type unknown)")
 		return false, nil
 	}
 
-	return true, nil
 }
 
 // Analyzes the configuration and checks whether the task should be triggered
@@ -604,12 +644,21 @@ func (record *NumericalTaskRecord) LoadTask(supplierID primitive.ObjectID, frame
 	return found, nil
 }
 
-func (record *NumericalTaskRecord) UpdateTask(supplierID primitive.ObjectID, framework string, task string, mongoDB mongodb.MongoDb, l *zerolog.Logger) (bool, error) {
+func (record *NumericalTaskRecord) UpdateTask(
+	supplierID primitive.ObjectID,
+	framework string,
+	task string,
+	mongoDB mongodb.MongoDb,
+	l *zerolog.Logger) (bool, error) {
 
 	tasksCollection := mongoDB.GetCollection(types.NumericalTaskCollection)
 
 	opts := options.FindOneAndUpdate().SetUpsert(true)
-	task_filter := bson.D{{Key: "task_data.supplier_id", Value: supplierID}, {Key: "task_data.framework", Value: framework}, {Key: "task_data.task", Value: task}}
+	task_filter := bson.D{
+		{Key: "task_data.supplier_id", Value: supplierID},
+		{Key: "task_data.framework", Value: framework},
+		{Key: "task_data.task", Value: task},
+	}
 	ctxM, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
@@ -620,7 +669,11 @@ func (record *NumericalTaskRecord) UpdateTask(supplierID primitive.ObjectID, fra
 	err := tasksCollection.FindOneAndUpdate(ctxM, task_filter, update, opts).Decode(record)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-			l.Warn().Str("supplier_id", supplierID.String()).Str("framework", framework).Str("task", task).Msg("Numerical Task not found, creating one.")
+			l.Warn().
+				Str("supplier_id", supplierID.String()).
+				Str("framework", framework).
+				Str("task", task).
+				Msg("Numerical Task not found, creating one.")
 			found = false
 		} else {
 			l.Error().Msg("Could not retrieve numerical task data from MongoDB.")
@@ -663,6 +716,14 @@ func (record *NumericalTaskRecord) GetLastHeight() int64 {
 	return record.TaskData.GetLastHeight()
 }
 
+func (record *NumericalTaskRecord) GetLastOk() time.Time {
+	return record.TaskData.GetLastOk()
+}
+
+func (record *NumericalTaskRecord) GetLastOkHeight() int64 {
+	return record.TaskData.GetLastOkHeight()
+}
+
 func (record *NumericalTaskRecord) UpdateLastSeen(timeSample time.Time) (err error) {
 	record.TaskData.UpdateLastSeen(timeSample)
 	return nil
@@ -670,6 +731,16 @@ func (record *NumericalTaskRecord) UpdateLastSeen(timeSample time.Time) (err err
 
 func (record *NumericalTaskRecord) UpdateLastHeight(height int64) (err error) {
 	record.TaskData.UpdateLastHeight(height)
+	return nil
+}
+
+func (record *NumericalTaskRecord) UpdateLastOk(timeSample time.Time) (err error) {
+	record.TaskData.UpdateLastOk(timeSample)
+	return nil
+}
+
+func (record *NumericalTaskRecord) UpdateLastOkHeight(height int64) (err error) {
+	record.TaskData.UpdateLastOkHeight(height)
 	return nil
 }
 
@@ -814,6 +885,7 @@ func (record *NumericalTaskRecord) InsertSample(timeSample time.Time, data inter
 		record.ScoresSamples[record.CircBuffer.Indexes.End].ID = dataOk.ID
 		record.ScoresSamples[record.CircBuffer.Indexes.End].RunTime = dataOk.RunTime
 		record.ScoresSamples[record.CircBuffer.Indexes.End].StatusCode = dataOk.StatusCode
+		record.ScoresSamples[record.CircBuffer.Indexes.End].ErrorString = dataOk.ErrorString
 		record.CircBuffer.Times[record.CircBuffer.Indexes.End] = timeSample
 	}
 	if dataOk.StatusCode == RelayResponseCodes.Ok {
@@ -981,6 +1053,14 @@ func (record *SignatureTaskRecord) GetLastHeight() int64 {
 	return record.TaskData.GetLastHeight()
 }
 
+func (record *SignatureTaskRecord) GetLastOk() time.Time {
+	return record.TaskData.GetLastOk()
+}
+
+func (record *SignatureTaskRecord) GetLastOkHeight() int64 {
+	return record.TaskData.GetLastOkHeight()
+}
+
 func (record *SignatureTaskRecord) UpdateLastSeen(timeSample time.Time) (err error) {
 	record.TaskData.UpdateLastSeen(timeSample)
 	return nil
@@ -988,6 +1068,16 @@ func (record *SignatureTaskRecord) UpdateLastSeen(timeSample time.Time) (err err
 
 func (record *SignatureTaskRecord) UpdateLastHeight(height int64) (err error) {
 	record.TaskData.UpdateLastHeight(height)
+	return nil
+}
+
+func (record *SignatureTaskRecord) UpdateLastOk(timeSample time.Time) (err error) {
+	record.TaskData.UpdateLastOk(timeSample)
+	return nil
+}
+
+func (record *SignatureTaskRecord) UpdateLastOkHeight(height int64) (err error) {
+	record.TaskData.UpdateLastOkHeight(height)
 	return nil
 }
 
@@ -1042,6 +1132,7 @@ func (record *SignatureTaskRecord) InsertSample(timeSample time.Time, data inter
 		record.Signatures[record.CircBuffer.Indexes.End].Signature = dataOk.Signature
 		record.Signatures[record.CircBuffer.Indexes.End].ID = dataOk.ID
 		record.Signatures[record.CircBuffer.Indexes.End].StatusCode = dataOk.StatusCode
+		record.Signatures[record.CircBuffer.Indexes.End].ErrorString = dataOk.ErrorString
 		record.CircBuffer.Times[record.CircBuffer.Indexes.End] = timeSample
 	}
 	if dataOk.StatusCode == RelayResponseCodes.Ok {

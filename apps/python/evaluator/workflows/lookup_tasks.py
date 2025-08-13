@@ -36,7 +36,7 @@ class LookupTasks:
                     task_queue=task_queue,
                     execution_timeout=timedelta(seconds=120),
                     task_timeout=timedelta(seconds=60),
-                    id_reuse_policy=WorkflowIDReusePolicy.ALLOW_DUPLICATE_FAILED_ONLY,
+                    id_reuse_policy=WorkflowIDReusePolicy.ALLOW_DUPLICATE,
                     retry_policy=RetryPolicy(maximum_attempts=1),
                     parent_close_policy=ParentClosePolicy.ABANDON,
                 )

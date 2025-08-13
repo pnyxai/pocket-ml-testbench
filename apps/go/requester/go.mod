@@ -5,8 +5,8 @@ go 1.24.3
 toolchain go1.24.4
 
 require (
-	github.com/pokt-foundation/pocket-go v0.17.0
-	github.com/pokt-network/poktroll v0.1.26
+	github.com/pokt-foundation/pocket-go v0.21.0
+	github.com/pokt-network/poktroll v0.1.28
 	github.com/rs/zerolog v1.34.0
 	go.mongodb.org/mongo-driver v1.15.0
 	go.temporal.io/api v1.32.0
@@ -98,6 +98,7 @@ require (
 	github.com/desertbit/timer v0.0.0-20180107155436-c41aec40b27f // indirect
 	github.com/dgraph-io/badger/v4 v4.2.0 // indirect
 	github.com/dgraph-io/ristretto v0.1.1 // indirect
+	github.com/docker/go-units v0.5.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/dvsekhvalnov/jose2go v1.6.0 // indirect
 	github.com/emicklei/dot v1.6.2 // indirect
@@ -183,8 +184,8 @@ require (
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/pokt-foundation/utils-go v0.7.0 // indirect
 	github.com/pokt-network/ring-go v0.1.0 // indirect
-	github.com/pokt-network/shannon-sdk v0.0.0-20250704180202-e527d4172770 // indirect
-	github.com/pokt-network/smt v0.13.0 // indirect
+	github.com/pokt-network/shannon-sdk v0.0.0-20250711180840-8854f9d2cdcc // indirect
+	github.com/pokt-network/smt v0.14.1 // indirect
 	github.com/pokt-network/smt/kvstore/pebble v0.0.0-20240822175047-21ea8639c188 // indirect
 	github.com/prometheus/client_golang v1.22.0 // indirect
 	github.com/prometheus/client_model v0.6.1 // indirect

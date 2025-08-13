@@ -86,7 +86,7 @@ def format_example(example, include_options: bool, including_answer: bool):
     return prompt
 
 
-doc_to_text = partial(format_example, include_options=False, including_answer=False)
+doc_to_text = partial(format_example, include_options=True, including_answer=False)
 fewshot_to_text = partial(format_example, include_options=False, including_answer=True)
 
 

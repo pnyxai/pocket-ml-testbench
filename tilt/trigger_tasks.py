@@ -14,7 +14,8 @@ LMEH_TYPE = "lmeh"
 
 
 liveness_taxonomy = [
-    "babi-task_01-single_supporting_fact",
+    "babisteps-chat-cot-task_01-simpletracking",
+    "babisteps-chat-cot-task_02-immediateorder",
 ]
 
 general_taxonomy = [
@@ -120,6 +121,18 @@ general_taxonomy = [
     "bbh_cot_fewshot_snarks",
     "bbh_cot_fewshot_web_of_lies",
     "bbh_cot_fewshot_ruin_names",
+
+    # bAbI-Steps
+    # "babisteps-chat-cot-task_01-simpletracking", # Part of liveness
+    # "babisteps-chat-cot-task_02-immediateorder", # PArt of liveness
+    "babisteps-chat-cot-task_03-complextracking",
+    # "babisteps-chat-cot-task_04-listing",
+    "babisteps-chat-cot-task_05-sizeorder",
+    "babisteps-chat-cot-task_06-spatialorder",
+    "babisteps-chat-cot-task_07-temporalorder",
+]
+
+babi_taxonomy = [
     # bAbI
     "babi-task_02-two_supporting_facts",
     "babi-task_03-three_supporting_facts",
@@ -216,6 +229,7 @@ taxonomy_dict = {
     "babisteps-chat": babisteps_chat_taxonomy,
     "liveness": liveness_taxonomy,
     "leaderboard": all_leaderboard_taxonomy,
+    "babi": babi_taxonomy,
 }
 
 
@@ -552,7 +566,7 @@ def main():
 
     else:
         # Start the base task lookup
-        schedule_lookup_task(interval="1m", execution_timeout=350, task_timeout=175)
+        schedule_lookup_task(interval="1m", execution_timeout=55, task_timeout=50)
         print("Lookup scheduled.")
         time.sleep(0.25)
 
@@ -628,9 +642,9 @@ def main():
                 ok = schedule_benchmark_task(
                     task,
                     chain_id,
-                    interval="2m",
-                    execution_timeout=120,
-                    task_timeout=120,
+                    interval="5m",
+                    execution_timeout=240,
+                    task_timeout=240,
                 )
                 print("\tTask triggered.")
                 time.sleep(0.25)
