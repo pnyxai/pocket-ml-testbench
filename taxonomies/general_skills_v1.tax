@@ -3,7 +3,7 @@
 // The datasets corresponding to each node were manually selected from a those
 // used in the open leaderboards and some extra to fill gaps in basic abilities.
 
-general_skills_v0 {
+general_skills_v1 {
 
     //--------------------------------------------------------------------------
     relational_reasoning -> foundational_reasoning_skills;
@@ -108,21 +108,10 @@ general_skills_v0 {
     //--------------------------------------------------------------------------
 
     //--------------------------------------------------------------------------
-    advanced_math_and_computational_reasoning -> foundational_math_and_logic;
-    advanced_math_and_computational_reasoning -> complex_deductive_and_inductive_reasoning;
-    //--------------------------------------------------------------------------
-
-    //--------------------------------------------------------------------------
     logical_and_object_tracking_reasoning -> formal_logic_and_fallacies;
     logical_and_object_tracking_reasoning -> coreference_and_temporal_reasoning;
     //--------------------------------------------------------------------------
     
-    //--------------------------------------------------------------------------
-    computational_coding_and_synthesis -> advanced_math_and_computational_reasoning;
-    computational_coding_and_synthesis -> computer_science;
-    computational_coding_and_synthesis -> foundational_math_and_logic;
-    computational_coding_and_synthesis -> instruction_comprehension_and_execution;
-    //--------------------------------------------------------------------------
     
     //--------------------------------------------------------------------------
     business_and_public_interaction -> foundational_language_skills;
@@ -139,19 +128,13 @@ general_skills_v0 {
     root_c -> general_knowledge;
     root_c -> clinical_and_prof_medical_knowledge;
     root_c -> advanced_interpretation_and_rhetorical_analysis;
-    root_c -> computational_coding_and_synthesis;
+    root_c -> computer_science;
     root_c -> business_and_public_interaction;
-    root_c -> logical_and_object_tracking_reasoning
+    root_c -> instruction_comprehension_and_execution;
 
 }
 
-general_skills_v0_labeling {
-
-    //--------------------------------------------------------------------------
-    // --- HUMANEVAL
-    // coding
-    computational_coding_and_synthesis -> humaneval;
-    //--------------------------------------------------------------------------
+general_skills_v1_labeling {
 
     //--------------------------------------------------------------------------
     // --- BBH
@@ -162,12 +145,6 @@ general_skills_v0_labeling {
     logical_and_object_tracking_reasoning -> bbh_cot_fewshot_word_sorting;
     //--------------------------------------------------------------------------
 
-    //--------------------------------------------------------------------------
-    // --- BBH
-    advanced_math_and_computational_reasoning -> bbh_cot_fewshot_object_counting;
-    advanced_math_and_computational_reasoning -> bbh_cot_fewshot_reasoning_about_colored_objects;
-    advanced_math_and_computational_reasoning -> bbh_cot_fewshot_multistep_arithmetic_two;
-    //--------------------------------------------------------------------------
 
     //--------------------------------------------------------------------------
     // --- IFEVAL
@@ -253,6 +230,10 @@ general_skills_v0_labeling {
     //--------------------------------------------------------------------------
 
     //--------------------------------------------------------------------------
+    // --- BBH
+    foundational_math_and_logic -> bbh_cot_fewshot_object_counting;
+    foundational_math_and_logic -> bbh_cot_fewshot_reasoning_about_colored_objects;
+    foundational_math_and_logic -> bbh_cot_fewshot_multistep_arithmetic_two;
     // --- MMLU
     foundational_math_and_logic -> mmlu_pro-category_math;
     foundational_math_and_logic -> mmlu_college_mathematics_generative;
