@@ -1,5 +1,0 @@
-"dataset_name": "category_business"
-"description": "The following are questions on the subject of : business.\n\n"
-"include": "_default_template_yaml"
-"task": "mmlu_pro-category_business"
-"task_alias": "MMLU Pro category business"

@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: avert-config
+data:
+  avert_model_endpoint: "$AVERT_MODEL_ENDPOINT"
+  avert_endpoint_type: "$AVERT_ENDPOINT_TYPE"
+  avert_model_name: "$AVERT_MODEL_NAME"

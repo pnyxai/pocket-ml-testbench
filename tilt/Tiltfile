@@ -97,6 +97,12 @@ def replce_file(input, output):
     local("envsubst < " + input + " > " + output, dir = '.')
     watch_settings(ignore=output)
 
+# ------------------------ Commons ---------------------------------------------
+replce_file(
+    "apps/commons/local/patches/configmap.template.yaml",
+    "apps/commons/local/patches/configmap.yaml",
+    )
+
 # ------------------------ Requester -------------------------------------------
 replce_file(
     "apps/requester/local/patches/secret.template.yaml",
@@ -113,6 +119,7 @@ replce_file(
     "apps/sampler/local/patches/secret.template.yaml",
     "apps/sampler/local/patches/secret.yaml",
     )
+
 # ------------------------------------------------------------------------------
 # ------------------------ Deploy ----------------------------------------------
 # ------------------------------------------------------------------------------

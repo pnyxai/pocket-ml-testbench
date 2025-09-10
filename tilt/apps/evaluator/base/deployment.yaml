@@ -53,6 +53,21 @@ spec:
                   secretKeyRef:
                     name: testbench-secret
                     key: DATASETS_VERBOSITY
+            - name: AVERT_MODEL_ENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  name: testbench-config
+                  key: avert_model_endpoint
+            - name: AVERT_ENDPOINT_TYPE
+              valueFrom:
+                configMapKeyRef:
+                  name: testbench-config
+                  key: avert_endpoint_type
+            - name: AVERT_MODEL_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: testbench-config
+                  key:  avert_model_name
           volumeMounts:
             - mountPath: /home/app/configs/
               name: configuration-files

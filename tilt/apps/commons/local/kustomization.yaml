@@ -7,3 +7,7 @@ patches:
     target:
       kind: Secret
       name: testbench-secret
+  - path: ./patches/configmap.yaml
+    target:
+      kind: ConfigMap
+      name: testbench-config

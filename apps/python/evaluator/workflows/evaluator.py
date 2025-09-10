@@ -89,6 +89,8 @@ class Evaluator:
             task_queue=get_from_dict(
                 config, "temporal.manager-result-analyzer.task_queue"
             ),
+            execution_timeout=timedelta(seconds=300),
+            task_timeout=timedelta(seconds=240),
             id_reuse_policy=WorkflowIDReusePolicy.ALLOW_DUPLICATE_FAILED_ONLY,
             retry_policy=RetryPolicy(maximum_attempts=1),
             parent_close_policy=ParentClosePolicy.ABANDON,
