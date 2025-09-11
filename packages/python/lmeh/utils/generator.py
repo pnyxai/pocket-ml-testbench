@@ -801,7 +801,10 @@ async def evaluate(
                         non_retryable=True,
                     )
 
+                # The requests can be repeated and then we need to average the repeated times (in that case)
                 response_times = [np.mean(req.times).astype(float) for req in requests]
+                # Total time to process the whole sample/doc_id
+                total_ms = np.sum(response_times)
                 if log_samples:
                     target = task.doc_to_target(doc)
                     example = {
@@ -833,15 +836,22 @@ async def evaluate(
                         resps=example["resps"],
                         filtered_resps=example["filtered_resps"],
                         metrics=example["metrics"],
+                        selected_metrics=selected_metrics,
                     )
                     example.update(metrics)
                     task_output.logged_samples.append(example)
-                for (metric, value), ms in zip(metrics.items(), response_times):
+
+                # there can be multiple requests per doc
+                # and there can be multiple metrics per doc
+                # but the number of metrics and the number of request do not
+                # follow a logic, one request can have multiple metrics and
+                # multiple requests can have a single metric.
+                for metric, value in metrics.items():
                     task_output.sample_metrics[(metric, filter_key)].append(value)
                     if metric in selected_metrics:
                         numericSample = NumericSample(
                             score=example[metric],
-                            run_time=ms,
+                            run_time=total_ms,
                             id=doc_id_true,
                             status_code=0,
                             error_str="",
@@ -858,10 +868,23 @@ async def evaluate(
             )
             scores.append(numericSample)
 
+        total_processed_samples = len(result_num_samples) + len(task.failed_instances)
+
+        if total_processed_samples != len(scores):
+            msg = "Each sample must have strictly one metric associated to it. Multiple metrics per sample are not supported"
+            e = ValueError("total_processed_samples != len(scores)")
+            eval_logger.error(msg, error=e)
+            raise ApplicationError(
+                msg,
+                str(e),
+                type="LMEH",
+                non_retryable=True,
+            )
+
         base_result = PocketNetworkMongoDBResultBase(
             task_id=task_id,
             status=0,
-            num_samples=len(result_num_samples) + len(task.failed_instances),
+            num_samples=total_processed_samples,
             result_height=task.result_height,
         )
         num_result = PocketNetworkMongoDBResultNumerical(

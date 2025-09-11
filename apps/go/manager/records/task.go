@@ -547,7 +547,17 @@ const NumericalSampleTTLDays uint32 = 3
 const NumericalMinSamplesPerTask uint32 = 50
 
 // Maximum size of result buffer and also maximum number of samples to ask per task
-const NumericalMaxConcurrentSamplesPerTask uint32 = 10
+const NumericalMaxConcurrentSamplesPerTask uint32 = 2
+
+// NOTE: Setting this value high means that more tasks are asked at the same time by the Manager to the Sampler at the
+// same time, which creates a task with a given number of associated samples. Then the Requester picks up the task and
+// perform the relays following a delayed process (not asking all at once). This is thought not to fail even when
+// asking many requests.
+// Nevertheless if the tasks take too long to complete, like in generative-chat requests, the delay introduced by the
+// Requester can be too small, resulting in tasks pilling up and bothering the Supplier. While we could set the time
+// between requests higher in the Requester, it is limited by the Pocket session time, which in case it is met, the
+// tasks are reseted and re-sent, creating some pile-up on session changes. So, to be safe and keep the supplier as free
+// as possible, this number needs to be small. Yes, averages will be filled more slowly, but is the price we pay...
 
 // This is the length of the buffer and will set the maximum accuracy of the metric.
 const NumericalCircularBufferLength uint32 = NumericalMinSamplesPerTask * 2

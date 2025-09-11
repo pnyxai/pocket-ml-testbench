@@ -141,7 +141,7 @@ func (record *NumericalResultRecord) FindAndLoadResults(taskID primitive.ObjectI
 }
 
 //------------------------------------------------------------------------------
-// NumericalResultRecord
+// SignatureResultRecord
 //------------------------------------------------------------------------------
 
 // Record written by the evaluator.

@@ -1,5 +1,0 @@
-"dataset_name": "category_biology"
-"description": "The following are questions on the subject of : biology.\n\n"
-"include": "_default_template_yaml"
-"task": "mmlu_pro-category_biology"
-"task_alias": "MMLU Pro category biology"
