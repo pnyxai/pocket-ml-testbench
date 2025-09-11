@@ -3,8 +3,8 @@ task_cnfg = {
     "ifeval": {
         "metrics": [
             # "prompt_level_strict_acc",
-            "inst_level_strict_acc",
-            # "prompt_level_loose_acc",
+            # "inst_level_strict_acc",
+            "prompt_level_loose_acc",
             # "inst_level_loose_acc",
         ],
         "num_fewshot": 0,
