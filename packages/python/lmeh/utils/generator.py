@@ -843,10 +843,10 @@ async def evaluate(
 
                 # there can be multiple requests per doc
                 # and there can be multiple metrics per doc
-                # but the number of metrics and the number of request do not 
-                # follow a logic, one request can have multiple metrics and 
+                # but the number of metrics and the number of request do not
+                # follow a logic, one request can have multiple metrics and
                 # multiple requests can have a single metric.
-                for (metric, value) in metrics.items():
+                for metric, value in metrics.items():
                     task_output.sample_metrics[(metric, filter_key)].append(value)
                     if metric in selected_metrics:
                         numericSample = NumericSample(
@@ -872,6 +872,7 @@ async def evaluate(
 
         if total_processed_samples != len(scores):
             msg = "Each sample must have strictly one metric associated to it. Multiple metrics per sample are not supported"
+            e = ValueError("total_processed_samples != len(scores)")
             eval_logger.error(msg, error=e)
             raise ApplicationError(
                 msg,
@@ -879,7 +880,7 @@ async def evaluate(
                 type="LMEH",
                 non_retryable=True,
             )
-    
+
         base_result = PocketNetworkMongoDBResultBase(
             task_id=task_id,
             status=0,
