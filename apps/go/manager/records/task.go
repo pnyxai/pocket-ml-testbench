@@ -467,6 +467,7 @@ func CheckTaskSchedule(taskData TaskInterface, block types.BlockData, configMap 
 	}
 
 	lastHeight := taskData.GetLastHeight()
+	lastSeen := taskData.GetLastSeen()
 	switch frameworkTaskandSchedule[1] {
 	case "session":
 		// Check if session is within minimum schedule
@@ -479,6 +480,26 @@ func CheckTaskSchedule(taskData TaskInterface, block types.BlockData, configMap 
 	case "block":
 		// Check if amount of blocks have passed
 		if (block.Height - lastHeight) >= value {
+			return true, nil
+		} else {
+			return false, nil
+		}
+
+	case "hours":
+		// Check if the amount of hours have passed
+		durationThreshold := time.Duration(value) * time.Hour
+
+		if time.Since(lastSeen) >= durationThreshold {
+			return true, nil
+		} else {
+			return false, nil
+		}
+
+	case "minutes":
+		// Check if the amount of minutes have passed
+		durationThreshold := time.Duration(value) * time.Minute
+
+		if time.Since(lastSeen) >= durationThreshold {
 			return true, nil
 		} else {
 			return false, nil

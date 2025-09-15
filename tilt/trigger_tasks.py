@@ -73,8 +73,7 @@ general_taxonomy = [
     "mmlu_conceptual_physics_chat_generative",
     "mmlu_prehistory_chat_generative",
     "mmlu_international_law_chat_generative",
-    "mmlu_human_aging_chat_generative",
-    "mmlu_security_studies_chat_generative",
+   "mmlu_security_studies_chat_generative",
     "mmlu_astronomy_chat_generative",
     "mmlu_logical_fallacies_chat_generative",
     # MMLU PRO
