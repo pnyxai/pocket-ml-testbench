@@ -623,7 +623,7 @@ func (record *NumericalTaskRecord) NewTask(supplierID primitive.ObjectID, framew
 	record.TaskData.SupplierID = supplierID
 	record.TaskData.Framework = framework
 	record.TaskData.Task = task
-	record.TaskData.LastSeen = time.Now().UTC()
+	record.TaskData.LastSeen = time.Now().UTC() // This delays all timed schedules but is needed by the TTL of mongo
 
 	record.MeanScore = 0.0
 	record.MedianScore = 0.0

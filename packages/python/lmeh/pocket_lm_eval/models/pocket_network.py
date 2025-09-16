@@ -800,6 +800,11 @@ class SamplerChatCompletionAPI(SamplerAPI, LocalChatCompletion):
             eos=self.eos_string,
             **kwargs,
         )
+        # Fixing deprecated max_tokens, replacing with max_completion_tokens
+        max_toks = request.get("max_tokens", None)
+        if max_toks is not None:
+            request.pop("max_tokens")
+            request["max_completion_tokens"] = max_toks
         # Return CompletionRequest instance
         return ChatCompletionRequest(**request)
 
