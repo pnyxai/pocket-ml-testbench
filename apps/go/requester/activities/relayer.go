@@ -3,6 +3,7 @@ package activities
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -230,8 +231,40 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 
 		// Define the endpoint with the target path
 		endURL := params.TargetEndpoint.Url + prompt.Task.RequesterArgs.Path
+		// Edit the prompt data to change model and/or add new fields
+		l.Debug("Original request", "request", prompt.Data)
+		var modPromptData map[string]any
+		if err := json.Unmarshal([]byte(prompt.Data), &modPromptData); err != nil {
+			response.Ok = false
+			response.Code = RelayResponseCodes.Relay
+			response.Error = fmt.Sprintf("cannot unmarshal prompt data: %w", err)
+			return
+		}
+		modPromptData["model"] = supplierData.ModelName
+		if supplierData.ServiceTier != "" {
+			// Add service tier field
+			modPromptData["service_tier"] = supplierData.ServiceTier
+		}
+		if supplierData.TemperatureOverride >= 0 {
+			// Override temperature
+			modPromptData["temperature"] = supplierData.TemperatureOverride
+		}
+		if supplierData.NoStop != false {
+			// Remove stop
+			delete(modPromptData, "stop")
+		}
+		// Encode back
+		modPromptDataBytes, err := json.Marshal(modPromptData)
+		if err != nil {
+			response.Ok = false
+			response.Code = RelayResponseCodes.Relay
+			response.Error = fmt.Sprintf("cannot marshal modified prompt data: %w", err)
+			return
+		}
+		l.Debug("Sending modified external request", "request", string(modPromptDataBytes))
+
 		// Create a new request with the url, method and body
-		newReq, err := http.NewRequest(prompt.Task.RequesterArgs.Method, endURL, bytes.NewBuffer([]byte(prompt.Data)))
+		newReq, err := http.NewRequest(prompt.Task.RequesterArgs.Method, endURL, bytes.NewBuffer(modPromptDataBytes))
 		if err != nil {
 			response.Ok = false
 			response.Code = RelayResponseCodes.Relay
@@ -239,6 +272,7 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 			return
 		}
 		// Add the needed headers
+		newReq.Header.Set("Content-Type", "application/json")
 		for headerName, headerContent := range supplierData.Headers {
 			newReq.Header.Set(headerName, headerContent)
 		}
