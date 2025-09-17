@@ -6,7 +6,7 @@ toolchain go1.24.4
 
 require (
 	github.com/pokt-foundation/pocket-go v0.21.0
-	github.com/pokt-network/poktroll v0.1.28
+	github.com/pokt-network/poktroll v0.1.29
 	github.com/rs/zerolog v1.34.0
 	go.mongodb.org/mongo-driver v1.15.0
 	go.temporal.io/api v1.32.0
