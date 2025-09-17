@@ -22,13 +22,21 @@ ENCHANCE = True
 # This environment variable contains the endpoint to the selected model
 AVERT_MODEL_ENDPOINT = os.getenv("AVERT_MODEL_ENDPOINT", None)
 if AVERT_MODEL_ENDPOINT is None:
-    raise ValueError("AVERT_MODEL_ENDPOINT environment variable is not set. This is required for A-VERT to function.")
+    raise ValueError(
+        "AVERT_MODEL_ENDPOINT environment variable is not set. This is required for A-VERT to function."
+    )
 AVERT_ENDPOINT_TYPE = os.getenv("AVERT_ENDPOINT_TYPE", None)
 if AVERT_ENDPOINT_TYPE is None:
-    raise ValueError("AVERT_ENDPOINT_TYPE environment variable is not set. This is required for A-VERT to function.")
+    raise ValueError(
+        "AVERT_ENDPOINT_TYPE environment variable is not set. This is required for A-VERT to function."
+    )
 AVERT_MODEL_NAME = os.getenv("AVERT_MODEL_NAME", None)
-if AVERT_MODEL_NAME is None and  (AVERT_ENDPOINT_TYPE == "vllm" or AVERT_ENDPOINT_TYPE=="openai"):
-    raise ValueError("AVERT_MODEL_NAME environment variable is not set. This is required for vLLM or OpenAI endpoint to function.")
+if AVERT_MODEL_NAME is None and (
+    AVERT_ENDPOINT_TYPE == "vllm" or AVERT_ENDPOINT_TYPE == "openai"
+):
+    raise ValueError(
+        "AVERT_MODEL_NAME environment variable is not set. This is required for vLLM or OpenAI endpoint to function."
+    )
 
 
 def filter_response(pred):
@@ -43,11 +51,10 @@ def filter_response(pred):
         filtered_pred = filtered_pred.lstrip()
         # function to ignore right white spaces or line breaks
         filtered_pred = re.findall(r"^(.*?)\s*$", filtered_pred)[0].strip()
-    except:
+    except Exception:
         filtered_pred = "[invalid]"
 
     return filtered_pred
-
 
 
 def doc_eval(pred, refs, question):
@@ -55,8 +62,8 @@ def doc_eval(pred, refs, question):
     reference ("refs") and computes the following metrics:
     - `exact_match` : A hard match between the generated string and the target
                     string.
-    - `a-vert_match` : A metric that is "1" when the a-vert score of the 
-                    "correct" target candidate group is higher than the "wrong" 
+    - `a-vert_match` : A metric that is "1" when the a-vert score of the
+                    "correct" target candidate group is higher than the "wrong"
                     group.
     """
 
@@ -73,24 +80,26 @@ def doc_eval(pred, refs, question):
     # Generate other numbers
     correct_group_text, wrong_group_text = get_gsm8k_options(refs, question)
     # Construct the wrong candidates group
-    group_texts_dict = a_vert.construct_candidate_groups(correct_group_text, 
-                               wrong_group_text, 
-                               ["correct", "wrong"], 
-                               enhance=ENCHANCE,
-                               )
+    group_texts_dict = a_vert.construct_candidate_groups(
+        correct_group_text,
+        wrong_group_text,
+        ["correct", "wrong"],
+        enhance=ENCHANCE,
+    )
 
     # Process all candidate groups
-    response_group_distribution, _ = a_vert.get_candidate_groups_embedings_ranking(pred,
-                                           group_texts_dict,
-                                           AVERT_MODEL_ENDPOINT,
-                                           AVERT_ENDPOINT_TYPE,
-                                            AVERT_METHOD,
-                                           model_name=AVERT_MODEL_NAME,
-                                           query_template=QUERY_TEMPLATE,
-                                           document_template=DOCUMENT_TEMPLATE,
-                                           grouping_method=GROUPING, 
-                                           verbose=False,
-                                           )
+    response_group_distribution, _ = a_vert.get_candidate_groups_embedings_ranking(
+        pred,
+        group_texts_dict,
+        AVERT_MODEL_ENDPOINT,
+        AVERT_ENDPOINT_TYPE,
+        AVERT_METHOD,
+        model_name=AVERT_MODEL_NAME,
+        query_template=QUERY_TEMPLATE,
+        document_template=DOCUMENT_TEMPLATE,
+        grouping_method=GROUPING,
+        verbose=False,
+    )
     # Check if this is a match
     a_vert_match = True
     if response_group_distribution["correct"] < response_group_distribution["wrong"]:
@@ -101,22 +110,21 @@ def doc_eval(pred, refs, question):
     # Compile and return
     results = {
         "exact_match": exact_match,
-        "a-vert_correct_score": response_group_distribution["correct"], 
+        "a-vert_correct_score": response_group_distribution["correct"],
         "a-vert_wrong_score": response_group_distribution["wrong"],
         "a-vert_match": a_vert_match,
     }
 
     return results
 
-def process_results(doc, results):
-    """Custom processing function used to implement "a-vert" metric.
-    """
 
-    # Assert we are evaluating a single target. This is a limitation of this 
+def process_results(doc, results):
+    """Custom processing function used to implement "a-vert" metric."""
+
+    # Assert we are evaluating a single target. This is a limitation of this
     # implementation
     assert len(results) == 1, "only single predictions are supported"
 
-    
     # Get the data
     response = results[0]
     target = doc["answer"]
@@ -132,16 +140,16 @@ def process_results(doc, results):
 # --------------------- gsm8k specific code ------------------------------------
 # ------------------------------------------------------------------------------
 
-def get_gsm8k_options(question_target, question):
 
+def get_gsm8k_options(question_target, question):
     # Get target number
     target_num = int(question_target.split("#### ")[-1])
     # Set other numbers
     other_options = [
-        np.floor(target_num*0.1),
-        np.floor(target_num*0.5),
-        np.ceil(target_num*1.25),
-        np.ceil(target_num*1.8),
+        np.floor(target_num * 0.1),
+        np.floor(target_num * 0.5),
+        np.ceil(target_num * 1.25),
+        np.ceil(target_num * 1.8),
     ]
     other_options = np.unique(other_options)
     other_options = [int(a) for a in other_options if a != target_num]
