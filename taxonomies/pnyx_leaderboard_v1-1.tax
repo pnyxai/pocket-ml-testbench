@@ -21,26 +21,13 @@ pnyx_leaderboard_v1_labeling {
 
     //--------------------------------------------------------------------------
     // --- GSM8K
-    //gsm8k -> gsm8k;
+    //gsm8k -> gsm8k_chat;
       
     //--------------------------------------------------------------------------    
     // --- GPQA
-    //gpqa -> gpqa_subtask_physics_physics_general;
-    //gpqa -> gpqa_subtask_chemistry_chemistry_general;
-    //gpqa -> gpqa_subtask_biology_molecular_biology;
-    //gpqa -> gpqa_subtask_chemistry_organic_chemistry;
-    //gpqa -> gpqa_subtask_physics_relativistic_mechanics;
-    //gpqa -> gpqa_subtask_physics_quantum_mechanics;
-    //gpqa -> gpqa_subtask_physics_electromagnetism_and_photonics;
-    //gpqa -> gpqa_subtask_biology_genetics;
-    //gpqa -> gpqa_subtask_physics_high_energy_particle_physics;
-    //gpqa -> gpqa_subtask_physics_astrophysics;
-    //gpqa -> gpqa_subtask_physics_statistical_mechanics;
-    //gpqa -> gpqa_subtask_chemistry_inorganic_chemistry;
-    //gpqa -> gpqa_subtask_physics_condensed_matter_physics;
-    //gpqa -> gpqa_subtask_chemistry_physical_chemistry;
-    //gpqa -> gpqa_subtask_physics_optics_and_acoustics;
-    //gpqa -> gpqa_subtask_chemistry_analytical_chemistry;
+    //gpqa -> gpqa_subtask_main_physics;
+    //gpqa -> gpqa_subtask_main_chemistry;
+    //gpqa -> gpqa_subtask_main_biology;
 
     //--------------------------------------------------------------------------
     // --- IFEVAL
