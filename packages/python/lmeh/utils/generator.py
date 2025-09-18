@@ -753,6 +753,10 @@ async def evaluate(
         # iterate over different filters used
         scores = []
         result_num_samples = set()
+        eval_logger.debug(
+                    "Selected filters",
+                    selected_filters=selected_filters,
+                )
         for filter_key in task.instances[0].filtered_resps.keys():
             if filter_key not in selected_filters:
                 eval_logger.warning(
