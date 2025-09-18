@@ -1,5 +1,13 @@
 task_cnfg = {
     # Uses: Taxonomy [Alpha]
+    "gsm8k_chat": {
+        "metrics": ["a-vert_match"],
+        "filters": ["pass_all"],
+    },
+    "gpqa_subtask": {
+        "metrics": ["a-vert_match"],
+        "filters": ["pass_all"],
+    },
     "ifeval": {
         "metrics": [
             # "prompt_level_strict_acc",
@@ -43,6 +51,8 @@ def get_task_config(task_name: str):
         return task_cnfg["babisteps-chat_zero_shot"]
     elif "bbh-split_" in task_name:
         return task_cnfg["bbh-split_"]
+    elif "gpqa_subtask" in task_name:
+        return task_cnfg["gpqa_subtask"]
 
     else:
         return task_cnfg[task_name]

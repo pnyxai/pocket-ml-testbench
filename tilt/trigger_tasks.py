@@ -167,7 +167,7 @@ babisteps_taxonomy = [
     "babisteps-task_01-simpletracking",
     "babisteps-task_02-immediateorder",
     "babisteps-task_03-complextracking",
-    # "babisteps-task_04-listing",
+    "babisteps-task_04-listing",
     "babisteps-task_05-sizeorder",
     "babisteps-task_06-spatialorder",
     "babisteps-task_07-temporalorder",
