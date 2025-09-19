@@ -39,6 +39,7 @@ from packages.python.lmeh.utils.mongodb import MongoOperator
 # Delimiter for nested list being saved as string literals
 DELIM_NEST = "_._:_NESTED//"
 
+
 class SqlDatasetLoader:
     def __init__(self, postgres_connection, table_name, query):
         self.postgres_connection = postgres_connection
@@ -70,13 +71,16 @@ class SqlDatasetLoader:
                 # Only for string types
                 if isinstance(record[key], str):
                     # Longer than the delimiter
-                    if len(record[key])  > len(DELIM_NEST):
+                    if len(record[key]) > len(DELIM_NEST):
                         # And having a matching delimiter start
-                        if DELIM_NEST == record[key][:len(DELIM_NEST)]:
+                        if DELIM_NEST == record[key][: len(DELIM_NEST)]:
                             # This was a nested list, reconvert
-                            record[key] = ast.literal_eval(record[key][len(DELIM_NEST):])
+                            record[key] = ast.literal_eval(
+                                record[key][len(DELIM_NEST) :]
+                            )
 
         return Dataset.from_list(records)
+
 
 class SqlDatasetSaver:
     _ID_NAME = "__id"
@@ -143,31 +147,51 @@ class SqlDatasetSaver:
         # Add manually k,v pairs "pocket_ID":INT, and "SPLIT":TEXT
         self.columns.update(SqlDatasetSaver.POCKET_COLUMNS)
 
-        # Add dataset specific types                          
+        # Add dataset specific types
         for key in self.dataset[self.splits[self.split_index]].features.keys():
             if key not in self.columns:
-                if isinstance(self.dataset[self.splits[self.split_index]].features[key], list):
-                    self.analyze_list_type(self.dataset[self.splits[self.split_index]].features[key], key)
-                elif isinstance(self.dataset[self.splits[self.split_index]].features[key], dict):
+                if isinstance(
+                    self.dataset[self.splits[self.split_index]].features[key], list
+                ):
+                    self.analyze_list_type(
+                        self.dataset[self.splits[self.split_index]].features[key], key
+                    )
+                elif isinstance(
+                    self.dataset[self.splits[self.split_index]].features[key], dict
+                ):
                     self.columns[key] = self.DATA_TYPE_MAPPING["dict"]
                 else:
-                    use_type = self.DATA_TYPE_MAPPING.get(self.dataset[self.splits[self.split_index]].features[key].dtype, None)
+                    use_type = self.DATA_TYPE_MAPPING.get(
+                        self.dataset[self.splits[self.split_index]].features[key].dtype,
+                        None,
+                    )
                     if use_type is None:
-                        raise NotImplementedError("Unsuported data type in datase, cannot save.")
+                        raise NotImplementedError(
+                            "Unsuported data type in datase, cannot save."
+                        )
                     elif use_type == "[]":
                         # This is a special case, so lets compose the list
-                        list_member_type = self.dataset[self.splits[self.split_index]].features[key].feature.dtype
-                        list_member_type = self.DATA_TYPE_MAPPING.get(list_member_type, None)
+                        list_member_type = (
+                            self.dataset[self.splits[self.split_index]]
+                            .features[key]
+                            .feature.dtype
+                        )
+                        list_member_type = self.DATA_TYPE_MAPPING.get(
+                            list_member_type, None
+                        )
                         if list_member_type is None:
-                            raise NotImplementedError("Unsuported data type in datase, cannot save.")
-                        use_type =  list_member_type + use_type
+                            raise NotImplementedError(
+                                "Unsuported data type in datase, cannot save."
+                            )
+                        use_type = list_member_type + use_type
 
                     self.columns[key] = use_type
-        
+
         # Replace nested lists types
         def denest_data(example, column_name):
-            example[column_name] = DELIM_NEST+str(example[column_name])
+            example[column_name] = DELIM_NEST + str(example[column_name])
             return example
+
         for column_name in self.columns:
             if "[][]" in self.columns[column_name]:
                 self.dataset = self.dataset.map(lambda x: denest_data(x, column_name))
@@ -188,14 +212,18 @@ class SqlDatasetSaver:
         """Recursive analysis and asigment of data type"""
         for type_elem in feature_list:
             if isinstance(type_elem, list):
-                self.analyze_list_type(type_elem, table_key, depth=depth+1)
+                self.analyze_list_type(type_elem, table_key, depth=depth + 1)
             elif isinstance(type_elem, dict):
-                self.columns[table_key] = self.DATA_TYPE_MAPPING["dict"]+f"{'[]'*depth}"
+                self.columns[table_key] = (
+                    self.DATA_TYPE_MAPPING["dict"] + f"{'[]'*depth}"
+                )
             else:
                 use_type = self.DATA_TYPE_MAPPING.get(type_elem.dtype, None)
                 if use_type is None:
-                    raise NotImplementedError("Unsuported data type in datase, cannot save.")
-                self.columns[table_key] = use_type+f"{'[]'*depth}"
+                    raise NotImplementedError(
+                        "Unsuported data type in datase, cannot save."
+                    )
+                self.columns[table_key] = use_type + f"{'[]'*depth}"
 
     async def _prepare_table(self):
         column_definitions_str = ", ".join(self.columns_def)
@@ -264,8 +292,6 @@ class SqlDatasetSaver:
         for split in self.dataset:
             self.splits.append(split)
         self._calculate_columns_def()
-        
-        
 
         ds = self.dataset[self.splits[self.split_index]].to_iterable_dataset()
         self.dataset_iterator = iter(ds)
@@ -784,9 +810,7 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
         )
         num_docs = len(doc_id_docs)
 
-        self.eval_logger.debug(
-            f"Total docs to process: {num_docs}"
-        )
+        self.eval_logger.debug(f"Total docs to process: {num_docs}")
 
         for doc_id, doc in tqdm(
             doc_id_docs,
@@ -966,7 +990,7 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
             conditions.append(f"( __id IN ({', '.join(str(id) for id in indexes)}))")
 
             # TODO: Here the splits are requested for few-shots, even if the few-shots are not going to be used.
-            # if this is the case, this will ether load a lot of samples without a use or, if the same dataset is 
+            # if this is the case, this will ether load a lot of samples without a use or, if the same dataset is
             # used for all partitions (can be set like that in the task yaml) it can produce errors downstream!
 
             if self.config.validation_split:

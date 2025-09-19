@@ -121,15 +121,12 @@ general_taxonomy = [
     "bbh-split_25-tracking_shuffled_objects_three_objects",
     "bbh-split_26-web_of_lies",
     "bbh-split_27-word_sorting",
-
     # gpqa
     "gpqa_subtask_main_biology",
     "gpqa_subtask_main_chemistry",
     "gpqa_subtask_main_physics",
-
     # gsm8k
     "gsm8k_chat",
-    
     # bAbI-Steps
     # "babisteps-chat_zero_shot-task_01-simpletracking", # Part of liveness
     # "babisteps-chat_zero_shot-task_02-immediateorder", # Part of liveness
@@ -260,7 +257,7 @@ def schedule_lookup_task(interval="1m", execution_timeout=600, task_timeout=540)
         "lookup-done-tasks",
         "--workflow-id",
         "lookup-done-tasks",
-        "--type", 
+        "--type",
         "LookupTasks",
         "--task-queue",
         "evaluator",
