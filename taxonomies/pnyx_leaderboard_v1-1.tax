@@ -11,8 +11,8 @@ pnyx_leaderboard_v1 {
     root_c -> ifeval;
     root_c -> mmlu_pro;
     root_c -> babisteps;
-    //root_c -> gpqa;
-    //root_c -> gsm8k;
+    root_c -> gpqa;
+    root_c -> gsm8k;
     
 
 }
@@ -21,13 +21,13 @@ pnyx_leaderboard_v1_labeling {
 
     //--------------------------------------------------------------------------
     // --- GSM8K
-    //gsm8k -> gsm8k_chat;
+    gsm8k -> gsm8k_chat;
       
     //--------------------------------------------------------------------------    
     // --- GPQA
-    //gpqa -> gpqa_subtask_main_physics;
-    //gpqa -> gpqa_subtask_main_chemistry;
-    //gpqa -> gpqa_subtask_main_biology;
+    gpqa -> gpqa_subtask_main_physics;
+    gpqa -> gpqa_subtask_main_chemistry;
+    gpqa -> gpqa_subtask_main_biology;
 
     //--------------------------------------------------------------------------
     // --- IFEVAL
