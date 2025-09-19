@@ -21,7 +21,7 @@ k8s_yaml([
 
 
 # PostgreSQL
-k8s_resource("postgresql", labels="dependencies")
+k8s_resource("postgresql", port_forwards="5442:5432", labels="dependencies")
 # Pgadmin
 k8s_resource("pgadmin", port_forwards="5050", labels=["dependencies"])
 # MongoDB

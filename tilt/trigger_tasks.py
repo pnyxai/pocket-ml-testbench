@@ -73,7 +73,7 @@ general_taxonomy = [
     "mmlu_conceptual_physics_chat_generative",
     "mmlu_prehistory_chat_generative",
     "mmlu_international_law_chat_generative",
-   "mmlu_security_studies_chat_generative",
+    "mmlu_security_studies_chat_generative",
     "mmlu_astronomy_chat_generative",
     "mmlu_logical_fallacies_chat_generative",
     # MMLU PRO
@@ -121,8 +121,12 @@ general_taxonomy = [
     "bbh-split_25-tracking_shuffled_objects_three_objects",
     "bbh-split_26-web_of_lies",
     "bbh-split_27-word_sorting",
-    
-    
+    # gpqa
+    "gpqa_subtask_main_biology",
+    "gpqa_subtask_main_chemistry",
+    "gpqa_subtask_main_physics",
+    # gsm8k
+    "gsm8k_chat",
     # bAbI-Steps
     # "babisteps-chat_zero_shot-task_01-simpletracking", # Part of liveness
     # "babisteps-chat_zero_shot-task_02-immediateorder", # Part of liveness
@@ -160,7 +164,7 @@ babisteps_taxonomy = [
     "babisteps-task_01-simpletracking",
     "babisteps-task_02-immediateorder",
     "babisteps-task_03-complextracking",
-    # "babisteps-task_04-listing",
+    "babisteps-task_04-listing",
     "babisteps-task_05-sizeorder",
     "babisteps-task_06-spatialorder",
     "babisteps-task_07-temporalorder",
@@ -253,7 +257,7 @@ def schedule_lookup_task(interval="1m", execution_timeout=600, task_timeout=540)
         "lookup-done-tasks",
         "--workflow-id",
         "lookup-done-tasks",
-        "--type", 
+        "--type",
         "LookupTasks",
         "--task-queue",
         "evaluator",
