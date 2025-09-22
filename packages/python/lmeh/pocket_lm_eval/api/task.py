@@ -203,8 +203,6 @@ class SqlDatasetSaver:
             for column_name, data_type in self.columns.items()
         ]
 
-        print(self.columns_def)
-
         # Generate primary key definition
         self.columns_def.append(self.PRIMARY_KEY_DEF)
 
