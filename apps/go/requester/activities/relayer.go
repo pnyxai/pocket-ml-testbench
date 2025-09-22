@@ -229,8 +229,6 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 			return
 		}
 
-		// Define the endpoint with the target path
-		endURL := params.TargetEndpoint.Url + prompt.Task.RequesterArgs.Path
 		// Edit the prompt data to change model and/or add new fields
 		l.Debug("Original request", "request", prompt.Data)
 		var modPromptData map[string]any
@@ -253,6 +251,10 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 			// Remove stop
 			delete(modPromptData, "stop")
 		}
+		if supplierData.NoSeed != false {
+			// Remove seed
+			delete(modPromptData, "seed")
+		}
 		// Encode back
 		modPromptDataBytes, err := json.Marshal(modPromptData)
 		if err != nil {
@@ -262,6 +264,13 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 			return
 		}
 		l.Debug("Sending modified external request", "request", string(modPromptDataBytes))
+
+		// Define the endpoint with the target path
+		if supplierData.CustomApiPath != "" {
+			// Replace API path
+			prompt.Task.RequesterArgs.Path = strings.Replace(prompt.Task.RequesterArgs.Path, "v1", supplierData.CustomApiPath, 1)
+		}
+		endURL := params.TargetEndpoint.Url + prompt.Task.RequesterArgs.Path
 
 		// Create a new request with the url, method and body
 		newReq, err := http.NewRequest(prompt.Task.RequesterArgs.Method, endURL, bytes.NewBuffer(modPromptDataBytes))
