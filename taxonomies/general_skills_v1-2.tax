@@ -241,7 +241,7 @@ general_skills_v1_labeling {
     foundational_math_and_logic -> mmlu_formal_logic_chat_generative;
     foundational_math_and_logic -> mmlu_abstract_algebra_chat_generative;
     // --- GSM8K
-    foundational_math_and_logic -> gsm8k;
+    foundational_math_and_logic -> gsm8k_chat;
     //--------------------------------------------------------------------------
 
     //--------------------------------------------------------------------------
@@ -252,9 +252,6 @@ general_skills_v1_labeling {
     core_natural_sciences -> mmlu_pro-category_biology;
     core_natural_sciences -> mmlu_pro-category_chemistry;
     core_natural_sciences -> mmlu_pro-category_physics;
-    // --- GPQA
-    core_natural_sciences -> gpqa_subtask_physics_physics_general;
-    core_natural_sciences -> gpqa_subtask_chemistry_chemistry_general;
     //--------------------------------------------------------------------------
 
     //--------------------------------------------------------------------------    
@@ -267,20 +264,9 @@ general_skills_v1_labeling {
     applied_sciences_and_engineering -> mmlu_college_medicine_chat_generative;
     applied_sciences_and_engineering -> mmlu_virology_chat_generative;
     // --- GPQA
-    applied_sciences_and_engineering -> gpqa_subtask_biology_molecular_biology;
-    applied_sciences_and_engineering -> gpqa_subtask_chemistry_organic_chemistry;
-    applied_sciences_and_engineering -> gpqa_subtask_physics_relativistic_mechanics;
-    applied_sciences_and_engineering -> gpqa_subtask_physics_quantum_mechanics;
-    applied_sciences_and_engineering -> gpqa_subtask_physics_electromagnetism_and_photonics;
-    applied_sciences_and_engineering -> gpqa_subtask_biology_genetics;
-    applied_sciences_and_engineering -> gpqa_subtask_physics_high_energy_particle_physics;
-    applied_sciences_and_engineering -> gpqa_subtask_physics_astrophysics;
-    applied_sciences_and_engineering -> gpqa_subtask_physics_statistical_mechanics;
-    applied_sciences_and_engineering -> gpqa_subtask_chemistry_inorganic_chemistry;
-    applied_sciences_and_engineering -> gpqa_subtask_physics_condensed_matter_physics;
-    applied_sciences_and_engineering -> gpqa_subtask_chemistry_physical_chemistry;
-    applied_sciences_and_engineering -> gpqa_subtask_physics_optics_and_acoustics;
-    applied_sciences_and_engineering -> gpqa_subtask_chemistry_analytical_chemistry;
+    applied_sciences_and_engineering -> gpqa_subtask_main_biology;
+    applied_sciences_and_engineering -> gpqa_subtask_main_chemistry;
+    applied_sciences_and_engineering -> gpqa_subtask_main_physics;
     //--------------------------------------------------------------------------
 
     //--------------------------------------------------------------------------

@@ -1,5 +1,4 @@
-import datetime
-import decimal
+import ast
 import json
 import random
 import time
@@ -37,6 +36,9 @@ from tqdm import tqdm
 from packages.python.common.mongodb import MongoClient
 from packages.python.lmeh.utils.mongodb import MongoOperator
 
+# Delimiter for nested list being saved as string literals
+DELIM_NEST = "_._:_NESTED//"
+
 
 class SqlDatasetLoader:
     def __init__(self, postgres_connection, table_name, query):
@@ -63,6 +65,20 @@ class SqlDatasetLoader:
                 SqlDatasetLoader.mutate_json_features(dict(record), json_features)
             )
 
+        # Check and regenerate nested lists
+        for record in records:
+            for key in record:
+                # Only for string types
+                if isinstance(record[key], str):
+                    # Longer than the delimiter
+                    if len(record[key]) > len(DELIM_NEST):
+                        # And having a matching delimiter start
+                        if DELIM_NEST == record[key][: len(DELIM_NEST)]:
+                            # This was a nested list, reconvert
+                            record[key] = ast.literal_eval(
+                                record[key][len(DELIM_NEST) :]
+                            )
+
         return Dataset.from_list(records)
 
 
@@ -75,17 +91,28 @@ class SqlDatasetSaver:
     PRIMARY_KEY_DEF = f"PRIMARY KEY ({_ID_NAME}, {_SPLIT_NAME})"
 
     DATA_TYPE_MAPPING = {
-        int: "INTEGER",
-        bool: "BOOLEAN",
-        float: "REAL",
-        str: "TEXT",
-        datetime.datetime: "TIMESTAMP",
-        datetime.date: "DATE",
-        datetime.time: "TIME",
-        decimal.Decimal: "DECIMAL",
-        list: "[]",
-        dict: "JSON",
-        bytes: "BYTEA",
+        "int64": "INTEGER",
+        "int32": "INTEGER",
+        "int16": "INTEGER",
+        "int8": "INTEGER",
+        "bool": "BOOLEAN",
+        "double": "REAL",
+        "float64": "REAL",
+        "float32": "REAL",
+        "float16": "REAL",
+        "string": "TEXT",
+        # From here downwards, they were not tested
+        "timestamp": "TIMESTAMP",
+        "date32": "DATE",
+        "date64": "DATE",
+        "time32": "TIME",
+        "time64": "TIME",
+        "decimal128": "DECIMAL",
+        "decimal256": "DECIMAL",
+        # Below here are outside dataset feature types
+        "list": "[]",
+        "dict": "JSON",
+        "bytes": "BYTEA",
     }
 
     def __init__(
@@ -120,10 +147,55 @@ class SqlDatasetSaver:
         # Add manually k,v pairs "pocket_ID":INT, and "SPLIT":TEXT
         self.columns.update(SqlDatasetSaver.POCKET_COLUMNS)
 
-        for key, value in self.first_record.items():
+        # Add dataset specific types
+        for key in self.dataset[self.splits[self.split_index]].features.keys():
             if key not in self.columns:
-                # If the column doesn't exist yet, infer its data type from the value
-                self.columns[key] = self._infer_data_type(value)
+                if isinstance(
+                    self.dataset[self.splits[self.split_index]].features[key], list
+                ):
+                    self.analyze_list_type(
+                        self.dataset[self.splits[self.split_index]].features[key], key
+                    )
+                elif isinstance(
+                    self.dataset[self.splits[self.split_index]].features[key], dict
+                ):
+                    self.columns[key] = self.DATA_TYPE_MAPPING["dict"]
+                else:
+                    use_type = self.DATA_TYPE_MAPPING.get(
+                        self.dataset[self.splits[self.split_index]].features[key].dtype,
+                        None,
+                    )
+                    if use_type is None:
+                        raise NotImplementedError(
+                            "Unsuported data type in datase, cannot save."
+                        )
+                    elif use_type == "[]":
+                        # This is a special case, so lets compose the list
+                        list_member_type = (
+                            self.dataset[self.splits[self.split_index]]
+                            .features[key]
+                            .feature.dtype
+                        )
+                        list_member_type = self.DATA_TYPE_MAPPING.get(
+                            list_member_type, None
+                        )
+                        if list_member_type is None:
+                            raise NotImplementedError(
+                                "Unsuported data type in datase, cannot save."
+                            )
+                        use_type = list_member_type + use_type
+
+                    self.columns[key] = use_type
+
+        # Replace nested lists types
+        def denest_data(example, column_name):
+            example[column_name] = DELIM_NEST + str(example[column_name])
+            return example
+
+        for column_name in self.columns:
+            if "[][]" in self.columns[column_name]:
+                self.dataset = self.dataset.map(lambda x: denest_data(x, column_name))
+                self.columns[column_name] = "TEXT"
 
         # Generate column definitions
         self.columns_def = [
@@ -134,14 +206,22 @@ class SqlDatasetSaver:
         # Generate primary key definition
         self.columns_def.append(self.PRIMARY_KEY_DEF)
 
-    def _infer_data_type(self, value: Any):
-        v_type = self.DATA_TYPE_MAPPING.get(type(value), "TEXT")
-        # Handle lists
-        if v_type == "[]":
-            subvalue_type = self.DATA_TYPE_MAPPING.get(type(value[0]), "TEXT")
-            v_type = subvalue_type + v_type
-
-        return v_type
+    def analyze_list_type(self, feature_list, table_key, depth=1):
+        """Recursive analysis and asigment of data type"""
+        for type_elem in feature_list:
+            if isinstance(type_elem, list):
+                self.analyze_list_type(type_elem, table_key, depth=depth + 1)
+            elif isinstance(type_elem, dict):
+                self.columns[table_key] = (
+                    self.DATA_TYPE_MAPPING["dict"] + f"{'[]'*depth}"
+                )
+            else:
+                use_type = self.DATA_TYPE_MAPPING.get(type_elem.dtype, None)
+                if use_type is None:
+                    raise NotImplementedError(
+                        "Unsuported data type in datase, cannot save."
+                    )
+                self.columns[table_key] = use_type + f"{'[]'*depth}"
 
     async def _prepare_table(self):
         column_definitions_str = ", ".join(self.columns_def)
@@ -209,11 +289,13 @@ class SqlDatasetSaver:
 
         for split in self.dataset:
             self.splits.append(split)
+        self._calculate_columns_def()
+
         ds = self.dataset[self.splits[self.split_index]].to_iterable_dataset()
         self.dataset_iterator = iter(ds)
         self.first_record = next(self.dataset_iterator)
         self.first_record_consumed = False
-        self._calculate_columns_def()
+
         # ensure the table is ready to receive records
         await self._prepare_table()
         # start transferring data
@@ -525,6 +607,7 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
             query=sql_query,
             table_name=self.TABLE_NAME,
         ).generate_and_fetch_dataset()
+        self.eval_logger.debug("Fetched Samples:", len_ds=len(ds))
         # assign dataset as dataset dictionary
         ds_dict = DatasetDict()
         for split in ds.unique("__split"):
@@ -532,6 +615,7 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
             ds_dict[split] = ds.filter(lambda x: x["__split"] == split)
         self.dataset = ds_dict.remove_columns(["__split"])
         # save in config the indexes used to download the dataset
+        self.eval_logger.debug("Indexes used:", indexes=indexes)
         self._config.metadata["pocket_args"].doc_ids = indexes
         # Update qty to the number of documents downloaded
         self._config.metadata["pocket_args"].qty = len(indexes)
@@ -724,6 +808,8 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
         )
         num_docs = len(doc_id_docs)
 
+        self.eval_logger.debug(f"Total docs to process: {num_docs}")
+
         for doc_id, doc in tqdm(
             doc_id_docs,
             total=num_docs,
@@ -740,6 +826,7 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
             )
 
             # TODO: we should override self.config.repeats if doing greedy gen so users don't waste time+compute
+            self.eval_logger.debug(f"Evaluating doc: {doc_id}")
             pocket_id = self.config.metadata["pocket_args"].doc_ids[doc_id]
             inst = self.construct_requests(
                 doc=doc,
@@ -900,6 +987,10 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
 
             conditions.append(f"( __id IN ({', '.join(str(id) for id in indexes)}))")
 
+            # TODO: Here the splits are requested for few-shots, even if the few-shots are not going to be used.
+            # if this is the case, this will ether load a lot of samples without a use or, if the same dataset is
+            # used for all partitions (can be set like that in the task yaml) it can produce errors downstream!
+
             if self.config.validation_split:
                 self.check_split_exist(self.config.validation_split, _split_ranges)
                 conditions.append(
@@ -933,6 +1024,8 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
                     non_retryable=True,
                 )
             conditions.append(f"( __id IN ({', '.join(str(id) for id in indexes)}))")
+
+            # Read comment above (same issue)
 
             if self.config.training_split:
                 self.check_split_exist(self.config.training_split, _split_ranges)
