@@ -78,6 +78,7 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 	var blocksPerSession int64
 	var sessionHeight int64
 	var suppliers map[string]pocket_shannon.Endpoint
+	suppliersTimeBetweenRelays := make(map[string]float64)
 	if params.Service != types.ExternalServiceName {
 
 		// get app
@@ -128,6 +129,11 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 			return nil, e
 		}
 
+		// Add default time between relays to all of them
+		for key := range suppliers {
+			suppliersTimeBetweenRelays[key] = wCtx.App.Config.Relay.TimeBetweenRelays
+		}
+
 	} else {
 		// This is a workflow for external services, get the list from the
 		// configuration
@@ -140,7 +146,15 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 				Url: thisData.Endpoint,
 				// Session left empty, we wont use it
 			}
+			// Set time between relays
+			if thisData.TimeBetweenRelays > 0 {
+				suppliersTimeBetweenRelays[thisAddr] = thisData.TimeBetweenRelays
+			} else {
+				suppliersTimeBetweenRelays[thisAddr] = wCtx.App.Config.Relay.TimeBetweenRelays
+			}
+
 		}
+
 		// This is a placeholder to go through the task search
 		sessionHeight = 10
 		// And this is hardcoded currently (ShannonSDK is missing this)
@@ -210,7 +224,7 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 		for reqIdx, tr := range theseSupplierReq {
 			// Create a random timeout with a fixed time that marks the rate: 0+1 sec; 2 +- 1 sec ; 4 +- 1 sec ; etc...
 			randomDelay := (rand.Float64() * wCtx.App.Config.Relay.TimeDispersion) +
-				(float64(reqIdx) * wCtx.App.Config.Relay.TimeBetweenRelays)
+				(float64(reqIdx) * suppliersTimeBetweenRelays[thisSupplier])
 			// Track triggered
 			triggeredSupplierAddresses[tr.Supplier] += 1
 			// Create target endpoint, which already contains the session

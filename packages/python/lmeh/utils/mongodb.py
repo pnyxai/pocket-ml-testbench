@@ -431,7 +431,7 @@ class MongoOperator:
                     )
                     eval_logger.error(
                         error_str,
-                        errpr=str(e),
+                        error=str(e),
                     )
                     failed_instances.append(
                         {"id": i["doc_id"], "code": SUPPLIER_ERROR, "error": error_str}

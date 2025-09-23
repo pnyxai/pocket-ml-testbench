@@ -561,11 +561,12 @@ func CheckTaskTriggerMin(taskData TaskInterface, block types.BlockData, configMa
 const NumericalTaskTypeName string = "numerical"
 
 // The maximum age of a sample living in a buffer.
-const NumericalSampleTTLDays uint32 = 3
+const NumericalSampleTTLDays uint32 = 6
 
 // Minimum number of samples to have in a task to consider that it does not require more samples
 // According to "tinyBenchmarks: evaluating LLMs with fewer examples" 100 is enough, but also 50 seems adequate.
-const NumericalMinSamplesPerTask uint32 = 50
+// However, we put this a little higher to have some buffer for the result rollover process that can take some time
+const NumericalMinSamplesPerTask uint32 = 75
 
 // Maximum size of result buffer and also maximum number of samples to ask per task
 const NumericalMaxConcurrentSamplesPerTask uint32 = 2
@@ -581,7 +582,7 @@ const NumericalMaxConcurrentSamplesPerTask uint32 = 2
 // as possible, this number needs to be small. Yes, averages will be filled more slowly, but is the price we pay...
 
 // This is the length of the buffer and will set the maximum accuracy of the metric.
-const NumericalCircularBufferLength uint32 = NumericalMinSamplesPerTask * 2
+const NumericalCircularBufferLength uint32 = 100
 
 // All information for a given task
 // Each task will have its own data, depending on what it is

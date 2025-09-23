@@ -12,6 +12,7 @@ type ExternalSupplierData struct {
 	NoStop              bool              `json:"no_stop"`
 	NoSeed              bool              `json:"no_seed"`
 	CustomApiPath       string            `json:"custom_api_path"`
+	TimeBetweenRelays   float64           `json:"time_between_relays"`
 
 	// TODO : Add support for these
 
