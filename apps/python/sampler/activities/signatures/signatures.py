@@ -9,6 +9,7 @@ from temporalio.exceptions import ApplicationError
 sys.path.append(os.path.dirname(os.path.realpath(__file__)))
 from activities.signatures.tokenizer.tokenizer import get_tokenizer_task
 from activities.signatures.config.config import get_config_task
+from activities.signatures.identity.identity import get_identity_task
 from packages.python.common.auto_heartbeater import auto_heartbeater
 
 # Custom modules
@@ -47,6 +48,10 @@ async def sign_sample(args: PocketNetworkTaskRequest) -> bool:
         logger.debug("starting config task sample")
         task, instances, prompts = get_config_task(args.requester_args)
 
+    elif args.tasks == "identity":
+        logger.debug("starting identity task sample")
+        task, instances, prompts = get_identity_task(args.requester_args)
+
     else:
         logger.error(f"requested task {args.tasks} is not supported")
         return False
@@ -64,10 +69,10 @@ async def sign_sample(args: PocketNetworkTaskRequest) -> bool:
     for instance_mongo in instances:
         insert_mongo_instances.append(instance_mongo.model_dump(by_alias=True))
         logger.debug("Instance:", instance=instance_mongo)
-        # Prompts
-        for prompt_mongo in prompts:
-            insert_mongo_prompt.append(prompt_mongo.model_dump(by_alias=True))
-            logger.debug("Prompt:", PocketNetworkMongoDBPrompt=prompt_mongo)
+    # Prompts
+    for prompt_mongo in prompts:
+        insert_mongo_prompt.append(prompt_mongo.model_dump(by_alias=True))
+        logger.debug("Prompt:", PocketNetworkMongoDBPrompt=prompt_mongo)
     try:
         async with mongo_client.start_transaction() as session:
             await mongo_client.db["tasks"].insert_many(
@@ -89,7 +94,7 @@ async def sign_sample(args: PocketNetworkTaskRequest) -> bool:
             logger.debug("Instances saved to MongoDB successfully.")
     except Exception as e:
         logger.error("Failed to save Instances to MongoDB.")
-        logger.error("Exeption:", Exeption=str(e))
+        logger.error("Exception:", Exception=str(e))
         raise ApplicationError(
             "Failed to save instances to MongoDB.", non_retryable=True
         )

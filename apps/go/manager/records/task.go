@@ -940,10 +940,10 @@ func (record *NumericalTaskRecord) GetResultStruct() ResultInterface {
 const SignatureTaskTypeName string = "signature"
 
 // The maximum age of a sample living in a buffer.
-const SignatureSampleTTLDays uint32 = 3
+const SignatureSampleTTLDays uint32 = 6
 
 // Minimum number of samples to have in a task to consider that it does not require more samples
-const SignatureMinSamplesPerTask uint32 = 5
+const SignatureMinSamplesPerTask uint32 = 10
 
 // Maximum size of result buffer and also maximum number of samples to ask per task
 const SignatureMaxConcurrentSamplesPerTask uint32 = 1

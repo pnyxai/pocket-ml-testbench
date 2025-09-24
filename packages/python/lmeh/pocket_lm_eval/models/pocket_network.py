@@ -447,7 +447,7 @@ class SamplerAPI(TemplateAPI):
         gen_kwargs = copy.deepcopy(gen_kwargs)
         try:
             # NOTE: Removed the part related to the request.
-            # This class do not performs it, just creates instantes of
+            # This class do not performs it, just creates instances of
             # CompletionRequest or ChatCompletionRequest.
             # response = requests.post(
             # ...

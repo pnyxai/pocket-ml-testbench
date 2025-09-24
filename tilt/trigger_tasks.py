@@ -401,6 +401,38 @@ def schedule_config_task(
     return run_command(command)
 
 
+def schedule_identity_task(
+    chain_id, interval="2m", execution_timeout=120, task_timeout=120
+):
+    command = BASE_COMMAND + [
+        "--",
+        "temporal",
+        "schedule",
+        "create",
+        "--schedule-id",
+        f"signatures-identity-{chain_id}",
+        "--workflow-id",
+        f"signatures-identity-{chain_id}",
+        "--type",
+        "Manager",
+        "--task-queue",
+        "manager",
+        "--interval",
+        f"{interval}",
+        "--overlap-policy",
+        "Skip",
+        "--execution-timeout",
+        f"{execution_timeout}s",
+        "--task-timeout",
+        f"{task_timeout}s",
+        "--namespace",
+        f"{TEMPORAL_NAMESPACE}",
+        "--input",
+        f'{{"service":"{chain_id}","tests":[{{"framework" : "signatures", "tasks": ["identity"]}}]}}',
+    ]
+    return run_command(command)
+
+
 def schedule_benchmark_task(
     benchmark, chain_id, interval="2m", execution_timeout=120, task_timeout=120
 ):
@@ -503,6 +535,9 @@ def main():
         "--framework-postfix",
         help='Optional: Framework postfix to use, the final framework name will be "lmeh-THISVALUE"',
     )
+    parser.add_argument(
+        "--identity", action="store_true", help="Trigger identity signature tasks"
+    )
 
     args = parser.parse_args()
 
@@ -522,10 +557,10 @@ def main():
         return
 
     # Require at least one of --task or --taxonomy
-    if not args.task and not args.taxonomy:
-        print("Error: Either --task or --taxonomy must be specified.")
+    if not args.task and not args.taxonomy and not args.identity:
+        print("Error: Either --task, --taxonomy or --identity must be specified.")
         print(
-            "Please specify either a single task with --task or a taxonomy with --taxonomy."
+            "Please specify either a single task with --task, a taxonomy with --taxonomy or identity signature with --identity."
         )
         return
 
@@ -560,6 +595,7 @@ def main():
     elif args.generative:
         LMEH_TYPE += "-generative"
 
+    trigger_requesters = False
     if args.only_registers:
         print("Setting-up registers only:")
         for task in tasks_to_process:
@@ -568,8 +604,15 @@ def main():
             ok = execute_register_task(task, execution_timeout=7200, task_timeout=3600)
             time.sleep(0.25)
             total_registers += ok
-
+    
+    elif args.identity:
+        trigger_requesters = True
+        for chain_id in APPS_PER_SERVICE.keys():
+            ok = schedule_identity_task(chain_id, interval="2m", execution_timeout=120, task_timeout=120)
+            total_registers += ok
+        
     else:
+        trigger_requesters = True
         # Start the base task lookup
         schedule_lookup_task(interval="10m", execution_timeout=550, task_timeout=500)
         print("Lookup scheduled.")
@@ -615,24 +658,6 @@ def main():
                     time.sleep(0.25)
             print("Signatures scheduled.")
 
-        # Create per-service tasks
-        for chain_id in APPS_PER_SERVICE.keys():
-            print(f"Triggering requesters for {chain_id} apps':")
-            for app in APPS_PER_SERVICE[chain_id]:
-                print(f"\t{app}")
-                # Schedule the requester using this app
-                ok = schedule_requester_task(
-                    app,
-                    chain_id,
-                    interval="1m",
-                    execution_timeout=350,
-                    task_timeout=175,
-                )
-                total_requesters += ok
-                print(f"\t\t{app}")
-                time.sleep(0.25)
-        print("Requesters scheduled.")
-
         # Create all tasks for all chains
         for task in tasks_to_process:
             print(f"Setting-up task: {task}")
@@ -654,6 +679,27 @@ def main():
                 print("\tTask triggered.")
                 time.sleep(0.25)
                 total_benchmarks += ok
+
+    if trigger_requesters:
+        # Create per-service tasks
+        for chain_id in APPS_PER_SERVICE.keys():
+            print(f"Triggering requesters for {chain_id} apps':")
+            for app in APPS_PER_SERVICE[chain_id]:
+                print(f"\t{app}")
+                # Schedule the requester using this app
+                ok = schedule_requester_task(
+                    app,
+                    chain_id,
+                    interval="1m",
+                    execution_timeout=350,
+                    task_timeout=175,
+                )
+                total_requesters += ok
+                print(f"\t\t{app}")
+                time.sleep(0.25)
+        print("Requesters scheduled.")
+
+        
 
     total_tasks = {
         "Registers": total_registers,

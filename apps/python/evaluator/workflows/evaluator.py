@@ -8,6 +8,7 @@ from activities.lmeh.evaluate import lmeh_evaluate
 from activities.get_task_data import get_task_data
 from activities.signatures.tokenizer_evaluate import tokenizer_evaluate
 from activities.signatures.model_config_evaluate import model_config_evaluate
+from activities.signatures.identity_evaluate import identity_evaluate
 from temporalio.common import WorkflowIDReusePolicy
 from temporalio.workflow import ParentClosePolicy
 from app.app import get_app_config
@@ -55,6 +56,13 @@ class Evaluator:
             elif task == "config":
                 eval_OK, msg_str = await workflow.execute_activity(
                     model_config_evaluate,
+                    args,
+                    start_to_close_timeout=timedelta(seconds=300),
+                    retry_policy=RetryPolicy(maximum_attempts=2),
+                )
+            elif task == "identity":
+                eval_OK, msg_str = await workflow.execute_activity(
+                    identity_evaluate,
                     args,
                     start_to_close_timeout=timedelta(seconds=300),
                     retry_policy=RetryPolicy(maximum_attempts=2),
