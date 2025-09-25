@@ -40,20 +40,26 @@ These values will be replaced in all `*.template.yaml`.
 
 ### Deploying a task
 
-The default configuration of the development environment includes a task dependency on the `liveness_v0` taxonomy. This means that before being able to test an arbitrary task under the `lmeh-generative` (or any `lmeh` framework) you will need to execute (successfully) the `liveness_v0` task (or remove it from config).
-So the green-path should be, first trigger liveness task like this:
+The default configuration of the development environment includes a task dependency on the `liveness_v0` taxonomy and the `identity` signature (for POKT suppliers). This means that before being able to test an arbitrary task under the `lmeh-generative` you will need to execute (successfully) the `liveness_v0` task and the `identity` signature check (or remove them from config).
+So the green-path should be, first trigger the identity check:
+```bash
+python3 trigger_tasks.py --pokt-service-apps '{"text-to-text": ["pokt---APP-ADDRESS"]}' --identity
+```
+then trigger the liveness task like this:
+
 ```bash
 python3 trigger_tasks.py --pokt-service-apps '{"text-to-text": ["pokt---APP-ADDRESS"]}' --generative --taxonomy liveness --framework-postfix liveness
 ```
-This command will execute all the tasks included in the `liveness`  taxonomy and include them under the framework `lmeh-liveness` (the only one that has no other dependency for execution). The `--generative` flag instructs the script to not create the `tokenizer` and `config` taks of the `signatures` framework, because they are not needed for this kind of framework.
+
+This command will start the `identity` signature check and execute all the tasks included in the `liveness` taxonomy and include them under the framework `lmeh-liveness` (the only one that has no other dependency for execution). The `--generative` flag instructs the script to not create the `tokenizer` and `config` tasks of the `signatures` framework, because they are not needed for this kind of framework.
 
 After this task is working, you can trigger any additional task, such as:
 ```bash
-python3 trigger_tasks.py --pokt-service-apps '{"text-to-text": ["pokt---APP-ADDRESS"]}' --generative --task mmlu_moral_disputes_generative
+python3 trigger_tasks.py --pokt-service-apps '{"text-to-text": ["pokt1wvn4a8kj4mfnq0cjakadskxwr2zkev35psjxh9"]}' --generative --task babisteps-chat_zero_shot-task_04-listing
 ```
-This command will create the schedule for task `mmlu_moral_disputes_generative` under the `lmeh-generative` framework which will only be executed if the `liveness_v0` taxonomy is wokring.
+This command will create the schedule for task `babisteps-chat_zero_shot-task_04-listing` under the `lmeh-generative` framework which will only be executed if the `liveness_v0` taxonomy is working and the identity checks have finished.
 
-Note: The summarizer, which creates the taxonomy summaries needed by the manager to check for dependencies are set to be executed every 1 hour. So you will need to manually trigger the workflow `taxonomy-summary-lookup` if you want to have the summary created after you have some test on the `liveness` taxonomy tasks.
+Note: The summarizer, which creates the identity and taxonomy summaries needed by the manager to check for dependencies are set to be executed every 1 hour. So you will need to manually trigger the workflow `summary-lookup` if you want to have the summary created after you have the identity calculated and then again to have some test on the `liveness` taxonomy tasks.
 
 
 
