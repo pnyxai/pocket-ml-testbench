@@ -816,3 +816,20 @@ class PocketNetworkMongoDBTaxonomySummary(BaseModel):
 
     class Config:
         arbitrary_types_allowed = True
+
+
+###########
+# IDENTITY SUMMARIZER
+###########
+
+
+class PocketNetworkMongoDBIdentitySummary(BaseModel):
+    id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
+    supplier_id: ObjectId
+    summary_date: datetime
+    is_unique: bool
+    is_proxy: bool
+    proxy_id: ObjectId
+
+    class Config:
+        arbitrary_types_allowed = True

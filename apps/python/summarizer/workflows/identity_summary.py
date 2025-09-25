@@ -4,20 +4,19 @@ from temporalio.common import RetryPolicy
 from temporalio.exceptions import ApplicationError
 from packages.python.protocol.protocol import PocketNetworkTaxonomySummaryTaskRequest
 from app.app import get_app_logger
-from activities.summarize_taxonomy import summarize_taxonomy
+from activities.summarize_identity import summarize_identity
 
 
 @workflow.defn
-class TaxonomySummarizer:
+class IdentitySummarizer:
     @workflow.run
-    async def run(self, args: PocketNetworkTaxonomySummaryTaskRequest) -> bool:
-        summary_logger = get_app_logger("summarize_taxonomy")
-        summary_logger.info("Starting Workflow Taxonomy Summary")
+    async def run(self) -> bool:
+        summary_logger = get_app_logger("summarize_identity")
+        summary_logger.info("Starting Workflow Identity Summary")
 
-        # Simply execute the taxonomy summarizer activity
+        # Simply execute the identity summarizer activity
         ok, msg_str = await workflow.execute_activity(
-            summarize_taxonomy,
-            args,
+            summarize_identity,
             start_to_close_timeout=timedelta(seconds=600),
             retry_policy=RetryPolicy(maximum_attempts=2),
         )
@@ -25,10 +24,10 @@ class TaxonomySummarizer:
         if not ok:
             raise ApplicationError(
                 msg_str,
-                args,
-                type="IdentitySummarizeError",
+                None,
+                type="SummarizeError",
                 non_retryable=True,
             )
 
-        summary_logger.info("Workflow Taxonomy Summarizer done")
+        summary_logger.info("Workflow Identity Summarizer done")
         return True

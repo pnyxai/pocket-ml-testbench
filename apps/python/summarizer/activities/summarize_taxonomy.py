@@ -69,12 +69,12 @@ async def summarize_taxonomy(
 
             # No data, continue
             if len(docs) == 0:
-                summary_logger.warn(
-                    "No results found for supplier.",
-                    supplier_id=args.supplier_id,
-                    framework=framework_subs,
-                    task=dataset,
-                )
+                # summary_logger.warn(
+                #     "No results found for supplier.",
+                #     supplier_id=args.supplier_id,
+                #     framework=framework_subs,
+                #     task=dataset,
+                # )
                 continue
 
             # Data

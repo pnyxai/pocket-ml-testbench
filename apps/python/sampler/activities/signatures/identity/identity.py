@@ -12,7 +12,7 @@ from activities.signatures.identity.prompt_gen import prompt_setup, get_prompt
 import json
 
 
-IDENTITY_SIGNATURE_COUNT = 2
+IDENTITY_SIGNATURE_COUNT = 5
 
 
 def get_identity_task(

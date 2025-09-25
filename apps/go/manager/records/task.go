@@ -117,6 +117,7 @@ type TaskInterface interface {
 	UpdateLastOk(timeSample time.Time) (err error)
 	UpdateLastOkHeight(height int64) (err error)
 	IsOK() bool
+	IsEqual(interface{}) (statusOK bool, err error)
 	NewTask(supplierID primitive.ObjectID, framework string, task string, date time.Time, l *zerolog.Logger)
 	LoadTask(supplierID primitive.ObjectID, framework string, task string, mongoDB mongodb.MongoDb, l *zerolog.Logger) (bool, error)
 	UpdateTask(supplierID primitive.ObjectID, framework string, task string, mongoDB mongodb.MongoDb, l *zerolog.Logger) (bool, error)
@@ -375,8 +376,8 @@ func CheckTaskDependency(supplierData *SupplierRecord, framework string, task st
 	for idxDep := 0; idxDep < len(taskDep); idxDep++ {
 		// get data from entry
 		frameworkTaskandStatus := strings.Split(taskDep[idxDep], ":")
-		if len(frameworkTaskandStatus) != 3 {
-			l.Error().Str("framework", framework).Str("task", task).Msg("malformed dependency configuration, expected three elements separated by \":\" ")
+		if len(frameworkTaskandStatus) != 4 {
+			l.Error().Str("framework", framework).Str("task", task).Msg("malformed dependency configuration, expected four elements separated by \":\" ")
 			depOK = false
 			break
 		}
@@ -411,6 +412,22 @@ func CheckTaskDependency(supplierData *SupplierRecord, framework string, task st
 					depOK = false
 					break
 				}
+			} else if frameworkTaskandStatus[2] == "equal" {
+				ok, err := thisTaskRecord.IsEqual(frameworkTaskandStatus[3])
+				if err != nil {
+					l.Error().Err(err).Str("framework", framework).Str("task", task).Msg("Equality check failed")
+					depOK = false
+					break
+				}
+				if ok {
+					l.Debug().Str("address", supplierData.Address).Str("service", supplierData.Service).Str("framework", framework).Str("task", task).Msg("EQUAL: Dependency OK")
+					continue
+				} else {
+					l.Debug().Str("address", supplierData.Address).Str("service", supplierData.Service).Str("framework", framework).Str("task", task).Msg("EQUAL: Dependency NOT OK")
+					depOK = false
+					break
+				}
+
 			} else {
 				l.Error().Str("framework", framework).Str("task", task).Msg("dependency configuration cannot be processed (status type unknown)")
 				depOK = false
@@ -807,6 +824,12 @@ func (record *NumericalTaskRecord) IsOK() bool {
 	}
 }
 
+// Returns True if the task matches a value
+func (record *NumericalTaskRecord) IsEqual(data interface{}) (statusOK bool, err error) {
+	// Not implemented
+	return false, nil
+}
+
 // Calculate task statistics
 func (record *NumericalTaskRecord) ProcessData(l *zerolog.Logger) (err error) {
 
@@ -1182,6 +1205,21 @@ func (record *SignatureTaskRecord) IsOK() bool {
 		return true
 	} else {
 		return false
+	}
+}
+
+// Returns True if the task average matches a value
+func (record *SignatureTaskRecord) IsEqual(data interface{}) (statusOK bool, err error) {
+	// Assert data type
+	matchStr, ok := data.(string)
+	if !ok {
+		return ok, fmt.Errorf("invalid data type for equality")
+	}
+	// Check match
+	if record.LastSignature == matchStr {
+		return true, nil
+	} else {
+		return false, nil
 	}
 }
 

@@ -590,10 +590,13 @@ def main():
         print(f"Triggering taxonomy: {args.taxonomy}")
         tasks_to_process = taxonomy_dict[args.taxonomy]
 
+    # This flag is necessary to set correct dependencies and is independent of 
+    # any other postfix used
+    if args.generative:
+        LMEH_TYPE += "-generative"
     if args.framework_postfix:
         LMEH_TYPE += "-" + args.framework_postfix
-    elif args.generative:
-        LMEH_TYPE += "-generative"
+    
 
     trigger_requesters = False
     if args.only_registers:
@@ -613,17 +616,6 @@ def main():
         
     else:
         trigger_requesters = True
-        # Start the base task lookup
-        schedule_lookup_task(interval="10m", execution_timeout=550, task_timeout=500)
-        print("Lookup scheduled.")
-        time.sleep(0.25)
-
-        schedule_taxonomy_summary_task(
-            interval="1h", execution_timeout=1200, task_timeout=1200
-        )
-        print("Taxonomy summary scheduled.")
-        time.sleep(0.25)
-
         # Create per-service tasks
         if not args.generative:
             for chain_id in APPS_PER_SERVICE.keys():
@@ -681,6 +673,17 @@ def main():
                 total_benchmarks += ok
 
     if trigger_requesters:
+        # Start the base task lookup
+        schedule_lookup_task(interval="10m", execution_timeout=550, task_timeout=500)
+        print("Lookup scheduled.")
+        time.sleep(0.25)
+
+        schedule_taxonomy_summary_task(
+            interval="1h", execution_timeout=1200, task_timeout=1200
+        )
+        print("Taxonomy summary scheduled.")
+        time.sleep(0.25)
+        
         # Create per-service tasks
         for chain_id in APPS_PER_SERVICE.keys():
             print(f"Triggering requesters for {chain_id} apps':")

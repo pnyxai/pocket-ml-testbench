@@ -63,7 +63,7 @@ async def identity_evaluate(
         result = PocketNetworkMongoDBResultSignature(
             result_data=PocketNetworkMongoDBResultBase(
                 task_id=args.task_id,
-                status=responses[0]["response"]["error_code"],
+                status=0,
                 num_samples=0,
                 result_height=responses[0]["response"]["height"],
             ),

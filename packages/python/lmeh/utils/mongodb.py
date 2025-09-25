@@ -16,6 +16,7 @@ from packages.python.lmeh.utils.mongo_aggrs import (
     aggregate_old_tasks,
     aggregate_supplier_task_results,
     aggregate_skipped_tasks,
+    aggregate_identity_results
 )
 from packages.python.protocol.protocol import (
     CompletionRequest,
@@ -102,6 +103,12 @@ class MongoOperator:
             if "taxonomy_summaries" in collections_map
             else "taxonomy_summaries"
         )
+        self.identity_summaries = (
+            collections_map["identity_summaries"]
+            if "identity_summaries" in collections_map
+            else "identity_summaries"
+        )
+        
 
     # TODO : This should reffer to PocketNetworkMongoDBInstance and not depend on LMEH blindly
     @staticmethod
@@ -553,6 +560,20 @@ class MongoOperator:
         aggr = aggregate_supplier_task_results(supplier_id, framework, task)
         # Execute the aggregation
         cursor = self.client.db[self.buffers_numerical_collection].aggregate(aggr)
+        # get all of them
+        result = await cursor.to_list(length=None)
+
+        return result
+    
+
+    async def get_identity_signatures(
+        self, 
+        min_samples : int,
+    ) -> List[dict]:
+        # Create the aggregation pipeline with the given number of minimum samples
+        aggr = aggregate_identity_results(min_samples)
+        # Execute the aggregation
+        cursor = self.client.db[self.buffers_signatures_collection].aggregate(aggr)
         # get all of them
         result = await cursor.to_list(length=None)
 
