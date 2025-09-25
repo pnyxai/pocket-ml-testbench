@@ -275,7 +275,7 @@ def schedule_lookup_task(interval="1m", execution_timeout=600, task_timeout=540)
     return run_command(command)
 
 
-def schedule_taxonomy_summary_task(
+def schedule_summary_task(
     interval="1h", execution_timeout=1200, task_timeout=1200
 ):
     command = BASE_COMMAND + [
@@ -284,11 +284,11 @@ def schedule_taxonomy_summary_task(
         "schedule",
         "create",
         "--schedule-id",
-        "taxonomy-summary-lookup",
+        "summary-lookup",
         "--workflow-id",
-        "taxonomy-summary-lookup",
+        "summary-lookup",
         "--type",
-        "TaxonomySummaryLookup",
+        "SummaryLookup",
         "--task-queue",
         "summarize",
         "--interval",
@@ -678,10 +678,10 @@ def main():
         print("Lookup scheduled.")
         time.sleep(0.25)
 
-        schedule_taxonomy_summary_task(
+        schedule_summary_task(
             interval="1h", execution_timeout=1200, task_timeout=1200
         )
-        print("Taxonomy summary scheduled.")
+        print("Summary scheduled.")
         time.sleep(0.25)
         
         # Create per-service tasks

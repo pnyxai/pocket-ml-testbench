@@ -22,7 +22,7 @@ from activities.summarize_identity import summarize_identity
 
 from workflows.taxonomy_summary import TaxonomySummarizer
 from workflows.identity_summary import IdentitySummarizer
-from workflows.summary_lookup import TaxonomySummaryLookup
+from workflows.summary_lookup import SummaryLookup
 
 # We always want to pass through external modules to the sandbox that we know
 # are safe for workflow use
@@ -97,7 +97,7 @@ async def main():
         "workflows": [
             TaxonomySummarizer,
             IdentitySummarizer,
-            TaxonomySummaryLookup,
+            SummaryLookup,
         ],
         "activities": [
             get_supplier_ids,

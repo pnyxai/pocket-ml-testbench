@@ -72,8 +72,8 @@
     "signatures" : {
       "task_types": {"any" : "signature"},
       "task_dependency": {"any" : ["none:none:none:none"]},
-      "schedule_limits": {"any" : "24:hours"},
-      "trigger_minimum": {"any" : "0", "tokenizer" : "1", "config" : "1"},
+      "schedule_limits": {"any" : "1:session", "identity" : "24:hours"},
+      "trigger_minimum": {"any" : "0", "tokenizer" : "1", "config" : "1", "identity" : "1"},
       "taxonomy_dependency": {"any" : ["none:none:none:none"]}
     }
   },

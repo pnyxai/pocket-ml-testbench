@@ -641,7 +641,10 @@ func (record *NumericalTaskRecord) NewTask(supplierID primitive.ObjectID, framew
 	record.TaskData.SupplierID = supplierID
 	record.TaskData.Framework = framework
 	record.TaskData.Task = task
-	record.TaskData.LastSeen = time.Now().UTC() // This delays all timed schedules but is needed by the TTL of mongo
+	// This delays all timed schedules but is needed by the TTL of mongo
+	// So, we set this to the past a little, to allow instant triggering to
+	// some extent (except REALLY slow tasks)
+	record.TaskData.LastSeen = time.Now().UTC().Add(-24 * time.Hour)
 
 	record.MeanScore = 0.0
 	record.MedianScore = 0.0
@@ -972,7 +975,7 @@ const SignatureMinSamplesPerTask uint32 = 10
 const SignatureMaxConcurrentSamplesPerTask uint32 = 1
 
 // This is the length of the buffer and will set the maximum accuracy of the metric.
-const SignatureCircularBufferLength uint32 = SignatureMinSamplesPerTask
+const SignatureCircularBufferLength uint32 = 2 * SignatureMinSamplesPerTask
 
 // Signatures task data
 type SignatureTaskRecord struct {
@@ -1005,7 +1008,10 @@ func (record *SignatureTaskRecord) NewTask(supplierID primitive.ObjectID, framew
 	record.TaskData.SupplierID = supplierID
 	record.TaskData.Framework = framework
 	record.TaskData.Task = task
-	record.TaskData.LastSeen = date
+	// This delays all timed schedules but is needed by the TTL of mongo
+	// So, we set this to the past a little, to allow instant triggering to
+	// some extent (except REALLY slow tasks)
+	record.TaskData.LastSeen = time.Now().UTC().Add(-24 * time.Hour)
 
 	record.LastSignature = ""
 	record.ErrorCode = 0

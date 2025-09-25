@@ -10,7 +10,7 @@ from temporalio.workflow import ParentClosePolicy
 
 
 @workflow.defn
-class TaxonomySummaryLookup:
+class SummaryLookup:
     @workflow.run
     async def run(self) -> int:
         app_config = get_app_config()

@@ -133,7 +133,7 @@ def aggregate_identity_results(min_samples: int):
             'error_code': 0, 
             'task_data.task': 'identity', 
             'circ_buffer_control.num_samples': {
-                '$gt': min_samples
+                '$gte': min_samples
             }
         }
     }, {
