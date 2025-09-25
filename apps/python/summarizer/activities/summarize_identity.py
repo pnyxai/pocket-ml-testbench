@@ -4,14 +4,10 @@ from temporalio import activity
 from packages.python.common.auto_heartbeater import auto_heartbeater
 from app.app import get_app_logger, get_app_config
 from packages.python.lmeh.utils.mongodb import MongoOperator
-from packages.python.protocol.protocol import PocketNetworkTaxonomySummaryTaskRequest
 from packages.python.protocol.protocol import PocketNetworkMongoDBIdentitySummary
-from packages.python.protocol.protocol import TaxonomyNodeSummary
-import numpy as np
 from temporalio.exceptions import ApplicationError
-from bson import ObjectId
 import pandas as pd
- 
+
 # Fraction of equal signatures to count a supplier as proxied by another
 EQUALITY_THRESHOLD = 0.75
 # Minimum number of signatures to enable the supplier to be evaluated
@@ -24,6 +20,7 @@ TRACK_FLAG = "UNIQUE_OR_PROXY"
 IGNORE_FLAG = "IGNORE_OR_DUPLICATED"
 
 assert MIN_SAMPLES >= MIN_SIGNATURES
+
 
 @activity.defn
 @auto_heartbeater
@@ -40,15 +37,13 @@ async def summarize_identity() -> Tuple[bool, str]:
     # Convert to pandas
     data_df = pd.DataFrame(list(result))
     if len(data_df) == 0:
-        summary_logger.debug(
-            f"No signature data to process identity summary."
-        )
+        summary_logger.debug("No signature data to process identity summary.")
         return True, "No data"
 
     # Sort them by supplier id
-    data_df = data_df.sort_values("supplier_id").reset_index(drop = True)
+    data_df = data_df.sort_values("supplier_id").reset_index(drop=True)
     # Get all unique suppliers
-    suppliers = data_df['supplier_id'].unique()
+    suppliers = data_df["supplier_id"].unique()
     suppliers.sort()
 
     # Look for duplicates
@@ -61,11 +56,11 @@ async def summarize_identity() -> Tuple[bool, str]:
             continue
 
         # Get this supplier data
-        this_supplier_data = data_df.loc[data_df['supplier_id'] == this_supplier]
+        this_supplier_data = data_df.loc[data_df["supplier_id"] == this_supplier]
         # Get the last index with data from this supplier
         last_index = this_supplier_data.index[-1]
         # Get all the supplier signatures
-        these_signatures = this_supplier_data['signature'].values
+        these_signatures = this_supplier_data["signature"].values
 
         if len(these_signatures) < MIN_SIGNATURES:
             # Not enough signatures to evaluate, skip for now
@@ -76,23 +71,25 @@ async def summarize_identity() -> Tuple[bool, str]:
             continue
 
         has_proxy = False
-        
+
         # look among the rest of the suppliers
-        for other_supplier in suppliers[idx_supplier+1:]:
+        for other_supplier in suppliers[idx_supplier + 1 :]:
             # Get this other supplier data
-            other_supplier_data = data_df[last_index+1:].loc[data_df['supplier_id'] == other_supplier]
+            other_supplier_data = data_df[last_index + 1 :].loc[
+                data_df["supplier_id"] == other_supplier
+            ]
             # Get this other supplier signatures
-            other_signatures = other_supplier_data['signature'].values
+            other_signatures = other_supplier_data["signature"].values
             # Calculate the fraction of signatures from the first supplier that
             # are equal to the second supplier
             equal_frac = 0
             for this_sign in these_signatures:
                 if this_sign in other_signatures:
-                    equal_frac +=1
+                    equal_frac += 1
             equal_frac /= len(these_signatures)
 
             # Check fraction
-            if equal_frac>EQUALITY_THRESHOLD:
+            if equal_frac > EQUALITY_THRESHOLD:
                 # Add this supplier as proxies by another
                 proxy_dict[other_supplier] = this_supplier
                 # Signal that the first supplier has a proxy
@@ -104,15 +101,12 @@ async def summarize_identity() -> Tuple[bool, str]:
         if not has_proxy:
             # This supplier is unique
             unique_list.append(this_supplier)
-            summary_logger.debug(
-                    f"Found unique supplier {this_supplier}"
-                )
+            summary_logger.debug(f"Found unique supplier {this_supplier}")
 
     # Build summary entries and set signature state
     summary_state = dict()
     insert_mongo_summaries = dict()
     for this_supplier in suppliers:
-
         if this_supplier in skipped_list:
             # No entry, not ready yet
             continue
@@ -134,23 +128,20 @@ async def summarize_identity() -> Tuple[bool, str]:
             is_proxy = True
             proxy_id = this_supplier
             summary_state[this_supplier] = TRACK_FLAG
-        
+
         # build data to insert in mongo
         insert_mongo_summaries[this_supplier] = PocketNetworkMongoDBIdentitySummary(
-                    supplier_id = this_supplier,
-                    summary_date = datetime.today().isoformat(),
-                    is_unique = is_unique,
-                    is_proxy = is_proxy,
-                    proxy_id = proxy_id
-                ).model_dump(by_alias=True)
-            
-        
+            supplier_id=this_supplier,
+            summary_date=datetime.today().isoformat(),
+            is_unique=is_unique,
+            is_proxy=is_proxy,
+            proxy_id=proxy_id,
+        ).model_dump(by_alias=True)
+
     if len(insert_mongo_summaries) == 0:
-        summary_logger.debug(
-            f"No identity summary to be created."
-        )
+        summary_logger.debug("No identity summary to be created.")
         return True, "No summaries yet."
-        
+
     # Upload results to identity summary collection
     try:
         async with mongo_client.start_transaction() as session:
@@ -158,30 +149,34 @@ async def summarize_identity() -> Tuple[bool, str]:
                 result_dump = insert_mongo_summaries[this_supplier]
                 result_dump.pop("_id", None)  # We cannot replace the id
                 await mongo_client.db[
-                        mongo_operator.identity_summaries
-                    ].find_one_and_replace(
-                        {
-                            "supplier_id": this_supplier,
-                        },
-                        result_dump,
-                        upsert=True,
-                        return_document=False,
-                        session=session,
-                    )
-            summary_logger.debug("Identity Summary instances saved to MongoDB successfully.")
+                    mongo_operator.identity_summaries
+                ].find_one_and_replace(
+                    {
+                        "supplier_id": this_supplier,
+                    },
+                    result_dump,
+                    upsert=True,
+                    return_document=False,
+                    session=session,
+                )
+            summary_logger.debug(
+                "Identity Summary instances saved to MongoDB successfully."
+            )
     except Exception as e:
         summary_logger.error("Failed to save Identity Summary Instances to MongoDB.")
         summary_logger.error("Exception:", Exception=str(e))
         raise ApplicationError(
             "Failed to save instances to MongoDB.", non_retryable=True
         )
-    
+
     # Update signatures buffer collection with the correct "last signature" state
     try:
         async with mongo_client.start_transaction() as session:
             for this_supplier in summary_state.keys():
                 # Get signatures buffer id
-                this_supplier_data = data_df.loc[data_df['supplier_id'] == this_supplier]
+                this_supplier_data = data_df.loc[
+                    data_df["supplier_id"] == this_supplier
+                ]
                 this_id = this_supplier_data["_id"].values[0]
 
                 await mongo_client.db["buffers_signatures"].update_one(
@@ -198,9 +193,6 @@ async def summarize_identity() -> Tuple[bool, str]:
         )
         return False, f"{error_msg}: {str(e)}"
 
-
-    summary_logger.debug(
-        f"Success identity summary."
-    )
+    summary_logger.debug("Success identity summary.")
 
     return True, ""

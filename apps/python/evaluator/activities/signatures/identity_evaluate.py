@@ -8,29 +8,26 @@ import hashlib
 
 from packages.python.common.auto_heartbeater import auto_heartbeater
 from packages.python.lmeh.utils.mongodb import MongoOperator
-from packages.python.lmeh.utils.tokenizers import (
-    load_config,
-    prepare_config,
-)
 from packages.python.protocol.protocol import (
     PocketNetworkEvaluationTaskRequest,
     PocketNetworkMongoDBResultSignature,
-    PocketNetworkMongoDBConfig,
     SignatureSample,
     PocketNetworkMongoDBResultBase,
 )
+
 
 def calculate_hash(input_string):
     # Create a new SHA-256 hash object
     hash_object = hashlib.sha256()
 
     # Update the hash object with the input string (encode to bytes)
-    hash_object.update(input_string.encode('utf-8'))
+    hash_object.update(input_string.encode("utf-8"))
 
     # Get the hexadecimal representation of the hash
     hash_hex = hash_object.hexdigest()
 
     return hash_hex
+
 
 @activity.defn
 @auto_heartbeater
@@ -50,7 +47,7 @@ async def identity_evaluate(
 
     try:
         try:
-            task_id_str = args.task_id
+            # task_id_str = args.task_id
             args.task_id = ObjectId(args.task_id)
         except Exception as e:
             eval_logger.error("bad Task ID format", error=str(e), task=args.task_id)
@@ -73,7 +70,7 @@ async def identity_evaluate(
         # Get responses hashes
         for this_response in responses:
             try:
-                if this_response["response"]['error_code'] == 0:
+                if this_response["response"]["error_code"] == 0:
                     # Decode model response
                     decoded_response = json.loads(this_response["response"]["response"])
                     # Calculate the response hash
@@ -83,25 +80,24 @@ async def identity_evaluate(
                 # Append to signature list
                 result.signatures.append(
                     SignatureSample(
-                        signature = hash_result,
-                        id = 0,
-                        status_code = this_response["response"]['error_code'],
-                        error_str = this_response["response"]['error']
-                        )
+                        signature=hash_result,
+                        id=0,
+                        status_code=this_response["response"]["error_code"],
+                        error_str=this_response["response"]["error"],
                     )
-            except:
+                )
+            except Exception:
                 # Append a failed decode result
                 result.signatures.append(
                     SignatureSample(
-                        signature = "",
-                        id = 0,
-                        status_code = 1,
-                        error_str = "failed to decode model response"
-                        )
+                        signature="",
+                        id=0,
+                        status_code=1,
+                        error_str="failed to decode model response",
                     )
+                )
             # Count samples included
             result.result_data.num_samples += 1
-
 
         # Save to results db (a failure is also an answer)
         try:

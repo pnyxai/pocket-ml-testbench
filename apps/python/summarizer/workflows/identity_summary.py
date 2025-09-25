@@ -2,7 +2,6 @@ from datetime import timedelta
 from temporalio import workflow
 from temporalio.common import RetryPolicy
 from temporalio.exceptions import ApplicationError
-from packages.python.protocol.protocol import PocketNetworkTaxonomySummaryTaskRequest
 from app.app import get_app_logger
 from activities.summarize_identity import summarize_identity
 

@@ -62,7 +62,7 @@ class SummaryLookup:
         try:
             await workflow.start_child_workflow(
                 IdentitySummarizer,
-                id=f"IdentitySummarizer",
+                id="IdentitySummarizer",
                 task_queue=task_queue,
                 execution_timeout=timedelta(seconds=600),
                 task_timeout=timedelta(seconds=600),
