@@ -48,7 +48,7 @@ python3 trigger_tasks.py --pokt-service-apps '{"text-to-text": ["pokt---APP-ADDR
 then trigger the liveness task like this:
 
 ```bash
-python3 trigger_tasks.py --pokt-service-apps '{"text-to-text": ["pokt---APP-ADDRESS"]}' --generative --taxonomy liveness --framework-postfix liveness
+python3 trigger_tasks.py --pokt-service-apps '{"text-to-text": ["pokt---APP-ADDRESS"]}' --generative --taxonomy ../taxonomies/liveness_v0-2.tax --framework-postfix liveness
 ```
 
 This command will start the `identity` signature check and execute all the tasks included in the `liveness` taxonomy and include them under the framework `lmeh-liveness` (the only one that has no other dependency for execution). The `--generative` flag instructs the script to not create the `tokenizer` and `config` tasks of the `signatures` framework, because they are not needed for this kind of framework.
