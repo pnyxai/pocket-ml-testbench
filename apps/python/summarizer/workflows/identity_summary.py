@@ -24,7 +24,7 @@ class IdentitySummarizer:
             raise ApplicationError(
                 msg_str,
                 None,
-                type="SummarizeError",
+                type="IdentitySummarizeError",
                 non_retryable=True,
             )
 

@@ -26,7 +26,7 @@ class TaxonomySummarizer:
             raise ApplicationError(
                 msg_str,
                 args,
-                type="IdentitySummarizeError",
+                type="TaxonomySummarizeError",
                 non_retryable=True,
             )
 
