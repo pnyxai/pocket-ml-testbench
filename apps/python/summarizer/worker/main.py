@@ -18,9 +18,11 @@ from app.config import read_config
 
 from activities.get_supplier_ids import get_supplier_ids
 from activities.summarize_taxonomy import summarize_taxonomy
+from activities.summarize_identity import summarize_identity
 
 from workflows.taxonomy_summary import TaxonomySummarizer
-from workflows.summary_lookup import TaxonomySummaryLookup
+from workflows.identity_summary import IdentitySummarizer
+from workflows.summary_lookup import SummaryLookup
 
 # We always want to pass through external modules to the sandbox that we know
 # are safe for workflow use
@@ -94,11 +96,13 @@ async def main():
         ),
         "workflows": [
             TaxonomySummarizer,
-            TaxonomySummaryLookup,
+            IdentitySummarizer,
+            SummaryLookup,
         ],
         "activities": [
             get_supplier_ids,
             summarize_taxonomy,
+            summarize_identity,
         ],
     }
 

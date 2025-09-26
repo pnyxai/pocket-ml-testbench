@@ -4,12 +4,13 @@ from temporalio.common import RetryPolicy, WorkflowIDReusePolicy
 from app.app import get_app_logger, get_app_config
 from packages.python.common.utils import get_from_dict
 from workflows.taxonomy_summary import TaxonomySummarizer
+from workflows.identity_summary import IdentitySummarizer
 from activities.get_supplier_ids import get_supplier_ids
 from temporalio.workflow import ParentClosePolicy
 
 
 @workflow.defn
-class TaxonomySummaryLookup:
+class SummaryLookup:
     @workflow.run
     async def run(self) -> int:
         app_config = get_app_config()
@@ -56,6 +57,24 @@ class TaxonomySummaryLookup:
                         f'Unable to trigger workflow for task "{tax}-{_id}": {e}'
                     )
                     pass
+
+        # Trigger Identity Summary workflow
+        try:
+            await workflow.start_child_workflow(
+                IdentitySummarizer,
+                id="IdentitySummarizer",
+                task_queue=task_queue,
+                execution_timeout=timedelta(seconds=600),
+                task_timeout=timedelta(seconds=600),
+                id_reuse_policy=WorkflowIDReusePolicy.ALLOW_DUPLICATE,
+                retry_policy=RetryPolicy(maximum_attempts=1),
+                parent_close_policy=ParentClosePolicy.ABANDON,
+            )
+        except Exception as e:
+            summary_logger.warn(
+                f'Unable to trigger workflow for task "{tax}-{_id}": {e}'
+            )
+            pass
 
         summary_logger.info("Workflow Taxonomy Summary Lookup done")
         return len(ids)

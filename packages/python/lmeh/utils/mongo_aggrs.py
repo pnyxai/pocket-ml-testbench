@@ -123,3 +123,35 @@ def aggregate_supplier_task_results(supplier_id: ObjectId, framework: str, task:
             }
         },
     ]
+
+
+
+def aggregate_identity_results(min_samples: int):
+    return [
+    {
+        '$match': {
+            'error_code': 0, 
+            'task_data.task': 'identity', 
+            'circ_buffer_control.num_samples': {
+                '$gte': min_samples
+            }
+        }
+    }, {
+        '$unwind': {
+            'path': '$signatures'
+        }
+    }, {
+        '$match': {
+            'signatures.signature': {
+                '$ne': ''
+            }, 
+            'signatures.status_code': 0
+        }
+    }, {
+        '$project': {
+            '_id': 1, 
+            'supplier_id': '$task_data.supplier_id', 
+            'signature': '$signatures.signature'
+        }
+    }
+]

@@ -26,9 +26,9 @@ class TaxonomySummarizer:
             raise ApplicationError(
                 msg_str,
                 args,
-                type="SummarizeError",
+                type="TaxonomySummarizeError",
                 non_retryable=True,
             )
 
-        summary_logger.info("Workflow Evaluator done")
+        summary_logger.info("Workflow Taxonomy Summarizer done")
         return True
