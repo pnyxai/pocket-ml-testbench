@@ -141,3 +141,31 @@ def load_taxonomy(
         return taxonomy_graph, labels_graph, undefined_edges, measurable_edges
     else:
         return taxonomy_graph
+
+
+def get_taxonomy_datasets_per_node(taxonomy_graph: nx.classes.digraph.DiGraph) -> dict:
+    """
+    Returns the lists of all datasets assigned to each node
+    """
+    dataset_correspondency = dict()
+    for node in taxonomy_graph.nodes:
+        datasets = taxonomy_graph.nodes[node].get("datasets", None)
+        if datasets is not None:
+            dataset_correspondency[node] = datasets
+    return dataset_correspondency
+
+
+def get_taxonomy_datasets(taxonomy_graph: nx.classes.digraph.DiGraph) -> List:
+    """
+    Gets a list of unique datasets to be used in the given taxonomy.
+    """
+
+    dataset_correspondency = get_taxonomy_datasets_per_node(taxonomy_graph)
+
+    datasets_list = list()
+    for val in dataset_correspondency.values():
+        for dataset in val:
+            if dataset not in datasets_list:
+                datasets_list.append(dataset)
+
+    return datasets_list
