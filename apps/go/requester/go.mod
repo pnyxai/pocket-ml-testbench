@@ -6,7 +6,7 @@ toolchain go1.24.4
 
 require (
 	github.com/pokt-foundation/pocket-go v0.21.0
-	github.com/pokt-network/poktroll v0.1.29
+	github.com/pokt-network/poktroll v0.1.30
 	github.com/rs/zerolog v1.34.0
 	go.mongodb.org/mongo-driver v1.15.0
 	go.temporal.io/api v1.32.0
@@ -58,7 +58,6 @@ require (
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.26.0 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/metric v0.48.1 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/internal/resourcemapping v0.48.1 // indirect
-	github.com/athanorlabs/go-dleq v0.1.0 // indirect
 	github.com/aws/aws-sdk-go v1.44.224 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bgentry/go-netrc v0.0.0-20140422174119-9fd32a8b3d3d // indirect
@@ -104,6 +103,7 @@ require (
 	github.com/emicklei/dot v1.6.2 // indirect
 	github.com/envoyproxy/go-control-plane/envoy v1.32.4 // indirect
 	github.com/envoyproxy/protoc-gen-validate v1.2.1 // indirect
+	github.com/ethereum/go-ethereum v1.14.12 // indirect
 	github.com/facebookgo/clock v0.0.0-20150410010913-600d898af40a // indirect
 	github.com/fatih/color v1.18.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
@@ -124,7 +124,7 @@ require (
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/mock v1.7.0-rc.1 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
-	github.com/golang/snappy v0.0.4 // indirect
+	github.com/golang/snappy v0.0.5-0.20220116011046-fa5810519dcb // indirect
 	github.com/google/btree v1.1.3 // indirect
 	github.com/google/flatbuffers v1.12.1 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
@@ -183,8 +183,9 @@ require (
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/pokt-foundation/utils-go v0.7.0 // indirect
-	github.com/pokt-network/ring-go v0.1.0 // indirect
-	github.com/pokt-network/shannon-sdk v0.0.0-20250711180840-8854f9d2cdcc // indirect
+	github.com/pokt-network/go-dleq v0.0.0-20250925202155-488f42ad642a // indirect
+	github.com/pokt-network/ring-go v0.1.1-0.20250925213458-782cc69bc1ec // indirect
+	github.com/pokt-network/shannon-sdk v0.0.0-20250926214315-b721a0025673 // indirect
 	github.com/pokt-network/smt v0.14.1 // indirect
 	github.com/pokt-network/smt/kvstore/pebble v0.0.0-20240822175047-21ea8639c188 // indirect
 	github.com/prometheus/client_golang v1.22.0 // indirect
