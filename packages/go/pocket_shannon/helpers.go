@@ -85,9 +85,11 @@ func GetAllSessions(FullNode *LazyFullNode, Apps []string, ServiceIDs []string, 
 				if failOnError {
 					return nil, err
 				}
+			} else {
+				// Fill only when there is no error, in case we are not returning when a session retrieval fails
+				sessions = append(sessions, appSession)
 			}
 
-			sessions = append(sessions, appSession)
 		}
 	}
 	return sessions, nil

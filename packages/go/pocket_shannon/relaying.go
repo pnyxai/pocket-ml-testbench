@@ -102,8 +102,14 @@ func (s *RelayRequestSigner) SignRelayRequest(req *servicetypes.RelayRequest, ap
 		PublicKeyFetcher: &s.AccountClient,
 	}
 
-	sdkSigner := sdk.Signer{PrivateKeyHex: s.PrivateKeyHex}
-	req, err := sdkSigner.Sign(context.Background(), req, ring)
+	// Create the signer
+	sdkSigner, err := sdk.NewSignerFromHex(s.PrivateKeyHex)
+	if err != nil {
+		return nil, fmt.Errorf("❌ Error initializing signer from private key hex: %w", err)
+	}
+
+	// Sign
+	req, err = sdkSigner.Sign(context.Background(), req, &ring)
 	if err != nil {
 		return nil, fmt.Errorf("SignRequest: error signing relay request: %w", err)
 	}
