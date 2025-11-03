@@ -283,7 +283,7 @@ general_skills_v1_labeling {
     computer_science -> mmlu_computer_security_chat_generative; 
     computer_science -> mmlu_college_computer_science_chat_generative; 
     // --- MMLU-Pro
-    computer_science -> mmlu_pro-category_computer_science; 
+    computer_science -> mmlu_pro-category_computer-science; 
     //--------------------------------------------------------------------------
 
     //--------------------------------------------------------------------------

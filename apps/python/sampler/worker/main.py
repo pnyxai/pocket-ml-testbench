@@ -99,11 +99,7 @@ async def main():
             Register,
             Sampler,
         ],
-        "activities": [
-            lmeh_register_task,
-            lmeh_sample,
-            sign_sample,
-        ],
+        "activities": [lmeh_register_task, lmeh_sample, sign_sample],
     }
 
     if max_concurrent_activities is not None:

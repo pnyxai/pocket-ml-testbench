@@ -39,7 +39,7 @@ The following tasks evaluate subjects in the mmlu_pro dataset
 - `mmlu_pro-category_biology`
 - `mmlu_pro-category_business`
 - `mmlu_pro-category_chemistry`
-- `mmlu_pro-category_computer_science`
+- `mmlu_pro-category_computer-science`
 - `mmlu_pro-category_economics`
 - `mmlu_pro-category_engineering`
 - `mmlu_pro-category_health`

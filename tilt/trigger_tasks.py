@@ -56,6 +56,34 @@ def schedule_lookup_task(interval="1m", execution_timeout=600, task_timeout=540)
     return run_command(command)
 
 
+def schedule_snapshot_task(interval="24h", execution_timeout=1200, task_timeout=1200):
+    command = BASE_COMMAND + [
+        "--",
+        "temporal",
+        "schedule",
+        "create",
+        "--schedule-id",
+        "supplier-snapshot-lookup",
+        "--workflow-id",
+        "supplier-snapshot-lookup",
+        "--type",
+        "SuppliersSnapshotLookup",
+        "--task-queue",
+        "summarize",
+        "--interval",
+        f"{interval}",
+        "--overlap-policy",
+        "Skip",
+        "--execution-timeout",
+        f"{execution_timeout}s",
+        "--task-timeout",
+        f"{task_timeout}s",
+        "--namespace",
+        f"{TEMPORAL_NAMESPACE}",
+    ]
+    return run_command(command)
+
+
 def schedule_summary_task(interval="1h", execution_timeout=1200, task_timeout=1200):
     command = BASE_COMMAND + [
         "--",
@@ -464,6 +492,12 @@ def main():
 
         schedule_summary_task(interval="1h", execution_timeout=1200, task_timeout=1200)
         print("Summary scheduled.")
+        time.sleep(0.25)
+
+        schedule_snapshot_task(
+            interval="24h", execution_timeout=1200, task_timeout=1200
+        )
+        print("Snapshot scheduled.")
         time.sleep(0.25)
 
         # Create per-service tasks

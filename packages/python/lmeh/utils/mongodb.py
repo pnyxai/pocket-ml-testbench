@@ -16,7 +16,9 @@ from packages.python.lmeh.utils.mongo_aggrs import (
     aggregate_old_tasks,
     aggregate_supplier_task_results,
     aggregate_skipped_tasks,
-    aggregate_identity_results
+    aggregate_identity_results,
+    aggregate_supplier_task_snapshot,
+    aggregate_supplier_taxonomy_snapshot,
 )
 from packages.python.protocol.protocol import (
     CompletionRequest,
@@ -108,7 +110,11 @@ class MongoOperator:
             if "identity_summaries" in collections_map
             else "identity_summaries"
         )
-        
+        self.suppliers_snapshots = (
+            collections_map["suppliers_snapshots"]
+            if "suppliers_snapshots" in collections_map
+            else "suppliers_snapshots"
+        )
 
     # TODO : This should reffer to PocketNetworkMongoDBInstance and not depend on LMEH blindly
     @staticmethod
@@ -564,16 +570,39 @@ class MongoOperator:
         result = await cursor.to_list(length=None)
 
         return result
-    
 
     async def get_identity_signatures(
-        self, 
-        min_samples : int,
+        self,
+        min_samples: int,
     ) -> List[dict]:
         # Create the aggregation pipeline with the given number of minimum samples
         aggr = aggregate_identity_results(min_samples)
         # Execute the aggregation
         cursor = self.client.db[self.buffers_signatures_collection].aggregate(aggr)
+        # get all of them
+        result = await cursor.to_list(length=None)
+
+        return result
+
+    async def get_supplier_snapshot_task_data(
+        self,
+        supplier_id: ObjectId,
+    ) -> List[dict]:
+        aggr = aggregate_supplier_task_snapshot(supplier_id)
+        # Execute the aggregation
+        cursor = self.client.db[self.buffers_numerical_collection].aggregate(aggr)
+        # get all of them
+        result = await cursor.to_list(length=None)
+
+        return result
+
+    async def get_supplier_snapshot_taxonomy_data(
+        self,
+        supplier_id: ObjectId,
+    ) -> List[dict]:
+        aggr = aggregate_supplier_taxonomy_snapshot(supplier_id)
+        # Execute the aggregation
+        cursor = self.client.db[self.taxonomy_summaries].aggregate(aggr)
         # get all of them
         result = await cursor.to_list(length=None)
 

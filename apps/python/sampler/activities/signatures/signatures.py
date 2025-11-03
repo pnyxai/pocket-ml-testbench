@@ -35,6 +35,7 @@ async def sign_sample(args: PocketNetworkTaskRequest) -> bool:
         address=args.requester_args.address,
         blacklist=args.blacklist,
         qty=args.qty,
+        random_seed=args.random_seed,
     )
     mongo_client = config["mongo_client"]
     ############################################################
@@ -50,7 +51,9 @@ async def sign_sample(args: PocketNetworkTaskRequest) -> bool:
 
     elif args.tasks == "identity":
         logger.debug("starting identity task sample")
-        task, instances, prompts = get_identity_task(args.requester_args)
+        task, instances, prompts = get_identity_task(
+            args.requester_args, args.random_seed
+        )
 
     else:
         logger.error(f"requested task {args.tasks} is not supported")

@@ -125,33 +125,50 @@ def aggregate_supplier_task_results(supplier_id: ObjectId, framework: str, task:
     ]
 
 
-
 def aggregate_identity_results(min_samples: int):
     return [
-    {
-        '$match': {
-            'error_code': 0, 
-            'task_data.task': 'identity', 
-            'circ_buffer_control.num_samples': {
-                '$gte': min_samples
+        {
+            "$match": {
+                "error_code": 0,
+                "task_data.task": "identity",
+                "circ_buffer_control.num_samples": {"$gte": min_samples},
             }
-        }
-    }, {
-        '$unwind': {
-            'path': '$signatures'
-        }
-    }, {
-        '$match': {
-            'signatures.signature': {
-                '$ne': ''
-            }, 
-            'signatures.status_code': 0
-        }
-    }, {
-        '$project': {
-            '_id': 1, 
-            'supplier_id': '$task_data.supplier_id', 
-            'signature': '$signatures.signature'
-        }
-    }
-]
+        },
+        {"$unwind": {"path": "$signatures"}},
+        {"$match": {"signatures.signature": {"$ne": ""}, "signatures.status_code": 0}},
+        {
+            "$project": {
+                "_id": 1,
+                "supplier_id": "$task_data.supplier_id",
+                "signature": "$signatures.signature",
+            }
+        },
+    ]
+
+
+# Node snapshot pipelines
+def aggregate_supplier_task_snapshot(supplier_id: ObjectId):
+    return [
+        {"$match": {"task_data.supplier_id": supplier_id}},
+        {
+            "$project": {
+                "_id": 0,
+                "task": "$task_data.task",
+                "num_samples": "$circ_buffer_control.num_samples",
+                "error_rate": 1,
+                "mean_scores": 1,
+                "mean_times": 1,
+                "median_scores": 1,
+                "median_times": 1,
+                "std_scores": 1,
+                "std_times": 1,
+            }
+        },
+    ]
+
+
+def aggregate_supplier_taxonomy_snapshot(supplier_id: ObjectId):
+    return [
+        {"$match": {"supplier_id": supplier_id}},
+        {"$project": {"_id": 0, "taxonomy_name": 1, "taxonomy_nodes_scores": 1}},
+    ]
