@@ -13,7 +13,7 @@ class SuppliersSnapshotLookup:
     @workflow.run
     async def run(self) -> int:
         app_config = get_app_config()
-        summary_logger = get_app_logger("suppliers_snapsho_lookup")
+        summary_logger = get_app_logger("suppliers_snapshot_lookup")
         config = app_config["config"]
         task_queue = get_from_dict(config, "temporal.task_queue")
         summary_logger.info("Starting Workflow Suppliers Snapshot Lookup")
