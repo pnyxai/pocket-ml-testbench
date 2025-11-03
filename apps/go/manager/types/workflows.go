@@ -30,6 +30,7 @@ type SamplerWorkflowParams struct {
 	RequesterArgs RequesterArgs `json:"requester_args"`
 	Blacklist     []int         `json:"blacklist"`
 	Qty           int           `json:"qty"`
+	RandomSeed    int           `json:"random_seed"`
 }
 
 type ResultAnalyzerParams struct {

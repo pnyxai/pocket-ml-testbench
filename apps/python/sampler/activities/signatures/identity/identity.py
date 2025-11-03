@@ -17,6 +17,7 @@ IDENTITY_SIGNATURE_COUNT = 5
 
 def get_identity_task(
     args: RequesterArgs,
+    rnd_seed: int,
 ) -> tuple[
     PocketNetworkMongoDBTask,
     List[PocketNetworkMongoDBInstance],
@@ -34,31 +35,30 @@ def get_identity_task(
         blacklist=[],
         qty=IDENTITY_SIGNATURE_COUNT,
         tasks="identity",
-        total_instances=IDENTITY_SIGNATURE_COUNT, # one instance per prompt
+        total_instances=IDENTITY_SIGNATURE_COUNT,  # one instance per prompt
         request_type="",  # Remove
     )
     # Create each prompt:
     instances = list()
     prompts = list()
-    prompt_setup()
+    prompt_setup(rnd_seed)
     for prompt_idx in range(IDENTITY_SIGNATURE_COUNT):
-
         instance = PocketNetworkMongoDBInstance(task_id=task.id)
         # Create the request
         request = CompletionRequest(
-                model="pocket_network",
-                prompt=get_prompt(),
-                max_tokens=100,
-                temperature=0.0,
-                seed=prompt_idx,
-            )
+            model="pocket_network",
+            prompt=get_prompt(),
+            max_tokens=100,
+            temperature=0.0,
+            seed=prompt_idx,
+        )
         # Create the prompt
         prompt = PocketNetworkMongoDBPrompt(
-            model_config={}, 
-            data=json.dumps(request.to_dict()), 
-            task_id=task.id, 
-            instance_id=instance.id, 
-            timeout=60
+            model_config={},
+            data=json.dumps(request.to_dict()),
+            task_id=task.id,
+            instance_id=instance.id,
+            timeout=60,
         )
 
         instances.append(instance)

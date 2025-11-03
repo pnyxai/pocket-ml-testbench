@@ -87,10 +87,23 @@ func (wCtx *Ctx) SupplierManager(ctx workflow.Context, params types.SupplierMana
 	}
 
 	// -------------------------------------------------------------------------
+	// -------------------- Get Randomness Seed --------------------------------
+	// -------------------------------------------------------------------------
+	var randomSeed int
+	ctxTimeout := workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
+		ScheduleToStartTimeout: time.Second * 5,
+		StartToCloseTimeout:    time.Second * 5,
+	})
+	err := workflow.ExecuteActivity(ctxTimeout, activities.GetRandomSeedName).Get(ctx, &randomSeed)
+	if err != nil {
+		return &result, err
+	}
+
+	// -------------------------------------------------------------------------
 	// -------------------- Analyze each supplier ------------------------------
 	// -------------------------------------------------------------------------
 	// Set timeout for supplier analysis activity
-	ctxTimeout := workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
+	ctxTimeout = workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
 		ScheduleToStartTimeout: time.Minute,
 		StartToCloseTimeout:    time.Minute,
 	})
@@ -104,9 +117,10 @@ func (wCtx *Ctx) SupplierManager(ctx workflow.Context, params types.SupplierMana
 	// Iterate all suppliers and execute the analysis in futures
 	for _, supplier := range suppliers {
 		input := types.AnalyzeSupplierParams{
-			Supplier: supplier,
-			Block:    currBlockData,
-			Tests:    params.Tests,
+			Supplier:   supplier,
+			Block:      currBlockData,
+			Tests:      params.Tests,
+			RandomSeed: randomSeed,
 		}
 		ltr := types.AnalyzeSupplierResults{}
 		selector.AddFuture(

@@ -30,9 +30,10 @@ type GetStakedResults struct {
 //------------------------------------------------------------------------------
 
 type AnalyzeSupplierParams struct {
-	Supplier SupplierData `json:"supplier"`
-	Block    BlockData    `json:"block"`
-	Tests    []TestsData  `json:"tests"`
+	Supplier   SupplierData `json:"supplier"`
+	Block      BlockData    `json:"block"`
+	Tests      []TestsData  `json:"tests"`
+	RandomSeed int          `bson:"random_seed"`
 }
 
 type AnalyzeSupplierResults struct {
@@ -42,12 +43,13 @@ type AnalyzeSupplierResults struct {
 }
 
 type TaskTrigger struct {
-	Address   string `bson:"address"`
-	Service   string `bson:"service"`
-	Framework string `bson:"framework"`
-	Task      string `bson:"task"`
-	Blacklist []int  `bson:"blacklist"`
-	Qty       int    `bson:"qty"`
+	Address    string `bson:"address"`
+	Service    string `bson:"service"`
+	Framework  string `bson:"framework"`
+	Task       string `bson:"task"`
+	Blacklist  []int  `bson:"blacklist"`
+	Qty        int    `bson:"qty"`
+	RandomSeed int    `bson:"random_seed"`
 }
 
 //------------------------------------------------------------------------------

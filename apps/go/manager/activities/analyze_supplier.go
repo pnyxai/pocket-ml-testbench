@@ -216,11 +216,13 @@ func (aCtx *Ctx) AnalyzeSupplier(ctx context.Context, params types.AnalyzeSuppli
 
 						// Add trigger
 						thisTrigger := types.TaskTrigger{Address: thisSupplierData.Address,
-							Service:   thisSupplierData.Service,
-							Framework: test.Framework,
-							Task:      task,
-							Blacklist: blackList,
-							Qty:       int(reqNeeded)}
+							Service:    thisSupplierData.Service,
+							Framework:  test.Framework,
+							Task:       task,
+							Blacklist:  blackList,
+							Qty:        int(reqNeeded),
+							RandomSeed: params.RandomSeed, // Copy through to all triggers
+						}
 						result.Triggers = append(result.Triggers, thisTrigger)
 					}
 				} else {

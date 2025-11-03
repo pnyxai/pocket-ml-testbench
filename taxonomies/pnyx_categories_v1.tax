@@ -104,7 +104,7 @@ pnyx_categories_v1_labeling {
     foundational_knowledge -> mmlu_pro-category_chemistry;
     foundational_knowledge -> mmlu_pro-category_physics;
     foundational_knowledge -> mmlu_pro-category_engineering;
-    foundational_knowledge -> mmlu_pro-category_computer_science; 
+    foundational_knowledge -> mmlu_pro-category_computer-science; 
     foundational_knowledge -> mmlu_pro-category_other;
     // --- GPQA
     foundational_knowledge -> gpqa_subtask_main_biology;

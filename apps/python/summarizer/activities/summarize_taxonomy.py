@@ -1,5 +1,7 @@
 from typing import Tuple
 from datetime import datetime
+
+from pymongo import ReturnDocument
 from temporalio import activity
 from packages.python.common.auto_heartbeater import auto_heartbeater
 from app.app import get_app_logger, get_app_config
@@ -156,7 +158,7 @@ async def summarize_taxonomy(
             try:
                 result_dump = result.model_dump(by_alias=True)
                 result_dump.pop("_id", None)  # We cannot replace the id
-                await mongo_client.db[
+                _ = await mongo_client.db[
                     mongo_operator.taxonomy_summaries
                 ].find_one_and_replace(
                     {
@@ -165,7 +167,7 @@ async def summarize_taxonomy(
                     },
                     result_dump,
                     upsert=True,
-                    return_document=False,
+                    return_document=ReturnDocument.BEFORE,
                     session=session,
                 )
             except Exception as e:

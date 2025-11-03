@@ -39,6 +39,10 @@ func (aCtx *Ctx) Register(w worker.Worker) {
 		Name: AnalyzeSupplierName,
 	})
 
+	w.RegisterActivityWithOptions(aCtx.GetRandomSeed, activity.RegisterOptions{
+		Name: GetRandomSeedName,
+	})
+
 	w.RegisterActivityWithOptions(aCtx.TriggerSampler, activity.RegisterOptions{
 		Name: TriggerSamplerName,
 	})

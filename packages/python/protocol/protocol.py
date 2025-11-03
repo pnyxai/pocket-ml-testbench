@@ -49,6 +49,7 @@ class PocketNetworkTaskRequest(PocketNetworkRegisterTaskRequest):
     requester_args: RequesterArgs
     blacklist: Optional[List[int]] = []
     qty: Optional[int] = None
+    random_seed: Optional[int] = None
     doc_ids: Optional[List[int]] = None
     model: Optional[str] = "pocket_network"
     llm_args: Optional[Dict] = (
@@ -830,6 +831,37 @@ class PocketNetworkMongoDBIdentitySummary(BaseModel):
     is_unique: bool
     is_proxy: bool
     proxy_id: ObjectId
+
+    class Config:
+        arbitrary_types_allowed = True
+
+
+###########
+# SUPPLIER SNAPSHOT
+###########
+
+
+class PocketNetworkSupplierSnapshotTaskRequest(BaseModel):
+    supplier_id: Union[str, PyObjectId]
+
+
+class NumericSampleSnapshot(BaseModel):
+    error_rate: float
+    mean_scores: float
+    mean_times: float
+    median_scores: float
+    median_times: float
+    std_scores: float
+    std_times: float
+    num_samples: int
+
+
+class PocketNetworkMongoDBSupplierSnapshot(BaseModel):
+    id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
+    supplier_id: ObjectId
+    summary_date: datetime
+    taxonomies: Dict[str, Dict[str, TaxonomyNodeSummary]]
+    tasks: Dict[str, NumericSampleSnapshot]
 
     class Config:
         arbitrary_types_allowed = True

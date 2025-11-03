@@ -29,8 +29,9 @@ func (aCtx *Ctx) TriggerSampler(_ context.Context, params types.TriggerSamplerPa
 			Address: params.Trigger.Address,
 			Service: params.Trigger.Service,
 		},
-		Blacklist: params.Trigger.Blacklist,
-		Qty:       params.Trigger.Qty,
+		Blacklist:  params.Trigger.Blacklist,
+		Qty:        params.Trigger.Qty,
+		RandomSeed: params.Trigger.RandomSeed,
 	}
 	samplerWorkflowOptions := client.StartWorkflowOptions{
 		ID: fmt.Sprintf(
