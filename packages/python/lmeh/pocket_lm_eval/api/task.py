@@ -166,9 +166,8 @@ class SqlDatasetSaver:
                         None,
                     )
                     if use_type is None:
-                        raise NotImplementedError(
-                            "Unsuported data type in datase, cannot save."
-                        )
+                        str_err = f"Unsupported data type in dataset ({use_type}), cannot save."
+                        raise NotImplementedError(str_err)
                     elif use_type == "[]":
                         # This is a special case, so lets compose the list
                         list_member_type = (
@@ -180,9 +179,8 @@ class SqlDatasetSaver:
                             list_member_type, None
                         )
                         if list_member_type is None:
-                            raise NotImplementedError(
-                                "Unsuported data type in datase, cannot save."
-                            )
+                            str_err = f"Unsupported data type in dataset ({list_member_type}), cannot save."
+                            raise NotImplementedError(str_err)
                         use_type = list_member_type + use_type
 
                     self.columns[key] = use_type
@@ -207,7 +205,7 @@ class SqlDatasetSaver:
         self.columns_def.append(self.PRIMARY_KEY_DEF)
 
     def analyze_list_type(self, feature_list, table_key, depth=1):
-        """Recursive analysis and asigment of data type"""
+        """Recursive analysis and assignment of data type"""
         for type_elem in feature_list:
             if isinstance(type_elem, list):
                 self.analyze_list_type(type_elem, table_key, depth=depth + 1)
@@ -218,9 +216,8 @@ class SqlDatasetSaver:
             else:
                 use_type = self.DATA_TYPE_MAPPING.get(type_elem.dtype, None)
                 if use_type is None:
-                    raise NotImplementedError(
-                        "Unsuported data type in datase, cannot save."
-                    )
+                    str_err = f"Unsupported data type in dataset ({type_elem.dtype}), cannot save."
+                    raise NotImplementedError(str_err)
                 self.columns[table_key] = use_type + f"{'[]'*depth}"
 
     async def _prepare_table(self):

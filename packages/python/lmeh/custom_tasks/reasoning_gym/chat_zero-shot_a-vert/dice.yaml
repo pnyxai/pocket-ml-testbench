@@ -1,0 +1,5 @@
+dataset_name: dice
+tag: reasoning_gym-all
+include: _default_template_yaml
+task: reasoning_gym_006-dice
+task_alias: "Reasoning gym - Dice (probability of dice rolls)"

@@ -464,6 +464,9 @@ def main():
 
         # Create all tasks for all chains
         for task in tasks_to_process:
+            if "undefined_task" in task:
+                print(f"Skipping undefined task: {task}")
+                continue
             print(f"Setting-up task: {task}")
             # Register dataset
             ok = execute_register_task(task, execution_timeout=7200, task_timeout=3600)

@@ -22,6 +22,7 @@ torch = {version = "^2.5.1+cpu", source = "pytorch_cpu"}
 torchvision = {version = "^0.20.1+cpu", source = "pytorch_cpu"}
 transformers = "^4.48.0"
 openai = ">=1.52.0"
+reasoning-gym = "0.1.24"
 
 
 [tool.poetry.group.dev.dependencies]

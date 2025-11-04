@@ -1,7 +1,7 @@
 // This is a simple aggregation of all dataset used in other taxonomies, used to
 // generate a leaderboard-style summary.
 
-pnyx_leaderboard_v1 {
+pnyx_leaderboard_v2 {
 
     //--------------------------------------------------------------------------
     //--------------------------------------------------------------------------
@@ -13,11 +13,22 @@ pnyx_leaderboard_v1 {
     root_c -> babisteps;
     root_c -> gpqa;
     root_c -> gsm8k;
+    root_c -> reasoning_gym;
     
 
 }
 
-pnyx_leaderboard_v1_labeling {
+pnyx_leaderboard_v2_labeling {
+
+    //--------------------------------------------------------------------------
+    // --- Reasoning GYM
+    reasoning_gym -> reasoning_gym_001-gsm_symbolic;
+    reasoning_gym -> reasoning_gym_002-polynomial_equations;
+    reasoning_gym -> reasoning_gym_003-complex_arithmetic;
+    reasoning_gym -> reasoning_gym_004-simple_integration;
+    reasoning_gym -> reasoning_gym_005-intermediate_integration;
+    reasoning_gym -> reasoning_gym_006-dice;
+    reasoning_gym -> reasoning_gym_007-codeio;
 
     //--------------------------------------------------------------------------
     // --- GSM8K

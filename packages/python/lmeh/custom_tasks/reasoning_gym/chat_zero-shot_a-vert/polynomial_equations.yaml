@@ -1,0 +1,5 @@
+dataset_name: polynomial_equations
+tag: reasoning_gym-all
+include: _default_template_yaml
+task: reasoning_gym_002-polynomial_equations
+task_alias: "Reasoning gym - Polynomial Equations"

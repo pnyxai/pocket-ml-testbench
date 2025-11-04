@@ -1,0 +1,17 @@
+group: reasoning_gym
+task:
+  - group: reasoning_gym-all
+    task:
+      - reasoning_gym-all
+    aggregate_metric_list:
+    - aggregation: mean
+      metric: score_match
+      weight_by_size: true
+      filter_list: pass_all
+aggregate_metric_list:
+  - aggregation: mean
+    metric: score_match
+    weight_by_size: true
+    filter_list: pass_all
+metadata:
+  version: 1.0

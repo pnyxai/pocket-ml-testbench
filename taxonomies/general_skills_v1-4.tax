@@ -243,11 +243,16 @@ general_skills_v1_labeling {
     //foundational_math_and_logic -> mmlu_college_mathematics_chat_generative;
     //foundational_math_and_logic -> mmlu_formal_logic_chat_generative; 
     //foundational_math_and_logic -> mmlu_elementary_mathematics_chat_generative; 
-    foundational_math_and_logic -> mmlu_abstract_algebra_chat_generative; 
+    //foundational_math_and_logic -> mmlu_abstract_algebra_chat_generative; 
     // --- GSM8K
-    foundational_math_and_logic -> gsm8k_chat;
+    //foundational_math_and_logic -> gsm8k_chat;
     // --- MMLU-PRO
-    foundational_math_and_logic -> mmlu_pro-category_math;
+    //foundational_math_and_logic -> mmlu_pro-category_math;
+    // --- Reasoning-GYM
+    foundational_math_and_logic -> reasoning_gym_001-gsm_symbolic;
+    foundational_math_and_logic -> reasoning_gym_002-polynomial_equations;
+    foundational_math_and_logic -> reasoning_gym_003-complex_arithmetic;
+    foundational_math_and_logic -> reasoning_gym_006-dice;
     //--------------------------------------------------------------------------
 
     //--------------------------------------------------------------------------
