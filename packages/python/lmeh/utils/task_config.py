@@ -37,6 +37,10 @@ task_cnfg = {
     #     "metrics": ["!function utils.pass_at_1"],
     #     "num_fewshot": 0,
     # },
+    "reasoning_gym": {
+        "metrics": ["score_match"],
+        "filters": ["pass_all"],
+    },
 }
 
 
@@ -53,6 +57,8 @@ def get_task_config(task_name: str):
         return task_cnfg["bbh-split_"]
     elif "gpqa_subtask" in task_name:
         return task_cnfg["gpqa_subtask"]
+    elif "reasoning_gym" in task_name:
+        return task_cnfg["reasoning_gym"]
 
     else:
         return task_cnfg[task_name]

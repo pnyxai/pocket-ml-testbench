@@ -39,12 +39,12 @@ pnyx_categories_v1_labeling {
     //reasoning_and_logic -> mmlu_college_mathematics_chat_generative;
     //reasoning_and_logic -> mmlu_formal_logic_chat_generative; 
     //reasoning_and_logic -> mmlu_elementary_mathematics_chat_generative; 
-    reasoning_and_logic -> mmlu_abstract_algebra_chat_generative; 
+    //reasoning_and_logic -> mmlu_abstract_algebra_chat_generative; 
     reasoning_and_logic -> mmlu_logical_fallacies_chat_generative; 
     // --- GSM8K
-    reasoning_and_logic -> gsm8k_chat;
+    //reasoning_and_logic -> gsm8k_chat;
     // --- MMLU-PRO
-    reasoning_and_logic -> mmlu_pro-category_math;
+    //reasoning_and_logic -> mmlu_pro-category_math;
     // --- bAbI-Steps
     reasoning_and_logic -> babisteps-chat_zero_shot-task_09-timetracking;
     reasoning_and_logic -> babisteps-chat_zero_shot-task_03-complextracking;
