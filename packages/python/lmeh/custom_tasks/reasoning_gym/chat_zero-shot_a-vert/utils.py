@@ -227,7 +227,7 @@ def process_codeio(doc, results):
 
     # Compile and return
     results = {
-        "exact_match": False,
+        "exact_match": True if sample_score == 1.0 else False,
         "score_match": sample_score,
         "a-vert_correct_score": 0.0,
         "a-vert_wrong_score": 0.0,

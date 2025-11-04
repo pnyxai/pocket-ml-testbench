@@ -2,6 +2,10 @@
 
 math_v0 {
     root_c -> abstract_math;
+    root_c -> probability_and_statistics;
+
+    abstract_math -> proof_generation;
+    abstract_math -> calculus;
 
     probability_and_statistics -> discrete_math;
     probability_and_statistics -> calculus;
@@ -55,7 +59,7 @@ math_v0_labeling {
     // -------------------------------------------------------------------------
     calculus -> undefined_task2;
 
-    // ------------------- CALCULUS --------------------------------------------
+    // ------------------- DISCRETE MATH ---------------------------------------
     // Logic and set theory
     // Counting and combinatorics
     // Graph theory and networks

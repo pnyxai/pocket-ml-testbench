@@ -5,12 +5,12 @@ task:
       - reasoning_gym-all
     aggregate_metric_list:
     - aggregation: mean
-      metric: a-vert_match
+      metric: score_match
       weight_by_size: true
       filter_list: pass_all
 aggregate_metric_list:
   - aggregation: mean
-    metric: a-vert_match
+    metric: score_match
     weight_by_size: true
     filter_list: pass_all
 metadata:

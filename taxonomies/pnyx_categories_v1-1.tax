@@ -55,6 +55,11 @@ pnyx_categories_v1_labeling {
     reasoning_and_logic -> babisteps-chat_zero_shot-task_06-spatialorder;
     reasoning_and_logic -> babisteps-chat_zero_shot-task_01-simpletracking;
     reasoning_and_logic -> babisteps-chat_zero_shot-task_02-immediateorder;    
+    // --- Reasoning-GYM
+    reasoning_and_logic -> reasoning_gym_001-gsm_symbolic;
+    reasoning_and_logic -> reasoning_gym_002-polynomial_equations;
+    reasoning_and_logic -> reasoning_gym_003-complex_arithmetic;
+    reasoning_and_logic -> reasoning_gym_006-dice;
     
       
     //--------------------------------------------------------------------------    
