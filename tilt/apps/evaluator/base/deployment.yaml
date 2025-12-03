@@ -68,6 +68,21 @@ spec:
                 configMapKeyRef:
                   name: testbench-config
                   key:  avert_model_name
+            - name: AVERT_METHOD
+              valueFrom:
+                configMapKeyRef:
+                  name: testbench-config
+                  key: avert_method
+            - name: AVERT_PROMPT_TEMPLATE
+              valueFrom:
+                configMapKeyRef:
+                  name: testbench-config
+                  key: avert_prompt_template
+            - name: AVERT_LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: testbench-config
+                  key: avert_log_level
           volumeMounts:
             - mountPath: /home/app/configs/
               name: configuration-files

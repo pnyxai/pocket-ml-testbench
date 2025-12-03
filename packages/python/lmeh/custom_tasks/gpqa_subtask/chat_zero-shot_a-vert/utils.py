@@ -1,41 +1,24 @@
 import random
 import re
 import datasets
-import os
 
-from a_vert import processing as a_vert
+import a_vert
+from a_vert.logger import get_logger
 
-# ---- Different a-vert configs
-#
-# Qwen3-Reranker Family : Qwen3-Reranker-0.6B-seq-cls, Qwen3-Reranker-4B-seq-cls
-#
-AVERT_METHOD = "rerank"
-DOCUMENT_TEMPLATE = (
-    "<Document>: {document}<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
-)
-QUERY_TEMPLATE = """<|im_start|>system\nJudge whether the Document meets the requirements based on the Query and the Instruct provided. Note that the answer can only be "yes" or "no".<|im_end|>\n<|im_start|>user\n <Instruct>: Find the document that better represents the meaning in the query. Check for any doubts about the question or options. Focus on exact numbers, dates, or symbols.\n<Query>: {query}\n"""
-GROUPING = "max"
-ENCHANCE = True
+logger = get_logger(__name__)
 
+# Setup A-VERT configuration from environment variables
+AVERT_CONFIG = a_vert.setup()
 
-# This environment variable contains the endpoint to the selected model
-AVERT_MODEL_ENDPOINT = os.getenv("AVERT_MODEL_ENDPOINT", None)
-if AVERT_MODEL_ENDPOINT is None:
-    raise ValueError(
-        "AVERT_MODEL_ENDPOINT environment variable is not set. This is required for A-VERT to function."
-    )
-AVERT_ENDPOINT_TYPE = os.getenv("AVERT_ENDPOINT_TYPE", None)
-if AVERT_ENDPOINT_TYPE is None:
-    raise ValueError(
-        "AVERT_ENDPOINT_TYPE environment variable is not set. This is required for A-VERT to function."
-    )
-AVERT_MODEL_NAME = os.getenv("AVERT_MODEL_NAME", None)
-if AVERT_MODEL_NAME is None and (
-    AVERT_ENDPOINT_TYPE == "vllm" or AVERT_ENDPOINT_TYPE == "openai"
-):
-    raise ValueError(
-        "AVERT_MODEL_NAME environment variable is not set. This is required for vLLM or OpenAI endpoint to function."
-    )
+# For backward compatibility, extract individual values
+ENHANCE = AVERT_CONFIG.enhance
+
+# Default instruction map
+default_instruction = {
+    "default": "Find the document that better represents the meaning in the query. Check for any doubts about the question or options. Focus on exact numbers, dates, or symbols.",
+}
+if not AVERT_CONFIG.instruction_map:
+    AVERT_CONFIG.instruction_map = default_instruction
 
 
 def filter_response(pred):
@@ -56,7 +39,7 @@ def filter_response(pred):
     return filtered_pred
 
 
-def doc_eval(pred, refs, question, choices):
+def doc_eval(pred, refs, question, choices, task):
     """This function takes a model generated response ("pred") and the target
     reference ("refs") and computes the following metrics:
     - `exact_match` : A hard match between the generated string and the target
@@ -82,29 +65,25 @@ def doc_eval(pred, refs, question, choices):
     )
 
     # Construct the wrong candidates group
-    group_texts_dict = a_vert.construct_candidate_groups(
+    group_texts_dict = a_vert.processing.construct_candidate_groups(
         correct_group_text,
         wrong_group_text,
         ["correct", "wrong"],
-        enhance=ENCHANCE,
-        with_options=ENCHANCE,
+        enhance=ENHANCE,
+        with_options=ENHANCE,
         option_symbol="letters",
         correct_group_idxs=correct_group_idxs,
         wrong_group_idxs=wrong_group_idxs,
     )
 
     # Process all candidate groups
-    response_group_distribution, _ = a_vert.get_candidate_groups_embedings_ranking(
-        pred,
-        group_texts_dict,
-        AVERT_MODEL_ENDPOINT,
-        AVERT_ENDPOINT_TYPE,
-        AVERT_METHOD,
-        model_name=AVERT_MODEL_NAME,
-        query_template=QUERY_TEMPLATE,
-        document_template=DOCUMENT_TEMPLATE,
-        grouping_method=GROUPING,
-        verbose=False,
+    response_group_distribution, _ = (
+        a_vert.processing.get_candidate_groups_embedings_ranking(
+            pred,
+            group_texts_dict,
+            AVERT_CONFIG,
+            task=task if task else "default",
+        )
     )
     # Check if this is a match
     a_vert_match = True
@@ -133,11 +112,12 @@ def process_results(doc, results):
     target = preprocess(doc["Correct Answer"])
     question = doc["Question"]
     choices = doc["choices"]
+    task = doc.get("task", "default")
 
     # Evaluate the document with the given model response
-    results = doc_eval(response, target, question, choices)
+    result_dict = doc_eval(response, target, question, choices, task=task)
 
-    return results
+    return result_dict
 
 
 # ------------------------------------------------------------------------------
@@ -156,18 +136,22 @@ def get_gpqa_options(question_target, question, choices):
                 correct_group_text.append(choices[idx])
                 correct_group_idxs.append(idx)
             else:
-                print(
-                    f"WARNING: Duplicated target found.\n\t{choices[idx]}\n\t{question_target}"
+                logger.warning(
+                    "Duplicated target found",
+                    choice=choices[idx],
+                    target=question_target,
                 )
         else:
             wrong_group_text.append(choices[idx])
             wrong_group_idxs.append(idx)
 
     if len(wrong_group_text) == 0:
-        print(
-            f"wrong group text is empty! patching with refusals and continuing...\n\t{question_target}\n\t{choices}"
+        logger.warning(
+            "Wrong group text is empty! Patching with refusals and continuing",
+            target=question_target,
+            choices=choices,
         )
-        wrong_group_text = a_vert.refusal_candidate_group_construction()
+        wrong_group_text = a_vert.processing.refusal_candidate_group_construction()
         for idx in range(len(wrong_group_text)):
             wrong_group_idxs.append(idx + 1)
 

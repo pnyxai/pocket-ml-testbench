@@ -6,3 +6,6 @@ data:
   avert_model_endpoint: "$AVERT_MODEL_ENDPOINT"
   avert_endpoint_type: "$AVERT_ENDPOINT_TYPE"
   avert_model_name: "$AVERT_MODEL_NAME"
+  avert_method: "$AVERT_METHOD"
+  avert_prompt_template: "$AVERT_PROMPT_TEMPLATE"
+  avert_log_level: "$AVERT_LOG_LEVEL"

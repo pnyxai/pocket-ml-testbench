@@ -5,17 +5,10 @@ COPY apps/python/evaluator /home/app/code
 COPY packages /home/app/code/packages
 
 # install local packages (todo: implement our local packages to use this)
-RUN poetry install --only main
-
-
-# Evaluation related packages
 USER root
 RUN chown -R app:app /home/app/code/
 USER app
-
-# TODO : Remove this when a-vert is published!
-COPY tilt/untracked/a_vert-0.1.0-py3-none-any.whl .
-RUN poetry add ./a_vert-0.1.0-py3-none-any.whl
+RUN poetry install --only main
 
 # default entry point
 ENTRYPOINT ["poetry", "run", "python3", "worker/main.py"]

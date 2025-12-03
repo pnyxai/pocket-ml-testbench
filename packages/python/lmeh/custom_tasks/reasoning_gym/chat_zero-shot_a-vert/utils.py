@@ -1,48 +1,32 @@
 import re
-import os
 import numpy as np
 
-from reasoning_gym.code.codeio import CodeIODataset, CodeIOConfig
+# try to import reasoning_gym code, if fail raise exception
+try:
+    from reasoning_gym.code.codeio import CodeIODataset, CodeIOConfig
+except ImportError as e:
+    raise ImportError(
+        "reasoning_gym package is required for this task. Please install it via `pip install reasoning-gym`."
+    ) from e
+import a_vert
 
-from a_vert import processing as a_vert
+# Setup A-VERT configuration from environment variables
+AVERT_CONFIG = a_vert.setup()
 
-# ---- Different a-vert configs
-#
-# Qwen3-Reranker Family : Qwen3-Reranker-0.6B-seq-cls, Qwen3-Reranker-4B-seq-cls
-#
-AVERT_METHOD = "rerank"
-DOCUMENT_TEMPLATE = (
-    "<Document>: {document}<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
-)
-QUERY_TEMPLATE = """<|im_start|>system\nJudge whether the Document meets the requirements based on the Query and the Instruct provided. Note that the answer can only be "yes" or "no".<|im_end|>\n<|im_start|>user\n <Instruct>: Find the document that contians the closest numerical result or expresion in the Query.\n<Query>: {query}\n"""
+# For backward compatibility, extract individual values
+ENHANCE = AVERT_CONFIG.enhance
 
-GROUPING = "max"
-
-ENCHANCE = True
+# Default instruction map
+default_instruction = {
+    "default": "Find the document that contians the closest numerical result or expresion in the Query.",
+}
+if not AVERT_CONFIG.instruction_map:
+    AVERT_CONFIG.instruction_map = default_instruction
 
 # This is a distance threshold that we will use to avoid false positives.
 # Evaluating math with semantic processes is not solved by this version of
 # A-VERT so, we need to be creative
 DISTANCE_THRESHOLD = 0.6
-
-# This environment variable contains the endpoint to the selected model
-AVERT_MODEL_ENDPOINT = os.getenv("AVERT_MODEL_ENDPOINT", None)
-if AVERT_MODEL_ENDPOINT is None:
-    raise ValueError(
-        "AVERT_MODEL_ENDPOINT environment variable is not set. This is required for A-VERT to function."
-    )
-AVERT_ENDPOINT_TYPE = os.getenv("AVERT_ENDPOINT_TYPE", None)
-if AVERT_ENDPOINT_TYPE is None:
-    raise ValueError(
-        "AVERT_ENDPOINT_TYPE environment variable is not set. This is required for A-VERT to function."
-    )
-AVERT_MODEL_NAME = os.getenv("AVERT_MODEL_NAME", None)
-if AVERT_MODEL_NAME is None and (
-    AVERT_ENDPOINT_TYPE == "vllm" or AVERT_ENDPOINT_TYPE == "openai"
-):
-    raise ValueError(
-        "AVERT_MODEL_NAME environment variable is not set. This is required for vLLM or OpenAI endpoint to function."
-    )
 
 
 def filter_response(pred):
@@ -78,7 +62,7 @@ def process_results(doc, results):
 # ------------------------------------------------------------------------------
 
 
-def doc_eval_a_vert(pred, options, answers, question, task):
+def doc_eval(pred, options, answers, question, task):
     """This function takes a model generated response ("pred") and the"""
 
     # ----------------------- EXACT MATCH --------------------------------------
@@ -97,26 +81,20 @@ def doc_eval_a_vert(pred, options, answers, question, task):
         answers, question, options, task
     )
     # Construct the wrong candidates group
-    group_texts_dict = a_vert.construct_candidate_groups(
+    group_texts_dict = a_vert.processing.construct_candidate_groups(
         correct_group_text,
         wrong_group_text,
         ["correct", "wrong"],
-        enhance=ENCHANCE,
+        enhance=ENHANCE,
     )
 
     # Process all candidate groups
     response_group_distribution, all_distances = (
-        a_vert.get_candidate_groups_embedings_ranking(
+        a_vert.processing.get_candidate_groups_embedings_ranking(
             pred,
             group_texts_dict,
-            AVERT_MODEL_ENDPOINT,
-            AVERT_ENDPOINT_TYPE,
-            AVERT_METHOD,
-            model_name=AVERT_MODEL_NAME,
-            query_template=QUERY_TEMPLATE,
-            document_template=DOCUMENT_TEMPLATE,
-            grouping_method=GROUPING,
-            verbose=False,
+            AVERT_CONFIG,
+            task=task if task else "default",
         )
     )
     # Check if this is a match
@@ -159,12 +137,12 @@ def process_a_vert(doc, results):
     # options = [str(a) for a in doc["options"]]+doc["contextualized_options"]
     options = doc["contextualized_options"]
     question = doc["question"]
-    task = ""  # doc["task"]
+    task = doc.get("task", "default")
 
     # Evaluate the document with the given model response
-    results = doc_eval_a_vert(response, options, answer, question, task)
+    result_dict = doc_eval(response, options, answer, question, task)
 
-    return results
+    return result_dict
 
 
 def get_reasoning_gym_options(answers, question, options, task):
