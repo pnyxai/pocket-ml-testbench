@@ -86,7 +86,7 @@ def format_example(example, include_options: bool, including_answer: bool):
     return prompt
 
 
-doc_to_text = partial(format_example, include_options=True, including_answer=False)
+doc_to_text = partial(format_example, include_options=False, including_answer=False)
 fewshot_to_text = partial(format_example, include_options=False, including_answer=True)
 
 
@@ -125,5 +125,30 @@ def process_results_listing(doc, results):
         results_set = set(results_list)
         # if both sets are equal, then 1, else 0
         exact_match = 1 if answer_set == results_set else 0
+    result_dict["exact_match"] = exact_match
+    return result_dict
+
+
+def process_results_pathfinding(doc, results):
+    result_dict = {}
+    if doc["leaf_label"] == "unknown":
+        # In this cases, due to the answer was sampled randomly, we need to
+        # check if the answer is in any of the results insted
+        # of check set equality like in the else case
+        metric = "exact_match"
+        gold = doc["answer"]
+        result = [results[0] for _ in range(len(gold))]
+        scores = get_metric(metric)(
+            references=gold,
+            predictions=result,
+        )[metric]
+        exact_match = 1.0 if scores > 0.0 else 0.0
+    else:
+        # sub spaces with empty string
+        results[0] = results[0].replace(" ", "")
+        # split results into a list by spliting by ", "
+        results_list = results[0].split(",")
+        # if both sets are equal, then 1, else 0
+        exact_match = 1 if doc["answer"] == results_list else 0
     result_dict["exact_match"] = exact_match
     return result_dict

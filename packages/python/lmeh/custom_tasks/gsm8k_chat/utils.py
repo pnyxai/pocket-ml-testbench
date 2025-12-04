@@ -1,42 +1,21 @@
 import re
 import numpy as np
-import os
+
+import a_vert
 
 
-from a_vert import processing as a_vert
+# Setup A-VERT configuration from environment variables
+AVERT_CONFIG = a_vert.setup()
 
+# For backward compatibility, extract individual values
+ENHANCE = AVERT_CONFIG.enhance
 
-# ---- Different a-vert configs
-#
-# Qwen3-Reranker Family : Qwen3-Reranker-0.6B-seq-cls, Qwen3-Reranker-4B-seq-cls
-#
-AVERT_METHOD = "rerank"
-DOCUMENT_TEMPLATE = (
-    "<Document>: {document}<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
-)
-QUERY_TEMPLATE = """<|im_start|>system\nJudge whether the Document meets the requirements based on the Query and the Instruct provided. Note that the answer can only be "yes" or "no".<|im_end|>\n<|im_start|>user\n <Instruct>: Find the document that better represents the meaning in the query. Check for any doubts about the question or options. Focus on exact numbers, dates, or symbols.\n<Query>: {query}\n"""
-GROUPING = "max"
-ENCHANCE = True
-
-
-# This environment variable contains the endpoint to the selected model
-AVERT_MODEL_ENDPOINT = os.getenv("AVERT_MODEL_ENDPOINT", None)
-if AVERT_MODEL_ENDPOINT is None:
-    raise ValueError(
-        "AVERT_MODEL_ENDPOINT environment variable is not set. This is required for A-VERT to function."
-    )
-AVERT_ENDPOINT_TYPE = os.getenv("AVERT_ENDPOINT_TYPE", None)
-if AVERT_ENDPOINT_TYPE is None:
-    raise ValueError(
-        "AVERT_ENDPOINT_TYPE environment variable is not set. This is required for A-VERT to function."
-    )
-AVERT_MODEL_NAME = os.getenv("AVERT_MODEL_NAME", None)
-if AVERT_MODEL_NAME is None and (
-    AVERT_ENDPOINT_TYPE == "vllm" or AVERT_ENDPOINT_TYPE == "openai"
-):
-    raise ValueError(
-        "AVERT_MODEL_NAME environment variable is not set. This is required for vLLM or OpenAI endpoint to function."
-    )
+# Default instruction map
+default_instruction = {
+    "default": "Find the document that better represents the meaning in the query. Check for any doubts about the question or options. Focus on exact numbers, dates, or symbols.",
+}
+if not AVERT_CONFIG.instruction_map:
+    AVERT_CONFIG.instruction_map = default_instruction
 
 
 def filter_response(pred):
@@ -57,7 +36,7 @@ def filter_response(pred):
     return filtered_pred
 
 
-def doc_eval(pred, refs, question):
+def doc_eval(pred, refs, question, task):
     """This function takes a model generated response ("pred") and the target
     reference ("refs") and computes the following metrics:
     - `exact_match` : A hard match between the generated string and the target
@@ -80,25 +59,21 @@ def doc_eval(pred, refs, question):
     # Generate other numbers
     correct_group_text, wrong_group_text = get_gsm8k_options(refs, question)
     # Construct the wrong candidates group
-    group_texts_dict = a_vert.construct_candidate_groups(
+    group_texts_dict = a_vert.processing.construct_candidate_groups(
         correct_group_text,
         wrong_group_text,
         ["correct", "wrong"],
-        enhance=ENCHANCE,
+        enhance=ENHANCE,
     )
 
     # Process all candidate groups
-    response_group_distribution, _ = a_vert.get_candidate_groups_embedings_ranking(
-        pred,
-        group_texts_dict,
-        AVERT_MODEL_ENDPOINT,
-        AVERT_ENDPOINT_TYPE,
-        AVERT_METHOD,
-        model_name=AVERT_MODEL_NAME,
-        query_template=QUERY_TEMPLATE,
-        document_template=DOCUMENT_TEMPLATE,
-        grouping_method=GROUPING,
-        verbose=False,
+    response_group_distribution, _ = (
+        a_vert.processing.get_candidate_groups_embedings_ranking(
+            pred,
+            group_texts_dict,
+            AVERT_CONFIG,
+            task=task if task else "default",
+        )
     )
     # Check if this is a match
     a_vert_match = True
@@ -129,11 +104,12 @@ def process_results(doc, results):
     response = results[0]
     target = doc["answer"]
     question = doc["question"]
+    task = doc.get("task", "default")
 
     # Evaluate the document with the given model response
-    results = doc_eval(response, target, question)
+    result_dict = doc_eval(response, target, question, task=task)
 
-    return results
+    return result_dict
 
 
 # ------------------------------------------------------------------------------

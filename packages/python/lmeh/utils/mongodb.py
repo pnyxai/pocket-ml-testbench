@@ -421,7 +421,7 @@ class MongoOperator:
         for doc in result:
             i, p = doc["instance"], doc["prompt"]
             list_result_height.append(doc["response"]["session_height"])
-            if not doc["response"]["ok"]:
+            if not doc["response"]["ok"] or doc["response"]["error_code"] != 0:
                 remove_doc_ids.add(i["doc_id"])
                 failed_instances.append(
                     {

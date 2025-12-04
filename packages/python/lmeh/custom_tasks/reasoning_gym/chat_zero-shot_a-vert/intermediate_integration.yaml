@@ -1,5 +1,4 @@
 dataset_name: intermediate_integration
-tag: reasoning_gym-all
 include: _default_template_yaml
 task: reasoning_gym_005-intermediate_integration
 task_alias: "Reasoning gym - Intermediate Integration"

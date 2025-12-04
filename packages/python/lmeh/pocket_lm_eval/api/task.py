@@ -611,6 +611,21 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
             self.eval_logger.debug("Adding split to DatasetDict:", split=split)
             ds_dict[split] = ds.filter(lambda x: x["__split"] == split)
         self.dataset = ds_dict.remove_columns(["__split"])
+
+        # ============================================================
+        # TASK COLUMN INJECTION (to be used by AVERT (instruction)
+        # ===========================================================
+        # Remove existing 'task' column if present (to avoid conflicts)
+        if "task" in self.dataset[list(self.dataset.keys())[0]].column_names:
+            self.dataset = self.dataset.remove_columns(["task"])
+
+        # Add task column with constant value across all splits
+        for split in self.dataset.keys():
+            self.dataset[split] = self.dataset[split].add_column(
+                name="task", column=[self.config.task] * self.dataset[split].num_rows
+            )
+        # ============================================================
+
         # save in config the indexes used to download the dataset
         self.eval_logger.debug("Indexes used:", indexes=indexes)
         self._config.metadata["pocket_args"].doc_ids = indexes
