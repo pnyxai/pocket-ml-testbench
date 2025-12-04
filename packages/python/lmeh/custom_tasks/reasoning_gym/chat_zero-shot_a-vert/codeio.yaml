@@ -1,5 +1,4 @@
 dataset_name: codeio
-tag: reasoning_gym-all
 include: _default_template_yaml
 task: reasoning_gym_007-codeio
 task_alias: "Reasoning gym - Codeio (code understanding)"

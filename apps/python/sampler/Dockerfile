@@ -4,11 +4,9 @@ FROM pocket_ml_testbench_base_python_image:latest
 COPY apps/python/sampler /home/app/code
 COPY packages /home/app/code/packages
 
-# install local packages (todo: implement our local packages to use this)
 USER root
 RUN chown -R app:app /home/app/code/
 USER app
-RUN poetry install --only main
 
 # default entry point
 ENTRYPOINT ["poetry", "run", "python3", "worker/main.py"]
