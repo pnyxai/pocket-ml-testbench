@@ -54,7 +54,7 @@ pnyx_leaderboard_v2_labeling {
     babisteps -> babisteps-chat_zero_shot-task_06-spatialorder;
     babisteps -> babisteps-chat_zero_shot-task_07-temporalorder;
     babisteps -> babisteps-chat_zero_shot-task_08-pathfinding;
-    babisteps -> babisteps-chat_zero_shot-task_09-timetracking;
+    babisteps -> babisteps-chat_zero_shot-task_09-temporaltracking;
         
 
     //--------------------------------------------------------------------------

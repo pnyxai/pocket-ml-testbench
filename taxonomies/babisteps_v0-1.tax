@@ -39,5 +39,5 @@ babisteps_v0_labeling {
     spatial_order -> babisteps-chat_zero_shot-task_06-spatialorder;
     temporal_order -> babisteps-chat_zero_shot-task_07-temporalorder;
     path_finding -> babisteps-chat_zero_shot-task_08-pathfinding;
-    time_tracking -> babisteps-chat_zero_shot-task_09-timetracking;
+    time_tracking -> babisteps-chat_zero_shot-task_09-temporaltracking;
 }

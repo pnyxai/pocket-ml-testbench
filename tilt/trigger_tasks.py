@@ -14,7 +14,9 @@ APPS_PER_SERVICE = {
     "lm": ["pokt1wkra80yv9zv69y2rgkmc69jfqph6053dwn47vx"],
 }
 
-BASE_COMMAND = ["kubectl", "exec", "-it", "deploy/temporal-admintools"]
+DEPLOYMENT_NAME = "deploy/temporal-admintools"
+
+BASE_COMMAND = ["kubectl", "exec", "-it"]
 
 LMEH_TYPE = "lmeh"
 
@@ -311,7 +313,7 @@ def parse_dict_from_string(arg_string):
 
 
 def main():
-    global BASE_COMMAND, TEMPORAL_NAMESPACE, APPS_PER_SERVICE, LMEH_TYPE
+    global BASE_COMMAND, TEMPORAL_NAMESPACE, APPS_PER_SERVICE, LMEH_TYPE, DEPLOYMENT_NAME
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -328,6 +330,9 @@ def main():
     )
     parser.add_argument(
         "--k8s-namespace", help="Namespace of the k8s deployment, defaults to default"
+    )
+    parser.add_argument(
+        "--k8s-deployment", help=f"Name of the k8s deployment, defaults to {DEPLOYMENT_NAME}"
     )
     parser.add_argument(
         "--temporal-namespace",
@@ -379,6 +384,11 @@ def main():
         print("Received services and apps:", args.pokt_service_apps)
         if isinstance(args.pokt_service_apps, dict):
             APPS_PER_SERVICE = args.pokt_service_apps
+
+    if args.k8s_deployment:
+        print(f"Using k8s Namespace: {args.k8s_namespace}")
+        DEPLOYMENT_NAME = args.k8s_deployment
+    BASE_COMMAND += [DEPLOYMENT_NAME]
 
     if args.k8s_namespace:
         print(f"Using k8s Namespace: {args.k8s_namespace}")
