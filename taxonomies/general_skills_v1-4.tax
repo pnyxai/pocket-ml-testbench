@@ -300,7 +300,7 @@ general_skills_v1_labeling {
 
     //--------------------------------------------------------------------------
     // --- bAbI-Steps
-    complex_deductive_and_inductive_reasoning -> babisteps-chat_zero_shot-task_09-timetracking;
+    complex_deductive_and_inductive_reasoning -> babisteps-chat_zero_shot-task_09-temporaltracking;
     complex_deductive_and_inductive_reasoning -> babisteps-chat_zero_shot-task_03-complextracking;
     // --- BBH
     //complex_deductive_and_inductive_reasoning -> bbh-split_11-logical_deduction_three_objects;

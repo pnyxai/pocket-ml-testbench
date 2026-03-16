@@ -5,7 +5,7 @@ go 1.24.3
 toolchain go1.24.4
 
 require (
-	github.com/pokt-network/poktroll v0.1.30
+	github.com/pokt-network/poktroll v0.1.31-rc1
 	github.com/pokt-network/shannon-sdk v0.0.0-20250926214315-b721a0025673
 	github.com/rs/zerolog v1.34.0
 	google.golang.org/grpc v1.72.0

@@ -49,7 +49,7 @@ def filter_response(pred):
 
 def process_results(doc, results):
     """Custom processing function used to implement "a-vert" metric."""
-    if doc["task"] == "reasoning_gym_007-codeio":
+    if "codeio" in doc["task"]:
         results = process_codeio(doc, results)
     else:
         results = process_a_vert(doc, results)
