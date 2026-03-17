@@ -596,7 +596,7 @@ const NumericalTaskTypeName string = "numerical"
 //     have NumericalMinSamplesPerTask samples measured in a month, then you take that number and you divide it by the
 //     number of trigger_minimum configured: (NumericalMinSamplesPerTask/TriggerMinimum), then you set your workflow
 //     interval to:
-//     (30days*24*60*60)/(75/1) = 25920 seconds/workflow_call
+//     (30days*24*60*60)/(75/1) = 34560 seconds/workflow_call
 //
 // Some calculations for `trigger_minimum=1` and `NumericalMinSamplesPerTask=75`:
 //   - 1  day  schedule:  1152 seconds/workflow_call
