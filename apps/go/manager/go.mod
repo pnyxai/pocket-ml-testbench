@@ -181,7 +181,7 @@ require (
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/pokt-network/go-dleq v0.0.0-20250925202155-488f42ad642a // indirect
-	github.com/pokt-network/poktroll v0.1.30 // indirect
+	github.com/pokt-network/poktroll v0.1.31-rc1 // indirect
 	github.com/pokt-network/ring-go v0.1.1-0.20250925213458-782cc69bc1ec // indirect
 	github.com/pokt-network/shannon-sdk v0.0.0-20250926214315-b721a0025673 // indirect
 	github.com/pokt-network/smt v0.14.1 // indirect
