@@ -4,6 +4,8 @@ import argparse
 import json
 import os
 import sys
+import math
+import re
 
 sys.path.append("../")
 from packages.python.taxonomies.utils import load_taxonomy, get_taxonomy_datasets
@@ -243,7 +245,7 @@ def schedule_identity_task(
 
 
 def schedule_benchmark_task(
-    benchmark, chain_id, interval="2m", execution_timeout=120, task_timeout=120
+    benchmark, chain_id, interval="2m", execution_timeout=120, task_timeout=120, phase=0
 ):
     command = BASE_COMMAND + [
         "--",
@@ -259,7 +261,7 @@ def schedule_benchmark_task(
         "--task-queue",
         "manager",
         "--interval",
-        f"{interval}",
+        f"{interval}/{phase}s",
         "--overlap-policy",
         "Skip",
         "--execution-timeout",
@@ -312,8 +314,44 @@ def parse_dict_from_string(arg_string):
         )
 
 
+def validate_interval(interval_str):
+    """Validates that interval string has correct format (e.g., '5m', '1h', '24h')."""
+    import re
+
+    if not re.match(r"^\d+[smhd]$", interval_str):
+        raise argparse.ArgumentTypeError(
+            f"Invalid interval format: '{interval_str}'. Must be a number followed by 's', 'm', 'h', or 'd' (e.g., '10s', '5m', '1h', '24h')."
+        )
+    return interval_str
+
+
+def parse_interval_to_seconds(interval_str):
+    """Convert interval string (e.g., '5m', '1h') to total seconds."""
+    match = re.match(r"^(\d+)([smhd])$", interval_str)
+    if not match:
+        raise ValueError(f"Invalid interval format: '{interval_str}'")
+
+    value, unit = int(match.group(1)), match.group(2)
+
+    if unit == "s":
+        return value
+    elif unit == "m":
+        return value * 60
+    elif unit == "h":
+        return value * 3600
+    elif unit == "d":
+        return value * 86400
+    else:
+        raise ValueError(f"Unknown time unit: '{unit}'")
+
+
 def main():
-    global BASE_COMMAND, TEMPORAL_NAMESPACE, APPS_PER_SERVICE, LMEH_TYPE, DEPLOYMENT_NAME
+    global \
+        BASE_COMMAND, \
+        TEMPORAL_NAMESPACE, \
+        APPS_PER_SERVICE, \
+        LMEH_TYPE, \
+        DEPLOYMENT_NAME
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -329,10 +367,12 @@ def main():
         "--taxonomy", help="optionally pass a taxonomy name, e.g. --taxonomy general"
     )
     parser.add_argument(
-        "--k8s-namespace", help="Namespace of the k8s deployment, defaults to default"
+        "--k8s-namespace",
+        help="Namespace of the k8s deployment, defaults to not specified (default)",
     )
     parser.add_argument(
-        "--k8s-deployment", help=f"Name of the k8s deployment, defaults to {DEPLOYMENT_NAME}"
+        "--k8s-deployment",
+        help=f"Name of the k8s deployment, defaults to {DEPLOYMENT_NAME}",
     )
     parser.add_argument(
         "--temporal-namespace",
@@ -350,8 +390,73 @@ def main():
     parser.add_argument(
         "--identity", action="store_true", help="Trigger identity signature tasks"
     )
+    parser.add_argument(
+        "--benchmark-interval",
+        type=validate_interval,
+        default="5m",
+        help="Interval for benchmark tasks (default: 5m)",
+    )
+    parser.add_argument(
+        "--tokenizer-interval",
+        type=validate_interval,
+        default="2m",
+        help="Interval for tokenizer tasks (default: 2m)",
+    )
+    parser.add_argument(
+        "--config-interval",
+        type=validate_interval,
+        default="2m",
+        help="Interval for config tasks (default: 2m)",
+    )
+    parser.add_argument(
+        "--identity-interval",
+        type=validate_interval,
+        default="2m",
+        help="Interval for identity tasks (default: 2m)",
+    )
+    parser.add_argument(
+        "--requester-interval",
+        type=validate_interval,
+        default="1m",
+        help="Interval for requester tasks (default: 1m)",
+    )
+    parser.add_argument(
+        "--lookup-interval",
+        type=validate_interval,
+        default="10m",
+        help="Interval for lookup tasks (default: 10m)",
+    )
+    parser.add_argument(
+        "--summary-interval",
+        type=validate_interval,
+        default="1h",
+        help="Interval for summary tasks (default: 1h)",
+    )
+    parser.add_argument(
+        "--snapshot-interval",
+        type=validate_interval,
+        default="24h",
+        help="Interval for snapshot tasks (default: 24h)",
+    )
+    parser.add_argument(
+        "--phase-offset",
+        type=int,
+        default=0,
+        help="Custom phase offset in seconds to add to calculated phase (default: 0)",
+    )
 
     args = parser.parse_args()
+
+    # Extract interval values
+    benchmark_interval = args.benchmark_interval
+    tokenizer_interval = args.tokenizer_interval
+    config_interval = args.config_interval
+    identity_interval = args.identity_interval
+    requester_interval = args.requester_interval
+    lookup_interval = args.lookup_interval
+    summary_interval = args.summary_interval
+    snapshot_interval = args.snapshot_interval
+    phase_offset = args.phase_offset
 
     # Validate taxonomy if provided
     if args.taxonomy:
@@ -432,7 +537,10 @@ def main():
         trigger_requesters = True
         for chain_id in APPS_PER_SERVICE.keys():
             ok = schedule_identity_task(
-                chain_id, interval="2m", execution_timeout=120, task_timeout=120
+                chain_id,
+                interval=identity_interval,
+                execution_timeout=120,
+                task_timeout=120,
             )
             total_registers += ok
 
@@ -444,14 +552,20 @@ def main():
                 print(f"Triggering signatures for {chain_id}:")
                 # Schedule the tokenizer in this service ID
                 ok = schedule_tokenizer_task(
-                    chain_id, interval="2m", execution_timeout=120, task_timeout=120
+                    chain_id,
+                    interval=tokenizer_interval,
+                    execution_timeout=120,
+                    task_timeout=120,
                 )
                 print("\tTokenizer triggered.")
                 time.sleep(0.25)
                 total_tokenizers += ok
                 # Schedule the config task in this Service ID
                 ok = schedule_config_task(
-                    chain_id, interval="2m", execution_timeout=120, task_timeout=120
+                    chain_id,
+                    interval=config_interval,
+                    execution_timeout=120,
+                    task_timeout=120,
                 )
                 print("\tConfiguration triggered.")
                 time.sleep(0.25)
@@ -463,7 +577,7 @@ def main():
                     ok = schedule_requester_task(
                         app,
                         chain_id,
-                        interval="1m",
+                        interval=requester_interval,
                         execution_timeout=350,
                         task_timeout=175,
                     )
@@ -472,8 +586,22 @@ def main():
                     time.sleep(0.25)
             print("Signatures scheduled.")
 
+        # Calculate phase staggering for benchmark tasks
+        num_tasks = len(tasks_to_process)
+        phase_per_task = 0
+        if num_tasks > 0:
+            try:
+                interval_seconds = parse_interval_to_seconds(benchmark_interval)
+                phase_per_task = max(1, math.ceil(interval_seconds / num_tasks))
+            except ValueError as e:
+                print(f"Warning: Failed to calculate phase: {e}")
+                phase_per_task = 0
+        elif num_tasks == 0:
+            print("Warning: No tasks to process, phase staggering set to 0")
+            phase_per_task = 0
+
         # Create all tasks for all chains
-        for task in tasks_to_process:
+        for task_index, task in enumerate(tasks_to_process):
             if "undefined_task" in task:
                 print(f"Skipping undefined task: {task}")
                 continue
@@ -486,12 +614,14 @@ def main():
 
             # Finally schedule the benchmark
             for chain_id in APPS_PER_SERVICE.keys():
+                current_phase = task_index * phase_per_task + phase_offset
                 ok = schedule_benchmark_task(
                     task,
                     chain_id,
-                    interval="5m",
+                    interval=benchmark_interval,  # if "trigger_minimum" is set to >0 in the manager, this will define the sampling rate
                     execution_timeout=240,
                     task_timeout=240,
+                    phase=current_phase,
                 )
                 print("\tTask triggered.")
                 time.sleep(0.25)
@@ -499,16 +629,20 @@ def main():
 
     if trigger_requesters:
         # Start the base task lookup
-        schedule_lookup_task(interval="10m", execution_timeout=550, task_timeout=500)
+        schedule_lookup_task(
+            interval=lookup_interval, execution_timeout=550, task_timeout=500
+        )
         print("Lookup scheduled.")
         time.sleep(0.25)
 
-        schedule_summary_task(interval="1h", execution_timeout=1200, task_timeout=1200)
+        schedule_summary_task(
+            interval=summary_interval, execution_timeout=1200, task_timeout=1200
+        )
         print("Summary scheduled.")
         time.sleep(0.25)
 
         schedule_snapshot_task(
-            interval="24h", execution_timeout=1200, task_timeout=1200
+            interval=snapshot_interval, execution_timeout=1200, task_timeout=1200
         )
         print("Snapshot scheduled.")
         time.sleep(0.25)
@@ -522,7 +656,7 @@ def main():
                 ok = schedule_requester_task(
                     app,
                     chain_id,
-                    interval="1m",
+                    interval=requester_interval,
                     execution_timeout=350,
                     task_timeout=175,
                 )

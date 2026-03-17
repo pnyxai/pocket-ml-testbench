@@ -88,6 +88,9 @@ func (record *BaseTaskRecord) UpdateLastOkHeight(height int64) (err error) {
 }
 
 // The maximum age of a task entry.
+// NOTE : This value should be high enough so that any workflow schedule is
+// executed at least twice. While unlikely to set a workflow with days between
+// calls, this might happen.
 const TaskTTLDays uint32 = 32
 
 // ------------------------------------------------------------------------------
@@ -578,7 +581,32 @@ func CheckTaskTriggerMin(taskData TaskInterface, block types.BlockData, configMa
 const NumericalTaskTypeName string = "numerical"
 
 // The maximum age of a sample living in a buffer.
-const NumericalSampleTTLDays uint32 = 6
+// TODO: Maybe this should be configurable depending on the source, as external
+// sources are sampled slower than Pokt samples.
+// NOTE : This parameter controls how fast the NumericalSample buffer is renewed, meaning that it controls the sample
+// frequency of all numerical tests. So, if you wish to control the sampling frequency of an specific task you should do
+// the following:*2
+//
+//  1. Make sure that the TTL (this parameter) is compatible with the expected frequency. Lets say that you want
+//     the task buffer to renew completely in 30 days, then this TTL should be 30 (or more).
+//  3. Set the task config to force 1 task trigger `"trigger_minimum": {"any" : "1"}`. This will ensure that the
+//     the manager will trigger at least one task, independently from the buffer state (hence capable of overwriting
+//     samples) every time the workflow is called.
+//  2. Finally, create the workflow associated to the task with the sampling frequency that you want, so if you want to
+//     have NumericalMinSamplesPerTask samples measured in a month, then you take that number and you divide it by the
+//     number of trigger_minimum configured: (NumericalMinSamplesPerTask/TriggerMinimum), then you set your workflow
+//     interval to:
+//     (30days*24*60*60)/(75/1) = 25920 seconds/workflow_call
+//
+// Some calculations for `trigger_minimum=1` and `NumericalMinSamplesPerTask=75`:
+//   - 1  day  schedule:  1152 seconds/workflow_call
+//   - 3  days schedule:  3456 seconds/workflow_call
+//   - 7  days schedule:  8064 seconds/workflow_call
+//   - 30 days schedule: 34560 seconds/workflow_call
+//
+// This configuration will result in NumericalSampleTTLDays that will hold all samples for enough time to allow the
+// workflow frequency to renew all samples in the buffer using the `trigger_minimum` minimum setting.
+const NumericalSampleTTLDays uint32 = 32
 
 // Minimum number of samples to have in a task to consider that it does not require more samples
 // According to "tinyBenchmarks: evaluating LLMs with fewer examples" 100 is enough, but also 50 seems adequate.
@@ -966,7 +994,8 @@ func (record *NumericalTaskRecord) GetResultStruct() ResultInterface {
 const SignatureTaskTypeName string = "signature"
 
 // The maximum age of a sample living in a buffer.
-const SignatureSampleTTLDays uint32 = 6
+// NOTE : See the comments con NumericalSampleTTLDays for more insight on the implications of this variable
+const SignatureSampleTTLDays uint32 = 32
 
 // Minimum number of samples to have in a task to consider that it does not require more samples
 const SignatureMinSamplesPerTask uint32 = 10
@@ -1149,7 +1178,7 @@ func (record *SignatureTaskRecord) StepIndex(step uint32, marker string, positiv
 
 // Updates the indexes making them point to the initial and final samples in a given time window.
 func (record *SignatureTaskRecord) CycleIndexes(l *zerolog.Logger) (bool, error) {
-	return record.CircBuffer.CycleIndexes(NumericalSampleTTLDays, l)
+	return record.CircBuffer.CycleIndexes(SignatureSampleTTLDays, l)
 }
 
 // Returns the number of valid samples in the circular buffer
