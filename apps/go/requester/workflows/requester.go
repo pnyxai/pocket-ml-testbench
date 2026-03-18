@@ -171,13 +171,19 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 	// 			task is already terminated, whether due to error or success. Requests that are queued or
 	// 			running will not be affected. This is useful when the session does not matter (external
 	// 			services) but can lead to bad requests for Pocket requests.
+	// - enums.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE_FAILED_ONLY:  Allow starting a workflow execution
+	// 			using the same workflow id, only when the last execution's final state is one of
+	// 			[terminated, cancelled, timed out, failed].
+	//			If we allow reuse on success prompts for external services, we might get edge cases were prompts
+	// 			are triggered twice, because they are not already marked as "done" when the workflow started but are
+	// 			executed by the relayer before the loop schedules them.
 
 	// Best for POKT, given that when we pool MongoDB we explicitly search for prompts who's `trigger_session` is lower
 	// than the current session, meaning, all new and all invalid sessions.
 	use_policy := enums.WORKFLOW_ID_REUSE_POLICY_TERMINATE_IF_RUNNING
 	if params.Service == types.ExternalServiceName {
 		// Best for external, as we don't observe sessions here and we don't want to modify the delays without a reason.
-		use_policy = enums.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE
+		use_policy = enums.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE_FAILED_ONLY
 	}
 
 	// For these suppliers, get the pending tasks

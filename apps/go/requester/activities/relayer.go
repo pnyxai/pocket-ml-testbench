@@ -135,7 +135,7 @@ func GetPromptWithRequesterArgs(ctx context.Context, promptsCollection, tasksCol
 	return docs[0], nil
 }
 
-func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result RelayerResponse, _ error) {
+func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result RelayerResponse, err error) {
 	l := logger.GetActivityLogger(RelayerName, ctx, nil)
 	// create the response record id and assign to the activity result,
 	// so no mater the result it will contain at least that
@@ -163,7 +163,7 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 	var e error
 
 	if promptId, e = primitive.ObjectIDFromHex(params.PromptId); e != nil {
-		err := temporal.NewNonRetryableApplicationError("prompt_id must be a valid ObjectId", "BadParams", nil, params.PromptId)
+		err = temporal.NewNonRetryableApplicationError("prompt_id must be a valid ObjectId", "BadParams", nil, params.PromptId)
 		response.SetError(RelayResponseCodes.BadParams, err)
 		return
 	}
@@ -171,7 +171,7 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 	response.PromptId = promptId
 
 	if params.SessionHeight <= 0 {
-		err := temporal.NewNonRetryableApplicationError("session height <= 0", "BadParams", nil, params.SessionHeight)
+		err = temporal.NewNonRetryableApplicationError("session height <= 0", "BadParams", nil, params.SessionHeight)
 		response.SetError(RelayResponseCodes.BadParams, err)
 		return
 	}
@@ -184,11 +184,11 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 	prompt, getPromptError := GetPromptWithRequesterArgs(getPromptCtx, promptCollection, taskCollection, &promptId)
 	if getPromptError != nil {
 		if errors.Is(getPromptError, ErrPromptNotFound) {
-			err := temporal.NewNonRetryableApplicationError(getPromptError.Error(), "PromptNotFound", getPromptError, params.PromptId)
+			err = temporal.NewNonRetryableApplicationError(getPromptError.Error(), "PromptNotFound", getPromptError, params.PromptId)
 			response.SetError(RelayResponseCodes.PromptNotFound, err)
 			return
 		}
-		err := temporal.NewApplicationErrorWithCause("unexpected error reading prompt", "GetPromptWithRequesterArgs", getPromptError, params.PromptId)
+		err = temporal.NewApplicationErrorWithCause("unexpected error reading prompt", "GetPromptWithRequesterArgs", getPromptError, params.PromptId)
 		response.SetError(RelayResponseCodes.DatabaseRead, err)
 		return
 	}
@@ -200,7 +200,7 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 	// get_height
 	height, getHeightErr := aCtx.App.PocketFullNode.GetLatestBlockHeight()
 	if getHeightErr != nil {
-		err := temporal.NewApplicationErrorWithCause("unable to get height", "GetHeight", getHeightErr)
+		err = temporal.NewApplicationErrorWithCause("unable to get height", "GetHeight", getHeightErr)
 		response.SetError(RelayResponseCodes.PocketRpc, err)
 		return
 	}
@@ -224,7 +224,7 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 		// Retrieve supplier data
 		supplierData, ok := aCtx.App.ExternalSuppliers[params.SupplierAddress]
 		if !ok {
-			err := temporal.NewApplicationErrorWithCause("cannot retrieve external supplier data", "BadParams", nil, params.SupplierAddress)
+			err = temporal.NewApplicationErrorWithCause("cannot retrieve external supplier data", "BadParams", nil, params.SupplierAddress)
 			response.SetError(RelayResponseCodes.PocketRpc, err)
 			return
 		}
@@ -232,7 +232,7 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 		// Edit the prompt data to change model and/or add new fields
 		l.Debug("Original request", "request", prompt.Data)
 		var modPromptData map[string]any
-		if err := json.Unmarshal([]byte(prompt.Data), &modPromptData); err != nil {
+		if err = json.Unmarshal([]byte(prompt.Data), &modPromptData); err != nil {
 			response.Ok = false
 			response.Code = RelayResponseCodes.Relay
 			response.Error = fmt.Sprintf("cannot unmarshal prompt data: %w", err)
@@ -256,8 +256,9 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 			delete(modPromptData, "seed")
 		}
 		// Encode back
-		modPromptDataBytes, err := json.Marshal(modPromptData)
-		if err != nil {
+		modPromptDataBytes, e := json.Marshal(modPromptData)
+		if e != nil {
+			err = e
 			response.Ok = false
 			response.Code = RelayResponseCodes.Relay
 			response.Error = fmt.Sprintf("cannot marshal modified prompt data: %w", err)
@@ -273,8 +274,9 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 		endURL := params.TargetEndpoint.Url + prompt.Task.RequesterArgs.Path
 
 		// Create a new request with the url, method and body
-		newReq, err := http.NewRequest(prompt.Task.RequesterArgs.Method, endURL, bytes.NewBuffer(modPromptDataBytes))
-		if err != nil {
+		newReq, e := http.NewRequest(prompt.Task.RequesterArgs.Method, endURL, bytes.NewBuffer(modPromptDataBytes))
+		if e != nil {
+			err = e
 			response.Ok = false
 			response.Code = RelayResponseCodes.Relay
 			response.Error = fmt.Sprintf("cannot create new http request for external provider: %w", err)
@@ -287,8 +289,9 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 		}
 		// Do the relay
 		startTime := time.Now()
-		resp, err := aCtx.App.ExternalHttpClient.Do(newReq)
-		if err != nil {
+		resp, e := aCtx.App.ExternalHttpClient.Do(newReq)
+		if e != nil {
+			err = e
 			response.Ok = false
 			response.Code = RelayResponseCodes.Relay
 			response.Error = fmt.Sprintf("unable to send the new request: %w", err)
@@ -297,9 +300,10 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 		defer resp.Body.Close()
 
 		// Get the response
-		respBody, err := io.ReadAll(resp.Body)
+		respBody, e := io.ReadAll(resp.Body)
 		response.Ms = time.Since(startTime).Milliseconds()
-		if err != nil {
+		if e != nil {
+			err = e
 			response.Code = RelayResponseCodes.Supplier
 			response.Error = fmt.Sprintf("unable to copy the response body: %w", err)
 			return
@@ -318,7 +322,7 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 		// the session height in the params. Also, contemplate the session tolerance, basically how many sessions out it will
 		// anyway try to dispatch the relay.
 		if !CanHandleRelayWithinTolerance(currentSessionHeight, params.SessionHeight, params.BlocksPerSession, aCtx.App.Config.Relay.SessionTolerance) {
-			err := temporal.NewNonRetryableApplicationError("out of session", "OutOfSession", nil)
+			err = temporal.NewNonRetryableApplicationError("out of session", "OutOfSession", nil)
 			response.SetError(RelayResponseCodes.OutOfSession, err)
 			return
 		}
