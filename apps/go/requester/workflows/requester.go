@@ -221,6 +221,7 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 	// Now we must divide tasks into groups of tasks with the same ADDRESS
 	reqMap := activities.SplitByUniqueAddress(ltr.TaskRequests)
 
+	// TODO : This takes too long, we need to improve the behavior, maybe batching requests per supplier? no idea...
 	// For each Supplier:
 	for thisSupplier, theseSupplierReq := range reqMap {
 		l.Debug("Processing group.", "supplier", thisSupplier, "number of elements", len(theseSupplierReq))
@@ -299,18 +300,12 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 				TriggerSession: sessionHeight,
 			}
 			setPromptTriggerSessionActivityCtx := workflow.WithActivityOptions(ctx, ao)
-			var errorSet error
-			getTasksErr := workflow.ExecuteActivity(
+			// Call this activity and forget it. This saves times when many tasks are being processed.
+			workflow.ExecuteActivity(
 				setPromptTriggerSessionActivityCtx,
 				activities.Activities.SetPromptTriggerSession,
 				triggerUpdate,
-			).Get(setPromptTriggerSessionActivityCtx, &errorSet)
-			if getTasksErr != nil {
-				l.Error("SetPromptTriggerSession activity ends with error", "error", getTasksErr)
-			}
-			if errorSet != nil {
-				l.Error("SetPromptTriggerSession mongo update ends with error", "error", errorSet)
-			}
+			)
 
 		}
 
