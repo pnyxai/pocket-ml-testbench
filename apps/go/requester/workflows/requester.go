@@ -27,6 +27,7 @@ type RequesterResults struct {
 	App                string         `json:"app"`
 	Service            string         `json:"service"`
 	TriggersBySupplier map[string]int `json:"triggers_by_suppliers"`
+	SkippedBySupplier  map[string]int `json:"skips_by_suppliers"`
 	Height             int64          `json:"height"`
 	SessionHeight      int64          `json:"session_height"`
 	TriggeredWorkflows []string       `json:"workflows"`
@@ -53,7 +54,7 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 		WaitForCancellation: true,
 		RetryPolicy: &temporal.RetryPolicy{
 			BackoffCoefficient: 1,
-			MaximumAttempts:    3,
+			MaximumAttempts:    1,
 		},
 	}
 
@@ -215,13 +216,15 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 
 	// With all the data, we will proceed to trigger the relaying workflow
 	triggeredSupplierAddresses := make(map[string]int, 0)
+	skippedSupplierAddresses := make(map[string]int, 0)
 	skippedWorkflows := make([]string, 0)
 	triggeredWorkflows := make([]string, 0)
 
 	// Now we must divide tasks into groups of tasks with the same ADDRESS
 	reqMap := activities.SplitByUniqueAddress(ltr.TaskRequests)
 
-	// TODO : This takes too long, we need to improve the behavior, maybe batching requests per supplier? no idea...
+	// TODO : This takes too long, we need to improve the behavior, maybe batching requests per supplier? or scheduling
+	// things per supplier? filtering existing prompt requests using other method than try and fail?
 	// For each Supplier:
 	for thisSupplier, theseSupplierReq := range reqMap {
 		l.Debug("Processing group.", "supplier", thisSupplier, "number of elements", len(theseSupplierReq))
@@ -232,8 +235,6 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 			// Create a random timeout with a fixed time that marks the rate: 0+1 sec; 2 +- 1 sec ; 4 +- 1 sec ; etc...
 			randomDelay := (rand.Float64() * wCtx.App.Config.Relay.TimeDispersion) +
 				(float64(reqIdx) * suppliersTimeBetweenRelays[thisSupplier])
-			// Track triggered
-			triggeredSupplierAddresses[tr.Supplier] += 1
 			// Create target endpoint, which already contains the session
 			targetEndpoint := suppliers[tr.Supplier]
 			// You can access desired attributes here.
@@ -281,13 +282,17 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 				// OTHERWISE fail the workflow
 				if wf != nil {
 					skippedWorkflows = append(skippedWorkflows, fmt.Sprintf("ID:%s/RUN_ID:%s", wf.GetID(), wf.GetRunID()))
+					skippedSupplierAddresses[tr.Supplier] += 1
 				}
 				continue
 			}
 
+			// Track triggered
+			triggeredSupplierAddresses[tr.Supplier] += 1
 			triggeredWorkflows = append(triggeredWorkflows, fmt.Sprintf("ID:%s/RUN_ID:%s", wf.GetID(), wf.GetRunID()))
 
-			// Update the prompt entry
+			// Update the prompt entry:
+			// 		This is needed to keep triggers in sync, it must be done right now if the prompt is triggered
 			if params.Service == types.ExternalServiceName {
 				// patch session height since it will never change in external services
 				// This will make all external services to be re-triggered every time we
@@ -300,12 +305,18 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 				TriggerSession: sessionHeight,
 			}
 			setPromptTriggerSessionActivityCtx := workflow.WithActivityOptions(ctx, ao)
-			// Call this activity and forget it. This saves times when many tasks are being processed.
-			workflow.ExecuteActivity(
+			var errorSet error
+			getTasksErr := workflow.ExecuteActivity(
 				setPromptTriggerSessionActivityCtx,
 				activities.Activities.SetPromptTriggerSession,
 				triggerUpdate,
-			)
+			).Get(setPromptTriggerSessionActivityCtx, &errorSet)
+			if getTasksErr != nil {
+				l.Error("SetPromptTriggerSession activity ends with error", "error", getTasksErr)
+			}
+			if errorSet != nil {
+				l.Error("SetPromptTriggerSession mongo update ends with error", "error", errorSet)
+			}
 
 		}
 
@@ -315,6 +326,7 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 		App:                params.App,
 		Service:            params.Service,
 		TriggersBySupplier: triggeredSupplierAddresses,
+		SkippedBySupplier:  skippedSupplierAddresses,
 		// check if this is the height of the block when the session is get or what
 		Height:             currHeight,
 		SessionHeight:      sessionHeight,
