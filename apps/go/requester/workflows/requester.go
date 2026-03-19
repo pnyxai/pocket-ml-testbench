@@ -27,6 +27,7 @@ type RequesterResults struct {
 	App                string         `json:"app"`
 	Service            string         `json:"service"`
 	TriggersBySupplier map[string]int `json:"triggers_by_suppliers"`
+	SkippedBySupplier  map[string]int `json:"skips_by_suppliers"`
 	Height             int64          `json:"height"`
 	SessionHeight      int64          `json:"session_height"`
 	TriggeredWorkflows []string       `json:"workflows"`
@@ -53,7 +54,7 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 		WaitForCancellation: true,
 		RetryPolicy: &temporal.RetryPolicy{
 			BackoffCoefficient: 1,
-			MaximumAttempts:    3,
+			MaximumAttempts:    1,
 		},
 	}
 
@@ -171,13 +172,19 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 	// 			task is already terminated, whether due to error or success. Requests that are queued or
 	// 			running will not be affected. This is useful when the session does not matter (external
 	// 			services) but can lead to bad requests for Pocket requests.
+	// - enums.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE_FAILED_ONLY:  Allow starting a workflow execution
+	// 			using the same workflow id, only when the last execution's final state is one of
+	// 			[terminated, cancelled, timed out, failed].
+	//			If we allow reuse on success prompts for external services, we might get edge cases were prompts
+	// 			are triggered twice, because they are not already marked as "done" when the workflow started but are
+	// 			executed by the relayer before the loop schedules them.
 
 	// Best for POKT, given that when we pool MongoDB we explicitly search for prompts who's `trigger_session` is lower
 	// than the current session, meaning, all new and all invalid sessions.
 	use_policy := enums.WORKFLOW_ID_REUSE_POLICY_TERMINATE_IF_RUNNING
 	if params.Service == types.ExternalServiceName {
 		// Best for external, as we don't observe sessions here and we don't want to modify the delays without a reason.
-		use_policy = enums.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE
+		use_policy = enums.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE_FAILED_ONLY
 	}
 
 	// For these suppliers, get the pending tasks
@@ -209,12 +216,15 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 
 	// With all the data, we will proceed to trigger the relaying workflow
 	triggeredSupplierAddresses := make(map[string]int, 0)
+	skippedSupplierAddresses := make(map[string]int, 0)
 	skippedWorkflows := make([]string, 0)
 	triggeredWorkflows := make([]string, 0)
 
 	// Now we must divide tasks into groups of tasks with the same ADDRESS
 	reqMap := activities.SplitByUniqueAddress(ltr.TaskRequests)
 
+	// TODO : This takes too long, we need to improve the behavior, maybe batching requests per supplier? or scheduling
+	// things per supplier? filtering existing prompt requests using other method than try and fail?
 	// For each Supplier:
 	for thisSupplier, theseSupplierReq := range reqMap {
 		l.Debug("Processing group.", "supplier", thisSupplier, "number of elements", len(theseSupplierReq))
@@ -225,8 +235,6 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 			// Create a random timeout with a fixed time that marks the rate: 0+1 sec; 2 +- 1 sec ; 4 +- 1 sec ; etc...
 			randomDelay := (rand.Float64() * wCtx.App.Config.Relay.TimeDispersion) +
 				(float64(reqIdx) * suppliersTimeBetweenRelays[thisSupplier])
-			// Track triggered
-			triggeredSupplierAddresses[tr.Supplier] += 1
 			// Create target endpoint, which already contains the session
 			targetEndpoint := suppliers[tr.Supplier]
 			// You can access desired attributes here.
@@ -274,13 +282,17 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 				// OTHERWISE fail the workflow
 				if wf != nil {
 					skippedWorkflows = append(skippedWorkflows, fmt.Sprintf("ID:%s/RUN_ID:%s", wf.GetID(), wf.GetRunID()))
+					skippedSupplierAddresses[tr.Supplier] += 1
 				}
 				continue
 			}
 
+			// Track triggered
+			triggeredSupplierAddresses[tr.Supplier] += 1
 			triggeredWorkflows = append(triggeredWorkflows, fmt.Sprintf("ID:%s/RUN_ID:%s", wf.GetID(), wf.GetRunID()))
 
-			// Update the prompt entry
+			// Update the prompt entry:
+			// 		This is needed to keep triggers in sync, it must be done right now if the prompt is triggered
 			if params.Service == types.ExternalServiceName {
 				// patch session height since it will never change in external services
 				// This will make all external services to be re-triggered every time we
@@ -314,6 +326,7 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 		App:                params.App,
 		Service:            params.Service,
 		TriggersBySupplier: triggeredSupplierAddresses,
+		SkippedBySupplier:  skippedSupplierAddresses,
 		// check if this is the height of the block when the session is get or what
 		Height:             currHeight,
 		SessionHeight:      sessionHeight,

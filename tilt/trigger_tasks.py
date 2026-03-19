@@ -50,7 +50,11 @@ def schedule_lookup_task(interval="1m", execution_timeout=600, task_timeout=540)
         f"{interval}",
         "--overlap-policy",
         "Skip",
+        "--catchup-window",
+        "1s",
         "--execution-timeout",
+        f"{execution_timeout}s",
+        "--run-timeout",
         f"{execution_timeout}s",
         "--task-timeout",
         f"{task_timeout}s",
@@ -78,7 +82,11 @@ def schedule_snapshot_task(interval="24h", execution_timeout=1200, task_timeout=
         f"{interval}",
         "--overlap-policy",
         "Skip",
+        "--catchup-window",
+        "1s",
         "--execution-timeout",
+        f"{execution_timeout}s",
+        "--run-timeout",
         f"{execution_timeout}s",
         "--task-timeout",
         f"{task_timeout}s",
@@ -106,7 +114,11 @@ def schedule_summary_task(interval="1h", execution_timeout=1200, task_timeout=12
         f"{interval}",
         "--overlap-policy",
         "Skip",
+        "--catchup-window",
+        "1s",
         "--execution-timeout",
+        f"{execution_timeout}s",
+        "--run-timeout",
         f"{execution_timeout}s",
         "--task-timeout",
         f"{task_timeout}s",
@@ -136,7 +148,11 @@ def schedule_requester_task(
         f"{interval}",
         "--overlap-policy",
         "Skip",
+        "--catchup-window",
+        "1s",
         "--execution-timeout",
+        f"{execution_timeout}s",
+        "--run-timeout",
         f"{execution_timeout}s",
         "--task-timeout",
         f"{task_timeout}s",
@@ -168,7 +184,11 @@ def schedule_tokenizer_task(
         f"{interval}",
         "--overlap-policy",
         "Skip",
+        "--catchup-window",
+        "1s",
         "--execution-timeout",
+        f"{execution_timeout}s",
+        "--run-timeout",
         f"{execution_timeout}s",
         "--task-timeout",
         f"{task_timeout}s",
@@ -200,7 +220,11 @@ def schedule_config_task(
         f"{interval}",
         "--overlap-policy",
         "Skip",
+        "--catchup-window",
+        "1s",
         "--execution-timeout",
+        f"{execution_timeout}s",
+        "--run-timeout",
         f"{execution_timeout}s",
         "--task-timeout",
         f"{task_timeout}s",
@@ -232,7 +256,11 @@ def schedule_identity_task(
         f"{interval}",
         "--overlap-policy",
         "Skip",
+        "--catchup-window",
+        "1s",
         "--execution-timeout",
+        f"{execution_timeout}s",
+        "--run-timeout",
         f"{execution_timeout}s",
         "--task-timeout",
         f"{task_timeout}s",
@@ -264,7 +292,11 @@ def schedule_benchmark_task(
         f"{interval}/{phase}s",
         "--overlap-policy",
         "Skip",
+        "--catchup-window",
+        "1s",
         "--execution-timeout",
+        f"{execution_timeout}s",
+        "--run-timeout",
         f"{execution_timeout}s",
         "--task-timeout",
         f"{task_timeout}s",
@@ -295,6 +327,8 @@ def execute_register_task(task, execution_timeout=7200, task_timeout=3600):
         "--input",
         f'{{"framework": "{LMEH_TYPE}", "tasks": "{task}"}}',
         "--execution-timeout",
+        f"{execution_timeout}s",
+        "--run-timeout",
         f"{execution_timeout}s",
         "--task-timeout",
         f"{task_timeout}s",
@@ -391,6 +425,9 @@ def main():
         "--identity", action="store_true", help="Trigger identity signature tasks"
     )
     parser.add_argument(
+        "--only-requesters", action="store_true", help="Only trigger requester tasks"
+    )
+    parser.add_argument(
         "--benchmark-interval",
         type=validate_interval,
         default="5m",
@@ -477,11 +514,18 @@ def main():
         )
         return
 
-    # Require at least one of --task or --taxonomy
-    if not args.task and not args.taxonomy and not args.identity:
-        print("Error: Either --task, --taxonomy or --identity must be specified.")
+    # Require at least one of --task, --taxonomy, --identity, or --only-requesters
+    if (
+        not args.task
+        and not args.taxonomy
+        and not args.identity
+        and not args.only_requesters
+    ):
         print(
-            "Please specify either a single task with --task, a taxonomy with --taxonomy or identity signature with --identity."
+            "Error: Either --task, --taxonomy, --identity, or --only-requesters must be specified."
+        )
+        print(
+            "Please specify either a single task with --task, a taxonomy with --taxonomy, identity signature with --identity, or requesters with --only-requesters."
         )
         return
 
@@ -515,6 +559,9 @@ def main():
     elif args.taxonomy:
         print(f"Triggering taxonomy: {args.taxonomy}")
         tasks_to_process = get_taxonomy_datasets(taxonomy_graph)
+    else:
+        # For --only-requesters or --identity, tasks_to_process is not needed
+        tasks_to_process = []
 
     # This flag is necessary to set correct dependencies and is independent of
     # any other postfix used
@@ -532,6 +579,10 @@ def main():
             ok = execute_register_task(task, execution_timeout=7200, task_timeout=3600)
             time.sleep(0.25)
             total_registers += ok
+
+    elif args.only_requesters:
+        print("Setting-up requesters only:")
+        trigger_requesters = True
 
     elif args.identity:
         trigger_requesters = True
@@ -578,8 +629,8 @@ def main():
                         app,
                         chain_id,
                         interval=requester_interval,
-                        execution_timeout=350,
-                        task_timeout=175,
+                        execution_timeout=900,
+                        task_timeout=900,
                     )
                     total_requesters += ok
                     print(f"\t\t{app}")
@@ -657,8 +708,8 @@ def main():
                     app,
                     chain_id,
                     interval=requester_interval,
-                    execution_timeout=350,
-                    task_timeout=175,
+                    execution_timeout=900,
+                    task_timeout=900,
                 )
                 total_requesters += ok
                 print(f"\t\t{app}")
