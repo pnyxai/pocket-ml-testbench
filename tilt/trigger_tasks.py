@@ -289,7 +289,7 @@ def schedule_benchmark_task(
         "--task-queue",
         "manager",
         "--interval",
-        f"{interval}",
+        f"{interval}/{phase}s",
         "--overlap-policy",
         "Skip",
         "--catchup-window",
