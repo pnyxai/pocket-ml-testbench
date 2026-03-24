@@ -59,6 +59,13 @@ INVALID_ANSWER = "[invalidanswer]"
 
 DEFAULT_MAX_LENGTH = 16000
 DEFAULT_GEN_TOKS = 8192
+BANNED_GEN_KWARGS = [
+    "temperature",
+    "top_p",
+    "top_k",
+    "presence_penalty",
+    "frequency_penalty",
+]
 
 # this function change its behavior in 0.4.3.
 # Currently we will maintain the previous behavior to be compatible with vLLM.
@@ -132,6 +139,7 @@ class SamplerAPI(TemplateAPI):
         # timeout in seconds
         timeout: int = 300,
         max_images: int = 1,
+        clean_gen_kwargs: bool = True,
         **kwargs,
     ) -> None:
         # super().__init__()
@@ -184,7 +192,7 @@ class SamplerAPI(TemplateAPI):
         self._eos_string = eos_string
         self.timeout = int(timeout)
         self.max_images = int(max_images)
-
+        self.flag_clean_gen_kwargs = clean_gen_kwargs
         # NOTE (nicolas): Due to super.init() is currently not called, we need to set these attributes manually.
         self._rank = 0
         self._world_size = 1
@@ -576,6 +584,19 @@ class SamplerAPI(TemplateAPI):
 
         # return re_ord.get_original(res)
 
+    def clean_gen_kwargs(self, request: dict) -> dict:
+        """Remove generation kwargs:
+        temperature
+        top_p
+        top_k
+        presence_penalty
+        frequency_penalty
+        """
+        for key in BANNED_GEN_KWARGS:
+            if key in request:
+                request.pop(key)
+        return request
+
     def generate_until(
         self, requests: List[Instance], disable_tqdm: bool = False
     ) -> List[Union[ChatCompletionRequest, CompletionRequest]]:
@@ -764,7 +785,9 @@ class SamplerCompletionAPI(SamplerAPI, LocalCompletionsAPI):
             eos=self.eos_string,
             **kwargs,
         )
-        # Return CompletionRequest instance
+        if self.flag_clean_gen_kwargs:
+            # Remove BANNED_GEN_KWARGS from request
+            request = self.clean_gen_kwargs(request)
         return CompletionRequest(**request)
 
 
@@ -805,7 +828,11 @@ class SamplerChatCompletionAPI(SamplerAPI, LocalChatCompletion):
         if max_toks is not None:
             request.pop("max_tokens")
             request["max_completion_tokens"] = max_toks
-        # Return CompletionRequest instance
+
+        if self.flag_clean_gen_kwargs:
+            # Remove BANNED_GEN_KWARGS from request
+            request = self.clean_gen_kwargs(request)
+
         return ChatCompletionRequest(**request)
 
 
