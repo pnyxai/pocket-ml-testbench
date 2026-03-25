@@ -144,10 +144,10 @@ pnyx_categories_v2_labeling {
     //---------------------- TOOL AND INSTRUCTION COMPLIANCE
     //--------------------------------------------------------------------------
     // --- IFEVAL
-    // tool_and_instruction_compliance -> ifeval;
+    tool_and_instruction_compliance -> ifeval;
     // --- IFBENCH
     tool_and_instruction_compliance -> ifbench;
-    tool_and_instruction_compliance -> ifbench_ifbench-constraints_single-turn;
+    //tool_and_instruction_compliance -> ifbench_ifbench-constraints_single-turn;
     tool_and_instruction_compliance -> ifbench_ifbench-constraints_multi-turn;
     //tool_and_instruction_compliance -> ifbench_ifeval-constraints_single-turn;
     //tool_and_instruction_compliance -> ifbench_ifeval-constraints_multi-turn;

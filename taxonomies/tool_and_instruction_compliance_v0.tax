@@ -18,7 +18,6 @@ tool_and_instruction_compliance_v0 {
     // --------(Shared foundation) ----------
     // Ability to parse and internalize an explicit or implicit rule before acting.
     // Everything above depends on this.
-    constraint_following -> rule_parsing;
     tool_call_formatting -> rule_parsing;
 
     // =========================================================================
@@ -26,10 +25,10 @@ tool_and_instruction_compliance_v0 {
     // Explicit textual constraints on model output (format, content, style).
     // =========================================================================
 
-    // --------(Multi-turn constraint binding) ----------
+    // --------(Conversational constraint binding) ----------
     // Retroactively applying a constraint introduced in a follow-up turn.
     // Requires basic constraint following plus conversational context tracking.
-    multi_turn_constraint_binding -> constraint_following;
+    conversational_constraint_binding -> rule_parsing;
 
     // =========================================================================
     // BRANCH B: TOOL USE COMPLIANCE
@@ -41,7 +40,7 @@ tool_and_instruction_compliance_v0 {
     // Builds on the ability to produce a correctly formatted tool call and
     // the ability of following constraints.
     agentic_tool_reasoning -> tool_call_formatting;
-    agentic_tool_reasoning -> constraint_following;
+    agentic_tool_reasoning -> conversational_constraint_binding;
 
     // --------(Tool output verification) ----------
     // Evaluating whether a completed tool call actually satisfied the objective.
@@ -51,7 +50,6 @@ tool_and_instruction_compliance_v0 {
     // =========================================================================
     // ROOT
     // =========================================================================
-    root_c -> multi_turn_constraint_binding;
     root_c -> agentic_tool_reasoning;
     root_c -> tool_output_verification;
 }
@@ -66,20 +64,19 @@ tool_and_instruction_compliance_v0_labeling {
     // Understanding what an explicit or implicit rule requires.
     // Measured by basic single-turn instruction following with known constraints.
     rule_parsing -> ifbench;
+    rule_parsing -> ifeval;
+    //rule_parsing -> ifbench_ifeval-constraints_single-turn;
+    //rule_parsing -> ifbench_ifbench-constraints_single-turn;
 
     // =========================================================================
     // BRANCH A: INSTRUCTION CONSTRAINT FOLLOWING
-    // =========================================================================
+    // =========================================================================  
 
-    // --------(Constraint following) ----------
-    // Producing output that correctly satisfies a stated constraint.
-    //constraint_following -> ifbench_ifeval-constraints_single-turn;
-    constraint_following -> ifbench_ifbench-constraints_single-turn;
-
-    // --------(Multi-turn constraint binding) ----------
-    // Applying a constraint that arrives in a follow-up conversational turn.
-    //multi_turn_constraint_binding -> ifbench_ifeval-constraints_multi-turn;
-    multi_turn_constraint_binding -> ifbench_ifbench-constraints_multi-turn;
+    // --------(Conversational constraint binding) ----------
+    // Producing output that correctly satisfies a stated constraint and
+    // applying a constraint that arrives in a follow-up conversational turn.
+    //conversational_constraint_binding -> ifbench_ifeval-constraints_multi-turn;
+    conversational_constraint_binding -> ifbench_ifbench-constraints_multi-turn;
 
     // =========================================================================
     // BRANCH B: TOOL USE COMPLIANCE
