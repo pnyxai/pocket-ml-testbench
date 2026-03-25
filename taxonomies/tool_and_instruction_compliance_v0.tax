@@ -26,11 +26,6 @@ tool_and_instruction_compliance_v0 {
     // Explicit textual constraints on model output (format, content, style).
     // =========================================================================
 
-    // --------(Constraint generalization) ----------
-    // Applying constraints that go beyond familiar templates (OOD constraint types).
-    // Depends on being able to follow constraints at all.
-    constraint_generalization -> constraint_following;
-
     // --------(Multi-turn constraint binding) ----------
     // Retroactively applying a constraint introduced in a follow-up turn.
     // Requires basic constraint following plus conversational context tracking.
@@ -43,8 +38,10 @@ tool_and_instruction_compliance_v0 {
 
     // --------(Agentic tool reasoning) ----------
     // Full agentic loop: plan → reason → retrieve → understand tool outputs.
-    // Builds on the ability to produce a correctly formatted tool call.
+    // Builds on the ability to produce a correctly formatted tool call and
+    // the ability of following constraints.
     agentic_tool_reasoning -> tool_call_formatting;
+    agentic_tool_reasoning -> constraint_following;
 
     // --------(Tool output verification) ----------
     // Evaluating whether a completed tool call actually satisfied the objective.
@@ -54,7 +51,6 @@ tool_and_instruction_compliance_v0 {
     // =========================================================================
     // ROOT
     // =========================================================================
-    root_c -> constraint_generalization;
     root_c -> multi_turn_constraint_binding;
     root_c -> agentic_tool_reasoning;
     root_c -> tool_output_verification;
@@ -69,24 +65,20 @@ tool_and_instruction_compliance_v0_labeling {
     // --------(Rule parsing) ----------
     // Understanding what an explicit or implicit rule requires.
     // Measured by basic single-turn instruction following with known constraints.
-    rule_parsing -> ifbench_ifeval-constraints_single-turn;
+    rule_parsing -> ifbench;
 
     // =========================================================================
     // BRANCH A: INSTRUCTION CONSTRAINT FOLLOWING
     // =========================================================================
 
     // --------(Constraint following) ----------
-    // Producing output that correctly satisfies a stated constraint in-distribution.
-    // IFEval-style constraints are well-represented in training data.
-    constraint_following -> ifbench_ifeval-constraints_single-turn;
-
-    // --------(Constraint generalisation) ----------
-    // Following novel, out-of-distribution constraint types (IFBench's 58 new templates).
-    constraint_generalization -> ifbench_ifbench-constraints_single-turn;
+    // Producing output that correctly satisfies a stated constraint.
+    //constraint_following -> ifbench_ifeval-constraints_single-turn;
+    constraint_following -> ifbench_ifbench-constraints_single-turn;
 
     // --------(Multi-turn constraint binding) ----------
     // Applying a constraint that arrives in a follow-up conversational turn.
-    multi_turn_constraint_binding -> ifbench_ifeval-constraints_multi-turn;
+    //multi_turn_constraint_binding -> ifbench_ifeval-constraints_multi-turn;
     multi_turn_constraint_binding -> ifbench_ifbench-constraints_multi-turn;
 
     // =========================================================================
@@ -101,7 +93,7 @@ tool_and_instruction_compliance_v0_labeling {
     // --------(Agentic tool reasoning) ----------
     // Full intermediate-step reasoning: plan a tool-calling sequence, reason about
     // context, retrieve the right tool, and understand its output.
-    agentic_tool_reasoning -> t-eval_pnyx_plan-json-v2;
+    //agentic_tool_reasoning -> t-eval_pnyx_plan-json-v2;
     agentic_tool_reasoning -> t-eval_pnyx_plan-reason-retrieve-understand-json-v2;
 
     // --------(Tool output verification) ----------

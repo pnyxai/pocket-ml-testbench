@@ -55,9 +55,9 @@ coding_and_structured_language_v0_labeling {
 
     // --------(Basic Generation) ----------
     // Generating correct Python functions from natural language descriptions
-    basic_generation -> humaneval_chat_instruct;
+    //basic_generation -> humaneval_chat_instruct;
     basic_generation -> humaneval_chat_instruct_plus;
-    basic_generation -> mbpp_sandbox_chat_instruct;
+    //basic_generation -> mbpp_sandbox_chat_instruct;
     basic_generation -> mbpp_sandbox_chat_instruct_plus;
 
     // =========================================================================
@@ -67,14 +67,14 @@ coding_and_structured_language_v0_labeling {
     // --------(Multilingual Generation) ----------
     // Translating problem descriptions into code across diverse languages
     // (C++, Go, Java, JavaScript/Node, Rust) using both HumanEval and MBPP tasks
-    multilingual_generation -> multipl-e_humaneval_cpp_chat_instruct;
+    //multilingual_generation -> multipl-e_humaneval_cpp_chat_instruct;
     multilingual_generation -> multipl-e_humaneval_go_chat_instruct;
-    multilingual_generation -> multipl-e_humaneval_java_chat_instruct;
+    //multilingual_generation -> multipl-e_humaneval_java_chat_instruct;
     multilingual_generation -> multipl-e_humaneval_node_chat_instruct;
     multilingual_generation -> multipl-e_humaneval_rust_chat_instruct;
-    multilingual_generation -> multipl-e_mbpp_cpp_chat_instruct;
+    //multilingual_generation -> multipl-e_mbpp_cpp_chat_instruct;
     multilingual_generation -> multipl-e_mbpp_go_chat_instruct;
-    multilingual_generation -> multipl-e_mbpp_java_chat_instruct;
+    //multilingual_generation -> multipl-e_mbpp_java_chat_instruct;
     multilingual_generation -> multipl-e_mbpp_node_chat_instruct;
     multilingual_generation -> multipl-e_mbpp_rust_chat_instruct;
 
@@ -84,8 +84,8 @@ coding_and_structured_language_v0_labeling {
 
     // --------(Debugging) ----------
     // Identifying and correcting bugs in Python code across difficulty levels
-    debugging -> debugbench_python_easy_sandbox_chat;
-    debugging -> debugbench_python_medium_sandbox_chat;
+    //debugging -> debugbench_python_easy_sandbox_chat;
+    //debugging -> debugbench_python_medium_sandbox_chat;
     debugging -> debugbench_python_hard_sandbox_chat;
 
     // =========================================================================
@@ -97,11 +97,11 @@ coding_and_structured_language_v0_labeling {
     // TensorFlow) and solving competitive/interview programming problems
     implementation -> ds1000_numpy_sandbox_chat;
     implementation -> ds1000_pandas_sandbox_chat;
-    implementation -> ds1000_pytorch_sandbox_chat;
+    //implementation -> ds1000_pytorch_sandbox_chat;
     implementation -> ds1000_scipy_sandbox_chat;
-    implementation -> ds1000_sklearn_sandbox_chat;
-    implementation -> ds1000_tensorflow_sandbox_chat;
-    implementation -> apps_introductory_sandbox_chat_instruct;
+    //implementation -> ds1000_sklearn_sandbox_chat;
+    //implementation -> ds1000_tensorflow_sandbox_chat;
+    //implementation -> apps_introductory_sandbox_chat_instruct;
     implementation -> apps_interview_sandbox_chat_instruct;
-    implementation -> apps_competition_sandbox_chat_instruct;
+    //implementation -> apps_competition_sandbox_chat_instruct;
 }

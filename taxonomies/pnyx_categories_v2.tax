@@ -1,46 +1,44 @@
 // This is a simple aggregation of all dataset used in other taxonomies, used to
 // generate a leaderboard-style summary.
 
-pnyx_categories_2 {
+pnyx_categories_v2 {
 
     //--------------------------------------------------------------------------
     //--------------------------------------------------------------------------
     // Roots
 
     root_c -> reasoning_and_logic;
-    // All core reasoning skills, basic inference and planing.
-    // Benchmarks like babi-steps and math-based are here
+    // Focuses on reasoning and logic capabilities. It integrates the babisteps 
+    // foundational skills with logical reasoning and mathematical thinking
 
     root_c -> foundational_knowledge;
-    // All general knowledge and domain specific knowledge.
-    // Benchmarks like MMLU and GPQA are here
+    // Foundational and domain-specific knowledge: Life Sciences, Physical 
+    // Sciences, and Computing.
 
     root_c -> social_and_ethical;
-    // General ethics and human interaction skills
-    // Benchmarks like MMLU go in here
+    // Social, ethical, and human interaction skills: Ethics, Law & Governance, 
+    // Business & Economics, and Social Interaction. 
 
     root_c -> tool_and_instruction_compliance;
-    // All benchmarks that measure the ability of the model to understand and 
-    // execute given a set of rules, explicit (instructions) or implicit (tools
-    // or restrictions).
-    // Benchmarks like IFBench and T-Eval are here
+    // Covers the ability of a model to understand and execute rules,
+    // whether explicit (natural-language instructions / output constraints) or
+    // implicit (tool schemas, API call conventions, structured formats).
 
     root_c -> coding_and_structured_language;
-    // All benchmarks that cover coding but also including here skills that 
-    // require rule‑heavy lexical skills like regex, markup, grammar‑bound 
-    // formats, etc.
-    // Benchmarks for coding are included here.
+    // It encompasses code generation, debugging, library-level implementation,
+    // and rule-heavy structured formats (e.g., regex, markup, grammar-bound languages)
+    // Most benchmarks are coding-focused; structured language skills share the same foundations
 }
 
-pnyx_categories_v1_labeling {
+pnyx_categories_v2_labeling {
 
     //--------------------------------------------------------------------------
     //---------------------- REASONING AND LOGIC
     //--------------------------------------------------------------------------
     // --- BBH
-    reasoning_and_logic -> bbh-split_05-dyck_languages;
-    reasoning_and_logic -> bbh-split_27-word_sorting;
-    reasoning_and_logic -> bbh-split_15-object_counting;
+    //reasoning_and_logic -> bbh-split_05-dyck_languages;
+    //reasoning_and_logic -> bbh-split_27-word_sorting;
+    //reasoning_and_logic -> bbh-split_15-object_counting;
     //reasoning_and_logic -> bbh-split_25-tracking_shuffled_objects_three_objects;
     //reasoning_and_logic -> bbh-split_23-tracking_shuffled_objects_five_objects; 
     //reasoning_and_logic -> bbh-split_24-tracking_shuffled_objects_seven_objects;
@@ -63,7 +61,7 @@ pnyx_categories_v1_labeling {
     //reasoning_and_logic -> mmlu_abstract_algebra_chat_generative;
     //reasoning_and_logic -> mmlu_high_school_mathematics_chat_generative; 
     //reasoning_and_logic -> mmlu_high_school_statistics_chat_generative;
-    reasoning_and_logic -> mmlu_logical_fallacies_chat_generative; 
+    //reasoning_and_logic -> mmlu_logical_fallacies_chat_generative; 
     // --- GSM8K
     //reasoning_and_logic -> gsm8k_chat;
     // --- MMLU-PRO
@@ -106,7 +104,7 @@ pnyx_categories_v1_labeling {
     //foundational_knowledge -> mmlu_high_school_european_history_chat_generative;
     foundational_knowledge -> mmlu_high_school_world_history_chat_generative; 
     foundational_knowledge -> mmlu_high_school_macroeconomics_chat_generative; 
-    foundational_knowledge -> mmlu_high_school_physics_chat_generative; 
+    //foundational_knowledge -> mmlu_high_school_physics_chat_generative; 
     // foundational_knowledge -> mmlu_high_school_biology_chat_generative; 
     // foundational_knowledge -> mmlu_high_school_chemistry_chat_generative; 
     //foundational_knowledge -> mmlu_college_physics_chat_generative;
@@ -146,18 +144,18 @@ pnyx_categories_v1_labeling {
     //---------------------- TOOL AND INSTRUCTION COMPLIANCE
     //--------------------------------------------------------------------------
     // --- IFEVAL
-    // tool_and_instruction_compliance -> ifeval
+    // tool_and_instruction_compliance -> ifeval;
     // --- IFBENCH
-    tool_and_instruction_compliance -> ifbench
-    tool_and_instruction_compliance -> ifbench_ifbench-constraints_single-turn
-    tool_and_instruction_compliance -> ifbench_ifbench-constraints_multi-turn
-    tool_and_instruction_compliance -> ifbench_ifeval-constraints_single-turn
-    tool_and_instruction_compliance -> ifbench_ifeval-constraints_multi-turn
+    tool_and_instruction_compliance -> ifbench;
+    tool_and_instruction_compliance -> ifbench_ifbench-constraints_single-turn;
+    tool_and_instruction_compliance -> ifbench_ifbench-constraints_multi-turn;
+    //tool_and_instruction_compliance -> ifbench_ifeval-constraints_single-turn;
+    //tool_and_instruction_compliance -> ifbench_ifeval-constraints_multi-turn;
     // --- T-EVAL
-    tool_and_instruction_compliance -> t-eval_pnyx_instruct-v2
-    tool_and_instruction_compliance -> t-eval_pnyx_plan-json-v2
-    tool_and_instruction_compliance -> t-eval_pnyx_plan-reason-retrieve-understand-json-v2
-    tool_and_instruction_compliance -> t-eval_pnyx_review-str-v2
+    tool_and_instruction_compliance -> t-eval_pnyx_instruct-v2;
+    //tool_and_instruction_compliance -> t-eval_pnyx_plan-json-v2;
+    tool_and_instruction_compliance -> t-eval_pnyx_plan-reason-retrieve-understand-json-v2;
+    tool_and_instruction_compliance -> t-eval_pnyx_review-str-v2;
 
     // --- BBH
     interpretation_and_communication -> bbh-split_04-disambiguation_qa;
@@ -194,7 +192,7 @@ pnyx_categories_v1_labeling {
     social_and_ethical -> mmlu_pro-category_business; 
     social_and_ethical -> mmlu_pro-category_history;
     social_and_ethical -> mmlu_pro-category_philosophy;
-    //social_and_ethical -> mmlu_pro-category_economics; 
+    social_and_ethical -> mmlu_pro-category_economics; 
     social_and_ethical -> mmlu_pro-category_law;
     // --- BBH
     social_and_ethical -> bbh-split_12-movie_recommendation;
@@ -210,35 +208,35 @@ pnyx_categories_v1_labeling {
     // --- REASONING GYM
     coding_and_structured_language -> reasoning_gym_007-codeio;
     // --- HUMANEVAL
-    coding_and_structured_language -> humaneval_chat_instruct;
+    //coding_and_structured_language -> humaneval_chat_instruct;
     coding_and_structured_language -> humaneval_chat_instruct_plus;
     // --- applied_sciences_and_engineering
-    coding_and_structured_language -> apps_introductory_sandbox_chat_instruct;
+    //coding_and_structured_language -> apps_introductory_sandbox_chat_instruct;
     coding_and_structured_language -> apps_interview_sandbox_chat_instruct;
-    coding_and_structured_language -> apps_competition_sandbox_chat_instruct;
+    //coding_and_structured_language -> apps_competition_sandbox_chat_instruct;
     // --- DEBUGBENCH
-    coding_and_structured_language -> debugbench_python_easy_sandbox_chat;
-    coding_and_structured_language -> debugbench_python_medium_sandbox_chat;
+    //coding_and_structured_language -> debugbench_python_easy_sandbox_chat;
+    //coding_and_structured_language -> debugbench_python_medium_sandbox_chat;
     coding_and_structured_language -> debugbench_python_hard_sandbox_chat;
     // --- DS-1000
     coding_and_structured_language -> ds1000_numpy_sandbox_chat;
     coding_and_structured_language -> ds1000_pandas_sandbox_chat;
-    coding_and_structured_language -> ds1000_pytorch_sandbox_chat;
+    //coding_and_structured_language -> ds1000_pytorch_sandbox_chat;
     coding_and_structured_language -> ds1000_scipy_sandbox_chat;
-    coding_and_structured_language -> ds1000_sklearn_sandbox_chat;
-    coding_and_structured_language -> ds1000_tensorflow_sandbox_chat;
+    //coding_and_structured_language -> ds1000_sklearn_sandbox_chat;
+    //coding_and_structured_language -> ds1000_tensorflow_sandbox_chat;
     // --- MBPP
-    coding_and_structured_language -> mbpp_sandbox_chat_instruct;
+    //coding_and_structured_language -> mbpp_sandbox_chat_instruct;
     coding_and_structured_language -> mbpp_sandbox_chat_instruct_plus;
     // --- MULTIPL-E
-    coding_and_structured_language -> multipl-e_humaneval_cpp_chat_instruct;
+    //coding_and_structured_language -> multipl-e_humaneval_cpp_chat_instruct;
     coding_and_structured_language -> multipl-e_humaneval_go_chat_instruct;
-    coding_and_structured_language -> multipl-e_humaneval_java_chat_instruct;
+    //coding_and_structured_language -> multipl-e_humaneval_java_chat_instruct;
     coding_and_structured_language -> multipl-e_humaneval_node_chat_instruct;
     coding_and_structured_language -> multipl-e_humaneval_rust_chat_instruct;
-    coding_and_structured_language -> multipl-e_mbpp_cpp_chat_instruct;
+    //coding_and_structured_language -> multipl-e_mbpp_cpp_chat_instruct;
     coding_and_structured_language -> multipl-e_mbpp_go_chat_instruct;
-    coding_and_structured_language -> multipl-e_mbpp_java_chat_instruct;
+    //coding_and_structured_language -> multipl-e_mbpp_java_chat_instruct;
     coding_and_structured_language -> multipl-e_mbpp_node_chat_instruct;
     coding_and_structured_language -> multipl-e_mbpp_rust_chat_instruct;
 

@@ -2,7 +2,6 @@
 // It is organized into four branches: Ethics, Law & Governance, Business & Economics,
 // and Social Interaction. Basic nodes (social_awareness, moral_foundations) are shared
 // across multiple branches to reflect their cross-cutting role.
-// Dependency direction: specialized_skill -> basic_skill (right side is a prerequisite of left side)
 
 social_and_ethical_v0 {
 
@@ -13,7 +12,6 @@ social_and_ethical_v0 {
     // --------(Shared base: Social Awareness) ----------
     // Broad understanding of human society, behavior, and global context
     // Prerequisite for civic, business, and social interaction branches
-    civic_and_political_knowledge -> social_awareness;
     economic_reasoning -> social_awareness;
     social_interaction -> social_awareness;
 
@@ -28,6 +26,7 @@ social_and_ethical_v0 {
 
     // --------(Applied Ethics -> Moral Foundations) ----------
     // Applying ethical principles to real-world scenarios and disputes
+    // (defined in shared dependencies)
 
     // =========================================================================
     // BRANCH B: LAW & GOVERNANCE
@@ -35,14 +34,12 @@ social_and_ethical_v0 {
 
     // --------(Legal Reasoning -> Moral Foundations) ----------
     // Understanding legal theory, jurisprudence, and professional law
+    // (defined in shared dependencies)
 
-    // --------(Civic and Political Knowledge -> Social Awareness) ----------
-    // Government systems, politics, and foreign policy
-
-    // --------(Professional Law and Governance -> Legal Reasoning + Civic) ----------
+    // --------(Professional Law and Governance -> Legal Reasoning + Social) ----------
     // Advanced integrated knowledge of professional law and governance
     professional_law_and_governance -> legal_reasoning;
-    professional_law_and_governance -> civic_and_political_knowledge;
+    professional_law_and_governance -> social_awareness;
 
     // =========================================================================
     // BRANCH C: BUSINESS & ECONOMICS
@@ -50,6 +47,7 @@ social_and_ethical_v0 {
 
     // --------(Economic Reasoning -> Social Awareness) ----------
     // Quantitative and conceptual economics
+    // (defined in shared dependencies)
 
     // --------(Business and Management -> Economic Reasoning) ----------
     // Applied business, management, accounting, and marketing
@@ -61,6 +59,13 @@ social_and_ethical_v0 {
 
     // --------(Social Interaction -> Social Awareness) ----------
     // Communication, public relations, and social/cultural understanding
+    // (defined in shared dependencies)
+
+    // --------(Social Sciences -> Social Interaction + World And Cultural Knowledge) ----------
+    // Economics, psychology foundations, and human behavior at scale
+    // Depending on history, geography, and social/cultural knowledge
+    social_sciences ->  social_interaction;
+    social_sciences -> world_and_cultural_knowledge;
 
     // =========================================================================
     // ROOT - Integrates all top-level branches
@@ -68,7 +73,7 @@ social_and_ethical_v0 {
     root_c -> applied_ethics;
     root_c -> professional_law_and_governance;
     root_c -> business_and_management;
-    root_c -> social_interaction;
+    root_c -> social_sciences;
 }
 
 social_and_ethical_v0_labeling {
@@ -82,12 +87,25 @@ social_and_ethical_v0_labeling {
     social_awareness -> mmlu_sociology_chat_generative;
     social_awareness -> mmlu_human_sexuality_chat_generative;
     social_awareness -> mmlu_global_facts_chat_generative;
-    social_awareness -> mmlu_pro-category_history;
+
+    // --------(World and Cultural Knowledge) ----------
+    // History, geography, and global cultural understanding
+    // Broad miscellaneous world knowledge and general facts
+    //world_and_cultural_knowledge -> mmlu_high_school_geography_chat_generative;
+    //world_and_cultural_knowledge -> mmlu_prehistory_chat_generative;
+    world_and_cultural_knowledge -> mmlu_high_school_world_history_chat_generative;
+    //world_and_cultural_knowledge -> mmlu_high_school_european_history_chat_generative;
+    //world_and_cultural_knowledge -> mmlu_high_school_us_history_chat_generative;
+    world_and_cultural_knowledge -> mmlu_pro-category_history;
+    //world_and_cultural_knowledge -> mmlu_miscellaneous_chat_generative;
+    world_and_cultural_knowledge -> mmlu_pro-category_other;
+    world_and_cultural_knowledge -> bbh-split_21-sports_understanding;
+
 
     // --------(Moral Foundations) ----------
     // Core philosophical and religious frameworks that underpin ethics and law
-    moral_foundations -> mmlu_philosophy_chat_generative;
-    moral_foundations -> mmlu_world_religions_chat_generative;
+    //moral_foundations -> mmlu_philosophy_chat_generative;
+    //moral_foundations -> mmlu_world_religions_chat_generative;
     moral_foundations -> mmlu_pro-category_philosophy;
 
     // =========================================================================
@@ -106,17 +124,16 @@ social_and_ethical_v0_labeling {
 
     // --------(Legal Reasoning) ----------
     // Legal theory, jurisprudence, and foundational principles of law
-    legal_reasoning -> mmlu_jurisprudence_chat_generative;
+    //legal_reasoning -> mmlu_jurisprudence_chat_generative;
     legal_reasoning -> mmlu_pro-category_law;
 
-    // --------(Civic and Political Knowledge) ----------
-    // Government systems, political institutions, and foreign policy
-    civic_and_political_knowledge -> mmlu_high_school_government_and_politics_chat_generative;
-    civic_and_political_knowledge -> mmlu_us_foreign_policy_chat_generative;
-
     // --------(Professional Law and Governance) ----------
+    // Government systems, political institutions, and foreign policy
     // Advanced professional law practice and governance systems
+    //professional_law_and_governance -> mmlu_high_school_government_and_politics_chat_generative;
+    //professional_law_and_governance -> mmlu_us_foreign_policy_chat_generative;
     professional_law_and_governance -> mmlu_professional_law_chat_generative;
+    //professional_law_and_governance -> mmlu_international_law_chat_generative;
 
     // =========================================================================
     // BRANCH C: BUSINESS & ECONOMICS
@@ -124,18 +141,21 @@ social_and_ethical_v0_labeling {
 
     // --------(Economic Reasoning) ----------
     // Quantitative and conceptual economic analysis
-    economic_reasoning -> mmlu_econometrics_chat_generative;
+    //economic_reasoning -> mmlu_econometrics_chat_generative;
     economic_reasoning -> mmlu_pro-category_economics;
+    //economic_reasoning -> mmlu_high_school_microeconomics_chat_generative;
+    economic_reasoning -> mmlu_high_school_macroeconomics_chat_generative;
 
     // --------(Business and Management) ----------
     // Applied business knowledge: management, accounting, and marketing
-    business_and_management -> mmlu_professional_accounting_chat_generative;
+    //business_and_management -> mmlu_professional_accounting_chat_generative;
     business_and_management -> mmlu_management_chat_generative;
-    business_and_management -> mmlu_marketing_chat_generative;
+    //business_and_management -> mmlu_marketing_chat_generative;
     business_and_management -> mmlu_pro-category_business;
 
     // =========================================================================
     // BRANCH D: SOCIAL INTERACTION & COMMUNICATION
+    // =========================================================================
     // =========================================================================
 
     // --------(Social Interaction) ----------
@@ -143,5 +163,11 @@ social_and_ethical_v0_labeling {
     social_interaction -> mmlu_public_relations_chat_generative;
     social_interaction -> bbh-split_12-movie_recommendation;
     social_interaction -> bbh-split_18-ruin_names;
+
+
+    // --------(Social Sciences) ----------
+    // Psychology foundations, and human behavior at scale
+    //social_sciences -> mmlu_high_school_psychology_chat_generative;
+    social_sciences -> mmlu_pro-category_psychology;
 
 }

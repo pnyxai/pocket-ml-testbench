@@ -1,7 +1,7 @@
 // This is a simple aggregation of all dataset used in other taxonomies, used to
 // generate a leaderboard-style summary.
 
-pnyx_leaderboard_v2 {
+pnyx_leaderboard_v3 {
 
     //--------------------------------------------------------------------------
     //--------------------------------------------------------------------------
@@ -14,11 +14,19 @@ pnyx_leaderboard_v2 {
     root_c -> gpqa;
     root_c -> gsm8k;
     root_c -> reasoning_gym;
+    root_c -> ifbench;
+    root_c -> t-eval;
+    root_c -> humaneval;
+    root_c -> apps;
+    root_c -> debugbench;
+    root_c -> ds1000;
+    root_c -> mbpp;
+    root_c -> multipl-e;
     
 
 }
 
-pnyx_leaderboard_v2_labeling {
+pnyx_leaderboard_v3_labeling {
 
     //--------------------------------------------------------------------------
     // --- Reasoning GYM
@@ -166,5 +174,71 @@ pnyx_leaderboard_v2_labeling {
     bbh -> bbh-split_26-web_of_lies;
     bbh -> bbh-split_27-word_sorting;
     
+
     //--------------------------------------------------------------------------
+    // --- IFBENCH
+    ifbench -> ifbench;
+    ifbench -> ifbench_ifbench-constraints_single-turn;
+    ifbench -> ifbench_ifbench-constraints_multi-turn;
+    ifbench -> ifbench_ifeval-constraints_single-turn;
+    ifbench -> ifbench_ifeval-constraints_multi-turn;
+
+
+    //--------------------------------------------------------------------------
+    // --- T-EVAL
+    t-eval -> t-eval_pnyx_instruct-v2;
+    t-eval -> t-eval_pnyx_plan-json-v2;
+    t-eval -> t-eval_pnyx_plan-reason-retrieve-understand-json-v2;
+    t-eval -> t-eval_pnyx_review-str-v2;
+
+
+    //--------------------------------------------------------------------------
+    // --- HUMANEVAL
+    humaneval -> humaneval_chat_instruct;
+    humaneval -> humaneval_chat_instruct_plus;
+
+    //--------------------------------------------------------------------------
+    // --- APPS
+    apps -> apps_introductory_sandbox_chat_instruct;
+    apps -> apps_interview_sandbox_chat_instruct;
+    apps -> apps_competition_sandbox_chat_instruct;
+
+
+    //--------------------------------------------------------------------------
+    // --- DEBUGBENCH
+    debugbench -> debugbench_python_easy_sandbox_chat;
+    debugbench -> debugbench_python_medium_sandbox_chat;
+    debugbench -> debugbench_python_hard_sandbox_chat;
+
+    //--------------------------------------------------------------------------
+    // --- DS-1000
+    ds1000 -> ds1000_numpy_sandbox_chat;
+    ds1000 -> ds1000_pandas_sandbox_chat;
+    ds1000 -> ds1000_pytorch_sandbox_chat;
+    ds1000 -> ds1000_scipy_sandbox_chat;
+    ds1000 -> ds1000_sklearn_sandbox_chat;
+    ds1000 -> ds1000_tensorflow_sandbox_chat;
+
+    //--------------------------------------------------------------------------
+    // --- MBPP
+    mbpp -> mbpp_sandbox_chat_instruct;
+    mbpp -> mbpp_sandbox_chat_instruct_plus;
+
+    //--------------------------------------------------------------------------
+    // --- MULTIPL-E
+    multipl-e -> multipl-e_humaneval_cpp_chat_instruct;
+    multipl-e -> multipl-e_humaneval_go_chat_instruct;
+    multipl-e -> multipl-e_humaneval_java_chat_instruct;
+    multipl-e -> multipl-e_humaneval_node_chat_instruct;
+    multipl-e -> multipl-e_humaneval_rust_chat_instruct;
+    multipl-e -> multipl-e_mbpp_cpp_chat_instruct;
+    multipl-e -> multipl-e_mbpp_go_chat_instruct;
+    multipl-e -> multipl-e_mbpp_java_chat_instruct;
+    multipl-e -> multipl-e_mbpp_node_chat_instruct;
+    multipl-e -> multipl-e_mbpp_rust_chat_instruct;
+
+
+    //--------------------------------------------------------------------------
+
+
 }
