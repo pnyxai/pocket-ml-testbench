@@ -241,6 +241,10 @@ async def lmeh_sample(args: PocketNetworkTaskRequest) -> bool:
                         requester_args=args.requester_args,
                         mongo_client=mongo_client,
                         wf_id=wf_id,
+                        # Due to `thinking` models are very sensitive to gen_kwargs, we are adding an option to remove
+                        # them from the request before send it to the model.
+                        # We delegate the proper config to servicers.
+                        clean_gen_kwargs=args.llm_args.get("clean_gen_kwargs", True),
                         **args.llm_args,
                     )
                 elif args.requester_args.path == "/v1/chat/completions":
@@ -248,6 +252,10 @@ async def lmeh_sample(args: PocketNetworkTaskRequest) -> bool:
                         requester_args=args.requester_args,
                         mongo_client=mongo_client,
                         wf_id=wf_id,
+                        # Due to `thinking` models are very sensitive to gen_kwargs, we are adding an option to remove
+                        # them from the request before send it to the model.
+                        # We delegate the proper config to servicers.
+                        clean_gen_kwargs=args.llm_args.get("clean_gen_kwargs", True),
                         **args.llm_args,
                     )
                 # LM Setup (end)
