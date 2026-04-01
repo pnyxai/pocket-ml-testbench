@@ -27,6 +27,7 @@ ENHANCE = AVERT_CONFIG.enhance
 # A-VERT so, we need to be creative
 DISTANCE_THRESHOLD = 0.6
 
+
 def filter_response(pred):
     """This function is used by the "exact_match" metric to try to clean the
     model generated answer.
@@ -106,7 +107,8 @@ def doc_eval(pred, options, answers, question, task):
         a_vert_match = True
         not_valid = np.max(all_distances) < DISTANCE_THRESHOLD
         if (
-            response_group_distribution["correct"] < response_group_distribution["wrong"]
+            response_group_distribution["correct"]
+            < response_group_distribution["wrong"]
         ) or not_valid:
             a_vert_match = False
 

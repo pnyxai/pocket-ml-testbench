@@ -1,6 +1,5 @@
 from functools import partial
 import os
-from pydoc import doc
 import re
 
 import a_vert
@@ -45,8 +44,6 @@ def format_example(example, include_options: bool, including_answer: bool):
 doc_to_text = partial(format_example, include_options=False, including_answer=False)
 
 
-
-
 def filter_response(pred):
     """This function is used by the "exact_match" metric to try to clean the
     model generated answer.
@@ -65,11 +62,8 @@ def filter_response(pred):
     return filtered_pred
 
 
-
 def doc_eval(pred, options, answers, question, task):
-    """This function takes a model generated response ("pred") and the 
-
-    """
+    """This function takes a model generated response ("pred") and the"""
 
     # ----------------------- EXACT MATCH --------------------------------------
     # Filter response
@@ -90,24 +84,32 @@ def doc_eval(pred, options, answers, question, task):
         a_vert_wrong_score = 1.0
     else:
         # Get other elements from the bAbI world
-        correct_group_text, wrong_group_text = get_babisteps_options(answers, question, options, task)
+        correct_group_text, wrong_group_text = get_babisteps_options(
+            answers, question, options, task
+        )
         # Construct the wrong candidates group
-        group_texts_dict = a_vert.processing.construct_candidate_groups(correct_group_text, 
-                                wrong_group_text, 
-                                ["correct", "wrong"], 
-                                enhance=ENHANCE,
-                                )
+        group_texts_dict = a_vert.processing.construct_candidate_groups(
+            correct_group_text,
+            wrong_group_text,
+            ["correct", "wrong"],
+            enhance=ENHANCE,
+        )
 
         # Process all candidate groups
-        response_group_distribution, _ = a_vert.processing.get_candidate_groups_embedings_ranking(
-            pred,
-            group_texts_dict,
-            AVERT_CONFIG,
-            task=task if task else "default",
+        response_group_distribution, _ = (
+            a_vert.processing.get_candidate_groups_embedings_ranking(
+                pred,
+                group_texts_dict,
+                AVERT_CONFIG,
+                task=task if task else "default",
+            )
         )
         # Check if this is a match
         a_vert_match = True
-        if response_group_distribution["correct"] < response_group_distribution["wrong"]:
+        if (
+            response_group_distribution["correct"]
+            < response_group_distribution["wrong"]
+        ):
             a_vert_match = False
 
         a_vert_correct_score = response_group_distribution["correct"]
@@ -118,18 +120,18 @@ def doc_eval(pred, options, answers, question, task):
     # Compile and return
     results = {
         "exact_match": exact_match,
-        "a-vert_correct_score": a_vert_correct_score, 
+        "a-vert_correct_score": a_vert_correct_score,
         "a-vert_wrong_score": a_vert_wrong_score,
         "a-vert_match": a_vert_match,
     }
 
     return results
 
-def process_results(doc, results):
-    """Custom processing function used to implement "a-vert" metric.
-    """
 
-    # Assert we are evaluating a single target. This is a limitation of this 
+def process_results(doc, results):
+    """Custom processing function used to implement "a-vert" metric."""
+
+    # Assert we are evaluating a single target. This is a limitation of this
     # bAbI implementation
     assert len(results) == 1, "only single predictions are supported"
 
@@ -147,13 +149,12 @@ def process_results(doc, results):
     return result_dict
 
 
-
 # ------------------------------------------------------------------------------
 # --------------------- babisteps specific code --------------------------------
 # ------------------------------------------------------------------------------
 
-def get_babisteps_options(answers, question, options, task):
 
+def get_babisteps_options(answers, question, options, task):
     correct_group_text = answers
     wrong_group_text = list()
     for option in options:
@@ -162,6 +163,6 @@ def get_babisteps_options(answers, question, options, task):
             if answ == option:
                 add = False
         if add:
-            wrong_group_text.append(option)       
+            wrong_group_text.append(option)
 
     return correct_group_text, wrong_group_text

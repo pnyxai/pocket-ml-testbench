@@ -16,6 +16,7 @@ AVERT_CONFIG = a_vert.setup(instruction_map=default_instruction)
 # For backward compatibility, extract individual values
 ENHANCE = AVERT_CONFIG.enhance
 
+
 def filter_response(pred):
     """This function is used by the "exact_match" metric to try to clean the
     model generated answer.
@@ -34,14 +35,13 @@ def filter_response(pred):
     return filtered_pred
 
 
-
 def doc_eval(pred, refs, question, task):
     """This function takes a model generated response ("pred") and the target
     reference ("refs") and computes the following metrics:
     - `exact_match` : A hard match between the generated string and the target
                     string.
-    - `a-vert_match` : A metric that is "1" when the a-vert score of the 
-                    "correct" target candidate group is higher than the "wrong" 
+    - `a-vert_match` : A metric that is "1" when the a-vert score of the
+                    "correct" target candidate group is higher than the "wrong"
                     group.
     """
 
@@ -65,22 +65,28 @@ def doc_eval(pred, refs, question, task):
         # Generate other numbers
         correct_group_text, wrong_group_text = get_gsm8k_options(refs, question)
         # Construct the wrong candidates group
-        group_texts_dict = a_vert.processing.construct_candidate_groups(correct_group_text, 
-                                wrong_group_text, 
-                                ["correct", "wrong"], 
-                                enhance=ENHANCE,
-                                )
+        group_texts_dict = a_vert.processing.construct_candidate_groups(
+            correct_group_text,
+            wrong_group_text,
+            ["correct", "wrong"],
+            enhance=ENHANCE,
+        )
 
         # Process all candidate groups
-        response_group_distribution, _ = a_vert.processing.get_candidate_groups_embedings_ranking(
-            pred,
-            group_texts_dict,
-            AVERT_CONFIG,
-            task=task if task else "default",
+        response_group_distribution, _ = (
+            a_vert.processing.get_candidate_groups_embedings_ranking(
+                pred,
+                group_texts_dict,
+                AVERT_CONFIG,
+                task=task if task else "default",
+            )
         )
         # Check if this is a match
         a_vert_match = True
-        if response_group_distribution["correct"] < response_group_distribution["wrong"]:
+        if (
+            response_group_distribution["correct"]
+            < response_group_distribution["wrong"]
+        ):
             a_vert_match = False
         a_vert_correct_score = response_group_distribution["correct"]
         a_vert_wrong_score = response_group_distribution["wrong"]
@@ -97,15 +103,14 @@ def doc_eval(pred, refs, question, task):
 
     return results
 
-def process_results(doc, results):
-    """Custom processing function used to implement "a-vert" metric.
-    """
 
-    # Assert we are evaluating a single target. This is a limitation of this 
+def process_results(doc, results):
+    """Custom processing function used to implement "a-vert" metric."""
+
+    # Assert we are evaluating a single target. This is a limitation of this
     # implementation
     assert len(results) == 1, "only single predictions are supported"
 
-    
     # Get the data
     response = results[0]
     target = doc["answer"]
@@ -122,16 +127,16 @@ def process_results(doc, results):
 # --------------------- gsm8k specific code ------------------------------------
 # ------------------------------------------------------------------------------
 
-def get_gsm8k_options(question_target, question):
 
+def get_gsm8k_options(question_target, question):
     # Get target number
     target_num = int(question_target.split("#### ")[-1])
     # Set other numbers
     other_options = [
-        np.floor(target_num*0.1),
-        np.floor(target_num*0.5),
-        np.ceil(target_num*1.25),
-        np.ceil(target_num*1.8),
+        np.floor(target_num * 0.1),
+        np.floor(target_num * 0.5),
+        np.ceil(target_num * 1.25),
+        np.ceil(target_num * 1.8),
     ]
     other_options = np.unique(other_options)
     other_options = [int(a) for a in other_options if a != target_num]

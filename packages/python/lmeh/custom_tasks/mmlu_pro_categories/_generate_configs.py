@@ -13,20 +13,22 @@ from tqdm import tqdm
 eval_logger = logging.getLogger("lm-eval")
 
 
-CATEGORIES = ['biology',
- 'business',
- 'chemistry',
- 'computer science',
- 'economics',
- 'engineering',
- 'health',
- 'history',
- 'law',
- 'math',
- 'other',
- 'philosophy',
- 'physics',
- 'psychology']
+CATEGORIES = [
+    "biology",
+    "business",
+    "chemistry",
+    "computer science",
+    "economics",
+    "engineering",
+    "health",
+    "history",
+    "law",
+    "math",
+    "other",
+    "philosophy",
+    "physics",
+    "psychology",
+]
 
 
 def parse_args():
@@ -44,7 +46,6 @@ if __name__ == "__main__":
     with open(args.base_yaml_path, encoding="utf-8") as f:
         base_yaml = yaml.full_load(f)
 
-    
     for set in ["_categories", "_categories_leaderboard"]:
         ALL_TASKS = []
         for category_name in tqdm(CATEGORIES):
@@ -65,7 +66,9 @@ if __name__ == "__main__":
             }
 
             file_save_path = args.save_prefix_path + f"_{task_name_use}.yaml"
-            eval_logger.info(f"Saving yaml for subset {task_name_use} to {file_save_path}")
+            eval_logger.info(
+                f"Saving yaml for subset {task_name_use} to {file_save_path}"
+            )
             with open(file_save_path, "w", encoding="utf-8") as yaml_file:
                 yaml.dump(
                     yaml_dict,
@@ -73,7 +76,7 @@ if __name__ == "__main__":
                     allow_unicode=True,
                     default_style='"',
                 )
-        
+
         file_save_path = args.save_prefix_path + ".yaml"
 
         eval_logger.info(f"Saving benchmark config to {file_save_path}")

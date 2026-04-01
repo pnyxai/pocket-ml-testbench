@@ -33,7 +33,7 @@ TASKS = {
     "17": "positional_reasoning",
     "18": "size_reasoning",
     "19": "path_finding",
-    "20": "agents_motivations"
+    "20": "agents_motivations",
 }
 
 
@@ -52,13 +52,12 @@ if __name__ == "__main__":
     with open(args.base_yaml_path, encoding="utf-8") as f:
         base_yaml = yaml.full_load(f)
 
-    
     for set in ["_tasks", "_tasks_completions"]:
         ALL_TASKS = []
         for task_id, task_name in tqdm(TASKS.items()):
             split_name = f"task_{task_id}-{task_name}"
             task_name_use = split_name
-            if int(task_id)<10:
+            if int(task_id) < 10:
                 # To keep order correctly on display screen
                 task_name_use = f"task_0{task_id}-{task_name}"
             if split_name not in ALL_TASKS:
@@ -77,7 +76,9 @@ if __name__ == "__main__":
             }
 
             file_save_path = args.save_prefix_path + f"_{task_name_use}.yaml"
-            eval_logger.info(f"Saving yaml for subset {task_name_use} to {file_save_path}")
+            eval_logger.info(
+                f"Saving yaml for subset {task_name_use} to {file_save_path}"
+            )
             with open(file_save_path, "w", encoding="utf-8") as yaml_file:
                 yaml.dump(
                     yaml_dict,
@@ -86,10 +87,8 @@ if __name__ == "__main__":
                     default_style='"',
                 )
 
-
         babi_subcategories = [f"babi{set}-{task}" for task in ALL_TASKS]
 
-        
         file_save_path = args.save_prefix_path + set + ".yaml"
 
         eval_logger.info(f"Saving benchmark config to {file_save_path}")

@@ -14,6 +14,7 @@ AVERT_CONFIG = a_vert.setup(instruction_map=default_instruction)
 # For backward compatibility, extract individual values
 ENHANCE = AVERT_CONFIG.enhance
 
+
 def filter_response(pred):
     """This function is used by the "exact_match" metric to try to clean the
     model generated answer.
@@ -32,19 +33,19 @@ def filter_response(pred):
     return filtered_pred
 
 
-
 def doc_eval(pred, target_idx, choices, task):
     """This function takes a model generated response ("pred") and the target
     reference ("refs") and computes the following metrics:
     - `exact_match` : A hard match between the generated string and the target
                     string.
-    - `a-vert_match` : A metric that is "1" when the a-vert score of the 
-                    "correct" target candidate group is higher than the "wrong" 
+    - `a-vert_match` : A metric that is "1" when the a-vert score of the
+                    "correct" target candidate group is higher than the "wrong"
                     group.
     """
 
-
-    correct_group_text, wrong_group_text, correct_group_idxs, wrong_group_idxs = get_mmlu_options(target_idx, choices)
+    correct_group_text, wrong_group_text, correct_group_idxs, wrong_group_idxs = (
+        get_mmlu_options(target_idx, choices)
+    )
     target = choices[target_idx]
 
     # ----------------------- EXACT MATCH --------------------------------------
@@ -65,46 +66,51 @@ def doc_eval(pred, target_idx, choices, task):
         a_vert_wrong_score = 1.0
     else:
         # Construct the wrong candidates group
-        group_texts_dict = a_vert.processing.construct_candidate_groups(correct_group_text, 
-                                wrong_group_text, 
-                                ["correct", "wrong"], 
-                                enhance=ENHANCE,
-                                with_options=ENHANCE,
-                                option_symbol="letters",
-                                correct_group_idxs=correct_group_idxs,
-                                wrong_group_idxs=wrong_group_idxs
-                                )
+        group_texts_dict = a_vert.processing.construct_candidate_groups(
+            correct_group_text,
+            wrong_group_text,
+            ["correct", "wrong"],
+            enhance=ENHANCE,
+            with_options=ENHANCE,
+            option_symbol="letters",
+            correct_group_idxs=correct_group_idxs,
+            wrong_group_idxs=wrong_group_idxs,
+        )
 
         # Process all candidate groups
-        response_group_distribution, _ = a_vert.processing.get_candidate_groups_embedings_ranking(
-            pred,
-            group_texts_dict,
-            AVERT_CONFIG,
-            task=task if task else "default",
+        response_group_distribution, _ = (
+            a_vert.processing.get_candidate_groups_embedings_ranking(
+                pred,
+                group_texts_dict,
+                AVERT_CONFIG,
+                task=task if task else "default",
+            )
         )
         # Check if this is a match
         a_vert_match = True
-        if response_group_distribution["correct"] < response_group_distribution["wrong"]:
+        if (
+            response_group_distribution["correct"]
+            < response_group_distribution["wrong"]
+        ):
             a_vert_match = False
         a_vert_correct_score = response_group_distribution["correct"]
-        a_vert_wrong_score = response_group_distribution["wrong"]    
+        a_vert_wrong_score = response_group_distribution["wrong"]
     # --------------------------------------------------------------------------
 
     # Compile and return
     results = {
         "exact_match": exact_match,
-        "a-vert_correct_score": a_vert_correct_score, 
+        "a-vert_correct_score": a_vert_correct_score,
         "a-vert_wrong_score": a_vert_wrong_score,
         "a-vert_match": a_vert_match,
-
     }
 
     return results
 
+
 def process_results(doc, results):
-    """Custom processing function used to implement "a-vert" metric.
-    """
-       
+    """Custom processing function used to implement "a-vert" metric."""
+
     # Get the data
     response = results[0]
     target_idx = doc["answer"]
@@ -116,12 +122,13 @@ def process_results(doc, results):
 
     return result_dict
 
+
 # ------------------------------------------------------------------------------
 # --------------------- MMLU specific code -------------------------------------
 # ------------------------------------------------------------------------------
 
-def get_mmlu_options(target_idx, choices):
 
+def get_mmlu_options(target_idx, choices):
     correct_group_text = list()
     wrong_group_text = list()
     correct_group_idxs = list()
