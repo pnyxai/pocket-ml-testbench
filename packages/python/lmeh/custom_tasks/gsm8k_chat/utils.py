@@ -1,22 +1,20 @@
+import os
 import re
 import numpy as np
 
 import a_vert
 
 
-# Setup A-VERT configuration from environment variables
-AVERT_CONFIG = a_vert.setup()
-
-# For backward compatibility, extract individual values
-ENHANCE = AVERT_CONFIG.enhance
-
 # Default instruction map
 default_instruction = {
     "default": "Find the document that better represents the meaning in the query. Check for any doubts about the question or options. Focus on exact numbers, dates, or symbols.",
 }
-if not AVERT_CONFIG.instruction_map:
-    AVERT_CONFIG.instruction_map = default_instruction
 
+# Setup A-VERT configuration from environment variables
+AVERT_CONFIG = a_vert.setup(instruction_map=default_instruction)
+
+# For backward compatibility, extract individual values
+ENHANCE = AVERT_CONFIG.enhance
 
 def filter_response(pred):
     """This function is used by the "exact_match" metric to try to clean the
@@ -36,13 +34,14 @@ def filter_response(pred):
     return filtered_pred
 
 
+
 def doc_eval(pred, refs, question, task):
     """This function takes a model generated response ("pred") and the target
     reference ("refs") and computes the following metrics:
     - `exact_match` : A hard match between the generated string and the target
                     string.
-    - `a-vert_match` : A metric that is "1" when the a-vert score of the
-                    "correct" target candidate group is higher than the "wrong"
+    - `a-vert_match` : A metric that is "1" when the a-vert score of the 
+                    "correct" target candidate group is higher than the "wrong" 
                     group.
     """
 
@@ -56,50 +55,57 @@ def doc_eval(pred, refs, question, task):
         exact_match = False
 
     # ----------------------- A-VERT -------------------------------------------
-    # Generate other numbers
-    correct_group_text, wrong_group_text = get_gsm8k_options(refs, question)
-    # Construct the wrong candidates group
-    group_texts_dict = a_vert.processing.construct_candidate_groups(
-        correct_group_text,
-        wrong_group_text,
-        ["correct", "wrong"],
-        enhance=ENHANCE,
-    )
+    none_answer_placeholder = os.environ.get("LMEVAL_MODEL_NONE_ANSWER_PLACEHOLDER")
+    if len(pred.strip()) == 0 or pred == none_answer_placeholder:
+        # This is not a valid generation
+        a_vert_match = False
+        a_vert_correct_score = 0.0
+        a_vert_wrong_score = 1.0
+    else:
+        # Generate other numbers
+        correct_group_text, wrong_group_text = get_gsm8k_options(refs, question)
+        # Construct the wrong candidates group
+        group_texts_dict = a_vert.processing.construct_candidate_groups(correct_group_text, 
+                                wrong_group_text, 
+                                ["correct", "wrong"], 
+                                enhance=ENHANCE,
+                                )
 
-    # Process all candidate groups
-    response_group_distribution, _ = (
-        a_vert.processing.get_candidate_groups_embedings_ranking(
+        # Process all candidate groups
+        response_group_distribution, _ = a_vert.processing.get_candidate_groups_embedings_ranking(
             pred,
             group_texts_dict,
             AVERT_CONFIG,
             task=task if task else "default",
         )
-    )
-    # Check if this is a match
-    a_vert_match = True
-    if response_group_distribution["correct"] < response_group_distribution["wrong"]:
-        a_vert_match = False
+        # Check if this is a match
+        a_vert_match = True
+        if response_group_distribution["correct"] < response_group_distribution["wrong"]:
+            a_vert_match = False
+        a_vert_correct_score = response_group_distribution["correct"]
+        a_vert_wrong_score = response_group_distribution["wrong"]
 
     # --------------------------------------------------------------------------
 
     # Compile and return
     results = {
         "exact_match": exact_match,
-        "a-vert_correct_score": response_group_distribution["correct"],
-        "a-vert_wrong_score": response_group_distribution["wrong"],
+        "a-vert_correct_score": a_vert_correct_score,
+        "a-vert_wrong_score": a_vert_wrong_score,
         "a-vert_match": a_vert_match,
     }
 
     return results
 
-
 def process_results(doc, results):
-    """Custom processing function used to implement "a-vert" metric."""
+    """Custom processing function used to implement "a-vert" metric.
+    """
 
-    # Assert we are evaluating a single target. This is a limitation of this
+    # Assert we are evaluating a single target. This is a limitation of this 
     # implementation
     assert len(results) == 1, "only single predictions are supported"
 
+    
     # Get the data
     response = results[0]
     target = doc["answer"]
@@ -116,16 +122,16 @@ def process_results(doc, results):
 # --------------------- gsm8k specific code ------------------------------------
 # ------------------------------------------------------------------------------
 
-
 def get_gsm8k_options(question_target, question):
+
     # Get target number
     target_num = int(question_target.split("#### ")[-1])
     # Set other numbers
     other_options = [
-        np.floor(target_num * 0.1),
-        np.floor(target_num * 0.5),
-        np.ceil(target_num * 1.25),
-        np.ceil(target_num * 1.8),
+        np.floor(target_num*0.1),
+        np.floor(target_num*0.5),
+        np.ceil(target_num*1.25),
+        np.ceil(target_num*1.8),
     ]
     other_options = np.unique(other_options)
     other_options = [int(a) for a in other_options if a != target_num]

@@ -32,11 +32,15 @@ The a-vert balanced accuracy against a human annotator, over 100 samples are:
 - **Paper:** https://arxiv.org/abs/2510.01469
 
 
-### Groups, and Tasks
+### Groups, Tags, and Tasks
 
 #### Groups
 
-- `reasoning_gym`: Is the a-vert based zero-shot chat-completions version.
+- `reasoning_gym-all`: Is the a-vert based zero-shot chat-completions version.
+
+#### Tags
+
+- `reasoning_gym-all`
 
 #### Tasks
 

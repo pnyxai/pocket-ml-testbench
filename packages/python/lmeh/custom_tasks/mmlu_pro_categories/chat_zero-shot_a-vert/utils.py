@@ -1,21 +1,19 @@
+import os
 from functools import partial
 import re
 import a_vert
 
 
-# Setup A-VERT configuration from environment variables
-AVERT_CONFIG = a_vert.setup()
-
-# For backward compatibility, extract individual values
-ENHANCE = AVERT_CONFIG.enhance
-
 # Default instruction map
 default_instruction = {
     "default": "Find the document that better represents the meaning in the query. Check for any doubts about the question or options. Focus on exact numbers, dates, or symbols.",
 }
-if not AVERT_CONFIG.instruction_map:
-    AVERT_CONFIG.instruction_map = default_instruction
 
+# Setup A-VERT configuration from environment variables
+AVERT_CONFIG = a_vert.setup(instruction_map=default_instruction)
+
+# For backward compatibility, extract individual values
+ENHANCE = AVERT_CONFIG.enhance
 
 def filter_response(pred):
     """This function is used by the "exact_match" metric to try to clean the
@@ -35,19 +33,19 @@ def filter_response(pred):
     return filtered_pred
 
 
+
 def doc_eval(pred, target_idx, choices, task):
     """This function takes a model generated response ("pred") and the target
     reference ("refs") and computes the following metrics:
     - `exact_match` : A hard match between the generated string and the target
                     string.
-    - `a-vert_match` : A metric that is "1" when the a-vert score of the
-                    "correct" target candidate group is higher than the "wrong"
+    - `a-vert_match` : A metric that is "1" when the a-vert score of the 
+                    "correct" target candidate group is higher than the "wrong" 
                     group.
     """
 
-    correct_group_text, wrong_group_text, correct_group_idxs, wrong_group_idxs = (
-        get_mmlu_options(target_idx, choices)
-    )
+    
+    correct_group_text, wrong_group_text, correct_group_idxs, wrong_group_idxs = get_mmlu_options(target_idx, choices)
     target = choices[target_idx]
 
     # ----------------------- EXACT MATCH --------------------------------------
@@ -60,46 +58,55 @@ def doc_eval(pred, target_idx, choices, task):
         exact_match = False
 
     # ----------------------- A-VERT -------------------------------------------
-    # Construct the wrong candidates group
-    group_texts_dict = a_vert.processing.construct_candidate_groups(
-        correct_group_text,
-        wrong_group_text,
-        ["correct", "wrong"],
-        enhance=ENHANCE,
-        with_options=ENHANCE,
-        option_symbol="letters",
-        correct_group_idxs=correct_group_idxs,
-        wrong_group_idxs=wrong_group_idxs,
-    )
+    none_answer_placeholder = os.environ.get("LMEVAL_MODEL_NONE_ANSWER_PLACEHOLDER")
+    if len(pred.strip()) == 0 or pred == none_answer_placeholder:
+        # This is not a valid generation
+        a_vert_match = False
+        a_vert_correct_score = 0.0
+        a_vert_wrong_score = 1.0
+    else:
+        # Construct the wrong candidates group
+        group_texts_dict = a_vert.processing.construct_candidate_groups(correct_group_text, 
+                                wrong_group_text, 
+                                ["correct", "wrong"], 
+                                enhance=ENHANCE,
+                                with_options=ENHANCE,
+                                option_symbol="letters",
+                                correct_group_idxs=correct_group_idxs,
+                                wrong_group_idxs=wrong_group_idxs
+                                )
 
-    # Process all candidate groups
-    response_group_distribution, _ = (
-        a_vert.processing.get_candidate_groups_embedings_ranking(
+        # Process all candidate groups
+        response_group_distribution, _ = a_vert.processing.get_candidate_groups_embedings_ranking(
             pred,
             group_texts_dict,
             AVERT_CONFIG,
             task=task if task else "default",
         )
-    )
-    # Check if this is a match
-    a_vert_match = True
-    if response_group_distribution["correct"] < response_group_distribution["wrong"]:
-        a_vert_match = False
+        # Check if this is a match
+        a_vert_match = True
+        if response_group_distribution["correct"] < response_group_distribution["wrong"]:
+            a_vert_match = False
+        a_vert_correct_score = response_group_distribution["correct"]
+        a_vert_wrong_score = response_group_distribution["wrong"]
+
+    # --------------------------------------------------------------------------
 
     # Compile and return
     results = {
         "exact_match": exact_match,
-        "a-vert_correct_score": response_group_distribution["correct"],
-        "a-vert_wrong_score": response_group_distribution["wrong"],
+        "a-vert_correct_score": a_vert_correct_score, 
+        "a-vert_wrong_score": a_vert_wrong_score,
         "a-vert_match": a_vert_match,
+
     }
 
     return results
 
-
 def process_results(doc, results):
-    """Custom processing function used to implement "a-vert" metric."""
-
+    """Custom processing function used to implement "a-vert" metric.
+    """
+       
     # Get the data
     response = results[0]
     target_idx = doc["answer_index"]
@@ -110,6 +117,9 @@ def process_results(doc, results):
     result_dict = doc_eval(response, target_idx, choices, task=task)
 
     return result_dict
+
+
+
 
 
 choices = [
@@ -128,9 +138,8 @@ choices = [
     "M",
     "N",
     "O",
-    "P",
+    "P"
 ]
-
 
 def format_example(example, including_options=True):
     prompt = ""
@@ -148,12 +157,13 @@ def format_example(example, including_options=True):
 doc_to_text = partial(format_example, including_options=True)
 
 
+
 # ------------------------------------------------------------------------------
 # --------------------- MMLU specific code -------------------------------------
 # ------------------------------------------------------------------------------
 
-
 def get_mmlu_options(target_idx, choices):
+
     correct_group_text = list()
     wrong_group_text = list()
     correct_group_idxs = list()
