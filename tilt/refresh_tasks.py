@@ -17,11 +17,14 @@ POSTGRES_USER = "testbench"
 POSTGRES_DB = "pocket-ml-testbench"
 POSTGRES_PASSWORD = None  # Must be set from env or args
 
-PSQL_COMMAND = ["kubectl", "exec", "-it", POSTGRESQL_POD_NAME, "--"]
-TEMPORAL_BASE_COMMAND = ["kubectl", "exec", "-it", DEPLOYMENT_NAME, "--"]
+# Will be completed later
+PSQL_COMMAND = None
+TEMPORAL_BASE_COMMAND = None
 
 LMEH_TYPE = "lmeh"
 
+def get_postgres_uri():
+    return f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
 
 def run_command(command):
     """Execute a command."""
@@ -37,13 +40,21 @@ def run_command_with_output(command):
     """Execute a command and capture its output."""
 
     try:
-        result = subprocess.run(command, check=True, capture_output=True, text=True, stdin=subprocess.PIPE, timeout=30)
+        result = subprocess.run(
+            command,
+            check=True,
+            capture_output=True,
+            text=True,
+            stdin=subprocess.PIPE,
+            timeout=30,
+        )
         return result.stdout
     except subprocess.TimeoutExpired as e:
         print(f"Timeout executing command: {e}")
         return None
     except subprocess.CalledProcessError as e:
         print(f"Error executing command: {e}")
+        print(f"{e.stderr}")
         return None
 
 
@@ -58,7 +69,7 @@ def get_dataset_table_name(task_name):
     )
 
     # Build connection URI with password
-    postgres_uri = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
+    postgres_uri = get_postgres_uri()
 
     command = PSQL_COMMAND + [
         "psql",
@@ -75,6 +86,47 @@ def get_dataset_table_name(task_name):
         return None
 
 
+
+def get_matching_tasks(task_pattern):
+    """
+    Get all tasks from task_registry that match a pattern.
+    If pattern ends with '*', matches all tasks starting with that prefix.
+    Returns a list of matching task names.
+    """
+    if not task_pattern.endswith("*"):
+        # Not a wildcard pattern, return as-is for single task lookup
+        return [task_pattern]
+
+    # Remove the asterisk and use as prefix
+    prefix = task_pattern[:-1]
+
+    # Build query to find all tasks with matching prefix
+    psql_query = f"SELECT task_name FROM task_registry WHERE task_name LIKE '{prefix}%' ORDER BY task_name;"
+
+    # Build connection URI with password
+    postgres_uri = get_postgres_uri()
+
+    command = PSQL_COMMAND + [
+        "psql",
+        postgres_uri,
+        "-t",  # Tuples only (no headers)
+        "-P",
+        "pager=off",
+        "-c",
+        psql_query,
+    ]
+
+    result = run_command_with_output(command)
+    if result is not None:
+        # Parse output and return list of task names
+        task_names = [
+            line.strip() for line in result.strip().split("\n") if line.strip()
+        ]
+        return task_names
+    else:
+        return []
+
+
 def get_record_count(table_name):
     """
     Query the record count in a dataset table.
@@ -83,7 +135,7 @@ def get_record_count(table_name):
     psql_query = f'SELECT COUNT(*) FROM "{table_name}";'
 
     # Build connection URI with password
-    postgres_uri = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
+    postgres_uri = get_postgres_uri()
 
     command = PSQL_COMMAND + [
         "psql",
@@ -95,7 +147,6 @@ def get_record_count(table_name):
 
     result = run_command_with_output(command)
     if result is not None:
-
         count = result.strip()
         return int(count) if count else 0
     else:
@@ -110,7 +161,7 @@ def delete_dataset_table(table_name):
     psql_query = f'DROP TABLE IF EXISTS "{table_name}" CASCADE;'
 
     # Build connection URI with password
-    postgres_uri = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
+    postgres_uri = get_postgres_uri()
 
     command = PSQL_COMMAND + [
         "psql",
@@ -129,7 +180,7 @@ def unregister_task(task_name):
     psql_query = f"DELETE FROM task_registry WHERE task_name = '{task_name}';"
 
     # Build connection URI with password
-    postgres_uri = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
+    postgres_uri = get_postgres_uri()
 
     command = PSQL_COMMAND + [
         "psql",
@@ -229,7 +280,7 @@ def main():
     )
     parser.add_argument(
         "--task",
-        help="Task identifier(s) to refresh (comma-separated for multiple tasks, e.g. --task task1,task2,task3)",
+        help="Task identifier(s) to refresh (comma-separated). Supports wildcards: --task task1,bbh-* matches all tasks starting with 'bbh-'",
     )
     parser.add_argument(
         "--dry-run",
@@ -311,12 +362,13 @@ def main():
         return
 
     # Split comma-separated tasks and strip whitespace
-    tasks = [t.strip() for t in args.task.split(",")]
-    tasks = [t for t in tasks if t]  # Remove empty strings
+    task_specs = [t.strip() for t in args.task.split(",")]
+    task_specs = [t for t in task_specs if t]  # Remove empty strings
 
-    if not tasks:
+    if not task_specs:
         print("Error: No valid tasks provided.")
         print("Usage: python3 refresh_tasks.py --task task1,task2,task3")
+        print("       or with wildcard: --task bbh-*")
         return
 
     # Set PostgreSQL password from env variable or argument
@@ -330,6 +382,8 @@ def main():
                 "Please either set POSTGRES_PASSWORD environment variable or use --postgres-password argument."
             )
             return
+
+    
 
     # Apply configuration overrides
     if args.postgres_host:
@@ -388,6 +442,25 @@ def main():
         LMEH_TYPE += "-generative"
     if args.framework_postfix:
         LMEH_TYPE += "-" + args.framework_postfix
+
+
+    # Expand wildcards and get actual task names
+    tasks = []
+    for task_spec in task_specs:
+        if "*" in task_spec:
+            # Wildcard pattern - query database for matching tasks
+            matching_tasks = get_matching_tasks(task_spec)
+            if matching_tasks:
+                tasks.extend(matching_tasks)
+            else:
+                print(f"Warning: No tasks matching pattern '{task_spec}'")
+        else:
+            # Regular task name
+            tasks.append(task_spec)
+
+    if not tasks:
+        print("Error: No tasks found (either specified or matched by wildcards).")
+        return
 
     # Resolve task names and find their dataset tables
     print(f"\nResolving {len(tasks)} task(s)...")
