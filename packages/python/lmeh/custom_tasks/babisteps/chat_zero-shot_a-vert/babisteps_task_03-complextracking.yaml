@@ -1,4 +1,0 @@
-dataset_name: complextracking
-include: _default_template_yaml
-task: babisteps-chat_zero_shot-task_03-complextracking
-task_alias: task 03 - complextracking

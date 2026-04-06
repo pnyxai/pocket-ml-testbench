@@ -1,5 +1,0 @@
-dataset_name: web_of_lies
-tag: bbh_split-all
-include: _default_template_yaml
-task: bbh-split_26-web_of_lies
-task_alias: "BBH - Web of Lies"

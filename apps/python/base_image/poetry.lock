@@ -2,14 +2,14 @@
 
 [[package]]
 name = "a-vert"
-version = "0.3.4"
+version = "0.3.5"
 description = "Agnostic-Verification with Embedding Ranking Tiers"
 optional = false
 python-versions = ">=3.11"
 groups = ["main"]
 files = [
-    {file = "a_vert-0.3.4-py3-none-any.whl", hash = "sha256:d5cb087e0521d65296f947c477c26132e8c3b2c94e2e065d35ee61949523e103"},
-    {file = "a_vert-0.3.4.tar.gz", hash = "sha256:08f62821299fe55d82450cb74c9f1f0530baedc03122b828040183a2dc64bb37"},
+    {file = "a_vert-0.3.5-py3-none-any.whl", hash = "sha256:676b5fbc8fa5a5bbc09d2b8f979d2b2c3c5a618993379f808b0dde7341512beb"},
+    {file = "a_vert-0.3.5.tar.gz", hash = "sha256:cd263b52bceca08929579fe6ba09e85973e92be3909a07a47bc881e6a6f0740f"},
 ]
 
 [package.dependencies]
@@ -5606,4 +5606,4 @@ cffi = ["cffi (>=1.11)"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11,<4.0"
-content-hash = "22f6dd366571e1f8b16817fb8a62d34106d4f1e9fe35bb5223b572a12964b511"
+content-hash = "f1e9e1fc9fc729b535e8a9b57dd10c0880b961f4a5f240526da30af5bf983783"

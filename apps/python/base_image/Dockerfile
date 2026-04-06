@@ -24,3 +24,10 @@ USER app
 
 # install only external dependencies without source code
 RUN poetry  install --only main --no-root --no-directory
+
+# Clone the a-vert repot to get the tasks
+RUN git clone https://github.com/pnyxai/a-vert.git && \
+    AVERT_VER=$(poetry show a-vert  | grep ' version .*' | cut --delimiter=: --fields=2 | cut --delimiter=' ' --fields=2) && \
+    cd a-vert && \
+    git checkout v${AVERT_VER}
+RUN THIS_PATH=$(poetry env info -p) && mv ./a-vert/lm-eval_tasks/* $THIS_PATH/lib/python3.11/site-packages/lm_eval/tasks/

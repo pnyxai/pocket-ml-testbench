@@ -1,4 +1,0 @@
-dataset_name: diamond_biology
-include: _gpqa_subtask_chat_yaml
-task: gpqa_subtask_diamond_biology
-tag: gpqa_subtask_diamond

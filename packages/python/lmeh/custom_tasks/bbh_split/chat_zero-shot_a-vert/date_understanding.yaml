@@ -1,5 +1,0 @@
-dataset_name: date_understanding
-tag: bbh_split-all
-include: _default_template_yaml
-task: bbh-split_03-date_understanding
-task_alias: "BBH - Date Understanding"

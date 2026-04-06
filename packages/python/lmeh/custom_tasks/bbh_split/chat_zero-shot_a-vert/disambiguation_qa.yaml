@@ -1,5 +1,0 @@
-dataset_name: disambiguation_qa
-tag: bbh_split-all
-include: _default_template_yaml
-task: bbh-split_04-disambiguation_qa
-task_alias: "BBH - Disambiguation QA"
