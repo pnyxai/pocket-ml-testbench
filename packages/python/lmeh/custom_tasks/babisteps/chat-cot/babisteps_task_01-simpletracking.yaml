@@ -1,4 +1,0 @@
-dataset_name: simpletracking
-include: _default_template_yaml
-task: babisteps-chat-cot-task_01-simpletracking
-task_alias: task 01 - simpletracking

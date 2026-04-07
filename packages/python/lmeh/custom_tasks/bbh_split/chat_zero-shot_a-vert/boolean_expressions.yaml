@@ -1,5 +1,0 @@
-dataset_name: boolean_expressions
-tag: bbh_split-all
-include: _default_template_yaml
-task: bbh-split_01-boolean_expressions
-task_alias: "BBH - Boolean Expressions"
