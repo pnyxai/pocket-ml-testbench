@@ -4,6 +4,7 @@ from packages.python.common.mongodb import MongoClient
 from packages.python.common.utils import get_from_dict
 from packages.python.logger.logger import get_logger
 from lm_taxonomies import utils as txm_utils
+from pathlib import Path
 
 import os
 
@@ -57,9 +58,11 @@ async def setup_app(cfg) -> dict:
     if tax_use is not None:
         tax_use = tax_use.split(",")
     for file in os.listdir(tax_path):
-        if ".tax" == file[-4:]:
+        file_path = Path(os.path.join(tax_path,file))
+        taxonmy_file_name = file_path.stem
+        file_ext = file_path.suffix
+        if ".tax" == file_ext:
             if tax_use is None or file in tax_use:
-                taxonmy_file_name = file[:-4]
                 taxonomy_graph = txm_utils.load_taxonomy(
                     os.path.join(tax_path, file), return_all=False, verbose=True
                 )
@@ -68,6 +71,9 @@ async def setup_app(cfg) -> dict:
                         f'WARNING : Taxonomy file name is different from taxonomy graph name ("{taxonmy_file_name}" vs "{taxonomy_graph.name}"). Using GRAPH NAME as taxonomy name.'
                     )
                 app_config["taxonomies"][taxonomy_graph.name] = taxonomy_graph
+
+        if tax_use is not None and len(app_config["taxonomies"]) == 0:
+            raise ValueError(f"No valid taxonomy found in the provided list: {tax_path} / [{tax_use}]")
 
     return app_config
 
