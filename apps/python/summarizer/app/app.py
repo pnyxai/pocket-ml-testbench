@@ -3,7 +3,7 @@ import asyncpg
 from packages.python.common.mongodb import MongoClient
 from packages.python.common.utils import get_from_dict
 from packages.python.logger.logger import get_logger
-from packages.python.taxonomies.utils import load_taxonomy
+from lm_taxonomies import utils as txm_utils
 
 import os
 
@@ -53,16 +53,21 @@ async def setup_app(cfg) -> dict:
     # read all taxonomies
     app_config["taxonomies"] = dict()
     tax_path = app_config["config"]["taxonomies_path"]
+    tax_use = app_config["config"].get("taxonomies_use", None)
+    if tax_use is not None:
+        tax_use = tax_use.split(",")
     for file in os.listdir(tax_path):
         if ".tax" == file[-4:]:
-            taxonomy_graph = load_taxonomy(
-                os.path.join(tax_path, file), return_all=False, verbose=True
-            )
-            if taxonomy_graph.name != file[:-4]:
-                print(
-                    f'WARNING : Taxonomy file name is different from taxonomy graph name ("{file[:-4]}" vs "{taxonomy_graph.name}"). Using GRAPH NAME as taxonomy name.'
+            if tax_use is None or file in tax_use:
+                taxonmy_file_name = file[:-4]
+                taxonomy_graph = txm_utils.load_taxonomy(
+                    os.path.join(tax_path, file), return_all=False, verbose=True
                 )
-            app_config["taxonomies"][taxonomy_graph.name] = taxonomy_graph
+                if taxonomy_graph.name != taxonmy_file_name:
+                    print(
+                        f'WARNING : Taxonomy file name is different from taxonomy graph name ("{taxonmy_file_name}" vs "{taxonomy_graph.name}"). Using GRAPH NAME as taxonomy name.'
+                    )
+                app_config["taxonomies"][taxonomy_graph.name] = taxonomy_graph
 
     return app_config
 

@@ -1,7 +1,7 @@
 FROM python:3.11.8-slim-bookworm
 
 RUN apt-get update -y && \
-    apt-get install -y libpq-dev gcc git curl && \
+    apt-get install -y libpq-dev gcc git curl graphviz libgraphviz-dev pkg-config && \
     groupadd -r app && \
     useradd -r -g app -d /home/app -s /sbin/nologin -c "Docker image user" app && \
     mkdir /home/app && \
@@ -18,6 +18,8 @@ RUN pip3 install poetry && chown app:app /usr/local/bin/poetry
 # copy poetry dependencies files
 COPY apps/python/base_image/pyproject.toml /home/app/code/pyproject.toml
 COPY apps/python/base_image/poetry.lock /home/app/code/poetry.lock
+RUN chown app:app /home/app/code/poetry.lock
+RUN chown app:app /home/app/code/pyproject.toml
 
 # set app user as the user that will runs the commands below
 USER app
@@ -31,3 +33,14 @@ RUN git clone https://github.com/pnyxai/a-vert.git && \
     cd a-vert && \
     git checkout v${AVERT_VER}
 RUN THIS_PATH=$(poetry env info -p) && mv ./a-vert/lm-eval_tasks/* $THIS_PATH/lib/python3.11/site-packages/lm_eval/tasks/
+
+# Clone the taxonomy repository to get the taxonomy files
+RUN git clone https://github.com/pnyxai/lm-taxonomies.git && \
+    cd lm-taxonomies && \
+    git checkout v0.1.1
+RUN mv ./lm-taxonomies/taxonomies /home/app/code/taxonomies
+# Install the package too (not yet in pip)
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
+    cd lm-taxonomies && \
+    $HOME/.local/bin/uv build
+RUN poetry add ./lm-taxonomies/dist/*.whl 
