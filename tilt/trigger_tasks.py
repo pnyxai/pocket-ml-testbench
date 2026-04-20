@@ -3,12 +3,11 @@ import time
 import argparse
 import json
 import os
-import sys
 import math
 import re
 
-sys.path.append("../")
-from packages.python.taxonomies.utils import load_taxonomy, get_taxonomy_datasets
+# Make sure you have this installed https://github.com/pnyxai/lm-taxonomies.git
+from lm_taxonomies import utils as txm_utils
 
 
 TEMPORAL_NAMESPACE = "pocket-ml-testbench"
@@ -502,7 +501,7 @@ def main():
             print(f"Error: Taxonomy file '{args.taxonomy}' not found.")
             exit(1)
         # Load taxonomy
-        taxonomy_graph, _, _, _ = load_taxonomy(
+        taxonomy_graph, _, _, _ = txm_utils.load_taxonomy(
             args.taxonomy, return_all=True, verbose=True, print_prefix="\t"
         )
 
@@ -558,7 +557,7 @@ def main():
         tasks_to_process = [args.task]
     elif args.taxonomy:
         print(f"Triggering taxonomy: {args.taxonomy}")
-        tasks_to_process = get_taxonomy_datasets(taxonomy_graph)
+        tasks_to_process = txm_utils.get_taxonomy_datasets(taxonomy_graph)
     else:
         # For --only-requesters or --identity, tasks_to_process is not needed
         tasks_to_process = []

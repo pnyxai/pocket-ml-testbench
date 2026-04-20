@@ -9,5 +9,6 @@
     "task_queue": "summarize",
     "max_workers": 10
   },
-  "taxonomies_path": "/home/app/code/taxonomies"
+  "taxonomies_path": "/home/app/code/taxonomies",
+  "taxonomies_use": "optional,list,of,taxonomies,files"
 }

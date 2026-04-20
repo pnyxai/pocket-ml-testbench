@@ -1,6 +1,5 @@
 import subprocess
 import argparse
-import sys
 
 
 # Default configuration
@@ -104,9 +103,7 @@ def confirm_deletion(schedules, match_filter=None):
             print("Please enter 'yes' or 'no'.")
 
 
-def delete_schedules(
-    schedules, temporal_namespace, dry_run=False
-):
+def delete_schedules(schedules, temporal_namespace, dry_run=False):
     """Delete the specified schedules."""
     deleted_count = 0
     failed_count = 0
@@ -175,7 +172,6 @@ def main():
     if args.temporal_namespace:
         TEMPORAL_NAMESPACE = args.temporal_namespace
 
-
     if args.k8s_deployment:
         print(f"Using k8s Namespace: {args.k8s_namespace}")
         DEPLOYMENT_NAME = args.k8s_deployment
@@ -211,9 +207,7 @@ def main():
             return
 
     # Delete the schedules
-    delete_schedules(
-        schedules, TEMPORAL_NAMESPACE, args.dry_run
-    )
+    delete_schedules(schedules, TEMPORAL_NAMESPACE, args.dry_run)
 
 
 if __name__ == "__main__":
