@@ -27,20 +27,30 @@ USER app
 # install only external dependencies without source code
 RUN poetry  install --only main --no-root --no-directory
 
+# Clone the taxonomy repository to get the taxonomy files
+RUN git clone https://github.com/pnyxai/lm-taxonomies.git && \
+    cd lm-taxonomies && \
+    git checkout v0.1.1
+RUN mv ./lm-taxonomies/taxonomies /home/app/code/taxonomies
+
+# Install uv
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh 
+
+# Install the package too (not yet in pip)
+RUN cd lm-taxonomies && $HOME/.local/bin/uv build
+RUN poetry add ./lm-taxonomies/dist/*.whl 
+
+# Clone the PNYX fork of lm-eval repo to get the necesary PRs merged in
+RUN git clone https://github.com/pnyxai/lm-evaluation-harness.git && \
+    cd lm-evaluation-harness && \
+    git checkout PnyxAI
+RUN cd lm-evaluation-harness && $HOME/.local/bin/uv build
+RUN rm poetry.lock
+RUN poetry add ./lm-evaluation-harness/dist/*.whl 
+
 # Clone the a-vert repot to get the tasks
 RUN git clone https://github.com/pnyxai/a-vert.git && \
     AVERT_VER=$(poetry show a-vert  | grep ' version .*' | cut --delimiter=: --fields=2 | cut --delimiter=' ' --fields=2) && \
     cd a-vert && \
     git checkout v${AVERT_VER}
 RUN THIS_PATH=$(poetry env info -p) && mv ./a-vert/lm-eval_tasks/* $THIS_PATH/lib/python3.11/site-packages/lm_eval/tasks/
-
-# Clone the taxonomy repository to get the taxonomy files
-RUN git clone https://github.com/pnyxai/lm-taxonomies.git && \
-    cd lm-taxonomies && \
-    git checkout v0.1.1
-RUN mv ./lm-taxonomies/taxonomies /home/app/code/taxonomies
-# Install the package too (not yet in pip)
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
-    cd lm-taxonomies && \
-    $HOME/.local/bin/uv build
-RUN poetry add ./lm-taxonomies/dist/*.whl 
