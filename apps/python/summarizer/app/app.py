@@ -58,7 +58,7 @@ async def setup_app(cfg) -> dict:
     if tax_use is not None:
         tax_use = tax_use.split(",")
     for file in os.listdir(tax_path):
-        file_path = Path(os.path.join(tax_path,file))
+        file_path = Path(os.path.join(tax_path, file))
         taxonmy_file_name = file_path.stem
         file_ext = file_path.suffix
         if ".tax" == file_ext:
@@ -73,7 +73,9 @@ async def setup_app(cfg) -> dict:
                 app_config["taxonomies"][taxonomy_graph.name] = taxonomy_graph
 
         if tax_use is not None and len(app_config["taxonomies"]) == 0:
-            raise ValueError(f"No valid taxonomy found in the provided list: {tax_path} / [{tax_use}]")
+            raise ValueError(
+                f"No valid taxonomy found in the provided list: {tax_path} / [{tax_use}]"
+            )
 
     return app_config
 
