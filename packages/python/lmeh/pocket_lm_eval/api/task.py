@@ -9,6 +9,7 @@ from typing import (
     List,
     Optional,
     Union,
+    cast,
 )
 
 import asyncpg
@@ -28,6 +29,7 @@ from lm_eval.api.registry import (
 )
 from lm_eval.api.task import ALL_OUTPUT_TYPES, ConfigurableTask, TaskConfig
 from lm_eval.caching.cache import load_from_cache, save_to_cache
+from lm_eval.config.task import FewshotConfig
 from lm_eval.filters import build_filter_ensemble
 from lm_eval.prompts import get_prompt
 from temporalio.exceptions import ApplicationError
@@ -211,14 +213,14 @@ class SqlDatasetSaver:
                 self.analyze_list_type(type_elem, table_key, depth=depth + 1)
             elif isinstance(type_elem, dict):
                 self.columns[table_key] = (
-                    self.DATA_TYPE_MAPPING["dict"] + f"{'[]'*depth}"
+                    self.DATA_TYPE_MAPPING["dict"] + f"{'[]' * depth}"
                 )
             else:
                 use_type = self.DATA_TYPE_MAPPING.get(type_elem.dtype, None)
                 if use_type is None:
                     str_err = f"Unsupported data type in dataset ({type_elem.dtype}), cannot save."
                     raise NotImplementedError(str_err)
-                self.columns[table_key] = use_type + f"{'[]'*depth}"
+                self.columns[table_key] = use_type + f"{'[]' * depth}"
 
     async def _prepare_table(self):
         column_definitions_str = ", ".join(self.columns_def)
@@ -415,6 +417,9 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
                     f"Got invalid output_type '{self.config.output_type}', must be in '{','.join(ALL_OUTPUT_TYPES)}'"
                 )
             self.OUTPUT_TYPE = self.config.output_type
+
+        # Mirror ConfigurableTask.__init__ from lm_eval fork (added in fork)
+        self.fewshot_cfg = cast(FewshotConfig, self.config.fewshot_config)
 
         if self.config.doc_to_image is not None:
             # mark the task as requiring multimodality.

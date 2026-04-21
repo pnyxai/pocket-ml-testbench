@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING, List, Optional, Union
 
 from lm_eval.evaluator_utils import (
     get_sample_size,
-    get_task_list,
     run_task_tests,
 )
 from lm_eval.tasks import TaskManager, get_task_dict
@@ -245,12 +244,15 @@ async def generate_requests(
     # tracks all Instances/requests a model must generate output on.
     requests = defaultdict(list)
 
-    # get lists of group hierarchy and each type of request
-    eval_tasks = get_task_list(task_dict)
+    # Flatten task_dict to a list of (task_name, task_obj) pairs.
+    # get_configurable_task returns a flat {task_name: task_obj} dict after
+    # _adjust_config, so no nested-dict handling is needed here.
+    eval_tasks = list(task_dict.items())
+
     if not log_samples:
         if not all(
-            "bypass" not in getattr(task_output.task, "_metric_fn_list", {}).keys()
-            for task_output in eval_tasks
+            "bypass" not in getattr(task, "_metric_fn_list", {}).keys()
+            for _, task in eval_tasks
         ):
             raise ValueError("log_samples must be True for 'bypass' metric-only tasks")
 
@@ -258,18 +260,16 @@ async def generate_requests(
     # 1.are we running multimodal task <-> non-multimodal model class, or vice-versa.
     # 2.are we running code that is marked as unsafe.
     incompatible_tasks = []
-    for task_output in eval_tasks:
-        task: Task = task_output.task
-
+    for task_name, task in eval_tasks:
         if getattr(task, "MULTIMODAL", False) and not getattr(lm, "MULTIMODAL", False):
-            incompatible_tasks.append(task_output.task_name)
+            incompatible_tasks.append(task_name)
         elif getattr(task, "UNSAFE_CODE", False) and not confirm_run_unsafe_code:
             eval_logger.error(
-                f"Attempted to run task: {task_output.task_name} which is marked as unsafe. Set confirm_run_unsafe_code=True to run this task.",
-                task_name=task_output.task_name,
+                f"Attempted to run task: {task_name} which is marked as unsafe. Set confirm_run_unsafe_code=True to run this task.",
+                task_name=task_name,
             )
             raise ApplicationError(
-                f"Attempted to run task: {task_output.task_name} which is marked as unsafe. Set confirm_run_unsafe_code=True to run this task.",
+                f"Attempted to run task: {task_name} which is marked as unsafe. Set confirm_run_unsafe_code=True to run this task.",
                 non_retryable=True,
             )
     if len(incompatible_tasks) > 0:
@@ -287,16 +287,12 @@ async def generate_requests(
     limit_arg = limit
     limits = []
 
-    for task_output in eval_tasks:
-        task: Task = task_output.task
-
+    for task_name, task in eval_tasks:
         limit = get_sample_size(task, limit_arg)
         limits.append(limit)
         task.build_all_requests(
             limit=limit,
-            samples=samples.get(task_output.task_name, None)
-            if samples is not None
-            else samples,
+            samples=samples.get(task_name, None) if samples is not None else samples,
             rank=lm.rank,
             world_size=lm.world_size,
             cache_requests=cache_requests,
@@ -312,7 +308,7 @@ async def generate_requests(
             else "",
         )
         eval_logger.debug(
-            f"Task: {task_output.task_name}; number of requests on this rank: {len(task.instances)}"
+            f"Task: {task_name}; number of requests on this rank: {len(task.instances)}"
         )
         # aggregate Instances by LM method requested to get output.
         for instance in task.instances:
@@ -325,24 +321,24 @@ async def generate_requests(
         # Verify that all request id are in task.config.metadata due to ConfigurableTask was modified.
         for _, rs in requests.items():
             for r in rs:
-                task_name, instance_id = r.metadata[0], r.doc_id
+                r_task_name, instance_id = r.metadata[0], r.doc_id
                 if (
                     instance_id
-                    not in task_dict[task_name].config.metadata["pocket_args"].doc_ids
+                    not in task_dict[r_task_name].config.metadata["pocket_args"].doc_ids
                 ):
                     # noinspection PyArgumentList
                     eval_logger.error(
                         'Instance id not found in task.config.metadata["pocket_args"].doc_ids',
                         instance_id=instance_id,
-                        task=task_name,
-                        task_ids=task_dict[task_name]
+                        task=r_task_name,
+                        task_ids=task_dict[r_task_name]
                         .config.metadata["pocket_args"]
                         .doc_ids,
                     )
                     raise ApplicationError(
                         f"Request id {instance_id} not found in task.config.metadata",
                         instance_id,
-                        task_name,
+                        r_task_name,
                         type="InstanceNotFound",
                         non_retryable=True,
                     )
@@ -373,9 +369,8 @@ async def generate_requests(
     insert_mongo_prompts = []
     insert_mongo_tasks = []
     insert_mongo_instances = []
-    for task_output in eval_tasks:
+    for task_name, task in eval_tasks:
         # Task
-        task = task_output.task
         instances = task.instances
 
         task_mongodb = PocketNetworkMongoDBTask(
@@ -403,9 +398,9 @@ async def generate_requests(
                 prefill = pocket_req.ctxlen
                 if instance.request_type == "generate_until":
                     # if generate_until, we need to get the decode length
-                    # try first with the args, then with the task config#
-                    # an finally with the default value from the LM
-                    gen_kwargs = args.gen_kwargs or task_output.task_config.get(
+                    # try first with the args, then with the task config,
+                    # and finally with the default value from the LM
+                    gen_kwargs = args.gen_kwargs or dict(task.dump_config()).get(
                         "generation_kwargs", {}
                     )
                     # if empty, try to get from the LM
@@ -570,12 +565,15 @@ async def evaluate(
     # tracks all Instances/requests a model must generate output on.
     requests = defaultdict(list)
 
-    # get lists of group hierarchy and each type of request
-    eval_tasks = get_task_list(task_dict)
+    # Flatten task_dict to a list of (task_name, task_obj) pairs.
+    # get_configurable_task returns a flat {task_name: task_obj} dict after
+    # _adjust_config, so no nested-dict handling is needed here.
+    eval_tasks = list(task_dict.items())
+
     if not log_samples:
         if not all(
-            "bypass" not in getattr(task_output.task, "_metric_fn_list", {}).keys()
-            for task_output in eval_tasks
+            "bypass" not in getattr(task, "_metric_fn_list", {}).keys()
+            for _, task in eval_tasks
         ):
             raise ValueError("log_samples must be True for 'bypass' metric-only tasks")
 
@@ -583,19 +581,17 @@ async def evaluate(
     # 1.are we running multimodal task <-> non-multimodal model class, or vice-versa.
     # 2.are we running code that is marked as unsafe.
     incompatible_tasks = []
-    for task_output in eval_tasks:
-        task: Task = task_output.task
-
+    for task_name, task in eval_tasks:
         if getattr(task, "MULTIMODAL", False) and not getattr(lm, "MULTIMODAL", False):
-            incompatible_tasks.append(task_output.task_name)
+            incompatible_tasks.append(task_name)
         elif getattr(task, "UNSAFE_CODE", False) and not confirm_run_unsafe_code:
             eval_logger.error(
-                f"Attempted to run task: {task_output.task_name} which is marked as unsafe. Set confirm_run_unsafe_code=True to run this task.",
-                task_name=task_output.task_name,
+                f"Attempted to run task: {task_name} which is marked as unsafe. Set confirm_run_unsafe_code=True to run this task.",
+                task_name=task_name,
                 task_id=str(task_id),
             )
             raise ApplicationError(
-                f"Attempted to run task: {task_output.task_name} which is marked as unsafe. Set confirm_run_unsafe_code=True to run this task.",
+                f"Attempted to run task: {task_name} which is marked as unsafe. Set confirm_run_unsafe_code=True to run this task.",
                 non_retryable=True,
             )
     if len(incompatible_tasks) > 0:
@@ -614,8 +610,7 @@ async def evaluate(
     limit_arg = limit
     limits = []
 
-    for task_output in eval_tasks:
-        task: Task = task_output.task
+    for task_name, task in eval_tasks:
         limit = get_sample_size(task, limit_arg)
         limits.append(limit)
         try:
@@ -638,7 +633,7 @@ async def evaluate(
                 else "",
             )
             eval_logger.debug(
-                f"Task: {task_output.task_name}; number of requests on this rank: {len(task.instances)}"
+                f"Task: {task_name}; number of requests on this rank: {len(task.instances)}"
             )
             # aggregate Instances by LM method requested to get output.
             for instance in task.instances:
@@ -736,8 +731,7 @@ async def evaluate(
     insert_mongo_results = []
     ### Postprocess outputs ###
     # TODO: del model here, maybe (idea: allow user to specify device of e.g. reward model separately)
-    for task_output, limit in zip(eval_tasks, limits):
-        task = task_output.task
+    for (task_name, task), limit in zip(eval_tasks, limits):
         task.apply_filters()
         ### Collect values of metrics on all datapoints ###
         # # unpack results and sort back in order and return control to Task
@@ -765,11 +759,7 @@ async def evaluate(
                 )
                 continue
             eval_logger.debug("Entering Filter Key:", filter_key=filter_key)
-            indices = (
-                samples.get(task_output.task_name, None)
-                if samples is not None
-                else None
-            )
+            indices = samples.get(task_name, None) if samples is not None else None
             doc_iterator = task.doc_iterator(
                 rank=RANK,
                 limit=limit,
@@ -843,7 +833,6 @@ async def evaluate(
                         selected_metrics=selected_metrics,
                     )
                     example.update(metrics)
-                    task_output.logged_samples.append(example)
 
                 # there can be multiple requests per doc
                 # and there can be multiple metrics per doc
@@ -851,7 +840,6 @@ async def evaluate(
                 # follow a logic, one request can have multiple metrics and
                 # multiple requests can have a single metric.
                 for metric, value in metrics.items():
-                    task_output.sample_metrics[(metric, filter_key)].append(value)
                     if metric in selected_metrics:
                         numericSample = NumericSample(
                             score=example[metric],
