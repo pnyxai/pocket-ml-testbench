@@ -4,7 +4,7 @@ from typing import Optional
 
 import asyncpg
 import numpy as np
-import torch
+# import torch
 from temporalio.exceptions import ApplicationError
 
 from packages.python.lmeh.pocket_lm_eval.tasks import (
@@ -58,12 +58,12 @@ def get_task_manager(
         numpy_random_seed = random.randint(0, 2**32 - 1)
         np.random.seed(numpy_random_seed)
 
-    if torch_random_seed is not None:
-        seed_message.append(f"Setting torch manual seed to {torch_random_seed}")
-        torch.manual_seed(torch_random_seed)
-    else:
-        torch_random_seed = torch.randint(0, 2**32 - 1, (1,)).item()
-        torch.manual_seed(torch_random_seed)
+    # if torch_random_seed is not None:
+    #     seed_message.append(f"Setting torch manual seed to {torch_random_seed}")
+    #     torch.manual_seed(torch_random_seed)
+    # else:
+    #     torch_random_seed = torch.randint(0, 2**32 - 1, (1,)).item()
+    #     torch.manual_seed(torch_random_seed)
 
     if fewshot_random_seed is not None:
         seed_message.append(f"Setting fewshot manual seed to {fewshot_random_seed}")

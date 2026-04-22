@@ -12,13 +12,11 @@ from typing import (
 )
 
 
-try:
-    #    import requests
-    #    from aiohttp import ClientSession, ClientTimeout, TCPConnector
-    from tenacity import RetryError, retry, stop_after_attempt, wait_exponential
-    from tqdm import tqdm
-except ModuleNotFoundError:
-    pass
+#    import requests
+#    from aiohttp import ClientSession, ClientTimeout, TCPConnector
+from tenacity import RetryError, retry, stop_after_attempt, wait_exponential
+from tqdm import tqdm
+
 from app.app import get_app_logger
 from lm_eval.api.instance import Instance
 from lm_eval.models.api_models import (

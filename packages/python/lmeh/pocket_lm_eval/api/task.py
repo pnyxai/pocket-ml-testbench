@@ -675,29 +675,19 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
             self.prompt = None
 
         if self.fewshot_docs() is not None:
-            self.fewshot_rnd = (
-                random.Random()
-            )  # setting with no seed, to be overridden at a later time
             config_sampler: Union[str, Callable] = (
-                self.config.fewshot_config.get("sampler", "default")
-                if self.config.fewshot_config
-                else "default"
+                self.fewshot_cfg.sampler if self.config.fewshot_config else "default"
             )
             if isinstance(config_sampler, str):
-                self.sampler = samplers.get_sampler(config_sampler)(
-                    list(self.fewshot_docs()), self, rnd=self.fewshot_rnd
-                )
-            elif callable(config_sampler) and issubclass(
-                config_sampler, samplers.ContextSampler
-            ):
-                self.sampler = config_sampler(
-                    docs=list(self.fewshot_docs()), task=self, rnd=self.fewshot_rnd
-                )
+                sampler_cls = samplers.get_sampler(config_sampler)
+            elif issubclass(config_sampler, samplers.ContextSampler):
+                sampler_cls = config_sampler
             else:
                 raise TypeError(
                     f"fewshot_config.sampler should be a string or callable of ContextSampler type, "
                     f"not {type(config_sampler)}"
                 )
+            self.sampler = sampler_cls(list(self.fewshot_docs()), rnd=None)
 
         self.task_docs = self.eval_docs
 

@@ -14,18 +14,23 @@ WORKDIR /home/app/code
 
 # install poetry as root and give app user access to it
 RUN pip3 install poetry && chown app:app /usr/local/bin/poetry
+# Install uv
+ENV UV_INSTALL_DIR=/usr/local/bin/
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh && chown app:app /usr/local/bin/uv
 
 # copy poetry dependencies files
 COPY apps/python/base_image/pyproject.toml /home/app/code/pyproject.toml
-COPY apps/python/base_image/poetry.lock /home/app/code/poetry.lock
-RUN chown app:app /home/app/code/poetry.lock
 RUN chown app:app /home/app/code/pyproject.toml
 
 # set app user as the user that will runs the commands below
 USER app
 
-# install only external dependencies without source code
-RUN poetry  install --only main --no-root --no-directory
+# Clone the PNYX fork of lm-eval repo to get the necesary PRs merged in
+RUN git clone https://github.com/pnyxai/lm-evaluation-harness.git && \
+    cd lm-evaluation-harness && \
+    git checkout PnyxAI
+# TODO : Replace the checkout branch for a tag?
+RUN cd lm-evaluation-harness && uv build
 
 # Clone the taxonomy repository to get the taxonomy files
 RUN git clone https://github.com/pnyxai/lm-taxonomies.git && \
@@ -33,20 +38,11 @@ RUN git clone https://github.com/pnyxai/lm-taxonomies.git && \
     git checkout v0.1.1
 RUN mv ./lm-taxonomies/taxonomies /home/app/code/taxonomies
 
-# Install uv
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh 
+# Build the package too (not yet in pip)
+RUN cd lm-taxonomies && uv build
 
-# Install the package too (not yet in pip)
-RUN cd lm-taxonomies && $HOME/.local/bin/uv build
-RUN poetry add ./lm-taxonomies/dist/*.whl 
-
-# Clone the PNYX fork of lm-eval repo to get the necesary PRs merged in
-RUN git clone https://github.com/pnyxai/lm-evaluation-harness.git && \
-    cd lm-evaluation-harness && \
-    git checkout PnyxAI
-RUN cd lm-evaluation-harness && $HOME/.local/bin/uv build
-RUN rm poetry.lock
-RUN poetry add ./lm-evaluation-harness/dist/*.whl 
+# install only external dependencies without source code
+RUN poetry  install --only main --no-root --no-directory
 
 # Clone the a-vert repot to get the tasks
 RUN git clone https://github.com/pnyxai/a-vert.git && \
