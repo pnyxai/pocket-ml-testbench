@@ -10,3 +10,93 @@ data:
   avert_method: rerank
   avert_prompt_template: qwen3-reranker
   avert_log_level: INFO
+  testbench_task_config_file: /home/app/task-configs/custom_task_config.json
+  custom_task_config: |
+    {
+      "gpqa_subtask": {
+          "metrics": ["a-vert_match"],
+          "filters": ["pass_all"]
+      },
+      "ifeval": {
+          "metrics": ["prompt_level_loose_acc"],
+          "filters": ["pass_all"],
+          "num_fewshot": 0
+      },
+      "bbh-split_": {
+          "metrics": ["a-vert_match"],
+          "filters": ["pass_all"]
+      },
+      "mmlu_pro-category_": {
+          "metrics": ["a-vert_match"],
+          "filters": ["pass_all"]
+      },
+      "babisteps-chat_zero_shot": {
+          "metrics": ["a-vert_match"],
+          "filters": ["pass_all"]
+      },
+      "mmlu_chat_generative": {
+          "metrics": ["a-vert_match"],
+          "filters": ["pass_all"]
+      },
+      "reasoning_gym": {
+          "metrics": ["score_match"],
+          "filters": ["pass_all"]
+      },
+      "t-eval_pnyx_instruct-v2": {
+          "metrics": ["call_match"],
+          "filters": ["instruct_extract"],
+          "doc_as_chat_template": true,
+          "apply_chat_template": false,
+          "fewshot_as_multiturn": false
+      },
+      "t-eval_pnyx_instruct_tool_native-v2": {
+          "metrics": ["call_match"],
+          "filters": ["tool_instruct_extract"],
+          "doc_as_chat_template": true,
+          "apply_chat_template": false,
+          "fewshot_as_multiturn": false
+      },
+      "t-eval_pnyx_plan-json-v2": {
+          "metrics": ["plan_f1_score"],
+          "filters": ["call_extract"],
+          "doc_as_chat_template": true,
+          "apply_chat_template": false,
+          "fewshot_as_multiturn": false
+      },
+      "t-eval_pnyx_plan-tool_native-v2": {
+          "metrics": ["plan_f1_score"],
+          "filters": ["tool_call_extract"],
+          "doc_as_chat_template": true,
+          "apply_chat_template": false,
+          "fewshot_as_multiturn": false
+      },
+      "t-eval_pnyx_plan-reason-retrieve-understand-json-v2": {
+          "metrics": ["call_match"],
+          "filters": ["call_extract"],
+          "doc_as_chat_template": true,
+          "apply_chat_template": false,
+          "fewshot_as_multiturn": false
+      },
+      "t-eval_pnyx_plan-reason-retrieve-understand_tool_native-v2": {
+          "metrics": ["call_match"],
+          "filters": ["tool_call_extract"],
+          "doc_as_chat_template": true,
+          "apply_chat_template": false,
+          "fewshot_as_multiturn": false
+      },
+      "t-eval_pnyx_review-str-v2": {
+          "metrics": ["a-vert_match"],
+          "filters": ["pass_all"],
+          "doc_as_chat_template": true,
+          "apply_chat_template": false,
+          "fewshot_as_multiturn": false
+      },
+      "debugbench_python_": {
+          "metrics": ["pass@1"],
+          "filters": ["create_test"],
+          "confirm_run_unsafe_code": true,
+          "doc_as_chat_template": true,
+          "apply_chat_template": false,
+          "fewshot_as_multiturn": false
+      }
+    }

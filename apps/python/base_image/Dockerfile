@@ -26,10 +26,11 @@ RUN chown app:app /home/app/code/pyproject.toml
 USER app
 
 # Clone the PNYX fork of lm-eval repo to get the necesary PRs merged in
+RUN echo "4"
 RUN git clone https://github.com/pnyxai/lm-evaluation-harness.git && \
     cd lm-evaluation-harness && \
     git checkout PnyxAI
-# TODO : Replace the checkout branch for a tag?
+# TODO : Replace the checkout branch for a tag to avoid no re-downloads on updates
 RUN cd lm-evaluation-harness && uv build
 
 # Clone the taxonomy repository to get the taxonomy files

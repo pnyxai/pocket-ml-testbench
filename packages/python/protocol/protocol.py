@@ -62,6 +62,7 @@ class PocketNetworkTaskRequest(PocketNetworkRegisterTaskRequest):
     bootstrap_iters: Optional[int] = 100000
     system_instruction: Optional[str] = None
     apply_chat_template: Optional[bool] = True
+    doc_as_chat_template: Optional[bool] = True
     fewshot_as_multiturn: Optional[bool] = True
     confirm_run_unsafe_code: Optional[bool] = False
 
@@ -462,6 +463,7 @@ class PocketNetworkMongoDBTask(BaseModel):
     bootstrap_iters: Optional[int] = 100000
     system_instruction: Optional[str] = None
     apply_chat_template: Optional[bool] = True
+    doc_as_chat_template: Optional[bool] = False
     fewshot_as_multiturn: Optional[bool] = True
     confirm_run_unsafe_code: Optional[bool] = False
     qty: int

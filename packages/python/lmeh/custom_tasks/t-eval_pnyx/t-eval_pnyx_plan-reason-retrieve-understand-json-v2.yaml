@@ -1,0 +1,15 @@
+include: _t-eval_pnyx.yaml
+task: t-eval_pnyx_plan-reason-retrieve-understand-json-v2
+dataset_name: reason_retrieve_understand_json_v2
+process_results: !function utils.t_eval_rru_match
+metric_list:
+  - metric: call_match
+    aggregation: mean
+    higher_is_better: true
+filter_list:
+  - name: "function_call_extract"
+    filter:
+      - function: "custom"
+        filter_fn: !function utils.build_predictions_call
+metadata:
+  version: 1.0

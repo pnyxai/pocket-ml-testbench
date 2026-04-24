@@ -202,6 +202,7 @@ async def generate_requests(
     log_samples: bool = True,
     system_instruction: Optional[str] = None,
     apply_chat_template: bool = False,
+    doc_as_chat_template: bool = False,
     fewshot_as_multiturn: bool = False,
     confirm_run_unsafe_code: bool = False,
     eval_logger: Optional[logging.Logger] = None,
@@ -228,6 +229,8 @@ async def generate_requests(
         System instruction to be applied to the prompt
     :param apply_chat_template: bool
         If True, apply chat template to the prompt
+    :param doc_as_chat_template: bool
+        If True, interpret the doc as a chat template
     :param fewshot_as_multiturn: bool
         Whether to provide the fewshot examples as a multiturn conversation or a single user turn.
     :return
@@ -299,9 +302,10 @@ async def generate_requests(
             rewrite_requests_cache=rewrite_requests_cache,
             system_instruction=system_instruction,
             apply_chat_template=apply_chat_template,
+            doc_as_chat_template=doc_as_chat_template,
             fewshot_as_multiturn=fewshot_as_multiturn,
             chat_template=getattr(lm, "apply_chat_template")
-            if apply_chat_template
+            if (apply_chat_template or doc_as_chat_template)
             else None,
             tokenizer_name=getattr(lm, "tokenizer_name", "")
             if apply_chat_template
@@ -475,6 +479,7 @@ async def evaluate(
     log_samples: bool = True,
     system_instruction: Optional[str] = None,
     apply_chat_template: Union[bool, str] = False,
+    doc_as_chat_template: bool = False,
     fewshot_as_multiturn: bool = False,
     confirm_run_unsafe_code: bool = False,
     eval_logger: Optional[logging.Logger] = None,
@@ -497,6 +502,8 @@ async def evaluate(
         - If set to True, the default chat template is applied.
         - If set to a string, applies the specified chat template by name.
         Defaults to False (no chat template applied).
+    :param doc_as_chat_template: bool
+        If True the input doc is interpreted as a chat template and passed on
     :param fewshot_as_multiturn: bool
         Whether to provide the fewshot examples as a multiturn conversation or a single user turn.
     :return
@@ -624,9 +631,10 @@ async def evaluate(
                 rewrite_requests_cache=rewrite_requests_cache,
                 system_instruction=system_instruction,
                 apply_chat_template=bool(apply_chat_template),
+                doc_as_chat_template=bool(doc_as_chat_template),
                 fewshot_as_multiturn=fewshot_as_multiturn,
                 chat_template=getattr(lm, "apply_chat_template")
-                if apply_chat_template
+                if (apply_chat_template or doc_as_chat_template)
                 else None,
                 tokenizer_name=getattr(lm, "tokenizer_name", "")
                 if apply_chat_template
@@ -709,9 +717,22 @@ async def evaluate(
             times = getattr(lm, "response_times")(cloned_reqs)
 
             # put responses from model into a list of length K for each request.
-            for x, t, req in zip(resps, times, cloned_reqs):
+        # If the model returns tuples with content and optional fields like 
+        # tool_calls/reasoning, unpack them: store the text content in resps 
+        # (preserving the expected str contract) and store additional fields 
+        # separately on the Instance.
+        for x, t, req in zip(resps, times, cloned_reqs, strict=True):
+            if isinstance(x, tuple) and len(x) >= 2:
+                content = x[0]
+                tool_calls = x[1] if len(x) > 1 else None
+                reasoning = x[2] if len(x) > 2 else None
+                req.resps.append(content)
+                req.tool_calls.append(tool_calls)
+                req.reasoning.append(reasoning)
+            else:
                 req.resps.append(x)
-                req.times.append(t)
+            # Track times
+            req.times.append(t)
     except Exception as e:
         eval_logger.error(
             "Failed to process response from the LM model.",
@@ -751,8 +772,8 @@ async def evaluate(
             "Selected filters",
             selected_filters=selected_filters,
         )
-        for filter_key in task.instances[0].filtered_resps.keys():
-            if filter_key not in selected_filters:
+        for filter_key in selected_filters:
+            if filter_key not in task.instances[0].filtered_resps.keys():
                 eval_logger.warning(
                     "Skipping Filter Key. This can signal misconfiguration of task in `task_config.py`",
                     filter_key=filter_key,
@@ -810,6 +831,8 @@ async def evaluate(
                         "filtered_resps": [
                             req.filtered_resps[filter_key] for req in requests
                         ],
+                        "tool_calls": [req.tool_calls for req in requests],
+                        "reasoning": [req.reasoning for req in requests],
                         "filter": filter_key,
                         "metrics": list(metrics.keys()),
                         "doc_hash": hash_string(
@@ -828,6 +851,8 @@ async def evaluate(
                         doc_id=doc_id_true,
                         target=example["target"],
                         resps=example["resps"],
+                        reasoning=example["reasoning"],
+                        tool_calls=example["tool_calls"],
                         filtered_resps=example["filtered_resps"],
                         metrics=example["metrics"],
                         selected_metrics=selected_metrics,
@@ -839,8 +864,8 @@ async def evaluate(
                 # but the number of metrics and the number of request do not
                 # follow a logic, one request can have multiple metrics and
                 # multiple requests can have a single metric.
-                for metric, value in metrics.items():
-                    if metric in selected_metrics:
+                for metric in selected_metrics:
+                    if metric in metrics.keys():                
                         numericSample = NumericSample(
                             score=example[metric],
                             run_time=total_ms,
@@ -849,6 +874,11 @@ async def evaluate(
                             error_str="",
                         )
                         scores.append(numericSample)
+                    else:
+                        eval_logger.warning(
+                            "Skipping Metric Key. This can signal misconfiguration of task in `task_config.py`",
+                            metric=metric,
+                        )
         # If there are failed samples, add them here to the scores list
         for instance in task.failed_instances:
             numericSample = NumericSample(
@@ -863,7 +893,7 @@ async def evaluate(
         total_processed_samples = len(result_num_samples) + len(task.failed_instances)
 
         if total_processed_samples != len(scores):
-            msg = "Each sample must have strictly one metric associated to it. Multiple metrics per sample are not supported"
+            msg = f"Each sample must have strictly one metric associated to it. Multiple metrics per sample are not supported: {total_processed_samples} != {len(scores)}"
             e = ValueError("total_processed_samples != len(scores)")
             eval_logger.error(msg, error=e)
             raise ApplicationError(

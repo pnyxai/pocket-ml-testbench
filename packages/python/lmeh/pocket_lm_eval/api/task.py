@@ -105,6 +105,7 @@ class SqlDatasetSaver:
         "string": "TEXT",
         # From here downwards, they were not tested
         "timestamp": "TIMESTAMP",
+        "timestamp[ns]": "TIMESTAMP",
         "date32": "DATE",
         "date64": "DATE",
         "time32": "TIME",
@@ -163,25 +164,26 @@ class SqlDatasetSaver:
                 ):
                     self.columns[key] = self.DATA_TYPE_MAPPING["dict"]
                 else:
+                    inc_dtype = self.dataset[self.splits[self.split_index]].features[key].dtype
                     use_type = self.DATA_TYPE_MAPPING.get(
-                        self.dataset[self.splits[self.split_index]].features[key].dtype,
+                        inc_dtype,
                         None,
                     )
                     if use_type is None:
-                        str_err = f"Unsupported data type in dataset ({use_type}), cannot save."
+                        str_err = f"Unsupported data type in dataset ({inc_dtype}), cannot save."
                         raise NotImplementedError(str_err)
                     elif use_type == "[]":
                         # This is a special case, so lets compose the list
-                        list_member_type = (
+                        inc_dtype = (
                             self.dataset[self.splits[self.split_index]]
                             .features[key]
                             .feature.dtype
                         )
                         list_member_type = self.DATA_TYPE_MAPPING.get(
-                            list_member_type, None
+                            inc_dtype, None
                         )
                         if list_member_type is None:
-                            str_err = f"Unsupported data type in dataset ({list_member_type}), cannot save."
+                            str_err = f"Unsupported data type in dataset ({inc_dtype}), cannot save."
                             raise NotImplementedError(str_err)
                         use_type = list_member_type + use_type
 
@@ -761,6 +763,7 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
         rewrite_requests_cache: bool = False,
         system_instruction: Optional[str] = None,
         apply_chat_template: bool = False,
+        doc_as_chat_template: bool = False,
         fewshot_as_multiturn: bool = False,
         chat_template: Optional[Callable] = None,
         tokenizer_name: str = "",
@@ -772,6 +775,7 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
 
         cache_key = f"requests-{self._config.task}-{self.config.num_fewshot}shot-rank{rank}-world_size{world_size}"
         cache_key += "-chat_template" if apply_chat_template else ""
+        cache_key += "-doc_as_chat_template" if doc_as_chat_template else ""
         cache_key += "-fewshot_as_multiturn" if fewshot_as_multiturn else ""
         cache_key += (
             f"-system_prompt_hash{utils.hash_string(system_instruction)}"
@@ -824,11 +828,14 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
             # sample fewshot context #TODO: need to offset doc_id by rank now!
             fewshot_ctx = self.fewshot_context(
                 doc,
-                0 if self.config.num_fewshot is None else self.config.num_fewshot,
-                system_instruction,
-                apply_chat_template,
-                fewshot_as_multiturn,
-                chat_template,
+                num_fewshot=0
+                if self.config.num_fewshot is None
+                else self.config.num_fewshot,
+                system_instruction=system_instruction,
+                apply_chat_template=apply_chat_template,
+                doc_as_chat_template=doc_as_chat_template,
+                fewshot_as_multiturn=fewshot_as_multiturn,
+                chat_template=chat_template,
                 gen_prefix=self.doc_to_prefix(doc),
             )
 
@@ -1182,6 +1189,7 @@ class EvaluatePocketNetworkConfigurableTask(PocketNetworkConfigurableTask):
         rewrite_requests_cache: bool = False,
         system_instruction: Optional[str] = None,
         apply_chat_template: bool = False,
+        doc_as_chat_template: bool = False,
         fewshot_as_multiturn: bool = False,
         chat_template: Optional[Callable] = None,
         tokenizer_name: str = "",
