@@ -203,10 +203,7 @@ async def model_config_evaluate(
         except Exception as e:
             error_msg = "Failed to save Result to MongoDB. (correct evaluation path)"
             eval_logger.error(
-                error_msg,
-                task=args.task_id,
-                error=str(e),
-                payload=payload
+                error_msg, task=args.task_id, error=str(e), payload=payload
             )
             return False, f"{error_msg}: {str(e)}"
 
@@ -252,10 +249,7 @@ async def model_config_evaluate(
         except Exception as e:
             error_msg = "Failed to save Result to MongoDB. (failed evaluation path)"
             eval_logger.error(
-                error_msg,
-                task=args.task_id,
-                error=str(e),
-                payload=payload
+                error_msg, task=args.task_id, error=str(e), payload=payload
             )
             return False, f"{error_msg}: {str(e)}"
             # eval_logger.error("Failed to save Result to MongoDB.")

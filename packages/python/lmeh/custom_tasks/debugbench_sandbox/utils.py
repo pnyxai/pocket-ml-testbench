@@ -4,6 +4,7 @@ from datasets import Dataset
 
 # Select code executor
 import evaluate as hf_evaluate
+
 compute_ = dict()
 compute_["python3"] = hf_evaluate.load("code_eval")
 
@@ -11,7 +12,9 @@ compute_["python3"] = hf_evaluate.load("code_eval")
 try:
     test_cases = ["assert add(2, 3)==5"]
     candidates = [["def add(a,b): return a*b"]]
-    results = compute_['python3'].compute(references=test_cases, predictions=candidates, k=[1])
+    results = compute_["python3"].compute(
+        references=test_cases, predictions=candidates, k=[1]
+    )
 except Exception as e:
     raise e
 
@@ -50,7 +53,7 @@ def process_example(example, language):
         history.append(
             {
                 "role": "user",
-                "content": f"The code you provided is not working, it is failing some tests I have.\nPlease review it and provide a corrected code block.",
+                "content": "The code you provided is not working, it is failing some tests I have.\nPlease review it and provide a corrected code block.",
             }
         )
 
@@ -59,19 +62,22 @@ def process_example(example, language):
 
 
 def process_docs_python(dataset: Dataset) -> Dataset:
-    _process = lambda x: process_example(x, "Python3")
-    return dataset.map(_process)
+    def _process_example(x):
+        return process_example(x, "Python3")
+
+    return dataset.map(_process_example)
+
 
 def pass_at_k_process(doc, results):
     global compute_
-    
+
     result = {"pass@1": 0}
 
     # We support a single prediction currently
     prediction = results[0][0]
     if prediction.strip() == "" or prediction is None:
         return result
-    
+
     assert doc["test_code"] is not None
 
     # Get sample language
@@ -83,7 +89,7 @@ def pass_at_k_process(doc, results):
         predictions=[[prediction]],
         k=[1],
     )
-    result["pass@1"] = res[0]['pass@1']
+    result["pass@1"] = res[0]["pass@1"]
 
     return result
 

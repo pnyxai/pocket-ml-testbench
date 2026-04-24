@@ -19,11 +19,15 @@ import numpy as np
 import networkx as nx
 from copy import deepcopy
 import numbers
+
 try:
     import a_vert
+
     AVERT_OK = True
-except:
-    print("WARNING: `a_vert` library not foud. Task `t-eval_pnyx_review-str-v2` will be unavailable.")
+except Exception as e:
+    print(
+        f"WARNING: `a_vert` library not foud. Task `t-eval_pnyx_review-str-v2` will be unavailable: {e}"
+    )
     AVERT_OK = False
 
 from string import Formatter
@@ -71,8 +75,7 @@ def t_eval_instruct_match(doc, results):
                 prediction["call_dict"],
                 json.loads(doc["ground_truth"]),
                 prediction["response"],
-        )
-    
+            )
 
     return {"call_match": score}
 
@@ -138,7 +141,9 @@ def t_eval_review_match(doc, results):
             - 'a-vert_match': Boolean indicating if correct score > wrong score
     """
     if not AVERT_OK:
-        raise ValueError('A-VERT not available, cannot run task: `t-eval_pnyx_review-str-v2`')
+        raise ValueError(
+            "A-VERT not available, cannot run task: `t-eval_pnyx_review-str-v2`"
+        )
     # Get a-vert response groups
     avert_groups = construct_review_response_groups(
         json.loads(doc["ground_truth"])["answer"]
@@ -186,6 +191,7 @@ def t_eval_rru_match(doc, results):
         dict: Evaluation result with key:
             - 'call_match': Binary match score (0 or 1) based on function name and arguments
     """
+
     def get_rru_score(this_prediction):
         # Parse ground truth
         gt_parsed = json.loads(doc["ground_truth"])
@@ -197,6 +203,7 @@ def t_eval_rru_match(doc, results):
         return call_matching(
             this_prediction, gt_parsed, strict_numerical_match=strict_num_match
         )
+
     # Default score
     result = {
         "call_match": 0,
@@ -205,18 +212,17 @@ def t_eval_rru_match(doc, results):
     prediction = results[0][0]
 
     # Check valid generation
-    if isinstance(prediction,dict):
+    if isinstance(prediction, dict):
         if "failed_parse" in prediction.keys():
             return result
-    elif isinstance(prediction,list):
+    elif isinstance(prediction, list):
         pass
     else:
         # Not a JSON, cannot evaluate
         return result
 
-    
     if isinstance(prediction, list) and doc["response_format"] == "tool_calls":
-        # When prompted with native tool calls, the model can propose multiple 
+        # When prompted with native tool calls, the model can propose multiple
         # tool calls, we will evaluate if any of those is correct since the
         # dataset is not strict with order
         score = False
@@ -226,7 +232,7 @@ def t_eval_rru_match(doc, results):
             if score:
                 # If we have one hit it is enough
                 break
-    
+
     else:
         # JSON based or single prediction test
         score = get_rru_score(prediction)
@@ -235,20 +241,28 @@ def t_eval_rru_match(doc, results):
 
     return result
 
+
 def build_predictions_instruct(
-    resps: list[list[str]], docs: list[dict],
+    resps: list[list[str]],
+    docs: list[dict],
 ) -> list[list[str]]:
-    return build_predictions_instruct_with_tools(resps, docs, [[None for _ in r] for r in resps])
-    
+    return build_predictions_instruct_with_tools(
+        resps, docs, [[None for _ in r] for r in resps]
+    )
+
 
 def build_predictions_instruct_with_tools(
-    resps: list[list[str]], docs: list[dict], tool_calls: list[list[dict]], reasoning: list[list[str]] = None, **kwargs,
+    resps: list[list[str]],
+    docs: list[dict],
+    tool_calls: list[list[dict]],
+    reasoning: list[list[str]] = None,
+    **kwargs,
 ) -> list[list[str]]:
     """
     Parse and structure raw instruction-following responses for evaluation.
 
     Processes raw model responses by parsing them according to the specified format
-    (JSON, string template or tool_calls). Extracts thought, action, and arguments. 
+    (JSON, string template or tool_calls). Extracts thought, action, and arguments.
     On parse errors, returns the raw response with empty field mappings.
 
     Args:
@@ -268,13 +282,23 @@ def build_predictions_instruct_with_tools(
     if reasoning is None:
         # Patch reasoning trace
         reasoning = [[None for _ in r] for r in resps]
-    assert len(resps) == len(docs), "Number of response instances not matching number of documents, cannot procede to eval."
-    assert len(resps) == len(tool_calls), "Number of response instances not matching number of tool call instances, cannot procede to eval."
-    assert len(resps) == len(reasoning), "Number of response instances not matching number of reasoning instances, cannot procede to eval."
+    assert (
+        len(resps) == len(docs)
+    ), "Number of response instances not matching number of documents, cannot procede to eval."
+    assert (
+        len(resps) == len(tool_calls)
+    ), "Number of response instances not matching number of tool call instances, cannot procede to eval."
+    assert (
+        len(resps) == len(reasoning)
+    ), "Number of response instances not matching number of reasoning instances, cannot procede to eval."
     out = list()
     for resp, doc, tool_call, reason in zip(resps, docs, tool_calls, reasoning):
-        assert len(resp) == len(tool_call), "Number of responses not matching number of tool calls, cannot procede to eval."
-        assert len(resp) == len(reason), "Number of responses not matching number of reasoning traces, cannot procede to eval."
+        assert (
+            len(resp) == len(tool_call)
+        ), "Number of responses not matching number of tool calls, cannot procede to eval."
+        assert (
+            len(resp) == len(reason)
+        ), "Number of responses not matching number of reasoning traces, cannot procede to eval."
         response_format = doc["response_format"]
         template = json.loads(doc["evaluation_data"])
         out.append(list())
@@ -298,18 +322,24 @@ def build_predictions_instruct_with_tools(
                     {
                         "failed_parse": r,
                         "expected_format": response_format,
-                        
                     }
                 )
 
     return out
 
+
 def build_predictions_call(resps: list[list[str]], docs: list[dict]) -> list[list[str]]:
-    return build_predictions_call_with_tools(resps, docs, [[None for _ in r] for r in resps])
-    
+    return build_predictions_call_with_tools(
+        resps, docs, [[None for _ in r] for r in resps]
+    )
+
 
 def build_predictions_call_with_tools(
-        resps: list[list[str]], docs: list[dict], tool_calls: list[list[dict]], reasoning: list[list[str]] = None, **kwargs,
+    resps: list[list[str]],
+    docs: list[dict],
+    tool_calls: list[list[dict]],
+    reasoning: list[list[str]] = None,
+    **kwargs,
 ) -> list[list[str]]:
     """
     Parse and structure raw function call responses for evaluation.
@@ -334,13 +364,23 @@ def build_predictions_call_with_tools(
         # Patch reasoning trace
         reasoning = [[None for _ in r] for r in resps]
 
-    assert len(resps) == len(docs), "Number of response instances not matching number of documents, cannot procede to eval."
-    assert len(resps) == len(tool_calls), "Number of response instances not matching number of tool call instances, cannot procede to eval."
-    assert len(resps) == len(reasoning), "Number of response instances not matching number of reasoning instances, cannot procede to eval."
+    assert (
+        len(resps) == len(docs)
+    ), "Number of response instances not matching number of documents, cannot procede to eval."
+    assert (
+        len(resps) == len(tool_calls)
+    ), "Number of response instances not matching number of tool call instances, cannot procede to eval."
+    assert (
+        len(resps) == len(reasoning)
+    ), "Number of response instances not matching number of reasoning instances, cannot procede to eval."
     out = list()
     for resp, doc, tool_call, reason in zip(resps, docs, tool_calls, reasoning):
-        assert len(resp) == len(tool_call), "Number of responses not matching number of tool calls, cannot procede to eval."
-        assert len(resp) == len(reason), "Number of responses not matching number of reasoning traces, cannot procede to eval."
+        assert (
+            len(resp) == len(tool_call)
+        ), "Number of responses not matching number of tool calls, cannot procede to eval."
+        assert (
+            len(resp) == len(reason)
+        ), "Number of responses not matching number of reasoning traces, cannot procede to eval."
         response_format = doc["response_format"]
         out.append(list())
         for r, t, y in zip(resp, tool_call, reason):
@@ -480,8 +520,6 @@ def process_response_instruct(response, tool_call, reason, response_format, temp
         }
 
     elif response_format == "tool_calls":
-        
-        
         # The tool should be already the one requested in the correct format
         # placed as the first tool to be called in the "function" field
         resp = tool_call[0]["function"]
@@ -570,7 +608,9 @@ def instruct_scorer(template, call_dict, gt_parsed, resp_parsed):
             is_match *= gt_parsed[key] == resp_parsed[template[key]]
             one_test = True
     if not one_test:
-        print(f"WARNING: Sample not tested! Check definition! {resp_parsed} != {gt_parsed} ({template})")
+        print(
+            f"WARNING: Sample not tested! Check definition! {resp_parsed} != {gt_parsed} ({template})"
+        )
         is_match = False
     return is_match
 
@@ -648,7 +688,7 @@ def planing_scorer(pred_plan, gt_plan, strict_numerical_match=True) -> dict:
 
     pred_to_gt_mapping = dict()
     for key in max_weight_matching:
-        if type(key[0]) == int:
+        if isinstance(key[0], int):
             pred_to_gt_mapping[int(key[0])] = int(key[1])
         else:
             pred_to_gt_mapping[int(key[1])] = int(key[0])
@@ -754,7 +794,6 @@ def process_generation(
         if pred_data == []:
             raise ValueError("Unable to load JSON data")
     elif prompt_type == "tool_calls":
-        
         if len(tool_call_data) > 0:
             # The model called tools
             pred_data = list()
@@ -762,7 +801,7 @@ def process_generation(
                 # The tool should be already the one requested in the correct format
                 this_call = tool_call["function"]
                 # Patch the arguments field
-                this_call['args'] = this_call['arguments']
+                this_call["args"] = this_call["arguments"]
                 this_call.pop("arguments", None)
                 this_call["id"] = idx
                 # Add the call
@@ -777,8 +816,8 @@ def process_generation(
             pred_data = {
                 "id": 0,
                 "name": "FinishAction",
-                "args": pred_data, # The response that goes to the evaluator
-                "thought": None, # Filled in later
+                "args": pred_data,  # The response that goes to the evaluator
+                "thought": None,  # Filled in later
             }
 
     elif prompt_type == "ReWOO":
@@ -789,15 +828,15 @@ def process_generation(
         raise NotImplementedError(
             f"Currently, we only support json and str format, but get {prompt_type}"
         )
-    
+
     # Add thought if not stated directly by the model
     if isinstance(pred_data, list):
         for this_pred_data in pred_data:
-            if 'thought' in this_pred_data.keys() and this_pred_data['thought'] is None:
-                this_pred_data['thought'] = reason_data # Model reasoning trace
+            if "thought" in this_pred_data.keys() and this_pred_data["thought"] is None:
+                this_pred_data["thought"] = reason_data  # Model reasoning trace
     else:
-        if 'thought' in pred_data.keys() and pred_data['thought'] is None:
-            pred_data['thought'] = reason_data # Model reasoning trace
+        if "thought" in pred_data.keys() and pred_data["thought"] is None:
+            pred_data["thought"] = reason_data  # Model reasoning trace
 
     return pred_data
 
@@ -834,8 +873,7 @@ def call_matching(
     is_match = call_pred[call_dict["name"]] == call_gt[call_dict["name"]]
     # If the action is matched, check the arguments
     if is_match:
-        
-        if type(call_gt[call_dict["args"]]) == str:
+        if isinstance(call_gt[call_dict["args"]], str):
             # Check if this is type "FinishAction", because there all fields are
             # semantic matches
             if call_gt[call_dict["name"]] == "FinishAction":
@@ -844,13 +882,15 @@ def call_matching(
                 pass
             else:
                 # Strict match otherwise
-                is_match *= (call_gt[call_dict["args"]] == call_pred[call_dict["args"]])
+                is_match *= call_gt[call_dict["args"]] == call_pred[call_dict["args"]]
         else:
             for argument in call_gt[call_dict["args"]].keys():
                 # Ensure argument is a dict
-                if type(call_pred[call_dict["args"]]) != dict:
+                if not isinstance(call_pred[call_dict["args"]], dict):
                     try:
-                        call_pred[call_dict["args"]] = json.loads(call_pred[call_dict["args"]])
+                        call_pred[call_dict["args"]] = json.loads(
+                            call_pred[call_dict["args"]]
+                        )
                     except Exception as _:
                         is_match = False
                 # If still valid, check argument name
@@ -863,7 +903,9 @@ def call_matching(
                         # accurate ground truth thought traces to implement properly
                         pass
 
-                    elif isinstance(call_gt[call_dict["args"]][argument], numbers.Number):
+                    elif isinstance(
+                        call_gt[call_dict["args"]][argument], numbers.Number
+                    ):
                         # Numerical argument
                         if not strict_numerical_match:
                             # Just check the type
@@ -908,7 +950,7 @@ def format_load(raw_data: str, start_character: str = "", end_character: str = "
     Raises:
         Exception: If data cannot be parsed with any strategy
     """
-    if type(raw_data) != str:
+    if not isinstance(raw_data, str):
         # the data has been evaluated
         return raw_data
     if "```json" in raw_data:
@@ -925,21 +967,21 @@ def format_load(raw_data: str, start_character: str = "", end_character: str = "
     try:
         data = ast.literal_eval(raw_data)
         successful_parse = True
-    except Exception as e:
+    except Exception:
         pass
     if not successful_parse:
         try:
             raw_data = re.sub(r"//.*?\n", "", raw_data)
             data = json.loads(raw_data)
             successful_parse = True
-        except Exception as e:
+        except Exception:
             pass
     if not successful_parse:
         try:
             data = json.loads(raw_data.replace("'", '"'))
 
             successful_parse = True
-        except Exception as e:
+        except Exception:
             pass
     if not successful_parse:
         raise Exception("Cannot parse raw data")

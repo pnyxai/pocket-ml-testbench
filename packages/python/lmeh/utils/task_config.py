@@ -73,6 +73,7 @@ if TESTBENCH_TASK_CONFIG_FILE is not None:
     with open(TESTBENCH_TASK_CONFIG_FILE) as f:
         task_cnfg = json.load(f)
 
+
 def get_task_config(task_name: str):
     if "mmlu" in task_name:
         if "chat_generative" in task_name:
@@ -92,7 +93,9 @@ def get_task_config(task_name: str):
         return task_cnfg["debugbench_python_"]
 
     else:
-        retun_config =  task_cnfg.get(task_name, None)
+        retun_config = task_cnfg.get(task_name, None)
         if retun_config is None:
-            raise ValueError(f"Task {task_name} is not defined, please pass a custom TESTBENCH_TASK_CONFIG_FILE json.")
+            raise ValueError(
+                f"Task {task_name} is not defined, please pass a custom TESTBENCH_TASK_CONFIG_FILE json."
+            )
         return retun_config

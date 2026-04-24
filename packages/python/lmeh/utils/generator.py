@@ -19,7 +19,6 @@ import numpy as np
 
 if TYPE_CHECKING:
     from lm_eval.api.model import LM
-    from lm_eval.tasks import Task
 
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -717,9 +716,9 @@ async def evaluate(
             times = getattr(lm, "response_times")(cloned_reqs)
 
             # put responses from model into a list of length K for each request.
-        # If the model returns tuples with content and optional fields like 
-        # tool_calls/reasoning, unpack them: store the text content in resps 
-        # (preserving the expected str contract) and store additional fields 
+        # If the model returns tuples with content and optional fields like
+        # tool_calls/reasoning, unpack them: store the text content in resps
+        # (preserving the expected str contract) and store additional fields
         # separately on the Instance.
         for x, t, req in zip(resps, times, cloned_reqs, strict=True):
             if isinstance(x, tuple) and len(x) >= 2:
@@ -865,7 +864,7 @@ async def evaluate(
                 # follow a logic, one request can have multiple metrics and
                 # multiple requests can have a single metric.
                 for metric in selected_metrics:
-                    if metric in metrics.keys():                
+                    if metric in metrics.keys():
                         numericSample = NumericSample(
                             score=example[metric],
                             run_time=total_ms,

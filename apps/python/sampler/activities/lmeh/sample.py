@@ -145,7 +145,9 @@ async def lmeh_sample(args: PocketNetworkTaskRequest) -> bool:
                     if "path" in open_llm_cfg:
                         args.requester_args.path = open_llm_cfg["path"]
                     if "confirm_run_unsafe_code" in open_llm_cfg:
-                        args.confirm_run_unsafe_code = open_llm_cfg["confirm_run_unsafe_code"]
+                        args.confirm_run_unsafe_code = open_llm_cfg[
+                            "confirm_run_unsafe_code"
+                        ]
                     if "doc_as_chat_template" in open_llm_cfg:
                         args.doc_as_chat_template = open_llm_cfg["doc_as_chat_template"]
 
@@ -161,7 +163,7 @@ async def lmeh_sample(args: PocketNetworkTaskRequest) -> bool:
                             type="BadParams",
                             non_retryable=True,
                         )
-                    
+
                     # Validate if fewshot_as_multiturn and apply_chat_template are set correctly
                     if args.fewshot_as_multiturn and args.apply_chat_template is False:
                         eval_logger.error(

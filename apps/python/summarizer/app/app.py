@@ -73,7 +73,9 @@ async def setup_app(cfg) -> dict:
                         f'WARNING : Taxonomy file name is different from taxonomy graph name ("{taxonmy_file_name}" vs "{taxonomy_graph.name}"). Using GRAPH NAME as taxonomy name.'
                     )
                 app_config["taxonomies"][taxonomy_graph.name] = taxonomy_graph
-                logger.info(f"Added taxonomy to track: {taxonmy_file_name} ({taxonomy_graph.name})")
+                logger.info(
+                    f"Added taxonomy to track: {taxonmy_file_name} ({taxonomy_graph.name})"
+                )
 
     if tax_use is not None and len(app_config["taxonomies"]) == 0:
         raise ValueError(

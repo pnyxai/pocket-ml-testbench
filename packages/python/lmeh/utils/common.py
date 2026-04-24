@@ -4,6 +4,7 @@ from typing import Optional
 
 import asyncpg
 import numpy as np
+
 # import torch
 from temporalio.exceptions import ApplicationError
 

@@ -1,6 +1,5 @@
 import ast
 import json
-import random
 import time
 from collections.abc import Callable
 from typing import (
@@ -164,7 +163,9 @@ class SqlDatasetSaver:
                 ):
                     self.columns[key] = self.DATA_TYPE_MAPPING["dict"]
                 else:
-                    inc_dtype = self.dataset[self.splits[self.split_index]].features[key].dtype
+                    inc_dtype = (
+                        self.dataset[self.splits[self.split_index]].features[key].dtype
+                    )
                     use_type = self.DATA_TYPE_MAPPING.get(
                         inc_dtype,
                         None,
@@ -179,9 +180,7 @@ class SqlDatasetSaver:
                             .features[key]
                             .feature.dtype
                         )
-                        list_member_type = self.DATA_TYPE_MAPPING.get(
-                            inc_dtype, None
-                        )
+                        list_member_type = self.DATA_TYPE_MAPPING.get(inc_dtype, None)
                         if list_member_type is None:
                             str_err = f"Unsupported data type in dataset ({inc_dtype}), cannot save."
                             raise NotImplementedError(str_err)

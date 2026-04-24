@@ -33,7 +33,6 @@ from lm_eval.models.utils import configure_pad_token
 from lm_eval.models.utils import Collator
 from importlib.util import find_spec
 from temporalio.exceptions import ApplicationError
-from tqdm import tqdm
 
 from packages.python.common.mongodb import MongoClient
 
@@ -1144,7 +1143,9 @@ class EvaluatorChatCompletion(EvaluatorAPI, LocalChatCompletion):
 
     # from LocalChatCompletion.parse_generations
     @staticmethod
-    def parse_generations(outputs: Union[Dict, List[Dict]], **kwargs) -> List[str|tuple]:
+    def parse_generations(
+        outputs: Union[Dict, List[Dict]], **kwargs
+    ) -> List[str | tuple]:
         evaluation_logger.debug(
             "Parsing generations from outputs",
             outputs=outputs,
@@ -1165,7 +1166,7 @@ class EvaluatorChatCompletion(EvaluatorAPI, LocalChatCompletion):
                     )
             except Exception as e:
                 # This point is only reached if the backend returned 200 but the
-                # payload is not OpenAI API compatible. 
+                # payload is not OpenAI API compatible.
                 eval_logger.warning(f"Could not parse generations: {e}")
                 tmp = [INVALID_ANSWER]
             res = res + tmp
