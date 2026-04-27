@@ -93,6 +93,7 @@ func Initialize() *types.App {
 		types.NumericalTaskCollection,
 		types.SignaturesTaskCollection,
 		types.TaxonomySummariesCollection,
+		types.TackedTaskSamplesCollection,
 	}, l)
 
 	// Create LazyNode

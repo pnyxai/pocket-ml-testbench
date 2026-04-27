@@ -187,6 +187,9 @@ async def lmeh_sample(args: PocketNetworkTaskRequest) -> bool:
                         verbosity=str(args.verbosity),
                         predict_only=False,
                         eval_logger=eval_logger,
+                        random_seed= args.random_seed,
+                        numpy_random_seed= args.random_seed,
+                        fewshot_random_seed= args.random_seed,
                         metadata=metadata,
                     )
                 except ApplicationError as e:

@@ -175,6 +175,11 @@ func (aCtx *Ctx) AnalyzeResult(ctx context.Context, params types.AnalyzeResultPa
 			thisTaskRecord.UpdateLastHeight(thisTaskResults.GetResultHeight())
 			thisTaskRecord.UpdateLastSeen(thisTaskResults.GetResultTime())
 
+			// Track the successful sample if requested
+			if aCtx.App.Config.TrackSuccessfulSamples {
+				TrackTaskID(supplierData.Address, params.TaskID, thisTaskResults, aCtx.App.Mongodb, l)
+			}
+
 		}
 
 	} else {
@@ -328,4 +333,163 @@ func RemoveTaskID(taskID primitive.ObjectID, mongoDB mongodb.MongoDb, l *zerolog
 		l.Debug().Int("deleted_count", int(response.DeletedCount)).Str("TaskID", taskID.String()).Msg("deleted task data from MongoDB")
 	}
 
+}
+
+// Given a TaskID from MongoDB, creates a tracking entry in collection "tracked_tasks".
+// This collection will include several entries per taskID, specifically it will look all the entries in the "instances"
+// collection associated with the taskID and collect for each:
+// - From the "instances" collection:
+//   - `doc_id`
+//   - `task_name`
+//
+// - From the "prompts" collection (matching both the `task_id` and the `instance_id`):
+//   - the `data` field (which we will call `prompt`)
+//
+// - From the "responses" collection (matching both the `task_id` and the `instance_id`):
+//   - `response`
+//   - the `ms` field (which we will call `response_ms`)
+//
+// - From the "results" collection (matching the `task_id`):
+//   - the `score` field of the `scores` vector that matches the the `id` with the `doc_id` being processed.
+//
+// Finally we will save all this data into the collection "tracked_tasks" as a new entry containing all fields:
+//
+//	`doc_id`, `task_name`, `prompt`, `response`, `response_ms`, `score`
+func TrackTaskID(supplierAddress string, taskID primitive.ObjectID, taskResults records.ResultInterface, mongoDB mongodb.MongoDb, l *zerolog.Logger) {
+
+	l.Debug().Str("TaskID", taskID.String()).Msg("Tracking task sample.")
+
+	//--------------------------------------------------------------------------
+	//-------------------------- Get Instances --------------------------------
+	//--------------------------------------------------------------------------
+	instancesCollection := mongoDB.GetCollection(types.InstanceCollection)
+	instanceFilter := bson.D{{Key: "task_id", Value: taskID}}
+	ctxM, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	cursor, err := instancesCollection.Find(ctxM, instanceFilter)
+	if err != nil {
+		l.Warn().Err(err).Msg("Could not find instances from MongoDB.")
+		return
+	}
+	defer cursor.Close(ctxM)
+
+	var instances []types.Instance
+	if err = cursor.All(ctxM, &instances); err != nil {
+		l.Warn().Err(err).Msg("Could not decode instances from MongoDB.")
+		return
+	}
+
+	if len(instances) == 0 {
+		l.Debug().Str("TaskID", taskID.String()).Msg("No instances found for task.")
+		return
+	}
+
+	//--------------------------------------------------------------------------
+	//-------------------------- Get Prompts, Responses & Scores ---------------
+	//--------------------------------------------------------------------------
+	promptsCollection := mongoDB.GetCollection(types.PromptsCollection)
+	responsesCollection := mongoDB.GetCollection(types.ResponsesCollection)
+	trackedTasksCollection := mongoDB.GetCollection(types.TackedTaskSamplesCollection)
+
+	var trackedTasks []*types.TrackedTaskSample
+
+	// Iterate through each instance
+	for _, instance := range instances {
+
+		// Get the prompt for this instance
+		promptFilter := bson.D{
+			{Key: "task_id", Value: taskID},
+			{Key: "instance_id", Value: instance.Id},
+		}
+		ctxM, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel()
+
+		var prompt types.Prompt
+		promptCursor := promptsCollection.FindOne(ctxM, promptFilter)
+		err := promptCursor.Decode(&prompt)
+		if err != nil {
+			l.Warn().Err(err).Str("instance_id", instance.Id.String()).Msg("Could not find prompt for instance.")
+			continue
+		}
+
+		// Get the response for this instance
+		responseFilter := bson.D{
+			{Key: "task_id", Value: taskID},
+			{Key: "instance_id", Value: instance.Id},
+		}
+		ctxM, cancel = context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel()
+
+		var response types.RelayResponse
+		responseCursor := responsesCollection.FindOne(ctxM, responseFilter)
+		err = responseCursor.Decode(&response)
+		if err != nil {
+			l.Warn().Err(err).Str("instance_id", instance.Id.String()).Msg("Could not find response for instance.")
+			continue
+		}
+
+		// Find the score that matches the doc_id from the task results
+		var matchingScore float64
+		found := false
+		for i := 0; i < int(taskResults.GetNumSamples()); i++ {
+			sample := taskResults.GetSample(i)
+			scoresSample, ok := sample.(records.ScoresSample)
+			if !ok {
+				// Skip non-numerical samples or samples that cannot be type asserted
+				l.Debug().
+					Int("idx", i).
+					Int64("doc_id", instance.DocID).
+					Str("task_id", taskID.String()).
+					Msg("Skipping non-numerical sample.")
+				continue
+			}
+			if scoresSample.ID == int(instance.DocID) {
+				matchingScore = scoresSample.Score
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			l.Warn().Int64("doc_id", instance.DocID).Str("task_id", taskID.String()).Msg("No matching score found for doc_id.")
+			continue
+		}
+
+		// Build the tracked task document
+		trackedTask := &types.TrackedTaskSample{
+			SupplierAddress: supplierAddress,
+			DocID:           instance.DocID,
+			TaskName:        instance.TaskName,
+			Prompt:          prompt.Data,
+			Response:        response.Response,
+			ResponseMs:      response.Ms,
+			Score:           matchingScore,
+			SampleDate:      time.Now(),
+		}
+
+		trackedTasks = append(trackedTasks, trackedTask)
+	}
+
+	if len(trackedTasks) == 0 {
+		l.Debug().Str("TaskID", taskID.String()).Msg("No tracked tasks to insert.")
+		return
+	}
+
+	// Insert all tracked tasks
+	ctxM, cancel = context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	// Convert to []interface{} for InsertMany
+	interfaceSlice := make([]interface{}, len(trackedTasks))
+	for i, v := range trackedTasks {
+		interfaceSlice[i] = v
+	}
+
+	result, err := trackedTasksCollection.InsertMany(ctxM, interfaceSlice)
+	if err != nil {
+		l.Warn().Err(err).Msg("Could not insert tracked tasks into MongoDB.")
+	} else {
+		l.Debug().Int("inserted_count", len(result.InsertedIDs)).Str("TaskID", taskID.String()).Msg("Inserted tracked tasks into MongoDB")
+	}
 }
