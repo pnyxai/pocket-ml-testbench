@@ -18,6 +18,13 @@ spec:
         - name: configuration-files
           secret:
             secretName: sampler-config
+        - name: task-config-volume
+          configMap:
+            defaultMode: 420
+            name: testbench-config
+            items:
+            - key: custom_task_config
+              path: custom_task_config.json
       containers:
         - image: pocket_ml_testbench_sampler:dev
           name: sampler
@@ -83,8 +90,15 @@ spec:
                 configMapKeyRef:
                   name: testbench-config
                   key: avert_log_level
+            - name: TESTBENCH_TASK_CONFIG_FILE
+              valueFrom:
+                configMapKeyRef:
+                  name: testbench-config
+                  key: testbench_task_config_file
           volumeMounts:
             - mountPath: /home/app/configs/
               name: configuration-files
               readOnly: true
+            - name: task-config-volume
+              mountPath: /home/app/task-configs/
           resources: {}

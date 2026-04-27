@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING, List, Optional, Union
 
 from lm_eval.evaluator_utils import (
     get_sample_size,
-    get_task_list,
     run_task_tests,
 )
 from lm_eval.tasks import TaskManager, get_task_dict
@@ -20,7 +19,6 @@ import numpy as np
 
 if TYPE_CHECKING:
     from lm_eval.api.model import LM
-    from lm_eval.tasks import Task
 
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -203,6 +201,7 @@ async def generate_requests(
     log_samples: bool = True,
     system_instruction: Optional[str] = None,
     apply_chat_template: bool = False,
+    doc_as_chat_template: bool = False,
     fewshot_as_multiturn: bool = False,
     confirm_run_unsafe_code: bool = False,
     eval_logger: Optional[logging.Logger] = None,
@@ -229,6 +228,8 @@ async def generate_requests(
         System instruction to be applied to the prompt
     :param apply_chat_template: bool
         If True, apply chat template to the prompt
+    :param doc_as_chat_template: bool
+        If True, interpret the doc as a chat template
     :param fewshot_as_multiturn: bool
         Whether to provide the fewshot examples as a multiturn conversation or a single user turn.
     :return
@@ -245,12 +246,15 @@ async def generate_requests(
     # tracks all Instances/requests a model must generate output on.
     requests = defaultdict(list)
 
-    # get lists of group hierarchy and each type of request
-    eval_tasks = get_task_list(task_dict)
+    # Flatten task_dict to a list of (task_name, task_obj) pairs.
+    # get_configurable_task returns a flat {task_name: task_obj} dict after
+    # _adjust_config, so no nested-dict handling is needed here.
+    eval_tasks = list(task_dict.items())
+
     if not log_samples:
         if not all(
-            "bypass" not in getattr(task_output.task, "_metric_fn_list", {}).keys()
-            for task_output in eval_tasks
+            "bypass" not in getattr(task, "_metric_fn_list", {}).keys()
+            for _, task in eval_tasks
         ):
             raise ValueError("log_samples must be True for 'bypass' metric-only tasks")
 
@@ -258,18 +262,16 @@ async def generate_requests(
     # 1.are we running multimodal task <-> non-multimodal model class, or vice-versa.
     # 2.are we running code that is marked as unsafe.
     incompatible_tasks = []
-    for task_output in eval_tasks:
-        task: Task = task_output.task
-
+    for task_name, task in eval_tasks:
         if getattr(task, "MULTIMODAL", False) and not getattr(lm, "MULTIMODAL", False):
-            incompatible_tasks.append(task_output.task_name)
+            incompatible_tasks.append(task_name)
         elif getattr(task, "UNSAFE_CODE", False) and not confirm_run_unsafe_code:
             eval_logger.error(
-                f"Attempted to run task: {task_output.task_name} which is marked as unsafe. Set confirm_run_unsafe_code=True to run this task.",
-                task_name=task_output.task_name,
+                f"Attempted to run task: {task_name} which is marked as unsafe. Set confirm_run_unsafe_code=True to run this task.",
+                task_name=task_name,
             )
             raise ApplicationError(
-                f"Attempted to run task: {task_output.task_name} which is marked as unsafe. Set confirm_run_unsafe_code=True to run this task.",
+                f"Attempted to run task: {task_name} which is marked as unsafe. Set confirm_run_unsafe_code=True to run this task.",
                 non_retryable=True,
             )
     if len(incompatible_tasks) > 0:
@@ -287,32 +289,29 @@ async def generate_requests(
     limit_arg = limit
     limits = []
 
-    for task_output in eval_tasks:
-        task: Task = task_output.task
-
+    for task_name, task in eval_tasks:
         limit = get_sample_size(task, limit_arg)
         limits.append(limit)
         task.build_all_requests(
             limit=limit,
-            samples=samples.get(task_output.task_name, None)
-            if samples is not None
-            else samples,
+            samples=samples.get(task_name, None) if samples is not None else samples,
             rank=lm.rank,
             world_size=lm.world_size,
             cache_requests=cache_requests,
             rewrite_requests_cache=rewrite_requests_cache,
             system_instruction=system_instruction,
             apply_chat_template=apply_chat_template,
+            doc_as_chat_template=doc_as_chat_template,
             fewshot_as_multiturn=fewshot_as_multiturn,
             chat_template=getattr(lm, "apply_chat_template")
-            if apply_chat_template
+            if (apply_chat_template or doc_as_chat_template)
             else None,
             tokenizer_name=getattr(lm, "tokenizer_name", "")
             if apply_chat_template
             else "",
         )
         eval_logger.debug(
-            f"Task: {task_output.task_name}; number of requests on this rank: {len(task.instances)}"
+            f"Task: {task_name}; number of requests on this rank: {len(task.instances)}"
         )
         # aggregate Instances by LM method requested to get output.
         for instance in task.instances:
@@ -325,24 +324,24 @@ async def generate_requests(
         # Verify that all request id are in task.config.metadata due to ConfigurableTask was modified.
         for _, rs in requests.items():
             for r in rs:
-                task_name, instance_id = r.metadata[0], r.doc_id
+                r_task_name, instance_id = r.metadata[0], r.doc_id
                 if (
                     instance_id
-                    not in task_dict[task_name].config.metadata["pocket_args"].doc_ids
+                    not in task_dict[r_task_name].config.metadata["pocket_args"].doc_ids
                 ):
                     # noinspection PyArgumentList
                     eval_logger.error(
                         'Instance id not found in task.config.metadata["pocket_args"].doc_ids',
                         instance_id=instance_id,
-                        task=task_name,
-                        task_ids=task_dict[task_name]
+                        task=r_task_name,
+                        task_ids=task_dict[r_task_name]
                         .config.metadata["pocket_args"]
                         .doc_ids,
                     )
                     raise ApplicationError(
                         f"Request id {instance_id} not found in task.config.metadata",
                         instance_id,
-                        task_name,
+                        r_task_name,
                         type="InstanceNotFound",
                         non_retryable=True,
                     )
@@ -373,9 +372,8 @@ async def generate_requests(
     insert_mongo_prompts = []
     insert_mongo_tasks = []
     insert_mongo_instances = []
-    for task_output in eval_tasks:
+    for task_name, task in eval_tasks:
         # Task
-        task = task_output.task
         instances = task.instances
 
         task_mongodb = PocketNetworkMongoDBTask(
@@ -403,9 +401,9 @@ async def generate_requests(
                 prefill = pocket_req.ctxlen
                 if instance.request_type == "generate_until":
                     # if generate_until, we need to get the decode length
-                    # try first with the args, then with the task config#
-                    # an finally with the default value from the LM
-                    gen_kwargs = args.gen_kwargs or task_output.task_config.get(
+                    # try first with the args, then with the task config,
+                    # and finally with the default value from the LM
+                    gen_kwargs = args.gen_kwargs or dict(task.dump_config()).get(
                         "generation_kwargs", {}
                     )
                     # if empty, try to get from the LM
@@ -480,6 +478,7 @@ async def evaluate(
     log_samples: bool = True,
     system_instruction: Optional[str] = None,
     apply_chat_template: Union[bool, str] = False,
+    doc_as_chat_template: bool = False,
     fewshot_as_multiturn: bool = False,
     confirm_run_unsafe_code: bool = False,
     eval_logger: Optional[logging.Logger] = None,
@@ -502,6 +501,8 @@ async def evaluate(
         - If set to True, the default chat template is applied.
         - If set to a string, applies the specified chat template by name.
         Defaults to False (no chat template applied).
+    :param doc_as_chat_template: bool
+        If True the input doc is interpreted as a chat template and passed on
     :param fewshot_as_multiturn: bool
         Whether to provide the fewshot examples as a multiturn conversation or a single user turn.
     :return
@@ -570,12 +571,15 @@ async def evaluate(
     # tracks all Instances/requests a model must generate output on.
     requests = defaultdict(list)
 
-    # get lists of group hierarchy and each type of request
-    eval_tasks = get_task_list(task_dict)
+    # Flatten task_dict to a list of (task_name, task_obj) pairs.
+    # get_configurable_task returns a flat {task_name: task_obj} dict after
+    # _adjust_config, so no nested-dict handling is needed here.
+    eval_tasks = list(task_dict.items())
+
     if not log_samples:
         if not all(
-            "bypass" not in getattr(task_output.task, "_metric_fn_list", {}).keys()
-            for task_output in eval_tasks
+            "bypass" not in getattr(task, "_metric_fn_list", {}).keys()
+            for _, task in eval_tasks
         ):
             raise ValueError("log_samples must be True for 'bypass' metric-only tasks")
 
@@ -583,19 +587,17 @@ async def evaluate(
     # 1.are we running multimodal task <-> non-multimodal model class, or vice-versa.
     # 2.are we running code that is marked as unsafe.
     incompatible_tasks = []
-    for task_output in eval_tasks:
-        task: Task = task_output.task
-
+    for task_name, task in eval_tasks:
         if getattr(task, "MULTIMODAL", False) and not getattr(lm, "MULTIMODAL", False):
-            incompatible_tasks.append(task_output.task_name)
+            incompatible_tasks.append(task_name)
         elif getattr(task, "UNSAFE_CODE", False) and not confirm_run_unsafe_code:
             eval_logger.error(
-                f"Attempted to run task: {task_output.task_name} which is marked as unsafe. Set confirm_run_unsafe_code=True to run this task.",
-                task_name=task_output.task_name,
+                f"Attempted to run task: {task_name} which is marked as unsafe. Set confirm_run_unsafe_code=True to run this task.",
+                task_name=task_name,
                 task_id=str(task_id),
             )
             raise ApplicationError(
-                f"Attempted to run task: {task_output.task_name} which is marked as unsafe. Set confirm_run_unsafe_code=True to run this task.",
+                f"Attempted to run task: {task_name} which is marked as unsafe. Set confirm_run_unsafe_code=True to run this task.",
                 non_retryable=True,
             )
     if len(incompatible_tasks) > 0:
@@ -614,8 +616,7 @@ async def evaluate(
     limit_arg = limit
     limits = []
 
-    for task_output in eval_tasks:
-        task: Task = task_output.task
+    for task_name, task in eval_tasks:
         limit = get_sample_size(task, limit_arg)
         limits.append(limit)
         try:
@@ -629,16 +630,17 @@ async def evaluate(
                 rewrite_requests_cache=rewrite_requests_cache,
                 system_instruction=system_instruction,
                 apply_chat_template=bool(apply_chat_template),
+                doc_as_chat_template=bool(doc_as_chat_template),
                 fewshot_as_multiturn=fewshot_as_multiturn,
                 chat_template=getattr(lm, "apply_chat_template")
-                if apply_chat_template
+                if (apply_chat_template or doc_as_chat_template)
                 else None,
                 tokenizer_name=getattr(lm, "tokenizer_name", "")
                 if apply_chat_template
                 else "",
             )
             eval_logger.debug(
-                f"Task: {task_output.task_name}; number of requests on this rank: {len(task.instances)}"
+                f"Task: {task_name}; number of requests on this rank: {len(task.instances)}"
             )
             # aggregate Instances by LM method requested to get output.
             for instance in task.instances:
@@ -714,9 +716,22 @@ async def evaluate(
             times = getattr(lm, "response_times")(cloned_reqs)
 
             # put responses from model into a list of length K for each request.
-            for x, t, req in zip(resps, times, cloned_reqs):
+        # If the model returns tuples with content and optional fields like
+        # tool_calls/reasoning, unpack them: store the text content in resps
+        # (preserving the expected str contract) and store additional fields
+        # separately on the Instance.
+        for x, t, req in zip(resps, times, cloned_reqs, strict=True):
+            if isinstance(x, tuple) and len(x) >= 2:
+                content = x[0]
+                tool_calls = x[1] if len(x) > 1 else None
+                reasoning = x[2] if len(x) > 2 else None
+                req.resps.append(content)
+                req.tool_calls.append(tool_calls)
+                req.reasoning.append(reasoning)
+            else:
                 req.resps.append(x)
-                req.times.append(t)
+            # Track times
+            req.times.append(t)
     except Exception as e:
         eval_logger.error(
             "Failed to process response from the LM model.",
@@ -736,8 +751,7 @@ async def evaluate(
     insert_mongo_results = []
     ### Postprocess outputs ###
     # TODO: del model here, maybe (idea: allow user to specify device of e.g. reward model separately)
-    for task_output, limit in zip(eval_tasks, limits):
-        task = task_output.task
+    for (task_name, task), limit in zip(eval_tasks, limits):
         task.apply_filters()
         ### Collect values of metrics on all datapoints ###
         # # unpack results and sort back in order and return control to Task
@@ -757,19 +771,15 @@ async def evaluate(
             "Selected filters",
             selected_filters=selected_filters,
         )
-        for filter_key in task.instances[0].filtered_resps.keys():
-            if filter_key not in selected_filters:
+        for filter_key in selected_filters:
+            if filter_key not in task.instances[0].filtered_resps.keys():
                 eval_logger.warning(
                     "Skipping Filter Key. This can signal misconfiguration of task in `task_config.py`",
                     filter_key=filter_key,
                 )
                 continue
             eval_logger.debug("Entering Filter Key:", filter_key=filter_key)
-            indices = (
-                samples.get(task_output.task_name, None)
-                if samples is not None
-                else None
-            )
+            indices = samples.get(task_name, None) if samples is not None else None
             doc_iterator = task.doc_iterator(
                 rank=RANK,
                 limit=limit,
@@ -820,6 +830,8 @@ async def evaluate(
                         "filtered_resps": [
                             req.filtered_resps[filter_key] for req in requests
                         ],
+                        "tool_calls": [req.tool_calls for req in requests],
+                        "reasoning": [req.reasoning for req in requests],
                         "filter": filter_key,
                         "metrics": list(metrics.keys()),
                         "doc_hash": hash_string(
@@ -838,21 +850,21 @@ async def evaluate(
                         doc_id=doc_id_true,
                         target=example["target"],
                         resps=example["resps"],
+                        reasoning=example["reasoning"],
+                        tool_calls=example["tool_calls"],
                         filtered_resps=example["filtered_resps"],
                         metrics=example["metrics"],
                         selected_metrics=selected_metrics,
                     )
                     example.update(metrics)
-                    task_output.logged_samples.append(example)
 
                 # there can be multiple requests per doc
                 # and there can be multiple metrics per doc
                 # but the number of metrics and the number of request do not
                 # follow a logic, one request can have multiple metrics and
                 # multiple requests can have a single metric.
-                for metric, value in metrics.items():
-                    task_output.sample_metrics[(metric, filter_key)].append(value)
-                    if metric in selected_metrics:
+                for metric in selected_metrics:
+                    if metric in metrics.keys():
                         numericSample = NumericSample(
                             score=example[metric],
                             run_time=total_ms,
@@ -861,6 +873,11 @@ async def evaluate(
                             error_str="",
                         )
                         scores.append(numericSample)
+                    else:
+                        eval_logger.warning(
+                            "Skipping Metric Key. This can signal misconfiguration of task in `task_config.py`",
+                            metric=metric,
+                        )
         # If there are failed samples, add them here to the scores list
         for instance in task.failed_instances:
             numericSample = NumericSample(
@@ -875,7 +892,7 @@ async def evaluate(
         total_processed_samples = len(result_num_samples) + len(task.failed_instances)
 
         if total_processed_samples != len(scores):
-            msg = "Each sample must have strictly one metric associated to it. Multiple metrics per sample are not supported"
+            msg = f"Each sample must have strictly one metric associated to it. Multiple metrics per sample are not supported: {total_processed_samples} != {len(scores)}"
             e = ValueError("total_processed_samples != len(scores)")
             eval_logger.error(msg, error=e)
             raise ApplicationError(

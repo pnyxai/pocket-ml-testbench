@@ -12,13 +12,11 @@ from typing import (
 )
 
 
-try:
-    #    import requests
-    #    from aiohttp import ClientSession, ClientTimeout, TCPConnector
-    from tenacity import RetryError, retry, stop_after_attempt, wait_exponential
-    from tqdm import tqdm
-except ModuleNotFoundError:
-    pass
+#    import requests
+#    from aiohttp import ClientSession, ClientTimeout, TCPConnector
+from tenacity import RetryError, retry, stop_after_attempt, wait_exponential
+from tqdm import tqdm
+
 from app.app import get_app_logger
 from lm_eval.api.instance import Instance
 from lm_eval.models.api_models import (
@@ -35,7 +33,6 @@ from lm_eval.models.utils import configure_pad_token
 from lm_eval.models.utils import Collator
 from importlib.util import find_spec
 from temporalio.exceptions import ApplicationError
-from tqdm import tqdm
 
 from packages.python.common.mongodb import MongoClient
 
@@ -1092,7 +1089,7 @@ class EvaluatorCompletion(EvaluatorAPI, LocalCompletionsAPI):
                 #########################################
                 # START: CUSTOM CODE
                 #########################################
-                # NOTE (nicolas) See comments in EvaluatorChatCompletion.parse_generations
+                # TODO : Check if this is needed or is it already handled by fork
                 content = choices["text"]
                 if content is None or content == "":
                     content = INVALID_ANSWER
@@ -1146,7 +1143,9 @@ class EvaluatorChatCompletion(EvaluatorAPI, LocalChatCompletion):
 
     # from LocalChatCompletion.parse_generations
     @staticmethod
-    def parse_generations(outputs: Union[Dict, List[Dict]], **kwargs) -> List[str]:
+    def parse_generations(
+        outputs: Union[Dict, List[Dict]], **kwargs
+    ) -> List[str | tuple]:
         evaluation_logger.debug(
             "Parsing generations from outputs",
             outputs=outputs,
@@ -1156,23 +1155,20 @@ class EvaluatorChatCompletion(EvaluatorAPI, LocalChatCompletion):
         if not isinstance(outputs, list):
             outputs = [outputs]
         for out in outputs:
-            tmp = [None] * len(out["choices"])
-            for choices in out["choices"]:
-                #########################################
-                # START: CUSTOM CODE
-                #########################################
-                # NOTE (nicolas) This sections handle
-                # cases where content could be in
-                # * `reasoning content`, or in response
-                # where the first generation code whas a stop secuences of character and then
-                # the content is empty (probably abusing the stop sequence).
-                # `stop_reason field
-                content = choices["message"]["content"]
-                if content is None or content == "":
-                    content = INVALID_ANSWER
-                tmp[choices["index"]] = content
-                ######################################
-                # END: CUSTOM CODE
-                ######################################
+            try:
+                tmp = [None] * len(out["choices"])
+                for choices in out["choices"]:
+                    msg = choices["message"]
+                    tmp[choices["index"]] = (
+                        msg.get("content"),
+                        msg.get("tool_calls", None),
+                        msg.get("reasoning", None),
+                    )
+            except Exception as e:
+                # This point is only reached if the backend returned 200 but the
+                # payload is not OpenAI API compatible.
+                eval_logger.warning(f"Could not parse generations: {e}")
+                # We assume that `len(out["choices"])` is always one (greedy generation)
+                tmp = [INVALID_ANSWER, None, None]
             res = res + tmp
         return res

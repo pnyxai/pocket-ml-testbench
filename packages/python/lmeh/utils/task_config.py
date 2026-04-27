@@ -1,3 +1,8 @@
+import json
+import os
+
+TESTBENCH_TASK_CONFIG_FILE = os.getenv("TESTBENCH_TASK_CONFIG_FILE", None)
+
 task_cnfg = {
     # Uses: Taxonomy [Alpha]
     "gsm8k_chat": {
@@ -43,6 +48,11 @@ task_cnfg = {
     },
 }
 
+if TESTBENCH_TASK_CONFIG_FILE is not None:
+    print(f"Overriding task config using file: {TESTBENCH_TASK_CONFIG_FILE}")
+    with open(TESTBENCH_TASK_CONFIG_FILE) as f:
+        task_cnfg = json.load(f)
+
 
 def get_task_config(task_name: str):
     if "mmlu" in task_name:
@@ -59,6 +69,13 @@ def get_task_config(task_name: str):
         return task_cnfg["gpqa_subtask"]
     elif "reasoning_gym" in task_name:
         return task_cnfg["reasoning_gym"]
+    elif "debugbench_python_" in task_name:
+        return task_cnfg["debugbench_python_"]
 
     else:
-        return task_cnfg[task_name]
+        retun_config = task_cnfg.get(task_name, None)
+        if retun_config is None:
+            raise ValueError(
+                f"Task {task_name} is not defined, please pass a custom TESTBENCH_TASK_CONFIG_FILE json."
+            )
+        return retun_config

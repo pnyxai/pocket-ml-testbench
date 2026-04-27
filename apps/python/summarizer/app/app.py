@@ -31,6 +31,7 @@ async def setup_app(cfg) -> dict:
     # connect mongodb
     log_level = get_from_dict(app_config, "config.log_level")
     logging.getLogger("motor").setLevel(log_level)
+    logger = get_app_logger("summarizer_setup")
     mongo_client = MongoClient(app_config["config"]["mongodb_uri"])
     await mongo_client.ping()
     app_config["config"]["mongo_client"] = mongo_client
@@ -61,21 +62,25 @@ async def setup_app(cfg) -> dict:
         file_path = Path(os.path.join(tax_path, file))
         taxonmy_file_name = file_path.stem
         file_ext = file_path.suffix
+        logger.debug(f"Checking: {taxonmy_file_name}{file_ext}.")
         if ".tax" == file_ext:
             if tax_use is None or file in tax_use:
                 taxonomy_graph = txm_utils.load_taxonomy(
                     os.path.join(tax_path, file), return_all=False, verbose=True
                 )
                 if taxonomy_graph.name != taxonmy_file_name:
-                    print(
+                    logger.debug(
                         f'WARNING : Taxonomy file name is different from taxonomy graph name ("{taxonmy_file_name}" vs "{taxonomy_graph.name}"). Using GRAPH NAME as taxonomy name.'
                     )
                 app_config["taxonomies"][taxonomy_graph.name] = taxonomy_graph
+                logger.info(
+                    f"Added taxonomy to track: {taxonmy_file_name} ({taxonomy_graph.name})"
+                )
 
-        if tax_use is not None and len(app_config["taxonomies"]) == 0:
-            raise ValueError(
-                f"No valid taxonomy found in the provided list: {tax_path} / [{tax_use}]"
-            )
+    if tax_use is not None and len(app_config["taxonomies"]) == 0:
+        raise ValueError(
+            f"No valid taxonomy found in the provided list: {tax_path} / [{tax_use}]"
+        )
 
     return app_config
 

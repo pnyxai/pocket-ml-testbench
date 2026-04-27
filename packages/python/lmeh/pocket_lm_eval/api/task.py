@@ -1,6 +1,5 @@
 import ast
 import json
-import random
 import time
 from collections.abc import Callable
 from typing import (
@@ -9,6 +8,7 @@ from typing import (
     List,
     Optional,
     Union,
+    cast,
 )
 
 import asyncpg
@@ -28,6 +28,7 @@ from lm_eval.api.registry import (
 )
 from lm_eval.api.task import ALL_OUTPUT_TYPES, ConfigurableTask, TaskConfig
 from lm_eval.caching.cache import load_from_cache, save_to_cache
+from lm_eval.config.task import FewshotConfig
 from lm_eval.filters import build_filter_ensemble
 from lm_eval.prompts import get_prompt
 from temporalio.exceptions import ApplicationError
@@ -103,6 +104,7 @@ class SqlDatasetSaver:
         "string": "TEXT",
         # From here downwards, they were not tested
         "timestamp": "TIMESTAMP",
+        "timestamp[ns]": "TIMESTAMP",
         "date32": "DATE",
         "date64": "DATE",
         "time32": "TIME",
@@ -161,25 +163,26 @@ class SqlDatasetSaver:
                 ):
                     self.columns[key] = self.DATA_TYPE_MAPPING["dict"]
                 else:
+                    inc_dtype = (
+                        self.dataset[self.splits[self.split_index]].features[key].dtype
+                    )
                     use_type = self.DATA_TYPE_MAPPING.get(
-                        self.dataset[self.splits[self.split_index]].features[key].dtype,
+                        inc_dtype,
                         None,
                     )
                     if use_type is None:
-                        str_err = f"Unsupported data type in dataset ({use_type}), cannot save."
+                        str_err = f"Unsupported data type in dataset ({inc_dtype}), cannot save."
                         raise NotImplementedError(str_err)
                     elif use_type == "[]":
                         # This is a special case, so lets compose the list
-                        list_member_type = (
+                        inc_dtype = (
                             self.dataset[self.splits[self.split_index]]
                             .features[key]
                             .feature.dtype
                         )
-                        list_member_type = self.DATA_TYPE_MAPPING.get(
-                            list_member_type, None
-                        )
+                        list_member_type = self.DATA_TYPE_MAPPING.get(inc_dtype, None)
                         if list_member_type is None:
-                            str_err = f"Unsupported data type in dataset ({list_member_type}), cannot save."
+                            str_err = f"Unsupported data type in dataset ({inc_dtype}), cannot save."
                             raise NotImplementedError(str_err)
                         use_type = list_member_type + use_type
 
@@ -211,14 +214,14 @@ class SqlDatasetSaver:
                 self.analyze_list_type(type_elem, table_key, depth=depth + 1)
             elif isinstance(type_elem, dict):
                 self.columns[table_key] = (
-                    self.DATA_TYPE_MAPPING["dict"] + f"{'[]'*depth}"
+                    self.DATA_TYPE_MAPPING["dict"] + f"{'[]' * depth}"
                 )
             else:
                 use_type = self.DATA_TYPE_MAPPING.get(type_elem.dtype, None)
                 if use_type is None:
                     str_err = f"Unsupported data type in dataset ({type_elem.dtype}), cannot save."
                     raise NotImplementedError(str_err)
-                self.columns[table_key] = use_type + f"{'[]'*depth}"
+                self.columns[table_key] = use_type + f"{'[]' * depth}"
 
     async def _prepare_table(self):
         column_definitions_str = ", ".join(self.columns_def)
@@ -415,6 +418,9 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
                     f"Got invalid output_type '{self.config.output_type}', must be in '{','.join(ALL_OUTPUT_TYPES)}'"
                 )
             self.OUTPUT_TYPE = self.config.output_type
+
+        # Mirror ConfigurableTask.__init__ from lm_eval fork (added in fork)
+        self.fewshot_cfg = cast(FewshotConfig, self.config.fewshot_config)
 
         if self.config.doc_to_image is not None:
             # mark the task as requiring multimodality.
@@ -670,29 +676,19 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
             self.prompt = None
 
         if self.fewshot_docs() is not None:
-            self.fewshot_rnd = (
-                random.Random()
-            )  # setting with no seed, to be overridden at a later time
             config_sampler: Union[str, Callable] = (
-                self.config.fewshot_config.get("sampler", "default")
-                if self.config.fewshot_config
-                else "default"
+                self.fewshot_cfg.sampler if self.config.fewshot_config else "default"
             )
             if isinstance(config_sampler, str):
-                self.sampler = samplers.get_sampler(config_sampler)(
-                    list(self.fewshot_docs()), self, rnd=self.fewshot_rnd
-                )
-            elif callable(config_sampler) and issubclass(
-                config_sampler, samplers.ContextSampler
-            ):
-                self.sampler = config_sampler(
-                    docs=list(self.fewshot_docs()), task=self, rnd=self.fewshot_rnd
-                )
+                sampler_cls = samplers.get_sampler(config_sampler)
+            elif issubclass(config_sampler, samplers.ContextSampler):
+                sampler_cls = config_sampler
             else:
                 raise TypeError(
                     f"fewshot_config.sampler should be a string or callable of ContextSampler type, "
                     f"not {type(config_sampler)}"
                 )
+            self.sampler = sampler_cls(list(self.fewshot_docs()), rnd=None)
 
         self.task_docs = self.eval_docs
 
@@ -766,6 +762,7 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
         rewrite_requests_cache: bool = False,
         system_instruction: Optional[str] = None,
         apply_chat_template: bool = False,
+        doc_as_chat_template: bool = False,
         fewshot_as_multiturn: bool = False,
         chat_template: Optional[Callable] = None,
         tokenizer_name: str = "",
@@ -777,6 +774,7 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
 
         cache_key = f"requests-{self._config.task}-{self.config.num_fewshot}shot-rank{rank}-world_size{world_size}"
         cache_key += "-chat_template" if apply_chat_template else ""
+        cache_key += "-doc_as_chat_template" if doc_as_chat_template else ""
         cache_key += "-fewshot_as_multiturn" if fewshot_as_multiturn else ""
         cache_key += (
             f"-system_prompt_hash{utils.hash_string(system_instruction)}"
@@ -829,11 +827,14 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
             # sample fewshot context #TODO: need to offset doc_id by rank now!
             fewshot_ctx = self.fewshot_context(
                 doc,
-                0 if self.config.num_fewshot is None else self.config.num_fewshot,
-                system_instruction,
-                apply_chat_template,
-                fewshot_as_multiturn,
-                chat_template,
+                num_fewshot=0
+                if self.config.num_fewshot is None
+                else self.config.num_fewshot,
+                system_instruction=system_instruction,
+                apply_chat_template=apply_chat_template,
+                doc_as_chat_template=doc_as_chat_template,
+                fewshot_as_multiturn=fewshot_as_multiturn,
+                chat_template=chat_template,
                 gen_prefix=self.doc_to_prefix(doc),
             )
 
@@ -1187,6 +1188,7 @@ class EvaluatePocketNetworkConfigurableTask(PocketNetworkConfigurableTask):
         rewrite_requests_cache: bool = False,
         system_instruction: Optional[str] = None,
         apply_chat_template: bool = False,
+        doc_as_chat_template: bool = False,
         fewshot_as_multiturn: bool = False,
         chat_template: Optional[Callable] = None,
         tokenizer_name: str = "",

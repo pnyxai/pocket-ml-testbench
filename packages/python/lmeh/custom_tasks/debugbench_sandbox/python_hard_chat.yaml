@@ -1,0 +1,6 @@
+include: _debugbench_base.yml
+task: debugbench_python_hard_sandbox_chat
+test_split: hard
+process_docs: !function utils.process_docs_python
+metadata:
+  version: 1.0

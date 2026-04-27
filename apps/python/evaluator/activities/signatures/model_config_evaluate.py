@@ -187,9 +187,10 @@ async def model_config_evaluate(
         # Save to results db (a failure is also an answer)
         try:
             async with mongo_client.start_transaction() as session:
+                payload = result.model_dump(by_alias=True, exclude={"id"})
                 await mongo_client.db["results"].find_one_and_update(
                     {"result_data.task_id": args.task_id},
-                    {"$set": result.model_dump(by_alias=True)},
+                    {"$set": payload},
                     upsert=True,
                     session=session,
                 )
@@ -202,9 +203,7 @@ async def model_config_evaluate(
         except Exception as e:
             error_msg = "Failed to save Result to MongoDB. (correct evaluation path)"
             eval_logger.error(
-                error_msg,
-                task=args.task_id,
-                error=str(e),
+                error_msg, task=args.task_id, error=str(e), payload=payload
             )
             return False, f"{error_msg}: {str(e)}"
 
@@ -231,22 +230,13 @@ async def model_config_evaluate(
             ),
             signatures=[],
         )
-        # TODO : This should not be part of the "find_one_and_update"
-        try:
-            result.pop("_id", None)
-        except Exception as e:
-            eval_logger.warn(
-                "Cannot pop _id from config",
-                task=args.task_id,
-                error=str(e),
-            )
-            pass
         # Save to results db (a failure is also an answer)
         try:
             async with mongo_client.start_transaction() as session:
+                payload = result.model_dump(by_alias=True, exclude={"id"})
                 await mongo_client.db["results"].find_one_and_update(
                     {"result_data.task_id": args.task_id},
-                    {"$set": result.model_dump(by_alias=True)},
+                    {"$set": payload},
                     upsert=True,
                     session=session,
                 )
@@ -259,9 +249,7 @@ async def model_config_evaluate(
         except Exception as e:
             error_msg = "Failed to save Result to MongoDB. (failed evaluation path)"
             eval_logger.error(
-                error_msg,
-                task=args.task_id,
-                error=str(e),
+                error_msg, task=args.task_id, error=str(e), payload=payload
             )
             return False, f"{error_msg}: {str(e)}"
             # eval_logger.error("Failed to save Result to MongoDB.")

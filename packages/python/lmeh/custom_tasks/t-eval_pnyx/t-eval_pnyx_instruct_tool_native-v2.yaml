@@ -1,0 +1,15 @@
+include: _t-eval_pnyx.yaml
+task: t-eval_pnyx_instruct_tool_native-v2
+dataset_name: instruct_tool_native_v2
+process_results: !function utils.t_eval_instruct_match
+metric_list:
+  - metric: call_match
+    aggregation: mean
+    higher_is_better: true
+filter_list:
+  - name: "tool_instruct_extract"
+    filter:
+      - function: "custom"
+        filter_wkwargs_fn: !function utils.build_predictions_instruct_with_tools
+metadata:
+  version: 1.0

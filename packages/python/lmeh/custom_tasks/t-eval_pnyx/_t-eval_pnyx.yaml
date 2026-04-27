@@ -1,0 +1,12 @@
+dataset_path: PNYX/T-Eval_pnyx
+output_type: generate_until
+test_split: test
+doc_to_text: "{{origin_prompt}}"
+doc_to_target: "{{ground_truth}}"
+generation_kwargs:
+  until: []
+  max_gen_toks: 30000
+  do_sample: false
+  tools: "{{tools}}"
+repeats: 1
+num_fewshot: 0

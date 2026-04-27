@@ -1,0 +1,23 @@
+dataset_path: PNYX/debugbench_pnyx
+doc_to_text: "{{multi_turn}}"
+doc_to_target: "{{test_code}}"
+output_type: generate_until
+process_results: !function utils.pass_at_k_process
+metric_list:
+  - metric: pass@1
+    aggregation: mean
+    higher_is_better: true
+unsafe_code: true
+generation_kwargs:
+  until: []
+  max_gen_toks: 30000
+  do_sample: false
+repeats: 1
+# num_fewshot: 0
+filter_list:
+  - name: "create_test"
+    filter:
+      - function: "custom"
+        filter_fn: !function utils.build_predictions_chat_debugbench
+metadata:
+  version: 1.0

@@ -1,0 +1,21 @@
+include: _t-eval_pnyx.yaml
+task: t-eval_pnyx_plan-json-v2
+dataset_name: plan_json_v2
+process_results: !function utils.t_eval_plan_match
+metric_list:
+  - metric: plan_precision
+    aggregation: mean
+    higher_is_better: true
+  - metric: plan_recall
+    aggregation: mean
+    higher_is_better: true
+  - metric: plan_f1_score
+    aggregation: mean
+    higher_is_better: true
+filter_list:
+  - name: "function_call_extract"
+    filter:
+      - function: "custom"
+        filter_fn: !function utils.build_predictions_call
+metadata:
+  version: 1.0

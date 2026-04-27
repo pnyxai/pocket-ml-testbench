@@ -1,0 +1,21 @@
+include: _t-eval_pnyx.yaml
+task: t-eval_pnyx_plan-tool_native-v2
+dataset_name: plan_tool_native_v2
+process_results: !function utils.t_eval_plan_match
+metric_list:
+  - metric: plan_precision
+    aggregation: mean
+    higher_is_better: true
+  - metric: plan_recall
+    aggregation: mean
+    higher_is_better: true
+  - metric: plan_f1_score
+    aggregation: mean
+    higher_is_better: true
+filter_list:
+  - name: "tool_call_extract"
+    filter:
+      - function: "custom"
+        filter_wkwargs_fn: !function utils.build_predictions_call_with_tools
+metadata:
+  version: 1.0

@@ -79,6 +79,8 @@ async def lmeh_evaluate(args: PocketNetworkEvaluationTaskRequest) -> Tuple[bool,
             args.fewshot_as_multiturn = task_mongo.fewshot_as_multiturn
         if task_mongo.confirm_run_unsafe_code is not None:
             args.confirm_run_unsafe_code = task_mongo.confirm_run_unsafe_code
+        if task_mongo.doc_as_chat_template is not None:
+            args.doc_as_chat_template = task_mongo.doc_as_chat_template
         if task_mongo.llm_args is not None:
             args.llm_args = task_mongo.llm_args
         # args.requester_args = task_mongo.requester_args
@@ -295,6 +297,7 @@ async def lmeh_evaluate(args: PocketNetworkEvaluationTaskRequest) -> Tuple[bool,
                             selected_metrics=open_llm_metrics,
                             system_instruction=args.system_instruction,
                             apply_chat_template=args.apply_chat_template,
+                            doc_as_chat_template=args.doc_as_chat_template,
                             fewshot_as_multiturn=args.fewshot_as_multiturn,
                             confirm_run_unsafe_code=args.confirm_run_unsafe_code,
                             eval_logger=eval_logger,
