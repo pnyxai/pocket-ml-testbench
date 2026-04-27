@@ -18,11 +18,6 @@ from packages.python.lmeh.pocket_lm_eval.api.task import (
 )
 from packages.python.protocol.protocol import PocketNetworkTaskRequest
 
-
-# GroupConfig is now a proper dataclass with a required `group` field,
-# so GroupConfig() would raise TypeError. Use dataclass_fields instead.
-GROUP_ONLY_KEYS = [f.name for f in dataclass_fields(GroupConfig)]
-
 TASK_MANAGER_REGISTER_STAGE = "register"
 TASK_MANAGER_SAMPLE_STAGE = "sample"
 TASK_MANAGER_EVALUATE_STAGE = "evaluate"

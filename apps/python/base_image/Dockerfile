@@ -26,7 +26,6 @@ RUN chown app:app /home/app/code/pyproject.toml
 USER app
 
 # Clone the PNYX fork of lm-eval repo to get the necesary PRs merged in
-RUN echo "4"
 RUN git clone https://github.com/pnyxai/lm-evaluation-harness.git && \
     cd lm-evaluation-harness && \
     git checkout PnyxAI

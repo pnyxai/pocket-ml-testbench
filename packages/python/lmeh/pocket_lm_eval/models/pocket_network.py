@@ -1168,6 +1168,7 @@ class EvaluatorChatCompletion(EvaluatorAPI, LocalChatCompletion):
                 # This point is only reached if the backend returned 200 but the
                 # payload is not OpenAI API compatible.
                 eval_logger.warning(f"Could not parse generations: {e}")
-                tmp = [INVALID_ANSWER]
+                # We assume that `len(out["choices"])` is always one (greedy generation)
+                tmp = [INVALID_ANSWER, None, None]
             res = res + tmp
         return res

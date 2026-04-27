@@ -46,26 +46,6 @@ task_cnfg = {
         "metrics": ["score_match"],
         "filters": ["pass_all"],
     },
-    "t-eval_pnyx_instruct-v2": {
-        "metrics": ["call_match"],
-        "filters": ["instruct_extract"],
-    },
-    "t-eval_pnyx_plan-json-v2": {
-        "metrics": ["a-plan_f1_score"],
-        "filters": ["call_extract"],
-    },
-    "t-eval_pnyx_plan-reason-retrieve-understand-json-v2": {
-        "metrics": ["call_match"],
-        "filters": ["call_extract"],
-    },
-    "t-eval_pnyx_review-str-v2": {
-        "metrics": ["a-vert_match"],
-        "filters": ["pass_all"],
-    },
-    "debugbench_python_": {
-        "metrics": ["pass@1"],
-        "filters": ["create_test"],
-    },
 }
 
 if TESTBENCH_TASK_CONFIG_FILE is not None:
