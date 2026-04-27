@@ -1,12 +1,10 @@
 import collections
 import inspect
 import logging
-from dataclasses import fields as dataclass_fields
 from typing import Any, List, Optional, Union
 
 import asyncpg
 # from lm_eval.api.group import ConfigurableGroup  # deprecated wrapper, kept for compat
-from lm_eval.config.group import GroupConfig  # moved here in TaskManager refactor
 from lm_eval.tasks import TaskManager
 from lm_eval.tasks._index import Kind  # new enum: TASK, PY_TASK, GROUP, TAG
 from lm_eval.tasks._yaml_loader import load_yaml  # replaces utils.load_yaml_config
