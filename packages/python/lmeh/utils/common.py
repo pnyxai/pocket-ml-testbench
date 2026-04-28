@@ -12,6 +12,7 @@ from packages.python.lmeh.pocket_lm_eval.tasks import (
     PocketNetworkTaskManager,
 )
 from packages.python.protocol.protocol import PocketNetworkTaskRequest
+from lm_eval.defaults import DEFAULT_OTHER_SEED, DEFAULT_RANDOM_SEED
 
 
 def get_task_manager(
@@ -23,10 +24,10 @@ def get_task_manager(
     metadata: Optional[dict] = None,
     pocket_args: Optional[PocketNetworkTaskRequest] = None,
     stage: Optional[STAGE_TYPING] = None,
-    random_seed: Optional[int] = None,
-    numpy_random_seed: Optional[int] = None,
-    torch_random_seed: Optional[int] = None,
-    fewshot_random_seed: int = 1234,
+    random_seed: int = DEFAULT_RANDOM_SEED,
+    numpy_random_seed: int = DEFAULT_OTHER_SEED,
+    torch_random_seed: int = DEFAULT_OTHER_SEED,
+    fewshot_random_seed: int = DEFAULT_OTHER_SEED,
     hf_token: Optional[str] = None,
 ):
     """

@@ -115,6 +115,9 @@ async def lmeh_sample(args: PocketNetworkTaskRequest) -> bool:
                 metadata=metadata,
                 pocket_args=args,
                 stage=TASK_MANAGER_SAMPLE_STAGE,
+                random_seed=args.random_seed,
+                numpy_random_seed=args.random_seed,
+                fewshot_random_seed=args.random_seed,
             )
             eval_logger.debug("Read task names", task_names=task_names)
 
@@ -187,9 +190,9 @@ async def lmeh_sample(args: PocketNetworkTaskRequest) -> bool:
                         verbosity=str(args.verbosity),
                         predict_only=False,
                         eval_logger=eval_logger,
-                        random_seed= args.random_seed,
-                        numpy_random_seed= args.random_seed,
-                        fewshot_random_seed= args.random_seed,
+                        random_seed=args.random_seed,
+                        numpy_random_seed=args.random_seed,
+                        fewshot_random_seed=args.random_seed,
                         metadata=metadata,
                     )
                 except ApplicationError as e:
@@ -217,7 +220,7 @@ async def lmeh_sample(args: PocketNetworkTaskRequest) -> bool:
                 # load dataset from database
                 try:
                     # it is loading data from sql to a dataset
-                    await task_dict[task_name].load_from_sql()
+                    await task_dict[task_name].load_from_sql(args.random_seed)
                     eval_logger.info("Task loaded successfully:", task_dict=task_dict)
                 except ApplicationError as e:
                     raise e
