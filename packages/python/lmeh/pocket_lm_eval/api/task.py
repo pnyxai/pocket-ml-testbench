@@ -1,5 +1,6 @@
 import ast
 import json
+import random
 import time
 from collections.abc import Callable
 from typing import (
@@ -545,8 +546,14 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
         await streamer.transfer(self.config.dataset_kwargs)
 
     async def load_from_sql(
-        self, dataset_kwargs: Optional[Dict[str, Any]] = None
+        self, random_seed=None, dataset_kwargs: Optional[Dict[str, Any]] = None
     ) -> None:
+        # Set random seed
+        if random_seed is not None:
+            random.seed(random_seed)
+            np.random.seed(random_seed)
+            self.eval_logger.debug("Random seeds set to", random_seed=random_seed)
+
         qty = self._config.metadata["pocket_args"].qty
         doc_ids = self.config.metadata["pocket_args"].doc_ids
         blacklist = self._config.metadata["pocket_args"].blacklist
@@ -599,6 +606,7 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
                     _range["min"],
                     _range["max"],
                     blacklist,
+                    random_seed=random_seed,
                 )
 
         where_clause = self.get_SQL_where_clause(indexes, _split, _split_ranges)
@@ -917,6 +925,7 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
         min: int,
         max: int,
         blacklist: List[int] = [],
+        random_seed: int = None,
     ) -> List[int]:
         """
         This function generates a list of random numbers within a range, excluding some blacklisted numbers
@@ -938,30 +947,44 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
 
         # Generate a list of random numbers within the range [min, max]
         ints = set(range(min, max + 1))
-        if blacklist is not None:
-            # exclude the blacklist members
-            if len(blacklist) > 0:
-                original_len = len(ints)
-                # Remove the blacklisted numbers
-                ints = ints - set(blacklist)
-                # Check that the blacklist numbers were removed
-                if len(ints) == original_len:
-                    self.eval_logger.error(
-                        "Blacklist out of range:",
-                        table_name=table_name,
-                        _split=_split,
-                        range_min=min,
-                        range_max=max,
-                        blacklist=blacklist,
-                    )
-                    raise ApplicationError(
-                        "Blacklist corresponding to '{}' table & '{}' split were not founded in the range: [{}-{}]".format(
-                            table_name, _split, min, max
-                        ),
-                        non_retryable=True,
-                    )
-        # sorted random numbers
-        choices = sorted(np.random.choice(list(ints), qty, replace=False).tolist())
+
+        # Convert to list and shuffle the list
+        ints = list(ints)
+        ints = sorted(ints)  # Make sure the starting list order is deterministic
+        random.seed(
+            random_seed
+        )  # Set this here otherwise it fails to be reproducible? No idea why...
+        random.shuffle(ints)
+
+        self.eval_logger.debug("Original rand list", ints=ints)
+        # Apply the blacklist if any
+        # This will break the controlled randomness, but not always (this is the best we can do).
+        if blacklist is not None and len(blacklist) > 0:
+            original_len = len(ints)
+            # Remove the blacklisted numbers
+            for remove_int in blacklist:
+                ints.remove(remove_int)
+
+            # Check that the blacklist numbers were removed
+            if len(ints) == original_len:
+                self.eval_logger.error(
+                    "Blacklist out of range:",
+                    table_name=table_name,
+                    _split=_split,
+                    range_min=min,
+                    range_max=max,
+                    blacklist=blacklist,
+                )
+                raise ApplicationError(
+                    "Blacklist corresponding to '{}' table & '{}' split were not founded in the range: [{}-{}]".format(
+                        table_name, _split, min, max
+                    ),
+                    non_retryable=True,
+                )
+        # Pick the number we need from the top of the shuffled list
+        choices = ints[:qty]
+        # sort the list
+        choices = sorted(choices)
         self.eval_logger.debug("Random numbers generated:", choices=choices)
         return choices
 

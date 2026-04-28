@@ -89,6 +89,10 @@ func (wCtx *Ctx) SupplierManager(ctx workflow.Context, params types.SupplierMana
 	// -------------------------------------------------------------------------
 	// -------------------- Get Randomness Seed --------------------------------
 	// -------------------------------------------------------------------------
+	// TODO: Make this configurable. Currently all tasks triggered will sample
+	//       the same docs (if possible due to blacklist). This is something you
+	//		 may want for signatures or an ordered test, but makes the testing
+	//		 process easier to detect by the backends.
 	var randomSeed int
 	ctxTimeout := workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
 		ScheduleToStartTimeout: time.Second * 5,

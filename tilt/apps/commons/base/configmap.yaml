@@ -44,7 +44,7 @@ data:
       },
       "t-eval_pnyx_instruct-v2": {
           "metrics": ["call_match"],
-          "filters": ["instruct_extract"],
+          "filters": ["function_instruct_extract"],
           "doc_as_chat_template": true,
           "apply_chat_template": false,
           "fewshot_as_multiturn": false
@@ -58,7 +58,7 @@ data:
       },
       "t-eval_pnyx_plan-json-v2": {
           "metrics": ["plan_f1_score"],
-          "filters": ["call_extract"],
+          "filters": ["function_call_extract"],
           "doc_as_chat_template": true,
           "apply_chat_template": false,
           "fewshot_as_multiturn": false
@@ -72,7 +72,7 @@ data:
       },
       "t-eval_pnyx_plan-reason-retrieve-understand-json-v2": {
           "metrics": ["call_match"],
-          "filters": ["call_extract"],
+          "filters": ["function_call_extract"],
           "doc_as_chat_template": true,
           "apply_chat_template": false,
           "fewshot_as_multiturn": false

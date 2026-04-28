@@ -33,6 +33,7 @@
       "task_queue": "sampler-local"
     }
   },
+  "track_successful_samples": true,
   "frameworks": {
     "lmeh-generative-liveness" : {
       "task_types": {"any" : "numerical"},

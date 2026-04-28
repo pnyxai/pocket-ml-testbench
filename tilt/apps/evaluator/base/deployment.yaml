@@ -35,6 +35,8 @@ spec:
               value: "True"
             - name: HF_DATASETS_DISABLE_PROGRESS_BARS
               value: "True"
+            - name : HF_ALLOW_CODE_EVAL
+              value: "1"
             - name: OPENAI_API_KEY
               valueFrom:
                   secretKeyRef:

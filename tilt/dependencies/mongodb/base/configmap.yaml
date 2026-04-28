@@ -71,3 +71,5 @@ data:
     db.identity_summaries.createIndex({"supplier_id": 1}, {unique: true});
 
     db.createCollection('suppliers_snapshots');
+
+    db.createCollection('tracked_task_samples');

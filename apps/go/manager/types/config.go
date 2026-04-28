@@ -234,6 +234,7 @@ type Config struct {
 	Apps                   map[string]string          `json:"pocket_apps"`
 	Services               []string                   `json:"pocket_services"`
 	ExternalSuppliers      []string                   `json:"external_suppliers"`
+	TrackSuccessfulSamples bool                       `json:"track_successful_samples"`
 }
 
 type FrameworkConfig struct {

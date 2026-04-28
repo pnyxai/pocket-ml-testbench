@@ -2,7 +2,7 @@ import json
 import logging
 from collections import defaultdict
 from typing import TYPE_CHECKING, List, Optional, Union
-
+import random
 from lm_eval.evaluator_utils import (
     get_sample_size,
     run_task_tests,
@@ -14,6 +14,7 @@ from lm_eval.utils import (
     positional_deprecated,
     simple_parse_args_string,
 )
+from lm_eval.defaults import DEFAULT_OTHER_SEED, DEFAULT_RANDOM_SEED
 
 import numpy as np
 
@@ -66,7 +67,9 @@ def get_configurable_task(
     verbosity: str = "ERROR",
     predict_only: bool = False,
     eval_logger: Optional[logging.Logger] = None,
-    fewshot_random_seed: Optional[int] = None,
+    random_seed: int = DEFAULT_RANDOM_SEED,
+    numpy_random_seed: int = DEFAULT_OTHER_SEED,
+    fewshot_random_seed: int = DEFAULT_OTHER_SEED,
     metadata: Optional[dict] = None,
 ):
     """Instantiate and evaluate a model on a list of tasks.
@@ -88,6 +91,17 @@ def get_configurable_task(
     """
 
     seed_message = []
+    if random_seed is not None:
+        # See https://github.com/EleutherAI/lm-evaluation-harness/pull/1412
+        seed_message.append(f"Setting random seed to {random_seed}")
+        random.seed(random_seed)
+
+    if numpy_random_seed is not None:
+        seed_message.append(f"Setting numpy seed to {numpy_random_seed}")
+        np.random.seed(numpy_random_seed)
+
+    if fewshot_random_seed is not None:
+        seed_message.append(f"Setting fewshot manual seed to {fewshot_random_seed}")
 
     if seed_message:
         eval_logger.debug(" | ".join(seed_message))
