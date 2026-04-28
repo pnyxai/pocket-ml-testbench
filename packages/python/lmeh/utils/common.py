@@ -26,7 +26,6 @@ def get_task_manager(
     stage: Optional[STAGE_TYPING] = None,
     random_seed: int = DEFAULT_RANDOM_SEED,
     numpy_random_seed: int = DEFAULT_OTHER_SEED,
-    torch_random_seed: int = DEFAULT_OTHER_SEED,
     fewshot_random_seed: int = DEFAULT_OTHER_SEED,
     hf_token: Optional[str] = None,
 ):

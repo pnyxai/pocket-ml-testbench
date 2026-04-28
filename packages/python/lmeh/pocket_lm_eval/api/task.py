@@ -951,7 +951,9 @@ class PocketNetworkConfigurableTask(ConfigurableTask):
         # Convert to list and shuffle the list
         ints = list(ints)
         ints = sorted(ints)  # Make sure the starting list order is deterministic
-        random.seed(random_seed)  # Set this here otherwise it fails?
+        random.seed(
+            random_seed
+        )  # Set this here otherwise it fails to be reproducible? No idea why...
         random.shuffle(ints)
 
         self.eval_logger.debug("Original rand list", ints=ints)

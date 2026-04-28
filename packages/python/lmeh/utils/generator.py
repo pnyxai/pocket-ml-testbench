@@ -69,7 +69,6 @@ def get_configurable_task(
     eval_logger: Optional[logging.Logger] = None,
     random_seed: int = DEFAULT_RANDOM_SEED,
     numpy_random_seed: int = DEFAULT_OTHER_SEED,
-    # torch_random_seed: int = DEFAULT_OTHER_SEED,
     fewshot_random_seed: int = DEFAULT_OTHER_SEED,
     metadata: Optional[dict] = None,
 ):
@@ -100,10 +99,6 @@ def get_configurable_task(
     if numpy_random_seed is not None:
         seed_message.append(f"Setting numpy seed to {numpy_random_seed}")
         np.random.seed(numpy_random_seed)
-
-    # if torch_random_seed is not None:
-    #     seed_message.append(f"Setting torch manual seed to {torch_random_seed}")
-    #     set_torch_seed(torch_random_seed)
 
     if fewshot_random_seed is not None:
         seed_message.append(f"Setting fewshot manual seed to {fewshot_random_seed}")
