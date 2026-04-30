@@ -1,6 +1,8 @@
 import json
 import logging
 from copy import deepcopy
+import dataclasses
+from typing import Any
 from dataclasses import asdict
 from datetime import datetime, timezone
 from typing import List, Tuple
@@ -49,6 +51,33 @@ response_mapping: dict = {
     "/v1/chat/completions": ChatCompletionResponse,
 }
 
+def scrub_pydantic(obj: Any) -> Any:
+    """
+    Recursively finds Pydantic models in any structure and converts them 
+    to plain dictionaries to remove internal C-based iterators.
+    """
+    # 1. Handle Pydantic models (the source of the error)
+    if hasattr(obj, "model_dump"):  # Pydantic v2
+        return scrub_pydantic(obj.model_dump())
+    if hasattr(obj, "dict"):        # Pydantic v1
+        return scrub_pydantic(obj.dict())
+
+    # 2. Handle standard collections recursively
+    if isinstance(obj, list):
+        return [scrub_pydantic(i) for i in obj]
+    
+    if isinstance(obj, tuple):
+        return tuple(scrub_pydantic(i) for i in obj)
+    
+    if isinstance(obj, dict):
+        return {k: scrub_pydantic(v) for k, v in obj.items()}
+
+    # 3. Handle nested dataclasses
+    if dataclasses.is_dataclass(obj) and not isinstance(obj, type):
+        return scrub_pydantic(dataclasses.asdict(obj))
+
+    # 4. Return primitives (int, str, bool, None) as-is
+    return obj
 
 class MongoOperator:
     def __init__(self, client: MongoClient, collections_map=None):
@@ -119,7 +148,16 @@ class MongoOperator:
     # TODO : This should reffer to PocketNetworkMongoDBInstance and not depend on LMEH blindly
     @staticmethod
     def instance_to_dict(instance: Instance, task_id: ObjectId) -> dict:
+        
+        # Remove these since we wont use them and pydantic can get picky
+        # on stuff, because it is not throwing errors why we want it?
+        resps_orig = instance.resps
+        filtered_resps_orig = instance.filtered_resps
+        instance.resps = None
+        instance.filtered_resps = None
         instance_mongo = asdict(instance)
+        instance.resps = resps_orig
+        instance.filtered_resps = filtered_resps_orig
         instance_mongo.pop("resps", None)
         instance_mongo.pop("filtered_resps", None)
         instance_mongo["task_id"] = task_id
