@@ -119,7 +119,15 @@ class MongoOperator:
     # TODO : This should reffer to PocketNetworkMongoDBInstance and not depend on LMEH blindly
     @staticmethod
     def instance_to_dict(instance: Instance, task_id: ObjectId) -> dict:
+        # Remove these since we wont use them and pydantic can get picky
+        # on stuff, because it is not throwing errors why we want it?
+        resps_orig = instance.resps
+        filtered_resps_orig = instance.filtered_resps
+        instance.resps = None
+        instance.filtered_resps = None
         instance_mongo = asdict(instance)
+        instance.resps = resps_orig
+        instance.filtered_resps = filtered_resps_orig
         instance_mongo.pop("resps", None)
         instance_mongo.pop("filtered_resps", None)
         instance_mongo["task_id"] = task_id

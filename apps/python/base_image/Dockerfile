@@ -28,7 +28,7 @@ USER app
 # Clone the PNYX fork of lm-eval repo to get the necesary PRs merged in
 RUN git clone https://github.com/pnyxai/lm-evaluation-harness.git && \
     cd lm-evaluation-harness && \
-    git checkout PnyxAI
+    git checkout 11501a5e
 # TODO : Replace the checkout branch for a tag to avoid no re-downloads on updates
 RUN cd lm-evaluation-harness && uv build
 

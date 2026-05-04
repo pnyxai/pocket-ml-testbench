@@ -21,7 +21,7 @@ transformers = "^4.48.0"
 openai = ">=1.52.0"
 lm-eval = {path = "./lm-evaluation-harness/dist/lm_eval-0.4.12.dev0-py3-none-any.whl", extras = ["math", "dev", "ifbench"]}
 lm-taxonomies = {path = "lm-taxonomies/dist/lm_taxonomies-0.1.0-py3-none-any.whl"}
-
+setuptools = "<82.0"
 
 [tool.poetry.group.dev.dependencies]
 ipykernel = "^6.29.4"
