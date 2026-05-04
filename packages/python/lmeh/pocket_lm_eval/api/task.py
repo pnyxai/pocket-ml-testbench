@@ -86,17 +86,26 @@ class SqlDatasetLoader:
                 if isinstance(record[key], list):
                     deserialized_list = []
                     for item in record[key]:
-                        # If item is a JSON string, deserialize it
-                        if isinstance(item, str) and item[0] == "{" and item[-1] == "}":
+                        # Set a placeholder
+                        parsed_item = None
+
+                        # Check if the item is a string
+                        if isinstance(item, str):
+                            # Attempt to parse as JSON
                             try:
-                                # Attempt to parse as JSON
-                                deserialized_list.append(json.loads(item))
+                                parsed_item = json.loads(item)
                             except Exception as _:
-                                # If not valid JSON, keep as-is
-                                deserialized_list.append(item)
+                                # Ignore errors, they are expected for non-json lists
+                                pass
+
+                        if parsed_item is not None and isinstance(parsed_item, dict):
+                            # Only keep the json loaded if it is actually a
+                            # dict (i.e. it really was a JSON)
+                            deserialized_list.append(deepcopy(parsed_item))
                         else:
-                            # Non-string items are kept as-is
+                            # If not valid JSON or not even a string, keep as-is
                             deserialized_list.append(item)
+
                     # Make sure we don't overwrite next list
                     record[key] = deepcopy(deserialized_list)
 
