@@ -3,6 +3,7 @@ import json
 import random
 import time
 from collections.abc import Callable
+from copy import deepcopy
 from typing import (
     Any,
     Dict,
@@ -86,17 +87,18 @@ class SqlDatasetLoader:
                     deserialized_list = []
                     for item in record[key]:
                         # If item is a JSON string, deserialize it
-                        if isinstance(item, str):
+                        if isinstance(item, str) and item[0] == "{" and item[-1] == "}":
                             try:
                                 # Attempt to parse as JSON
                                 deserialized_list.append(json.loads(item))
-                            except (json.JSONDecodeError, TypeError):
+                            except Exception as _:
                                 # If not valid JSON, keep as-is
                                 deserialized_list.append(item)
                         else:
                             # Non-string items are kept as-is
                             deserialized_list.append(item)
-                    record[key] = deserialized_list
+                    # Make sure we don't overwrite next list
+                    record[key] = deepcopy(deserialized_list)
 
         return Dataset.from_list(records)
 
