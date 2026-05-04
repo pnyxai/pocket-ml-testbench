@@ -81,6 +81,23 @@ class SqlDatasetLoader:
                                 record[key][len(DELIM_NEST) :]
                             )
 
+                # Deserialize lists containing JSON strings (e.g., list of dicts)
+                if isinstance(record[key], list):
+                    deserialized_list = []
+                    for item in record[key]:
+                        # If item is a JSON string, deserialize it
+                        if isinstance(item, str):
+                            try:
+                                # Attempt to parse as JSON
+                                deserialized_list.append(json.loads(item))
+                            except (json.JSONDecodeError, TypeError):
+                                # If not valid JSON, keep as-is
+                                deserialized_list.append(item)
+                        else:
+                            # Non-string items are kept as-is
+                            deserialized_list.append(item)
+                    record[key] = deserialized_list
+
         return Dataset.from_list(records)
 
 
