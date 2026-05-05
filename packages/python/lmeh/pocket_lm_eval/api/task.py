@@ -3,6 +3,7 @@ import json
 import random
 import time
 from collections.abc import Callable
+from copy import deepcopy
 from typing import (
     Any,
     Dict,
@@ -80,6 +81,33 @@ class SqlDatasetLoader:
                             record[key] = ast.literal_eval(
                                 record[key][len(DELIM_NEST) :]
                             )
+
+                # Deserialize lists containing JSON strings (e.g., list of dicts)
+                if isinstance(record[key], list):
+                    deserialized_list = []
+                    for item in record[key]:
+                        # Set a placeholder
+                        parsed_item = None
+
+                        # Check if the item is a string
+                        if isinstance(item, str):
+                            # Attempt to parse as JSON
+                            try:
+                                parsed_item = json.loads(item)
+                            except Exception as _:
+                                # Ignore errors, they are expected for non-json lists
+                                pass
+
+                        if parsed_item is not None and isinstance(parsed_item, dict):
+                            # Only keep the json loaded if it is actually a
+                            # dict (i.e. it really was a JSON)
+                            deserialized_list.append(deepcopy(parsed_item))
+                        else:
+                            # If not valid JSON or not even a string, keep as-is
+                            deserialized_list.append(item)
+
+                    # Make sure we don't overwrite next list
+                    record[key] = deepcopy(deserialized_list)
 
         return Dataset.from_list(records)
 
