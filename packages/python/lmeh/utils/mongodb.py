@@ -37,6 +37,7 @@ summarization_logger = get_app_logger("summarize_taxonomy")
 
 SUPPLIER_ERROR = 2
 EVALUATION_ERROR = 12
+SUPPLIER_HANDLED_ERROR = 13
 
 # Mapping of request and response types based on the API path
 request_mapping: dict = {
@@ -444,6 +445,29 @@ class MongoOperator:
                     # handle the exception to bring a light on production debugging if needed.
                     r = json.loads(doc["response"]["response"])
                     ms = int(doc["response"]["ms"])
+
+                    # Check if the endpoint produced a JSON coded error
+                    if r.get("error", None) is not None:
+                        remove_doc_ids.add(i["doc_id"])
+
+                        # Try to get error data if possible
+                        error_str = ""
+                        error_str += r["error"].get("message","")
+                        error_str += f"\nError Code: {r["code"]}" if r.get("code", None) is not None else ""
+                        if error_str == "":
+                            error_str = r["error"]
+                        
+                        # Add to failed tests
+                        failed_instances.append(
+                            {
+                                "id": i["doc_id"],
+                                "code": SUPPLIER_HANDLED_ERROR,
+                                "error": error_str,
+                            }
+                        )
+                        # Go to next
+                        continue
+
                 except Exception as e:
                     remove_doc_ids.add(i["doc_id"])
                     error_str = (
