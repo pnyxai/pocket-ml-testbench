@@ -429,6 +429,18 @@ func TrackTaskID(supplierAddress string, taskID primitive.ObjectID, taskResults 
 			continue
 		}
 
+		// Check if the response was OK, this might still be an error with the backend, we dont want to track that
+		if !response.Ok || response.Error != "" || response.Code != 0 {
+			// Skip non-ok sample
+			l.Debug().
+				Int64("doc_id", instance.DocID).
+				Str("task_id", taskID.String()).
+				Str("error_msg", response.Error).
+				Int("code", response.Code).
+				Msg("Skipping errored sample.")
+			continue
+		}
+
 		// Find the score that matches the doc_id from the task results
 		var matchingScore float64
 		found := false

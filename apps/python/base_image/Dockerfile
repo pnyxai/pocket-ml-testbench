@@ -28,13 +28,13 @@ USER app
 # Clone the PNYX fork of lm-eval repo to get the necesary PRs merged in
 RUN git clone https://github.com/pnyxai/lm-evaluation-harness.git && \
     cd lm-evaluation-harness && \
-    git checkout v0.1.1
+    git checkout v0.4.12-PNYX-b
 RUN cd lm-evaluation-harness && uv build
 
 # Clone the taxonomy repository to get the taxonomy files
 RUN git clone https://github.com/pnyxai/lm-taxonomies.git && \
     cd lm-taxonomies && \
-    git checkout v0.1.1
+    git checkout v0.1.3
 RUN mv ./lm-taxonomies/taxonomies /home/app/code/taxonomies
 
 # Build the package too (not yet in pip)
@@ -47,6 +47,6 @@ RUN poetry  install --only main --no-root --no-directory
 RUN git clone https://github.com/pnyxai/a-vert.git && \
     AVERT_VER=$(poetry show a-vert  | grep ' version .*' | cut --delimiter=: --fields=2 | cut --delimiter=' ' --fields=2) && \
     cd a-vert && \
-    git checkout v${AVERT_VER}a
+    git checkout v${AVERT_VER}b
 # TODO: Remove the "a" once the avert repo has a real new version that includes the task changes of v0.3.5a
 RUN THIS_PATH=$(poetry env info -p) && mv ./a-vert/lm-eval_tasks/* $THIS_PATH/lib/python3.11/site-packages/lm_eval/tasks/
