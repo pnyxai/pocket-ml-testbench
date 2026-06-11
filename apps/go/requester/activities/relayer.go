@@ -304,6 +304,7 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 		response.Ms = time.Since(startTime).Milliseconds()
 		if e != nil {
 			err = e
+			response.Ok = false
 			response.Code = RelayResponseCodes.Supplier
 			response.Error = fmt.Sprintf("unable to copy the response body: %w", err)
 			return

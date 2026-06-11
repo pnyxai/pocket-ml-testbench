@@ -453,7 +453,7 @@ class MongoOperator:
                         # Try to get error data if possible
                         error_str = ""
                         error_str += r["error"].get("message","")
-                        error_str += f"\nError Code: {r["code"]}" if r.get("code", None) is not None else ""
+                        error_str += f"\nError Code: {r['code']}" if r.get("code", None) is not None else ""
                         if error_str == "":
                             error_str = r["error"]
                         
