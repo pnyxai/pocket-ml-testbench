@@ -276,7 +276,7 @@ async def lmeh_evaluate(args: PocketNetworkEvaluationTaskRequest) -> Tuple[bool,
                         # )
                     try:
                         # Instance LM
-                        eval_logger.debug("Generating LM")
+                        eval_logger.debug("Generating LM", task_name=task_name)
                         if args.requester_args.path == "/v1/completions":
                             lm = EvaluatorCompletion(
                                 **args.llm_args,
@@ -293,7 +293,11 @@ async def lmeh_evaluate(args: PocketNetworkEvaluationTaskRequest) -> Tuple[bool,
                                 type="UnsupportedPath",
                                 non_retryable=True,
                             )
-                        eval_logger.debug("LM generated successfully.", lm=type(lm))
+                        eval_logger.debug(
+                            "LM generated successfully.",
+                            lm=type(lm),
+                            task_name=task_name,
+                        )
                         result = await lmeh_generator.evaluate(
                             lm=lm,
                             task_dict=task_dict,
@@ -311,6 +315,7 @@ async def lmeh_evaluate(args: PocketNetworkEvaluationTaskRequest) -> Tuple[bool,
                         eval_logger.info(
                             "Evaluation completed successfully.",
                             task_id=str(args.task_id),
+                            task_name=task_name,
                         )
                     except ApplicationError as e:
                         # no mater what, mark the task as drop=True

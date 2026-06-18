@@ -19,17 +19,15 @@ data:
       },
       "ifeval": {
           "metrics": ["prompt_level_loose_acc"],
-          "filters": ["pass_all"],
+          "gen_kwargs": "max_gen_toks=8000",
           "num_fewshot": 0
       },
       "ifbench": {
           "metrics": ["prompt_level_loose_acc"],
-          "filters": ["pass_all"],
           "num_fewshot": 0
       },
       "ifbench_ifbench-constraints_multi-turn": {
           "metrics": ["prompt_level_loose_acc"],
-          "filters": ["pass_all"],
           "num_fewshot": 0,
           "doc_as_chat_template": true,
           "apply_chat_template": false,
@@ -37,12 +35,10 @@ data:
       },
       "ifbench_ifbench-constraints_single-turn": {
           "metrics": ["prompt_level_loose_acc"],
-          "filters": ["pass_all"],
           "num_fewshot": 0
       },
       "ifbench_ifeval-constraints_multi-turn": {
           "metrics": ["prompt_level_loose_acc"],
-          "filters": ["pass_all"],
           "num_fewshot": 0,
           "doc_as_chat_template": true,
           "apply_chat_template": false,
@@ -50,7 +46,6 @@ data:
       },
       "ifbench_ifeval-constraints_single-turn": {
           "metrics": ["prompt_level_loose_acc"],
-          "filters": ["pass_all"],
           "num_fewshot": 0
       },
       "bbh-split_": {

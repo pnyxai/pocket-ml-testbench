@@ -236,9 +236,10 @@ async def lmeh_sample(args: PocketNetworkTaskRequest) -> bool:
                     )
 
                 # Instance LM
-                eval_logger.info("Generating LM")
+                eval_logger.info("Generating LM", task_name=task_name)
                 eval_logger.debug(
-                    "Passed `--trust_remote_code`, setting environment variable `HF_DATASETS_TRUST_REMOTE_CODE=true`"
+                    "Passed `--trust_remote_code`, setting environment variable `HF_DATASETS_TRUST_REMOTE_CODE=true`",
+                    task_name=task_name,
                 )
                 # HACK: import datasets and override its HF_DATASETS_TRUST_REMOTE_CODE value internally,
                 # because it's already been determined based on the prior env var before launching our
@@ -316,7 +317,9 @@ async def lmeh_sample(args: PocketNetworkTaskRequest) -> bool:
                             eval_logger=eval_logger,
                             timeout_handler=timeout_handler,
                         )
-                        eval_logger.info("LM generated successfully.")
+                        eval_logger.info(
+                            "LM generated successfully.", task_name=task_name
+                        )
                     except ApplicationError as e:
                         raise e
 

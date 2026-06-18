@@ -417,9 +417,7 @@ async def generate_requests(
                     # if generate_until, we need to get the decode length
                     # try first with the args, then with the task config,
                     # and finally with the default value from the LM
-                    gen_kwargs = args.gen_kwargs or dict(task.dump_config()).get(
-                        "generation_kwargs", {}
-                    )
+                    gen_kwargs = dict(task.dump_config()).get("generation_kwargs", {})
                     # if empty, try to get from the LM
                     decode = gen_kwargs.get("max_gen_toks", lm.max_gen_toks)
                 else:
@@ -667,8 +665,10 @@ async def evaluate(
             insert_mongo_results = []
             if len(task.failed_instances) == 0:
                 # Nothing to do, not sure this state is reachable
-                eval_logger.debug(
-                    "No instances/doc_id generated for task.", task_id=str(task_id)
+                eval_logger.warning(
+                    "No instances/doc_id generated for task.",
+                    task_id=str(task_id),
+                    task_name=task_name,
                 )
                 base_result = PocketNetworkMongoDBResultBase(
                     task_id=task_id,
@@ -704,7 +704,12 @@ async def evaluate(
 
             # Save to DB and return
             insert_mongo_results.append(num_result.model_dump(by_alias=True))
-            eval_logger.debug("Mongo Result:", mongo_result=insert_mongo_results)
+            eval_logger.debug(
+                "Mongo Result:",
+                mongo_result=insert_mongo_results,
+                task_id=str(task_id),
+                task_name=task_name,
+            )
 
             await save_results(
                 mongo_client=mongo_client,
@@ -713,12 +718,12 @@ async def evaluate(
             )
             return True
 
-    eval_logger.debug("Instances generated successfully:")
+    eval_logger.debug("Instances generated successfully:", task_id=str(task_id))
     ### Run LM on inputs, get all outputs ###
     # execute each type of request
     try:
         for reqtype, reqs in requests.items():
-            eval_logger.debug(f"Running {reqtype} requests")
+            eval_logger.debug(f"Running {reqtype} requests", task_id=str(task_id))
             # create `K` copies of each request `req` based off `K = req.repeats`
             cloned_reqs = []
             for req in reqs:
@@ -730,6 +735,10 @@ async def evaluate(
             times = getattr(lm, "response_times")(cloned_reqs)
 
             # put responses from model into a list of length K for each request.
+        if len(resps) == 0:
+            eval_logger.warning(
+                "No valid responses obtained", task_id=str(task_id), requests=requests
+            )
         # If the model returns tuples with content and optional fields like
         # tool_calls/reasoning, unpack them: store the text content in resps
         # (preserving the expected str contract) and store additional fields
@@ -782,17 +791,20 @@ async def evaluate(
         scores = []
         result_num_samples = set()
         eval_logger.debug(
-            "Selected filters",
-            selected_filters=selected_filters,
+            "Selected filters", selected_filters=selected_filters, task_id=str(task_id)
         )
         for filter_key in selected_filters:
             if filter_key not in task.instances[0].filtered_resps.keys():
                 eval_logger.warning(
                     "Skipping Filter Key. This can signal misconfiguration of task in `task_config.py`",
                     filter_key=filter_key,
+                    available_filters=list(task.instances[0].filtered_resps.keys()),
+                    task_id=str(task_id),
                 )
                 continue
-            eval_logger.debug("Entering Filter Key:", filter_key=filter_key)
+            eval_logger.debug(
+                "Entering Filter Key:", filter_key=filter_key, task_id=str(task_id)
+            )
             indices = samples.get(task_name, None) if samples is not None else None
             doc_iterator = task.doc_iterator(
                 rank=RANK,
@@ -810,7 +822,10 @@ async def evaluate(
                 try:
                     if "kwargs" in doc.keys():
                         # Make sure the kwargs are a dict not a string
-                        doc["kwargs"] = [json.loads(a) for a in doc["kwargs"]]
+                        doc["kwargs"] = [
+                            json.loads(a) if not isinstance(a, dict) else a
+                            for a in doc["kwargs"]
+                        ]
 
                     metrics = task.process_results(
                         doc, [req.filtered_resps[filter_key] for req in requests]
@@ -820,8 +835,13 @@ async def evaluate(
                         "task.process_results inputs",
                         doc=doc,
                         responses=[req.filtered_resps[filter_key] for req in requests],
+                        task_id=str(task_id),
                     )
-                    eval_logger.error("Failed to process results in LMEH.", error=e)
+                    eval_logger.error(
+                        "Failed to process results in LMEH.",
+                        error=e,
+                        task_id=str(task_id),
+                    )
                     raise ApplicationError(
                         "Failed process results.",
                         str(e),
@@ -861,6 +881,7 @@ async def evaluate(
                     }
                     eval_logger.debug(
                         "Example for logging",
+                        task_id=str(task_id),
                         doc_id=doc_id_true,
                         target=example["target"],
                         resps=example["resps"],
@@ -891,6 +912,7 @@ async def evaluate(
                         eval_logger.warning(
                             "Skipping Metric Key. This can signal misconfiguration of task in `task_config.py`",
                             metric=metric,
+                            task_id=str(task_id),
                         )
         # If there are failed samples, add them here to the scores list
         for instance in task.failed_instances:
@@ -908,12 +930,17 @@ async def evaluate(
         if total_processed_samples != len(scores):
             msg = f"Each sample must have strictly one metric associated to it. Multiple metrics per sample are not supported: {total_processed_samples} != {len(scores)}"
             e = ValueError("total_processed_samples != len(scores)")
-            eval_logger.error(msg, error=e)
+            eval_logger.error(msg, error=e, task_id=str(task_id))
             raise ApplicationError(
                 msg,
                 str(e),
                 type="LMEH",
                 non_retryable=True,
+            )
+        elif total_processed_samples == 0:
+            eval_logger.warning(
+                "No responses were processed, adding result with no samples.",
+                task_id=str(task_id),
             )
 
         base_result = PocketNetworkMongoDBResultBase(
@@ -926,7 +953,9 @@ async def evaluate(
             result_data=base_result, scores=scores
         )
         insert_mongo_results.append(num_result.model_dump(by_alias=True))
-    eval_logger.debug("Mongo Result:", mongo_result=insert_mongo_results)
+    eval_logger.debug(
+        "Mongo Result:", mongo_result=insert_mongo_results, task_id=str(task_id)
+    )
 
     await save_results(
         mongo_client=mongo_client,
