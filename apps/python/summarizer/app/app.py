@@ -22,7 +22,7 @@ app_config = {
 
 
 async def _ensure_taxonomy_in_mongodb(
-    mongo_client: MongoClient, taxonomy_graph, taxonmy_file_name: str, logger
+    mongo_client: MongoClient, taxonomy_graph, taxonomy_file_name: str, logger
 ):
     """
     Checks if a taxonomy entry exists in the MongoDB 'tracked_taxonomies' collection
@@ -30,7 +30,7 @@ async def _ensure_taxonomy_in_mongodb(
     datasets, and the adjacency matrix (nodes sorted alphabetically).
     """
     tax_collection = mongo_client.db["tracked_taxonomies"]
-    existing = await tax_collection.find_one({"name": taxonmy_file_name})
+    existing = await tax_collection.find_one({"name": taxonomy_file_name})
     if existing is None:
         # Get datasets per node
         nodes_data = txm_utils.get_taxonomy_datasets_per_node(taxonomy_graph)
@@ -47,14 +47,16 @@ async def _ensure_taxonomy_in_mongodb(
         # Insert into MongoDB
         await tax_collection.insert_one(
             {
-                "name": taxonmy_file_name,
+                "name": taxonomy_file_name,
                 "graph_name": taxonomy_graph.name,
                 "nodes": nodes_list,
                 "adjacency_matrix": adjacency_matrix,
                 "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
             }
         )
-        logger.info(f"Inserted taxonomy metadata into MongoDB for: {taxonmy_file_name}")
+        logger.info(
+            f"Inserted taxonomy metadata into MongoDB for: {taxonomy_file_name}"
+        )
 
 
 async def setup_app(cfg) -> dict:
@@ -98,25 +100,25 @@ async def setup_app(cfg) -> dict:
         tax_use = tax_use.split(",")
     for file in os.listdir(tax_path):
         file_path = Path(os.path.join(tax_path, file))
-        taxonmy_file_name = file_path.stem
+        taxonomy_file_name = file_path.stem
         file_ext = file_path.suffix
-        logger.debug(f"Checking: {taxonmy_file_name}{file_ext}.")
+        logger.debug(f"Checking: {taxonomy_file_name}{file_ext}.")
         if ".tax" == file_ext:
             if tax_use is None or file in tax_use:
                 taxonomy_graph = txm_utils.load_taxonomy(
                     os.path.join(tax_path, file), return_all=False, verbose=True
                 )
-                if taxonomy_graph.name != taxonmy_file_name:
+                if taxonomy_graph.name != taxonomy_file_name:
                     logger.debug(
-                        f'WARNING : Taxonomy file name is different from taxonomy graph name ("{taxonmy_file_name}" vs "{taxonomy_graph.name}"). Using GRAPH NAME as taxonomy name.'
+                        f'WARNING : Taxonomy file name is different from taxonomy graph name ("{taxonomy_file_name}" vs "{taxonomy_graph.name}"). Using GRAPH NAME as taxonomy name.'
                     )
                 app_config["taxonomies"][taxonomy_graph.name] = taxonomy_graph
                 logger.info(
-                    f"Added taxonomy to track: {taxonmy_file_name} ({taxonomy_graph.name})"
+                    f"Added taxonomy to track: {taxonomy_file_name} ({taxonomy_graph.name})"
                 )
 
                 await _ensure_taxonomy_in_mongodb(
-                    mongo_client, taxonomy_graph, taxonmy_file_name, logger
+                    mongo_client, taxonomy_graph, taxonomy_file_name, logger
                 )
 
     if tax_use is not None and len(app_config["taxonomies"]) == 0:
