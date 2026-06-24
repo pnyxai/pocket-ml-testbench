@@ -1,5 +1,7 @@
 import logging
 import asyncpg
+import datetime
+import networkx as nx
 from packages.python.common.mongodb import MongoClient
 from packages.python.common.utils import get_from_dict
 from packages.python.logger.logger import get_logger
@@ -17,6 +19,42 @@ app_config = {
     # fill with taxonomies graphs here
     "taxonomies": None,
 }
+
+
+async def _ensure_taxonomy_in_mongodb(
+    mongo_client: MongoClient, taxonomy_graph, taxonmy_file_name: str, logger
+):
+    """
+    Checks if a taxonomy entry exists in the MongoDB 'tracked_taxonomies' collection
+    (matching by file name). If not, creates one with the node names, their
+    datasets, and the adjacency matrix (nodes sorted alphabetically).
+    """
+    tax_collection = mongo_client.db["tracked_taxonomies"]
+    existing = await tax_collection.find_one({"name": taxonmy_file_name})
+    if existing is None:
+        # Get datasets per node
+        nodes_data = txm_utils.get_taxonomy_datasets_per_node(taxonomy_graph)
+        # Convert to a list of node names with their datasets
+        nodes_list = [
+            {"name": node, "datasets": datasets}
+            for node, datasets in nodes_data.items()
+        ]
+        # Compute adjacency matrix with alphabetically sorted nodes (excluding root_c)
+        sorted_nodes = sorted([n for n in taxonomy_graph.nodes() if n != "root_c"])
+        adjacency_matrix = nx.to_numpy_array(
+            taxonomy_graph, nodelist=sorted_nodes
+        ).tolist()
+        # Insert into MongoDB
+        await tax_collection.insert_one(
+            {
+                "name": taxonmy_file_name,
+                "graph_name": taxonomy_graph.name,
+                "nodes": nodes_list,
+                "adjacency_matrix": adjacency_matrix,
+                "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            }
+        )
+        logger.info(f"Inserted taxonomy metadata into MongoDB for: {taxonmy_file_name}")
 
 
 async def setup_app(cfg) -> dict:
@@ -75,6 +113,10 @@ async def setup_app(cfg) -> dict:
                 app_config["taxonomies"][taxonomy_graph.name] = taxonomy_graph
                 logger.info(
                     f"Added taxonomy to track: {taxonmy_file_name} ({taxonomy_graph.name})"
+                )
+
+                await _ensure_taxonomy_in_mongodb(
+                    mongo_client, taxonomy_graph, taxonmy_file_name, logger
                 )
 
     if tax_use is not None and len(app_config["taxonomies"]) == 0:

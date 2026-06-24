@@ -1,3 +1,4 @@
+---
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -73,3 +74,5 @@ data:
     db.createCollection('suppliers_snapshots');
 
     db.createCollection('tracked_task_samples');
+
+    db.createCollection('tracked_taxonomies');
