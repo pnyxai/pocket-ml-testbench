@@ -16,7 +16,14 @@ from openai.types.chat import (
 )
 from openai.types.chat import ChatCompletionMessageToolCallParam
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_validator,
+    model_serializer,
+)
 
 # pydantic needs the TypedDict from typing_extensions
 from typing_extensions import Required, TypeAlias, TypedDict
@@ -140,11 +147,27 @@ class StructuralTagResponseFormat(OpenAIBaseModel):
     structures: list[StructuralTag]
     triggers: list[str]
 
+    @model_serializer(mode="wrap")
+    def serialize(self, handler):
+        result = handler(self)
+        # Ensure type is always present
+        if "type" not in result:
+            result["type"] = self.type
+        return result
+
 
 class ResponseFormat(OpenAIBaseModel):
     # type must be "json_schema", "json_object", or "text"
     type: Literal["text", "json_object", "json_schema"]
     json_schema: Optional[JsonSchemaResponseFormat] = None
+
+    @model_serializer(mode="wrap")
+    def serialize(self, handler):
+        result = handler(self)
+        # Ensure type is always present
+        if "type" not in result:
+            result["type"] = self.type
+        return result
 
 
 AnyResponseFormat = Union[ResponseFormat, StructuralTagResponseFormat]
@@ -165,6 +188,14 @@ class ChatCompletionToolsParam(OpenAIBaseModel):
     type: Literal["function"] = "function"
     function: FunctionDefinition
 
+    @model_serializer(mode="wrap")
+    def serialize(self, handler):
+        result = handler(self)
+        # Ensure type is always present
+        if "type" not in result:
+            result["type"] = self.type
+        return result
+
 
 class ChatCompletionNamedFunction(OpenAIBaseModel):
     name: str
@@ -173,6 +204,14 @@ class ChatCompletionNamedFunction(OpenAIBaseModel):
 class ChatCompletionNamedToolChoiceParam(OpenAIBaseModel):
     function: ChatCompletionNamedFunction
     type: Literal["function"] = "function"
+
+    @model_serializer(mode="wrap")
+    def serialize(self, handler):
+        result = handler(self)
+        # Ensure type is always present
+        if "type" not in result:
+            result["type"] = self.type
+        return result
 
 
 class CompletionRequest(BaseModel):
