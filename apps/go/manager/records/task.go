@@ -834,10 +834,15 @@ func (record *NumericalTaskRecord) GetNumOkSamples() uint32 {
 	// Initialize a counter for the number of OK samples
 	var okSamples uint32 = 0
 
+	maxAge := time.Duration(record.GetSampleTTLDays()) * 24 * time.Hour
 	// Loop through all the elements of `ScoresSamples` and count the number that have `StatusCode==0`
 	// and checking if the element index is within the valid range using the function "IsIndexInRange(uint32)"
+	// and that the sample is not past its TTL.
 	for i, sample := range record.ScoresSamples {
-		if record.CircBuffer.IsIndexInRange(uint32(i)) && sample.StatusCode == 0 {
+		idx := uint32(i)
+		if record.CircBuffer.IsIndexInRange(idx) && sample.StatusCode == 0 &&
+			record.CircBuffer.Times[idx] != types.EpochStart &&
+			time.Since(record.CircBuffer.Times[idx]) < maxAge {
 			okSamples++
 		}
 	}
@@ -865,7 +870,7 @@ func (record *NumericalTaskRecord) IsEqual(data interface{}) (statusOK bool, err
 func (record *NumericalTaskRecord) ProcessData(l *zerolog.Logger) (err error) {
 
 	// Get valid samples
-	validIdx, err := record.CircBuffer.GetBufferValidIndexes(l)
+	validIdx, err := record.CircBuffer.GetBufferValidIndexes(NumericalSampleTTLDays, l)
 	if err != nil {
 		return err
 	}
@@ -1191,10 +1196,15 @@ func (record *SignatureTaskRecord) GetNumOkSamples() uint32 {
 	// Initialize a counter for the number of OK samples
 	var okSamples uint32 = 0
 
+	maxAge := time.Duration(record.GetSampleTTLDays()) * 24 * time.Hour
 	// Loop through all the elements of `Signatures` and count the number that have `StatusCode==0`
 	// and checking if the element index is within the valid range using the function "IsIndexInRange(uint32)"
+	// and that the sample is not past its TTL.
 	for i, sample := range record.Signatures {
-		if record.CircBuffer.IsIndexInRange(uint32(i)) && sample.StatusCode == 0 {
+		idx := uint32(i)
+		if record.CircBuffer.IsIndexInRange(idx) && sample.StatusCode == 0 &&
+			record.CircBuffer.Times[idx] != types.EpochStart &&
+			time.Since(record.CircBuffer.Times[idx]) < maxAge {
 			okSamples++
 		}
 	}
@@ -1276,4 +1286,89 @@ func (record *SignatureTaskRecord) ProcessData(l *zerolog.Logger) (err error) {
 func (record *SignatureTaskRecord) GetResultStruct() ResultInterface {
 	var thisTaskResults SignatureResultRecord
 	return &thisTaskResults
+}
+
+// GetAllTasksForSupplier retrieves all existing task buffer records for a given
+// supplier from both buffers_numerical and buffers_signatures collections and
+// returns them grouped as TestsData per framework.
+func GetAllTasksForSupplier(
+	supplierID primitive.ObjectID,
+	mongoDB mongodb.MongoDb,
+	l *zerolog.Logger) ([]types.TestsData, error) {
+
+	// Set mongo context
+	ctxM, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	// Helper map: framework -> set of tasks
+	taskMap := make(map[string]map[string]struct{})
+
+	// -------------------------------------------------------------------------
+	// Query numerical buffers
+	// -------------------------------------------------------------------------
+	numCollection := mongoDB.GetCollection(types.NumericalTaskCollection)
+	numFilter := bson.D{{Key: "task_data.supplier_id", Value: supplierID}}
+	numCursor, err := numCollection.Find(ctxM, numFilter)
+	if err != nil {
+		l.Error().Err(err).Str("supplier_id", supplierID.String()).Msg("Could not retrieve numerical tasks from MongoDB.")
+		return nil, err
+	}
+	defer numCursor.Close(ctxM)
+
+	for numCursor.Next(ctxM) {
+		var record NumericalTaskRecord
+		if err := numCursor.Decode(&record); err != nil {
+			l.Error().Err(err).Str("supplier_id", supplierID.String()).Msg("Could not decode numerical task from MongoDB.")
+			return nil, err
+		}
+		fw := record.TaskData.Framework
+		task := record.TaskData.Task
+		if _, ok := taskMap[fw]; !ok {
+			taskMap[fw] = make(map[string]struct{})
+		}
+		taskMap[fw][task] = struct{}{}
+	}
+
+	// -------------------------------------------------------------------------
+	// Query signature buffers
+	// -------------------------------------------------------------------------
+	sigCollection := mongoDB.GetCollection(types.SignaturesTaskCollection)
+	sigFilter := bson.D{{Key: "task_data.supplier_id", Value: supplierID}}
+	sigCursor, err := sigCollection.Find(ctxM, sigFilter)
+	if err != nil {
+		l.Error().Err(err).Str("supplier_id", supplierID.String()).Msg("Could not retrieve signature tasks from MongoDB.")
+		return nil, err
+	}
+	defer sigCursor.Close(ctxM)
+
+	for sigCursor.Next(ctxM) {
+		var record SignatureTaskRecord
+		if err := sigCursor.Decode(&record); err != nil {
+			l.Error().Err(err).Str("supplier_id", supplierID.String()).Msg("Could not decode signature task from MongoDB.")
+			return nil, err
+		}
+		fw := record.TaskData.Framework
+		task := record.TaskData.Task
+		if _, ok := taskMap[fw]; !ok {
+			taskMap[fw] = make(map[string]struct{})
+		}
+		taskMap[fw][task] = struct{}{}
+	}
+
+	// -------------------------------------------------------------------------
+	// Convert map to []TestsData
+	// -------------------------------------------------------------------------
+	var results []types.TestsData
+	for fw, tasks := range taskMap {
+		taskList := make([]string, 0, len(tasks))
+		for t := range tasks {
+			taskList = append(taskList, t)
+		}
+		results = append(results, types.TestsData{
+			Framework: fw,
+			Tasks:     taskList,
+		})
+	}
+
+	return results, nil
 }

@@ -43,4 +43,11 @@ func (wCtx *Ctx) Register(w worker.Worker) {
 	w.RegisterWorkflowWithOptions(wCtx.ResultAnalyzer, workflow.RegisterOptions{
 		Name: ResultAnalyzerName,
 	})
+
+	// Background workflow that cycles buffers for all existing DB suppliers
+	// without triggering new tasks. Ensures stale samples are flushed even
+	// when a supplier is no longer returned by the staked-suppliers source.
+	w.RegisterWorkflowWithOptions(wCtx.SupplierBufferUpdater, workflow.RegisterOptions{
+		Name: SupplierBufferUpdaterName,
+	})
 }

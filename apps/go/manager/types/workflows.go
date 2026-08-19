@@ -40,3 +40,11 @@ type ResultAnalyzerParams struct {
 type ResultAnalyzerResults struct {
 	Success bool `json:"success"`
 }
+
+type SupplierBufferUpdaterParams struct {
+}
+
+type SupplierBufferUpdaterResults struct {
+	ProcessedSuppliers uint `json:"processed_suppliers"`
+	FailedSuppliers    uint `json:"failed_suppliers"`
+}

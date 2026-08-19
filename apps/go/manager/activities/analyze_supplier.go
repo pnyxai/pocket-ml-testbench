@@ -55,47 +55,8 @@ func (aCtx *Ctx) AnalyzeSupplier(ctx context.Context, params types.AnalyzeSuppli
 	//--------------------------------------------------------------------------
 	// Update all tasks buffers
 	//--------------------------------------------------------------------------
-	var LastSeenHeight int64
-	var LastSeenTime time.Time
-	if !found {
-		// Create entry in MongoDB
-		l.Debug().Bool("found", found).Msg("Creating empty supplier entry.")
-		err = thisSupplierData.Init(params, aCtx.App.Config.Frameworks, aCtx.App.Mongodb, l)
-		if err != nil {
-			l.Error().Err(err).
-				Str("address", params.Supplier.Address).
-				Str("service", params.Supplier.Service).
-				Msg("Failed to create supplier entry.")
-			return nil, err
-		}
-		result.IsNew = true
-		LastSeenHeight = currHeight
-		LastSeenTime = currTime
-
-	} else {
-		// If the supplier entry exist we must cycle and check for pending results
-		LastSeenHeight, LastSeenTime, err = updateTasksSupplier(&thisSupplierData, params.Tests, aCtx.App.Config.Frameworks, aCtx.App.Mongodb, l)
-		if err != nil {
-			l.Error().
-				Err(err).
-				Str("address", params.Supplier.Address).
-				Str("service", params.Supplier.Service).
-				Msg("Failed to create update supplier.")
-			return nil, err
-		}
-	}
-
-	// Do general update of supplier
-	thisSupplierData.LastProcessHeight = currHeight
-	thisSupplierData.LastProcessTime = currTime
-	thisSupplierData.LastSeenHeight = LastSeenHeight
-	thisSupplierData.LastSeenTime = LastSeenTime
-
-	// Push to DB the supplier data
-	l.Debug().Msg("Uploading supplier changes to DB.")
-	_, err = thisSupplierData.UpdateSupplier(aCtx.App.Mongodb, l)
+	result.IsNew, err = UpdateSupplierData(&thisSupplierData, found, params.Supplier, params.Tests, aCtx.App.Config.Frameworks, aCtx.App.Mongodb, l, currHeight, currTime)
 	if err != nil {
-		l.Error().Err(err).Str("address", params.Supplier.Address).Str("service", params.Supplier.Service).Msg("Failed upload supplier to MongoDB.")
 		return nil, err
 	}
 
@@ -240,6 +201,68 @@ func (aCtx *Ctx) AnalyzeSupplier(ctx context.Context, params types.AnalyzeSuppli
 	return &result, nil
 }
 
+// UpdateSupplierData - Updates the supplier record buffers and timestamps.
+// If the supplier is not found it will initialize a new entry.
+func UpdateSupplierData(
+	supplierData *records.SupplierRecord,
+	found bool,
+	supplier types.SupplierData,
+	tests []types.TestsData,
+	frameworkConfigMap map[string]types.FrameworkConfig,
+	mongoDB mongodb.MongoDb,
+	l *zerolog.Logger,
+	currHeight int64,
+	currTime time.Time,
+) (isNew bool, err error) {
+
+	var LastSeenHeight int64
+	var LastSeenTime time.Time
+
+	if !found {
+		// Create entry in MongoDB
+		l.Debug().Bool("found", found).Msg("Creating empty supplier entry.")
+		err = supplierData.Init(types.AnalyzeSupplierParams{Supplier: supplier, Tests: tests}, frameworkConfigMap, mongoDB, l)
+		if err != nil {
+			l.Error().Err(err).
+				Str("address", supplier.Address).
+				Str("service", supplier.Service).
+				Msg("Failed to create supplier entry.")
+			return false, err
+		}
+		isNew = true
+		LastSeenHeight = currHeight
+		LastSeenTime = currTime
+
+	} else {
+		// If the supplier entry exist we must cycle and check for pending results
+		LastSeenHeight, LastSeenTime, err = updateTasksSupplier(supplierData, tests, frameworkConfigMap, mongoDB, l)
+		if err != nil {
+			l.Error().
+				Err(err).
+				Str("address", supplier.Address).
+				Str("service", supplier.Service).
+				Msg("Failed to create update supplier.")
+			return false, err
+		}
+	}
+
+	// Do general update of supplier
+	supplierData.LastProcessHeight = currHeight
+	supplierData.LastProcessTime = currTime
+	supplierData.LastSeenHeight = LastSeenHeight
+	supplierData.LastSeenTime = LastSeenTime
+
+	// Push to DB the supplier data
+	l.Debug().Msg("Uploading supplier changes to DB.")
+	_, err = supplierData.UpdateSupplier(mongoDB, l)
+	if err != nil {
+		l.Error().Err(err).Str("address", supplier.Address).Str("service", supplier.Service).Msg("Failed upload supplier to MongoDB.")
+		return false, err
+	}
+
+	return isNew, nil
+}
+
 // Checks for suppliers's tasks records and drops old ones.
 func updateTasksSupplier(supplierData *records.SupplierRecord,
 	tests []types.TestsData,
@@ -299,6 +322,24 @@ func updateTasksSupplier(supplierData *records.SupplierRecord,
 			// Update task in DB
 			//------------------------------------------------------------------
 			if cycled || found {
+				l.Debug().
+					Str("address", supplierData.Address).
+					Str("service", supplierData.Service).
+					Str("framework", test.Framework).
+					Str("task", task).
+					Msg("Recalculating task metrics.")
+				err = thisTaskRecord.ProcessData(l)
+				if err != nil {
+					l.Error().
+						Err(err).
+						Str("address", supplierData.Address).
+						Str("service", supplierData.Service).
+						Str("framework", test.Framework).
+						Str("task", task).
+						Msg("Failed to recalculate task metrics.")
+					return LastSeenHeight, LastSeenTime, err
+				}
+
 				l.Debug().
 					Str("address", supplierData.Address).
 					Str("service", supplierData.Service).

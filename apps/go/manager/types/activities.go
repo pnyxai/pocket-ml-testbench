@@ -75,3 +75,36 @@ type AnalyzeResultParams struct {
 type AnalyzeResultResults struct {
 	Success bool `json:"success"`
 }
+
+//------------------------------------------------------------------------------
+// Get All Suppliers
+//------------------------------------------------------------------------------
+
+type GetAllSuppliersResults struct {
+	Suppliers []SupplierData `json:"suppliers"`
+}
+
+//------------------------------------------------------------------------------
+// Update Supplier Buffers
+//------------------------------------------------------------------------------
+
+type UpdateSupplierBuffersParams struct {
+	Supplier SupplierData `json:"supplier"`
+	Tests    []TestsData  `json:"tests"`
+}
+
+type UpdateSupplierBuffersResults struct {
+	Success bool `json:"success"`
+}
+
+//------------------------------------------------------------------------------
+// Get Supplier Tests
+//------------------------------------------------------------------------------
+
+type GetSupplierTestsParams struct {
+	Supplier SupplierData `json:"supplier"`
+}
+
+type GetSupplierTestsResults struct {
+	Tests []TestsData `json:"tests"`
+}
