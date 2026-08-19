@@ -51,4 +51,16 @@ func (aCtx *Ctx) Register(w worker.Worker) {
 		Name: AnalyzeResultName,
 	})
 
+	w.RegisterActivityWithOptions(aCtx.GetAllSuppliers, activity.RegisterOptions{
+		Name: GetAllSuppliersName,
+	})
+
+	w.RegisterActivityWithOptions(aCtx.UpdateSupplierBuffers, activity.RegisterOptions{
+		Name: UpdateSupplierBuffersName,
+	})
+
+	w.RegisterActivityWithOptions(aCtx.GetSupplierTests, activity.RegisterOptions{
+		Name: GetSupplierTestsName,
+	})
+
 }

@@ -165,7 +165,14 @@ func (buffer *CircularBuffer) CycleIndexes(sampleTTLDays uint32, l *zerolog.Logg
 		oldestAge = time.Since(buffer.Times[buffer.Indexes.Start])
 		// Break if met the limit
 		if buffer.Indexes.Start == buffer.Indexes.End {
-			l.Debug().Msg("Circular buffer collapsed.")
+			if oldestAge >= maxAge {
+				l.Debug().Msg("Circular buffer collapsed (Zero valid samples).")
+				// Invalidate this sample
+				buffer.Times[buffer.Indexes.Start] = EpochStart
+				buffer.NumSamples = 0
+			} else {
+				l.Debug().Msg("Circular buffer collapsed (One valid sample).")
+			}
 			break
 		}
 	}
@@ -186,12 +193,13 @@ func (buffer *CircularBuffer) BufferLimitCheck(nextVal uint32, l *zerolog.Logger
 	return nextVal, nil
 }
 
-func (buffer *CircularBuffer) GetBufferValidIndexes(l *zerolog.Logger) (auxIdx []uint32, err error) {
+func (buffer *CircularBuffer) GetBufferValidIndexes(sampleTTLDays uint32, l *zerolog.Logger) (auxIdx []uint32, err error) {
 
+	maxAge := time.Duration(sampleTTLDays) * 24 * time.Hour
 	idxNow := buffer.Indexes.Start
 	for true {
-		// If the sample never written, we should ignore it
-		if buffer.Times[idxNow] != EpochStart {
+		// If the sample was never written or it is past TTL, we should ignore it
+		if buffer.Times[idxNow] != EpochStart && time.Since(buffer.Times[idxNow]) < maxAge {
 			// Add sample to data array
 			auxIdx = append(auxIdx, idxNow)
 		}

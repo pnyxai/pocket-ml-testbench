@@ -95,6 +95,40 @@ def schedule_snapshot_task(interval="24h", execution_timeout=1200, task_timeout=
     return run_command(command)
 
 
+def schedule_buffer_updater_task(
+    interval="12h", execution_timeout=1200, task_timeout=1200
+):
+    command = BASE_COMMAND + [
+        "--",
+        "temporal",
+        "schedule",
+        "create",
+        "--schedule-id",
+        "supplier-buffer-updater",
+        "--workflow-id",
+        "supplier-buffer-updater",
+        "--type",
+        "SupplierBufferUpdater",
+        "--task-queue",
+        "manager",
+        "--interval",
+        f"{interval}",
+        "--overlap-policy",
+        "Skip",
+        "--catchup-window",
+        "1s",
+        "--execution-timeout",
+        f"{execution_timeout}s",
+        "--run-timeout",
+        f"{execution_timeout}s",
+        "--task-timeout",
+        f"{task_timeout}s",
+        "--namespace",
+        f"{TEMPORAL_NAMESPACE}",
+    ]
+    return run_command(command)
+
+
 def schedule_summary_task(interval="1h", execution_timeout=1200, task_timeout=1200):
     command = BASE_COMMAND + [
         "--",
@@ -475,6 +509,12 @@ def main():
         help="Interval for snapshot tasks (default: 24h)",
     )
     parser.add_argument(
+        "--buffer-updater-interval",
+        type=validate_interval,
+        default="12h",
+        help="Interval for buffer updater tasks (default: 1h)",
+    )
+    parser.add_argument(
         "--phase-offset",
         type=int,
         default=0,
@@ -492,6 +532,7 @@ def main():
     lookup_interval = args.lookup_interval
     summary_interval = args.summary_interval
     snapshot_interval = args.snapshot_interval
+    buffer_updater_interval = args.buffer_updater_interval
     phase_offset = args.phase_offset
 
     # Validate taxonomy if provided
@@ -693,6 +734,12 @@ def main():
 
         schedule_snapshot_task(
             interval=snapshot_interval, execution_timeout=1200, task_timeout=1200
+        )
+        print("Snapshot scheduled.")
+        time.sleep(0.25)
+
+        schedule_buffer_updater_task(
+            interval=buffer_updater_interval, execution_timeout=1200, task_timeout=1200
         )
         print("Snapshot scheduled.")
         time.sleep(0.25)

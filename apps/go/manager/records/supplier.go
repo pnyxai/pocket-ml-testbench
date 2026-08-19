@@ -128,3 +128,36 @@ func (record *SupplierRecord) UpdateSupplier(mongoDB mongodb.MongoDb, l *zerolog
 
 	return found, nil
 }
+
+// GetAllSuppliers retrieves all supplier records from the database.
+func GetAllSuppliers(mongoDB mongodb.MongoDb, l *zerolog.Logger) ([]types.SupplierData, error) {
+	// Get suppliers collection
+	suppliersCollection := mongoDB.GetCollection(types.SuppliersCollection)
+
+	// Set mongo context
+	ctxM, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	// Retrieve all supplier entries
+	cursor, err := suppliersCollection.Find(ctxM, bson.D{})
+	if err != nil {
+		l.Error().Err(err).Msg("Could not retrieve all suppliers from MongoDB.")
+		return nil, err
+	}
+	defer cursor.Close(ctxM)
+
+	var results []types.SupplierData
+	for cursor.Next(ctxM) {
+		var record SupplierRecord
+		if err := cursor.Decode(&record); err != nil {
+			l.Error().Err(err).Msg("Could not decode supplier data from MongoDB.")
+			return nil, err
+		}
+		results = append(results, types.SupplierData{
+			Address: record.Address,
+			Service: record.Service,
+		})
+	}
+
+	return results, nil
+}
