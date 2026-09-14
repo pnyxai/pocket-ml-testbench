@@ -159,10 +159,19 @@ func parseServiceRPCTypes(services map[string]ServiceConfig) (map[ServiceID]doma
 			return nil, fmt.Errorf("service %s: %w", serviceID, err)
 		}
 		if !rpcType.Stateless() {
-			// The testbench only ever sends request/response relays. A streaming
-			// type has no one-shot form, so accepting it here would just fail on
-			// the first relay.
-			return nil, fmt.Errorf("service %s: rpc type %s is a streaming transport, which the testbench does not relay over", serviceID, rpcType)
+			// This rejects a STATEFUL transport — websocket — which needs a
+			// persistent bridge and per-frame signing, not a relay.
+			//
+			// It does NOT rule out streaming RESPONSES. An SSE or NDJSON answer
+			// from an inference backend arrives over a stateless type (rest,
+			// json_rpc) as several signed batches in one body, and
+			// Client.SendRelayStream handles exactly that. The two are different
+			// axes: this one is how the connection works, that one is how the
+			// backend chose to answer.
+			return nil, fmt.Errorf(
+				"service %s: rpc type %s is a stateful transport, which needs a websocket bridge rather than a relay (a streaming SSE/NDJSON response over %q or %q is supported — see Client.SendRelayStream)",
+				serviceID, rpcType, "rest", "json_rpc",
+			)
 		}
 		out[ServiceID(serviceID)] = rpcType
 	}

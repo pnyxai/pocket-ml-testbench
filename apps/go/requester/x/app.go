@@ -103,7 +103,7 @@ func Initialize() *types.App {
 		nodeConfig,
 		cfg.Apps,
 		cfg.Services,
-		pocket.DefaultSenderTimeout,
+		relayCeiling(cfg),
 		l,
 	)
 	if err != nil {
@@ -148,6 +148,18 @@ func Initialize() *types.App {
 	activities.SetAppConfig(ac)
 
 	return ac
+}
+
+// relayCeiling resolves the HTTP-client ceiling for a single relay.
+//
+// Config is allowed to be silent about it — `relay` itself is optional — so it
+// falls back rather than capping long relays at zero.
+func relayCeiling(cfg *types.Config) time.Duration {
+	maxRelayTimeout := types.DefaultMaxRelayTimeout
+	if cfg.Relay != nil && cfg.Relay.MaxRelayTimeout > 0 {
+		maxRelayTimeout = cfg.Relay.MaxRelayTimeout
+	}
+	return time.Duration(maxRelayTimeout) * time.Second
 }
 
 // InitLogger - initialize logger

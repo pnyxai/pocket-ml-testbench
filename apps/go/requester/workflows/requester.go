@@ -78,6 +78,7 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 	// Get request data depending if this is a POKT service or an external call
 	var blocksPerSession int64
 	var sessionHeight int64
+	var sessionEndHeight int64
 	var suppliers map[string]pocket.Endpoint
 	suppliersTimeBetweenRelays := make(map[string]float64)
 	if params.Service != types.ExternalServiceName {
@@ -125,8 +126,15 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 		l.Debug("Calling GetSession activity ends")
 
 		// get_block_params
+		//
+		// The session boundaries come from the signed session header, not from
+		// arithmetic. `NumBlocksPerSession * SessionNumber` used to stand in for
+		// the session height here, but poktroll numbers sessions on an anchored
+		// grid, so once num_blocks_per_session has been changed the session
+		// number is a monotonic counter and that product is not a block height.
 		blocksPerSession = appSession.NumBlocksPerSession
-		sessionHeight = appSession.NumBlocksPerSession * appSession.SessionNumber
+		sessionHeight = appSession.SessionStartHeight
+		sessionEndHeight = appSession.SessionEndHeight
 
 		// Get all the endpoints available in this session. This is a pure
 		// reshape of what the activity already returned — no call of its own —
@@ -160,8 +168,11 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 
 		}
 
-		// This is a placeholder to go through the task search
+		// This is a placeholder to go through the task search. External
+		// suppliers have no session, and the relayer never runs the session
+		// tolerance check for them, so these two only have to be ordered.
 		sessionHeight = 10
+		sessionEndHeight = 10
 		// External services have no session of their own, but the relayer still
 		// does session arithmetic with this, so use the chain's real value as
 		// reported by the GetHeight activity above.
@@ -250,6 +261,7 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 				TargetEndpoint:    targetEndpoint,
 				Service:           request.Service,
 				SessionHeight:     sessionHeight,
+				SessionEndHeight:  sessionEndHeight,
 				BlocksPerSession:  blocksPerSession,
 				PromptId:          tr.PromptId,
 				RelayTimeout:      tr.RelayTimeout,

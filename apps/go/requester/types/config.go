@@ -266,6 +266,16 @@ type RelayConfig struct {
 	MaxBackoff        int     `json:"max_backoff"`
 	ReqPerSec         int     `json:"req_per_sec"`
 	SessionTolerance  int64   `json:"session_tolerance"`
+	// MaxRelayTimeout, in seconds, is the ceiling the relay HTTP client puts on
+	// a single relay. It is NOT the relay deadline: every relay already carries
+	// its own, built from the prompt's timeout, and that is what normally bounds
+	// it. This only exists so a supplier that accepts a connection and never
+	// answers cannot pin a worker goroutine indefinitely.
+	//
+	// It therefore has to be larger than the longest prompt timeout in use
+	// (prompt.timeout x (retries+1)), or it silently truncates the long relays
+	// instead of protecting anything. 0 uses DefaultMaxRelayTimeout.
+	MaxRelayTimeout int64 `json:"max_relay_timeout"`
 }
 
 type Config struct {

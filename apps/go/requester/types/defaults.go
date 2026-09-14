@@ -18,8 +18,10 @@ var (
 	DefaultMaxBackoff            = 60
 	DefaultReqPerSec             = 10
 	DefaultSessionTolerance      = int64(1)
-	DefaultRpc                   = "http://localhost:26657"
-	DefaultGRpc                  = pocket.GRPCConfig{
+	// Matches pocket.DefaultSenderTimeout, so leaving it unset changes nothing.
+	DefaultMaxRelayTimeout = int64(1800)
+	DefaultRpc             = "http://localhost:26657"
+	DefaultGRpc            = pocket.GRPCConfig{
 		HostPort: "localhost:9090",
 		Insecure: true,
 	}

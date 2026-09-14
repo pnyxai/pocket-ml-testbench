@@ -77,6 +77,12 @@ type Response struct {
 	// Ms is how long the round trip to the supplier took. It is set even when
 	// the relay fails, as long as we got far enough to send.
 	Ms int64
+
+	// Receipt is the signed, verifiable record of the relay — session header,
+	// both signatures, and the payload hashes. Present only on success, and nil
+	// if the envelopes could not be decoded. See RelayReceipt, in particular for
+	// why it is not an onchain proof.
+	Receipt *RelayReceipt `json:"receipt,omitempty"`
 }
 
 // Endpoint is one supplier reachable for a service, over the transport that

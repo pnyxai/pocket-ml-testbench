@@ -19,6 +19,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	temporalLogger "go.temporal.io/sdk/log"
 	"go.temporal.io/sdk/temporal"
 )
 
@@ -29,9 +30,19 @@ type RelayerParams struct {
 	AppAddress      string          `json:"app_address"`
 
 	// pocket relay data related that do not need to be inflated
-	Service          string `json:"service"`
-	SessionHeight    int64  `json:"session_height"`
-	BlocksPerSession int64  `json:"blocks_per_session"`
+	Service string `json:"service"`
+	// SessionHeight is the block height the prompt's session STARTS at, as the
+	// chain reports it in the signed session header.
+	//
+	// It used to be `NumBlocksPerSession * SessionNumber`, which is not a height
+	// at all: poktroll numbers sessions on an anchored grid
+	// (x/shared/types/session.go GetSessionNumber), so once
+	// num_blocks_per_session has been changed the session number is a monotonic
+	// counter and multiplying it by a block count produces a meaningless value.
+	SessionHeight int64 `json:"session_height"`
+	// SessionEndHeight is the last block of that session, also from the header.
+	SessionEndHeight int64 `json:"session_end_height"`
+	BlocksPerSession int64 `json:"blocks_per_session"`
 
 	// requester data related
 	PromptId          string  `json:"prompt_id"`
@@ -49,34 +60,66 @@ var (
 	ErrPromptNotFound = errors.New("prompt not found")
 )
 
-func GetCurrentSession(currentHeight, blocksPerSession int64) int64 {
-	currentSessionHeight := int64(0)
+// CanHandleRelayWithinTolerance reports whether a prompt belonging to the
+// session [sessionStartHeight, sessionEndHeight] may still be relayed now that
+// the chain is at currentHeight.
+//
+// Everything here is a real block height, taken from the signed session header
+// rather than computed. That is deliberate: poktroll measures session
+// boundaries against a grid anchor so that changing num_blocks_per_session does
+// not misalign in-flight sessions (x/shared/types/session.go
+// GetSessionStartHeight), so any boundary we derive ourselves from a plain
+// height/N division is wrong on every network where that param has ever moved.
+//
+// The window is the session itself, widened by sessionTolerance sessions either
+// side. The upper bound is the one that does the work — a prompt is queued
+// during one session and relayed some time later, so the chain has usually
+// moved on by the time we get here, and the tolerance says how many sessions
+// past its own a relay is still worth attempting. The lower bound only fires if
+// a prompt were somehow scheduled for a session that has not started.
+func CanHandleRelayWithinTolerance(currentHeight, sessionStartHeight, sessionEndHeight, blocksPerSession, sessionTolerance int64, l temporalLogger.Logger) (can_handle bool) {
+	tolerance := sessionTolerance * blocksPerSession
+	minHeight := sessionStartHeight - tolerance
+	maxHeight := sessionEndHeight + tolerance
+	can_handle = minHeight <= currentHeight && currentHeight <= maxHeight
+	if !can_handle {
+		// Which bound failed matters: a prompt whose session has passed is the
+		// ordinary case (it sat in the queue while the chain moved on, and the
+		// tolerance was not generous enough), whereas one scheduled for a
+		// session that has not started points at the scheduling side instead.
+		// "out of session" on its own does not tell those two apart.
+		reason := "session has not started yet"
+		if currentHeight > maxHeight {
+			reason = "session is too far in the past"
+		}
 
-	if currentHeight%blocksPerSession == 0 {
-		currentSessionHeight = currentHeight - blocksPerSession + 1
-	} else {
-		// calculate the latest session block height by diving the current block height by the blocksPerSession
-		currentSessionHeight = (currentHeight/blocksPerSession)*blocksPerSession + 1
+		// blocksPerSession arrives in the activity params, so it can be 0 on a
+		// workflow queued before it was read from chain. Guarding keeps a log
+		// line from panicking on the divide.
+		blocksOffBy := currentHeight - sessionEndHeight
+		if currentHeight < minHeight {
+			blocksOffBy = currentHeight - sessionStartHeight
+		}
+		sessionsOffBy := int64(0)
+		if blocksPerSession > 0 {
+			sessionsOffBy = blocksOffBy / blocksPerSession
+		}
+
+		l.Debug("Relay falls outside the session tolerance window",
+			"reason", reason,
+			"current_height", currentHeight,
+			"session_start_height", sessionStartHeight,
+			"session_end_height", sessionEndHeight,
+			"min_allowed_height", minHeight,
+			"max_allowed_height", maxHeight,
+			"blocks_off_by", blocksOffBy,
+			"sessions_off_by", sessionsOffBy,
+			"blocks_per_session", blocksPerSession,
+			"session_tolerance", sessionTolerance,
+		)
 	}
 
-	return currentSessionHeight
-}
-
-// CanHandleRelayWithinTolerance reports whether a prompt scheduled for
-// requestedSessionHeight may still be relayed now that the chain is in
-// currentSessionHeight.
-//
-// The window is symmetric: sessionTolerance sessions either side of the one the
-// prompt was scheduled for. The upper bound is the one that does the work — a
-// prompt is queued during one session and relayed some time later, so the chain
-// has usually moved on by the time we get here, and the tolerance is what says
-// how many sessions past its own a relay is still worth attempting. (The lower
-// bound only fires if a prompt were scheduled for a future session.)
-func CanHandleRelayWithinTolerance(currentSessionHeight, requestedSessionHeight, blocksPerSession, sessionTolerance int64) bool {
-	tolerance := sessionTolerance * blocksPerSession
-	minHeight := requestedSessionHeight - tolerance
-	maxHeight := requestedSessionHeight + tolerance
-	return minHeight <= currentSessionHeight && currentSessionHeight <= maxHeight
+	return can_handle
 }
 
 func GetPromptWithRequesterArgs(ctx context.Context, promptsCollection, tasksCollection mongodb.CollectionAPI, promptId *primitive.ObjectID) (*types.Prompt, error) {
@@ -186,7 +229,6 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 	}
 
 	response.Height = height
-	currentSessionHeight := GetCurrentSession(height, params.BlocksPerSession)
 
 	// -------------------------------------------------------------------------
 	// -------------------------------------------------------------------------
@@ -302,7 +344,7 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 		// Verify if the relay is able to be dispatched base on the current session height (calculated by the height) and
 		// the session height in the params. Also, contemplate the session tolerance, basically how many sessions out it will
 		// anyway try to dispatch the relay.
-		if !CanHandleRelayWithinTolerance(currentSessionHeight, params.SessionHeight, params.BlocksPerSession, aCtx.App.Config.Relay.SessionTolerance) {
+		if !CanHandleRelayWithinTolerance(height, params.SessionHeight, params.SessionEndHeight, params.BlocksPerSession, aCtx.App.Config.Relay.SessionTolerance, l) {
 			err = temporal.NewNonRetryableApplicationError("out of session", "OutOfSession", nil)
 			response.SetError(pocket.RelayResponseCodes.OutOfSession, err)
 			return
