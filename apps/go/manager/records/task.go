@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"manager/types"
 	"packages/mongodb"
+	"packages/pocket"
 	"sort"
 	"strconv"
 	"strings"
@@ -886,8 +887,13 @@ func (record *NumericalTaskRecord) ProcessData(l *zerolog.Logger) (err error) {
 			// Add sample to data array
 			auxDataScores = append(auxDataScores, float64(record.ScoresSamples[sampleId].Score))
 			auxDataTimes = append(auxDataTimes, float64(record.ScoresSamples[sampleId].RunTime))
-		} else if sampleStatus == RelayResponseCodes.Supplier || sampleStatus == RelayResponseCodes.Evaluation {
-			// This is a Supplier or Evaluation (response) error, we should punish the supplier
+		} else if sampleStatus == pocket.RelayResponseCodes.Supplier {
+			// This is a Supplier (response) error, we should punish the supplier.
+			//
+			// Evaluation errors are deliberately NOT punishable: the supplier
+			// answered, and we failed to score the answer — that is our fault,
+			// not theirs. They are dropped at InsertSample along with every
+			// other error that is not imputable to the supplier.
 			totalPunibleErrors += 1
 			punibleErrorsCodes[sampleStatus] += 1
 		}
@@ -964,9 +970,8 @@ func (record *NumericalTaskRecord) InsertSample(timeSample time.Time, data inter
 	// Save sample if it is OK or it is an error imputable to the supplier
 	// the rest are ignored on purpose to avoid polluting the buffer with information
 	// that is not important to the servicer supplier. To debug other errors, check the logs...
-	if dataOk.StatusCode == RelayResponseCodes.Ok ||
-		dataOk.StatusCode == RelayResponseCodes.Supplier ||
-		dataOk.StatusCode == RelayResponseCodes.Evaluation {
+	if dataOk.StatusCode == pocket.RelayResponseCodes.Ok ||
+		dataOk.StatusCode == pocket.RelayResponseCodes.Supplier {
 
 		// Increment the end (only on valid data)
 		err = record.StepIndex(1, "end", true, l)
@@ -979,7 +984,7 @@ func (record *NumericalTaskRecord) InsertSample(timeSample time.Time, data inter
 		record.ScoresSamples[record.CircBuffer.Indexes.End].ErrorString = dataOk.ErrorString
 		record.CircBuffer.Times[record.CircBuffer.Indexes.End] = timeSample
 	}
-	if dataOk.StatusCode == RelayResponseCodes.Ok {
+	if dataOk.StatusCode == pocket.RelayResponseCodes.Ok {
 		// Sample was ok
 		statusOK = true
 	}
@@ -1225,9 +1230,8 @@ func (record *SignatureTaskRecord) InsertSample(timeSample time.Time, data inter
 	// Increment the end
 	err = record.StepIndex(1, "end", true, l)
 	// Save sample if it is OK or it is an error imputable to the supplier
-	if dataOk.StatusCode == RelayResponseCodes.Ok ||
-		dataOk.StatusCode == RelayResponseCodes.Supplier ||
-		dataOk.StatusCode == RelayResponseCodes.Evaluation {
+	if dataOk.StatusCode == pocket.RelayResponseCodes.Ok ||
+		dataOk.StatusCode == pocket.RelayResponseCodes.Supplier {
 
 		record.Signatures[record.CircBuffer.Indexes.End].Signature = dataOk.Signature
 		record.Signatures[record.CircBuffer.Indexes.End].ID = dataOk.ID
@@ -1235,7 +1239,7 @@ func (record *SignatureTaskRecord) InsertSample(timeSample time.Time, data inter
 		record.Signatures[record.CircBuffer.Indexes.End].ErrorString = dataOk.ErrorString
 		record.CircBuffer.Times[record.CircBuffer.Indexes.End] = timeSample
 	}
-	if dataOk.StatusCode == RelayResponseCodes.Ok {
+	if dataOk.StatusCode == pocket.RelayResponseCodes.Ok {
 		// Sample was ok
 		statusOK = true
 	}

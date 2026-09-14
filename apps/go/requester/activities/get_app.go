@@ -3,8 +3,7 @@ package activities
 import (
 	"context"
 
-	"packages/pocket_shannon"
-	shannon_types "packages/pocket_shannon/types"
+	"packages/pocket"
 
 	"go.temporal.io/sdk/temporal"
 )
@@ -18,29 +17,16 @@ var GetAppName = "get_app"
 
 func (aCtx *Ctx) GetApp(_ context.Context, params GetAppParams) (bool, error) {
 
-	found := false
-	for appAddress, _ := range aCtx.App.PocketApps {
-		if appAddress == params.Address {
-			found = true
-			break
-		}
-	}
-	if !found {
-		return found, temporal.NewNonRetryableApplicationError("application not found in available Apps list", "ApplicationNotFound", nil)
+	// Every configured app was resolved against the chain when the client was
+	// built — it exists, its key matches its address, and the single service it
+	// is staked for is known. So both checks below are local lookups.
+	if _, found := aCtx.App.PocketClient.ServiceForApp(params.Address); !found {
+		return false, temporal.NewNonRetryableApplicationError("application not found in available Apps list", "ApplicationNotFound", nil)
 	}
 
-	ctxNode := context.Background()
-	onchainApp, err := aCtx.App.PocketFullNode.GetApp(ctxNode, params.Address)
-	if err != nil {
-		return found, temporal.NewNonRetryableApplicationError("Error getting on-chain data", "ApplicationNotFound", nil)
-	}
-	if onchainApp == nil {
-		return found, temporal.NewNonRetryableApplicationError("Cannot find App on-chain data", "ApplicationNotFound", nil)
-	}
-	// Check if the app is staked for the requested service
-	if !pocket_shannon.AppIsStakedForService(shannon_types.ServiceID(params.Service), onchainApp) {
-		return found, temporal.NewNonRetryableApplicationError("App not staked for service", "ApplicationNotStaked", nil)
+	if !aCtx.App.PocketClient.AppIsStakedForService(params.Address, pocket.ServiceID(params.Service)) {
+		return true, temporal.NewNonRetryableApplicationError("App not staked for service", "ApplicationNotStaked", nil)
 	}
 
-	return found, nil
+	return true, nil
 }

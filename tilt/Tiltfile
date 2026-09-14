@@ -94,7 +94,10 @@ docker_build(
 # ------------------------------------------------------------------------------
 def replce_file(input, output):
     watch_file(input)
-    local("envsubst < " + input + " > " + output, dir = '.')
+    local(
+        "envsubst < " + input + " > " + output,
+        dir = '.',
+        )
     watch_settings(ignore=output)
 
 # ------------------------ Commons ---------------------------------------------
@@ -149,5 +152,3 @@ k8s_resource("requester", labels=["apps"])
 k8s_resource("evaluator", labels=["apps"])
 # Summarizer
 k8s_resource("summarizer", labels=["apps"])
-
-

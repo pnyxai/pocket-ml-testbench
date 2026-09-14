@@ -741,7 +741,7 @@ def main():
         schedule_buffer_updater_task(
             interval=buffer_updater_interval, execution_timeout=1200, task_timeout=1200
         )
-        print("Snapshot scheduled.")
+        print("Buffer updater scheduled.")
         time.sleep(0.25)
 
         # Create per-service tasks

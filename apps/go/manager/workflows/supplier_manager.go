@@ -74,15 +74,22 @@ func (wCtx *Ctx) SupplierManager(ctx workflow.Context, params types.SupplierMana
 				Service: types.ExternalServiceName,
 			})
 		}
-		// Get latest block
-		currHeight, err := wCtx.App.PocketFullNode.GetLatestBlockHeight()
-		if err != nil {
+		// Get latest block. Through an activity, like the POKT branch above gets
+		// its own block data from GetStaked: chain state read straight from the
+		// client would not replay.
+		ctxTimeout := workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
+			ScheduleToStartTimeout: time.Minute * 5,
+			StartToCloseTimeout:    time.Minute * 5,
+			RetryPolicy: &temporal.RetryPolicy{
+				InitialInterval:    time.Second * 5,
+				BackoffCoefficient: 2,
+				MaximumInterval:    time.Second * 32,
+				MaximumAttempts:    5,
+			},
+		})
+		if err := workflow.ExecuteActivity(ctxTimeout, activities.GetBlockDataName).Get(ctx, &currBlockData); err != nil {
 			l.Error().Str("service", params.Service).Msg("Could not retrieve latest block height.")
 			return nil, err
-		}
-		currBlockData = types.BlockData{
-			Height:           currHeight,
-			BlocksPerSession: wCtx.App.PocketBlocksPerSession,
 		}
 	}
 

@@ -1,7 +1,7 @@
 package types
 
 import (
-	shannon_types "packages/pocket_shannon/types"
+	"packages/pocket"
 )
 
 var (
@@ -19,7 +19,7 @@ var (
 	DefaultReqPerSec             = 10
 	DefaultSessionTolerance      = int64(1)
 	DefaultRpc                   = "http://localhost:26657"
-	DefaultGRpc                  = shannon_types.GRPCConfig{
+	DefaultGRpc                  = pocket.GRPCConfig{
 		HostPort: "localhost:9090",
 		Insecure: true,
 	}

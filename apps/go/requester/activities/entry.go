@@ -43,10 +43,6 @@ func (aCtx *Ctx) Register(w worker.Worker) {
 		Name: GetSessionName,
 	})
 
-	w.RegisterActivityWithOptions(aCtx.GetEndpoints, activity.RegisterOptions{
-		Name: GetEndpointsName,
-	})
-
 	w.RegisterActivityWithOptions(aCtx.GetTasks, activity.RegisterOptions{
 		Name: GetTasksName,
 	})

@@ -3,7 +3,6 @@ package activities
 import (
 	"context"
 	"manager/types"
-	"packages/pocket_shannon"
 )
 
 var GetStakedName = "get_staked"
@@ -16,14 +15,11 @@ func (aCtx *Ctx) GetStaked(ctx context.Context, params types.GetStakedParams) (*
 	result := types.GetStakedResults{}
 
 	// Get all suppliers in given service
-	appAddresses := make([]string, 0)
-	for address, _ := range aCtx.App.PocketApps {
-		appAddresses = append(appAddresses, address)
-	}
+	appAddresses := aCtx.App.PocketClient.Apps()
 	servicesNames := make([]string, 0)
 	servicesNames = append(servicesNames, params.Service)
 	l.Debug().Strs("service", servicesNames).Strs("Apps", appAddresses).Msg("Querying network...")
-	suppliersPerService, err := pocket_shannon.SupliersInSession(aCtx.App.PocketFullNode, appAddresses, servicesNames, l)
+	suppliersPerService, err := aCtx.App.PocketClient.SuppliersInSession(ctx, appAddresses, servicesNames, l)
 	if err != nil {
 		l.Error().Msg("Could not retrieve suppliers in session.")
 		return nil, err
@@ -33,7 +29,7 @@ func (aCtx *Ctx) GetStaked(ctx context.Context, params types.GetStakedParams) (*
 	for service, suppliers := range suppliersPerService {
 		for _, supplier := range suppliers {
 			this_supplier := types.SupplierData{
-				Address: string(supplier),
+				Address: supplier,
 				Service: service,
 			}
 			result.Suppliers = append(result.Suppliers, this_supplier)
@@ -47,14 +43,13 @@ func (aCtx *Ctx) GetStaked(ctx context.Context, params types.GetStakedParams) (*
 	}
 
 	// Get latest block
-	currHeight, err := aCtx.App.PocketFullNode.GetLatestBlockHeight()
+	currHeight, err := aCtx.App.PocketClient.GetLatestBlockHeight()
 	if err != nil {
 		l.Error().Str("service", params.Service).Msg("Could not retrieve latest block height.")
 		return nil, err
 	}
-	// Get blocks per session
-	// TODO : Add SDK support for this, in the meantime it is a parameter
-	blocksPerSession := aCtx.App.PocketBlocksPerSession
+	// Get blocks per session, as the chain reports it
+	blocksPerSession := aCtx.App.PocketClient.BlocksPerSession()
 
 	// Assign
 	result.Block.BlocksPerSession = blocksPerSession

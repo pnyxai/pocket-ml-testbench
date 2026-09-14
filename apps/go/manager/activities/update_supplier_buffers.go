@@ -17,7 +17,7 @@ func (aCtx *Ctx) UpdateSupplierBuffers(ctx context.Context, params types.UpdateS
 		Msg("Updating supplier buffers.")
 
 	// Get current height and time
-	currHeight, err := aCtx.App.PocketFullNode.GetLatestBlockHeight()
+	currHeight, err := aCtx.App.PocketClient.GetLatestBlockHeight()
 	if err != nil {
 		l.Error().
 			Str("supplier", params.Supplier.Address).

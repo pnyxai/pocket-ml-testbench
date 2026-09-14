@@ -30,7 +30,7 @@ func (aCtx *Ctx) AnalyzeSupplier(ctx context.Context, params types.AnalyzeSuppli
 		Msg("Analyzing staked supplier.")
 
 	// Get current height and time
-	currHeight, err := aCtx.App.PocketFullNode.GetLatestBlockHeight()
+	currHeight, err := aCtx.App.PocketClient.GetLatestBlockHeight()
 	if err != nil {
 		l.Error().
 			Str("supplier", params.Supplier.Address).
