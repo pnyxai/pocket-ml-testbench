@@ -11,7 +11,9 @@
       "host_port": "<host>:<port>",
       "insecure": true
     },
-  "pocket_blocks_per_session" : 10,
+  "pocket_services": {
+    "<service id>": { "rpc_type": "rest" }
+  },
   "relay": {
     "time_between_relays" : 0.1,
     "time_dispersion" : 0.05,
@@ -19,7 +21,8 @@
     "min_backoff": 10,
     "max_backoff": 60,
     "req_per_sec": 10,
-    "session_tolerance": 1
+    "session_tolerance": 1,
+    "max_relay_timeout": 1800
   },
   "log_level": "debug",
   "temporal": {
@@ -41,7 +44,7 @@
   },
   "external_suppliers" : {
     "external_some_name" : {
-      "endpoint" : "https://some.endpoint", 
+      "endpoint" : "https://some.endpoint",
       "headers" : {
         "authorization" : "some string",
         "random" : "header data"

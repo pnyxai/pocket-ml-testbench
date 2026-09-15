@@ -35,6 +35,10 @@ func (aCtx *Ctx) Register(w worker.Worker) {
 		Name: GetStakedName,
 	})
 
+	w.RegisterActivityWithOptions(aCtx.GetBlockData, activity.RegisterOptions{
+		Name: GetBlockDataName,
+	})
+
 	w.RegisterActivityWithOptions(aCtx.AnalyzeSupplier, activity.RegisterOptions{
 		Name: AnalyzeSupplierName,
 	})

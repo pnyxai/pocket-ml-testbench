@@ -6,7 +6,7 @@ import (
 
 	"go.temporal.io/sdk/worker"
 
-	shannon_types "packages/pocket_shannon/types"
+	"packages/pocket"
 )
 
 type TemporalWorkerOptions struct {
@@ -266,18 +266,33 @@ type RelayConfig struct {
 	MaxBackoff        int     `json:"max_backoff"`
 	ReqPerSec         int     `json:"req_per_sec"`
 	SessionTolerance  int64   `json:"session_tolerance"`
+	// MaxRelayTimeout, in seconds, is the ceiling the relay HTTP client puts on
+	// a single relay. It is NOT the relay deadline: every relay already carries
+	// its own, built from the prompt's timeout, and that is what normally bounds
+	// it. This only exists so a supplier that accepts a connection and never
+	// answers cannot pin a worker goroutine indefinitely.
+	//
+	// It therefore has to be larger than the longest prompt timeout in use
+	// (prompt.timeout x (retries+1)), or it silently truncates the long relays
+	// instead of protecting anything. 0 uses DefaultMaxRelayTimeout.
+	MaxRelayTimeout int64 `json:"max_relay_timeout"`
 }
 
 type Config struct {
-	MongodbUri             string                          `json:"mongodb_uri"`
-	PocketRpc              string                          `json:"pocket_rpc_url"`
-	PocketGrpc             shannon_types.GRPCConfig        `json:"pocket_grpc_config"`
-	PocketBlocksPerSession int64                           `json:"pocket_blocks_per_session"`
-	Apps                   map[string]string               `json:"pocket_apps"`
-	Relay                  *RelayConfig                    `json:"relay"`
-	LogLevel               string                          `json:"log_level"`
-	Temporal               *TemporalConfig                 `json:"temporal"`
-	ExternalSuppliers      map[string]ExternalSupplierData `json:"external_suppliers"`
+	MongodbUri string            `json:"mongodb_uri"`
+	PocketRpc  string            `json:"pocket_rpc_url"`
+	PocketGrpc pocket.GRPCConfig `json:"pocket_grpc_config"`
+	Apps       map[string]string `json:"pocket_apps"`
+	// Services holds the per-service settings, keyed by service ID. Today that
+	// is the transport (rpc_type) the service is relayed over: a supplier can
+	// advertise several, and the one we pick decides both the endpoint URL and
+	// the `Rpc-Type` header the relay miner routes on. A service with no entry
+	// falls back to pocket.DefaultRPCType.
+	Services          map[string]pocket.ServiceConfig `json:"pocket_services"`
+	Relay             *RelayConfig                    `json:"relay"`
+	LogLevel          string                          `json:"log_level"`
+	Temporal          *TemporalConfig                 `json:"temporal"`
+	ExternalSuppliers map[string]ExternalSupplierData `json:"external_suppliers"`
 }
 
 // UnmarshalJSON implement the Unmarshaler interface on Config
@@ -291,6 +306,7 @@ func (c *Config) UnmarshalJSON(b []byte) error {
 		PocketGrpc: DefaultGRpc,
 		LogLevel:   DefaultLogLevel,
 		Temporal:   &DefaultTemporal,
+		Services:   map[string]pocket.ServiceConfig{},
 	}
 
 	if err := json.Unmarshal(b, &defaultValues); err != nil {

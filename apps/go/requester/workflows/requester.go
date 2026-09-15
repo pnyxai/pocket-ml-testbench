@@ -14,8 +14,7 @@ import (
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 
-	"packages/pocket_shannon"
-	shannon_types "packages/pocket_shannon/types"
+	"packages/pocket"
 )
 
 type RequesterParams struct {
@@ -62,23 +61,25 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 
 	// get_block_params
 	getHeightActivityCtx := workflow.WithActivityOptions(ctx, ao)
-	var currHeight int64 = -1
+	blockData := activities.GetHeightResults{Height: -1}
 	l.Debug("Calling GetHeight activity")
 	getBlockErr := workflow.ExecuteActivity(
 		getHeightActivityCtx,
 		activities.Activities.GetHeight,
-	).Get(getHeightActivityCtx, &currHeight)
+	).Get(getHeightActivityCtx, &blockData)
 	if getBlockErr != nil {
 		e = temporal.NewApplicationErrorWithCause("unable to get height", "GetHeight", getBlockErr)
 		l.Error("GetHeight activity ends with error", "error", e)
 		return nil, e
 	}
+	currHeight := blockData.Height
 	l.Debug("Calling GetHeight activity ends")
 
 	// Get request data depending if this is a POKT service or an external call
 	var blocksPerSession int64
 	var sessionHeight int64
-	var suppliers map[string]pocket_shannon.Endpoint
+	var sessionEndHeight int64
+	var suppliers map[string]pocket.Endpoint
 	suppliersTimeBetweenRelays := make(map[string]float64)
 	if params.Service != types.ExternalServiceName {
 
@@ -106,29 +107,41 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 		}
 
 		// get session
-		// TODO : This throws an error when temporal tries to decode the returned
-		// 		  variable, specifically: "payload item 0: unable to decode: unknown value \"JSON_RPC\" for enum pocket.shared.RPCType"
-		// 		  this is related to the poktroll package and I cannot find a fix, right now.
-		//		  LEAVING AS TECH DEBT, USING IN-PLACE CODE INSTEAD
-		appSession, err := wCtx.App.PocketFullNode.GetSession(shannon_types.ServiceID(params.Service), params.App)
-		if err != nil {
-			e = temporal.NewNonRetryableApplicationError("Could not get session data", "SessionNotFound", nil)
+		getSessionActivityCtx := workflow.WithActivityOptions(ctx, ao)
+		appSession := pocket.SessionInfo{}
+		l.Debug("Calling GetSession activity")
+		getSessionErr := workflow.ExecuteActivity(
+			getSessionActivityCtx,
+			activities.Activities.GetSession,
+			activities.GetSessionParams{
+				Address: params.App,
+				Service: params.Service,
+			},
+		).Get(getSessionActivityCtx, &appSession)
+		if getSessionErr != nil {
+			e = temporal.NewNonRetryableApplicationError("Could not get session data", "SessionNotFound", getSessionErr)
 			l.Error(fmt.Sprintf("Error getting session data for app %s in service %s", params.App, params.Service))
 			return nil, e
 		}
+		l.Debug("Calling GetSession activity ends")
 
 		// get_block_params
+		//
+		// The session boundaries come from the signed session header, not from
+		// arithmetic. `NumBlocksPerSession * SessionNumber` used to stand in for
+		// the session height here, but poktroll numbers sessions on an anchored
+		// grid, so once num_blocks_per_session has been changed the session
+		// number is a monotonic counter and that product is not a block height.
 		blocksPerSession = appSession.NumBlocksPerSession
-		sessionHeight = appSession.NumBlocksPerSession * appSession.SessionNumber
+		sessionHeight = appSession.SessionStartHeight
+		sessionEndHeight = appSession.SessionEndHeight
 
-		// Get all the endpoint available in this session
-		// TODO : Idem previous problem with "GetSession" activity
-		suppliers, err = pocket_shannon.EndpointsFromSession(appSession)
-		if err != nil {
-			e = temporal.NewApplicationErrorWithCause("unable to get endpoints", "GetEndpoints", err)
-			l.Error("Error getting endpoints", "error", e)
-			return nil, e
-		}
+		// Get all the endpoints available in this session. This is a pure
+		// reshape of what the activity already returned — no call of its own —
+		// and the endpoints are already filtered to the transport configured for
+		// this service, so a supplier that advertises other RPC types but not
+		// this one is absent here and will not be assigned any prompts.
+		suppliers = appSession.EndpointsBySupplier()
 
 		// Add default time between relays to all of them
 		for key := range suppliers {
@@ -138,14 +151,13 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 	} else {
 		// This is a workflow for external services, get the list from the
 		// configuration
-		suppliers = make(map[string]pocket_shannon.Endpoint)
+		suppliers = make(map[string]pocket.Endpoint)
 		for thisAddr, thisData := range wCtx.App.ExternalSuppliers {
-			suppliers[thisAddr] = pocket_shannon.Endpoint{
+			suppliers[thisAddr] = pocket.Endpoint{
 				// This supplier name
 				Supplier: thisAddr,
 				// The endpoint, we add it here to avoid reading this again later
 				Url: thisData.Endpoint,
-				// Session left empty, we wont use it
 			}
 			// Set time between relays
 			if thisData.TimeBetweenRelays > 0 {
@@ -156,10 +168,15 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 
 		}
 
-		// This is a placeholder to go through the task search
+		// This is a placeholder to go through the task search. External
+		// suppliers have no session, and the relayer never runs the session
+		// tolerance check for them, so these two only have to be ordered.
 		sessionHeight = 10
-		// And this is hardcoded currently (ShannonSDK is missing this)
-		blocksPerSession = wCtx.App.PocketBlocksPerSession
+		sessionEndHeight = 10
+		// External services have no session of their own, but the relayer still
+		// does session arithmetic with this, so use the chain's real value as
+		// reported by the GetHeight activity above.
+		blocksPerSession = blockData.BlocksPerSession
 	}
 
 	// Select the workflow policy:
@@ -244,6 +261,7 @@ func (wCtx *Ctx) Requester(ctx workflow.Context, params RequesterParams) (r *Req
 				TargetEndpoint:    targetEndpoint,
 				Service:           request.Service,
 				SessionHeight:     sessionHeight,
+				SessionEndHeight:  sessionEndHeight,
 				BlocksPerSession:  blocksPerSession,
 				PromptId:          tr.PromptId,
 				RelayTimeout:      tr.RelayTimeout,

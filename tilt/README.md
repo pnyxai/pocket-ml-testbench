@@ -30,13 +30,17 @@ POKT_RPC="http://127.0.0.1:26657"
 POKT_GRPC="127.0.0.1:9090"
 # Pockent Network Apps used for relaying
 APPS_LIST={"app_address" : "app_pk_hex", "app_address" : "app_pk_hex"}
-# Services to watch and the associated app addresses 
+# Services to watch and the associated app addresses
 APPS_PER_SERVICE="<service id>=<app address>, <service id>=<app address>"
+# Per-service settings. `rpc_type` selects which of the transports the suppliers
+# of that service advertise the relays are sent over (json_rpc | rest |
+# comet_bft | grpc). Optional: a service that is not listed defaults to "rest".
+POKT_SERVICES={"<service id>": {"rpc_type": "rest"}}
 # Huggingface token, for dataset downloading
 HF_TOKEN="YOUR TOKEN"
 ```
 
-These values will be replaced in all `*.template.yaml`. 
+These values will be replaced in all `*.template.yaml`.
 
 ### Deploying a task
 

@@ -14,25 +14,35 @@ import (
 	"strings"
 	"time"
 
-	"packages/pocket_shannon"
-	shannon_types "packages/pocket_shannon/types"
+	"packages/pocket"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	temporalLogger "go.temporal.io/sdk/log"
 	"go.temporal.io/sdk/temporal"
 )
 
 type RelayerParams struct {
 	// inflated version of the data to avoid calling again the supplier when the activity is really called
-	TargetEndpoint  pocket_shannon.Endpoint `json:"target_endpoint"`
-	SupplierAddress string                  `json:"supplier_address"`
-	AppAddress      string                  `json:"app_address"`
+	TargetEndpoint  pocket.Endpoint `json:"target_endpoint"`
+	SupplierAddress string          `json:"supplier_address"`
+	AppAddress      string          `json:"app_address"`
 
 	// pocket relay data related that do not need to be inflated
-	Service          string `json:"service"`
-	SessionHeight    int64  `json:"session_height"`
-	BlocksPerSession int64  `json:"blocks_per_session"`
+	Service string `json:"service"`
+	// SessionHeight is the block height the prompt's session STARTS at, as the
+	// chain reports it in the signed session header.
+	//
+	// It used to be `NumBlocksPerSession * SessionNumber`, which is not a height
+	// at all: poktroll numbers sessions on an anchored grid
+	// (x/shared/types/session.go GetSessionNumber), so once
+	// num_blocks_per_session has been changed the session number is a monotonic
+	// counter and multiplying it by a block count produces a meaningless value.
+	SessionHeight int64 `json:"session_height"`
+	// SessionEndHeight is the last block of that session, also from the header.
+	SessionEndHeight int64 `json:"session_end_height"`
+	BlocksPerSession int64 `json:"blocks_per_session"`
 
 	// requester data related
 	PromptId          string  `json:"prompt_id"`
@@ -44,59 +54,72 @@ type RelayerResponse struct {
 	ResponseId string `json:"response_id"`
 }
 
-type RelayResponseCodesEnum struct {
-	Ok             int
-	Relay          int
-	Supplier       int
-	OutOfSession   int
-	BadParams      int
-	PromptNotFound int
-	DatabaseRead   int
-	PocketRpc      int
-	SignerNotFound int
-	SignerError    int
-	AATSignature   int
-	Evaluation     int
-}
-
-var RelayResponseCodes = RelayResponseCodesEnum{
-	Ok:             0,
-	Relay:          1,
-	Supplier:       2,
-	OutOfSession:   3,
-	BadParams:      4,
-	PromptNotFound: 5,
-	DatabaseRead:   6,
-	PocketRpc:      7,
-	SignerNotFound: 8,
-	SignerError:    9,
-	AATSignature:   10,
-	Evaluation:     11,
-}
-
 var RelayerName = "relayer"
 var RelayRetries = 3
 var (
 	ErrPromptNotFound = errors.New("prompt not found")
 )
 
-func GetCurrentSession(currentHeight, blocksPerSession int64) int64 {
-	currentSessionHeight := int64(0)
+// CanHandleRelayWithinTolerance reports whether a prompt belonging to the
+// session [sessionStartHeight, sessionEndHeight] may still be relayed now that
+// the chain is at currentHeight.
+//
+// Everything here is a real block height, taken from the signed session header
+// rather than computed. That is deliberate: poktroll measures session
+// boundaries against a grid anchor so that changing num_blocks_per_session does
+// not misalign in-flight sessions (x/shared/types/session.go
+// GetSessionStartHeight), so any boundary we derive ourselves from a plain
+// height/N division is wrong on every network where that param has ever moved.
+//
+// The window is the session itself, widened by sessionTolerance sessions either
+// side. The upper bound is the one that does the work — a prompt is queued
+// during one session and relayed some time later, so the chain has usually
+// moved on by the time we get here, and the tolerance says how many sessions
+// past its own a relay is still worth attempting. The lower bound only fires if
+// a prompt were somehow scheduled for a session that has not started.
+func CanHandleRelayWithinTolerance(currentHeight, sessionStartHeight, sessionEndHeight, blocksPerSession, sessionTolerance int64, l temporalLogger.Logger) (can_handle bool) {
+	tolerance := sessionTolerance * blocksPerSession
+	minHeight := sessionStartHeight - tolerance
+	maxHeight := sessionEndHeight + tolerance
+	can_handle = minHeight <= currentHeight && currentHeight <= maxHeight
+	if !can_handle {
+		// Which bound failed matters: a prompt whose session has passed is the
+		// ordinary case (it sat in the queue while the chain moved on, and the
+		// tolerance was not generous enough), whereas one scheduled for a
+		// session that has not started points at the scheduling side instead.
+		// "out of session" on its own does not tell those two apart.
+		reason := "session has not started yet"
+		if currentHeight > maxHeight {
+			reason = "session is too far in the past"
+		}
 
-	if currentHeight%blocksPerSession == 0 {
-		currentSessionHeight = currentHeight - blocksPerSession + 1
-	} else {
-		// calculate the latest session block height by diving the current block height by the blocksPerSession
-		currentSessionHeight = (currentHeight/blocksPerSession)*blocksPerSession + 1
+		// blocksPerSession arrives in the activity params, so it can be 0 on a
+		// workflow queued before it was read from chain. Guarding keeps a log
+		// line from panicking on the divide.
+		blocksOffBy := currentHeight - sessionEndHeight
+		if currentHeight < minHeight {
+			blocksOffBy = currentHeight - sessionStartHeight
+		}
+		sessionsOffBy := int64(0)
+		if blocksPerSession > 0 {
+			sessionsOffBy = blocksOffBy / blocksPerSession
+		}
+
+		l.Debug("Relay falls outside the session tolerance window",
+			"reason", reason,
+			"current_height", currentHeight,
+			"session_start_height", sessionStartHeight,
+			"session_end_height", sessionEndHeight,
+			"min_allowed_height", minHeight,
+			"max_allowed_height", maxHeight,
+			"blocks_off_by", blocksOffBy,
+			"sessions_off_by", sessionsOffBy,
+			"blocks_per_session", blocksPerSession,
+			"session_tolerance", sessionTolerance,
+		)
 	}
 
-	return currentSessionHeight
-}
-
-func CanHandleRelayWithinTolerance(currentSessionHeight, requestedSessionHeight, blocksPerSession, sessionTolerance int64) bool {
-	tolerance := sessionTolerance * blocksPerSession
-	minHeight := requestedSessionHeight - tolerance
-	return minHeight <= currentSessionHeight && currentSessionHeight <= currentSessionHeight
+	return can_handle
 }
 
 func GetPromptWithRequesterArgs(ctx context.Context, promptsCollection, tasksCollection mongodb.CollectionAPI, promptId *primitive.ObjectID) (*types.Prompt, error) {
@@ -164,7 +187,7 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 
 	if promptId, e = primitive.ObjectIDFromHex(params.PromptId); e != nil {
 		err = temporal.NewNonRetryableApplicationError("prompt_id must be a valid ObjectId", "BadParams", nil, params.PromptId)
-		response.SetError(RelayResponseCodes.BadParams, err)
+		response.SetError(pocket.RelayResponseCodes.BadParams, err)
 		return
 	}
 
@@ -172,7 +195,7 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 
 	if params.SessionHeight <= 0 {
 		err = temporal.NewNonRetryableApplicationError("session height <= 0", "BadParams", nil, params.SessionHeight)
-		response.SetError(RelayResponseCodes.BadParams, err)
+		response.SetError(pocket.RelayResponseCodes.BadParams, err)
 		return
 	}
 
@@ -185,11 +208,11 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 	if getPromptError != nil {
 		if errors.Is(getPromptError, ErrPromptNotFound) {
 			err = temporal.NewNonRetryableApplicationError(getPromptError.Error(), "PromptNotFound", getPromptError, params.PromptId)
-			response.SetError(RelayResponseCodes.PromptNotFound, err)
+			response.SetError(pocket.RelayResponseCodes.PromptNotFound, err)
 			return
 		}
 		err = temporal.NewApplicationErrorWithCause("unexpected error reading prompt", "GetPromptWithRequesterArgs", getPromptError, params.PromptId)
-		response.SetError(RelayResponseCodes.DatabaseRead, err)
+		response.SetError(pocket.RelayResponseCodes.DatabaseRead, err)
 		return
 	}
 
@@ -198,15 +221,14 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 	response.InstanceId = prompt.InstanceId
 
 	// get_height
-	height, getHeightErr := aCtx.App.PocketFullNode.GetLatestBlockHeight()
+	height, getHeightErr := aCtx.App.PocketClient.GetLatestBlockHeight()
 	if getHeightErr != nil {
 		err = temporal.NewApplicationErrorWithCause("unable to get height", "GetHeight", getHeightErr)
-		response.SetError(RelayResponseCodes.PocketRpc, err)
+		response.SetError(pocket.RelayResponseCodes.PocketRpc, err)
 		return
 	}
 
 	response.Height = height
-	currentSessionHeight := GetCurrentSession(height, params.BlocksPerSession)
 
 	// -------------------------------------------------------------------------
 	// -------------------------------------------------------------------------
@@ -225,7 +247,7 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 		supplierData, ok := aCtx.App.ExternalSuppliers[params.SupplierAddress]
 		if !ok {
 			err = temporal.NewApplicationErrorWithCause("cannot retrieve external supplier data", "BadParams", nil, params.SupplierAddress)
-			response.SetError(RelayResponseCodes.PocketRpc, err)
+			response.SetError(pocket.RelayResponseCodes.PocketRpc, err)
 			return
 		}
 
@@ -234,8 +256,8 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 		var modPromptData map[string]any
 		if err = json.Unmarshal([]byte(prompt.Data), &modPromptData); err != nil {
 			response.Ok = false
-			response.Code = RelayResponseCodes.Relay
-			response.Error = fmt.Sprintf("cannot unmarshal prompt data: %w", err)
+			response.Code = pocket.RelayResponseCodes.Relay
+			response.Error = fmt.Sprintf("cannot unmarshal prompt data: %v", err)
 			return
 		}
 		modPromptData["model"] = supplierData.ModelName
@@ -260,8 +282,8 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 		if e != nil {
 			err = e
 			response.Ok = false
-			response.Code = RelayResponseCodes.Relay
-			response.Error = fmt.Sprintf("cannot marshal modified prompt data: %w", err)
+			response.Code = pocket.RelayResponseCodes.Relay
+			response.Error = fmt.Sprintf("cannot marshal modified prompt data: %v", err)
 			return
 		}
 		l.Debug("Sending modified external request", "request", string(modPromptDataBytes))
@@ -278,8 +300,8 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 		if e != nil {
 			err = e
 			response.Ok = false
-			response.Code = RelayResponseCodes.Relay
-			response.Error = fmt.Sprintf("cannot create new http request for external provider: %w", err)
+			response.Code = pocket.RelayResponseCodes.Relay
+			response.Error = fmt.Sprintf("cannot create new http request for external provider: %v", err)
 			return
 		}
 		// Add the needed headers
@@ -293,8 +315,8 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 		if e != nil {
 			err = e
 			response.Ok = false
-			response.Code = RelayResponseCodes.Relay
-			response.Error = fmt.Sprintf("unable to send the new request: %w", err)
+			response.Code = pocket.RelayResponseCodes.Relay
+			response.Error = fmt.Sprintf("unable to send the new request: %v", err)
 			return
 		}
 		defer resp.Body.Close()
@@ -305,8 +327,8 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 		if e != nil {
 			err = e
 			response.Ok = false
-			response.Code = RelayResponseCodes.Supplier
-			response.Error = fmt.Sprintf("unable to copy the response body: %w", err)
+			response.Code = pocket.RelayResponseCodes.Supplier
+			response.Error = fmt.Sprintf("unable to copy the response body: %v", err)
 			return
 		}
 		// Decode and assign
@@ -322,70 +344,49 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 		// Verify if the relay is able to be dispatched base on the current session height (calculated by the height) and
 		// the session height in the params. Also, contemplate the session tolerance, basically how many sessions out it will
 		// anyway try to dispatch the relay.
-		if !CanHandleRelayWithinTolerance(currentSessionHeight, params.SessionHeight, params.BlocksPerSession, aCtx.App.Config.Relay.SessionTolerance) {
+		if !CanHandleRelayWithinTolerance(height, params.SessionHeight, params.SessionEndHeight, params.BlocksPerSession, aCtx.App.Config.Relay.SessionTolerance, l) {
 			err = temporal.NewNonRetryableApplicationError("out of session", "OutOfSession", nil)
-			response.SetError(RelayResponseCodes.OutOfSession, err)
+			response.SetError(pocket.RelayResponseCodes.OutOfSession, err)
 			return
 		}
 
-		// Create a signer
-		signerApp := pocket_shannon.RelayRequestSigner{
-			AccountClient: *aCtx.App.PocketFullNode.GetAccountClient(),
-			PrivateKeyHex: aCtx.App.PocketApps[params.AppAddress],
-		}
-
 		// Build the payload
-		thisPayload := shannon_types.Payload{
+		thisPayload := pocket.Payload{
 			Data:    prompt.Data,
 			Method:  prompt.Task.RequesterArgs.Method,
 			Path:    prompt.Task.RequesterArgs.Path,
 			Timeout: prompt.GetTimeoutDuration() * time.Duration(RelayRetries+1),
 		}
 
-		// Send the relay
-		startTime := time.Now()
-		relay, relayErr := pocket_shannon.SendRelay(thisPayload,
-			params.TargetEndpoint,
-			shannon_types.ServiceID(params.Service),
-			*aCtx.App.PocketFullNode,
-			signerApp)
+		// Send the relay to the supplier we were told to measure. Session
+		// lookup, ring signing, transport and response validation all happen
+		// inside the client; the supplier is pinned by a one-entry allow list,
+		// so a supplier missing from the session is reported rather than
+		// failed over.
+		relayResponse, relayErr := aCtx.App.PocketClient.SendRelay(
+			ctx,
+			params.AppAddress,
+			pocket.ServiceID(params.Service),
+			params.SupplierAddress,
+			thisPayload,
+		)
+		response.Ms = relayResponse.Ms
 
-		if relay == nil {
+		if relayErr != nil {
 			// An error occurred
 			// not an rpc error
 			response.Ok = false
-			response.Error = relayErr.Message
-			response.Ms = time.Since(startTime).Milliseconds()
-
-			switch relayErr.Code {
-			case pocket_shannon.InvalidSessionError:
-				response.Code = RelayResponseCodes.OutOfSession
-			case pocket_shannon.HTTPExecutionError:
-				response.Code = RelayResponseCodes.Relay
-			case pocket_shannon.UnsignedRequestBuildError:
-				response.Code = RelayResponseCodes.Relay
-			case pocket_shannon.RequestSigningError:
-				response.Code = RelayResponseCodes.SignerError
-			case pocket_shannon.InvalidRelayError:
-				response.Code = RelayResponseCodes.AATSignature
-			default:
-				response.Code = RelayResponseCodes.Relay
-			}
-
-		} else {
-			// Get backend response
-			relayResponse, errDeserialize := pocket_shannon.DeserializeRelayResponse(relay.Payload)
-			if errDeserialize != nil {
-				response.Ok = false
-				response.Code = RelayResponseCodes.Supplier
-				response.Error = fmt.Sprintf("Error unmarshalling endpoint response into a POKTHTTP response: %w", errDeserialize)
-				return
-			}
-			// Decode and assign
-			statusCode = relayResponse.HTTPStatusCode
-			responseString = string(relayResponse.Bytes)
-			response.Ms = time.Since(startTime).Milliseconds()
+			response.Error = relayErr.Error()
+			response.Code = pocket.ResponseCode(relayErr)
+			// Return, like the external branch does. Falling through would run
+			// the status-code analysis below against a zero status and overwrite
+			// everything set here with ok=true / Supplier / "".
+			return
 		}
+
+		// Decode and assign
+		statusCode = relayResponse.HTTPStatusCode
+		responseString = string(relayResponse.Bytes)
 	}
 
 	// Analyze successful response
@@ -394,20 +395,20 @@ func (aCtx *Ctx) Relayer(ctx context.Context, params RelayerParams) (result Rela
 	response.Response = responseString
 	if statusCode == 200 {
 		// All ok
-		response.Code = RelayResponseCodes.Ok
+		response.Code = pocket.RelayResponseCodes.Ok
 		response.Error = ""
 	} else if statusCode > 200 && statusCode < 300 {
 		// Non 200 success?
-		response.Code = RelayResponseCodes.Ok
+		response.Code = pocket.RelayResponseCodes.Ok
 		response.Error = "non 200 success"
 	} else if statusCode >= 400 && statusCode < 500 {
 		// Client error
-		response.Code = RelayResponseCodes.BadParams
+		response.Code = pocket.RelayResponseCodes.BadParams
 		response.Error = response.Response
 
 	} else {
 		// Some other error of the supplier
-		response.Code = RelayResponseCodes.Supplier
+		response.Code = pocket.RelayResponseCodes.Supplier
 		response.Error = response.Response
 	}
 

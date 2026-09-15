@@ -1,7 +1,7 @@
 package types
 
 import (
-	shannon_types "packages/pocket_shannon/types"
+	"packages/pocket"
 )
 
 type TemporalWorkerOptions struct {
@@ -223,18 +223,22 @@ type TemporalConfig struct {
 }
 
 type Config struct {
-	MongodbUri             string                     `json:"mongodb_uri"`
-	Frameworks             map[string]FrameworkConfig `json:"frameworks"`
-	LogLevel               string                     `json:"log_level"`
-	Temporal               *TemporalConfig            `json:"temporal"`
-	DevelopCfg             *DevelopConfig             `json:"develop"`
-	PocketRpc              string                     `json:"pocket_rpc_url"`
-	PocketGrpc             shannon_types.GRPCConfig   `json:"pocket_grpc_config"`
-	PocketBlocksPerSession int64                      `json:"pocket_blocks_per_session"`
-	Apps                   map[string]string          `json:"pocket_apps"`
-	Services               []string                   `json:"pocket_services"`
-	ExternalSuppliers      []string                   `json:"external_suppliers"`
-	TrackSuccessfulSamples bool                       `json:"track_successful_samples"`
+	MongodbUri string                     `json:"mongodb_uri"`
+	Frameworks map[string]FrameworkConfig `json:"frameworks"`
+	LogLevel   string                     `json:"log_level"`
+	Temporal   *TemporalConfig            `json:"temporal"`
+	DevelopCfg *DevelopConfig             `json:"develop"`
+	PocketRpc  string                     `json:"pocket_rpc_url"`
+	PocketGrpc pocket.GRPCConfig          `json:"pocket_grpc_config"`
+	Apps       map[string]string          `json:"pocket_apps"`
+	// Services holds the per-service settings, keyed by service ID. Today that
+	// is the transport (rpc_type) the service is relayed over: a supplier can
+	// advertise several, and the one we pick decides which of its endpoints is
+	// reachable. A service with no entry falls back to
+	// pocket.DefaultRPCType.
+	Services               map[string]pocket.ServiceConfig `json:"pocket_services"`
+	ExternalSuppliers      []string                        `json:"external_suppliers"`
+	TrackSuccessfulSamples bool                            `json:"track_successful_samples"`
 }
 
 type FrameworkConfig struct {

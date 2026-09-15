@@ -11,8 +11,7 @@ import (
 	"os"
 	"packages/logger"
 	"packages/mongodb"
-	"packages/pocket_shannon"
-	shannon_types "packages/pocket_shannon/types"
+	"packages/pocket"
 	"path/filepath"
 	"strings"
 	"time"
@@ -96,32 +95,32 @@ func Initialize() *types.App {
 		types.TackedTaskSamplesCollection,
 	}, l)
 
-	// Create LazyNode
-	nodeConfig := shannon_types.FullNodeConfig{
+	// Create the Pocket Network client
+	nodeConfig := pocket.FullNodeConfig{
 		RpcURL:     cfg.PocketRpc,
 		GRPCConfig: cfg.PocketGrpc,
 	}
 
-	// Create a LazyFull node from the config
-	FullNode, err := pocket_shannon.NewLazyFullNode(nodeConfig)
+	// Building the client validates every configured app against the chain: the
+	// address/key pairing, that the app exists, and which single service it is
+	// staked for. There is no separate "check the apps" pass any more because a
+	// client that built successfully has already done it.
+	PocketClient, err := pocket.NewClient(
+		nodeConfig,
+		cfg.Apps,
+		cfg.Services,
+		pocket.DefaultSenderTimeout,
+		l,
+	)
 	if err != nil {
-		l.Fatal().Err(err).Msg("Failed to create Lazy Node")
+		l.Fatal().Err(err).Msg("Failed to create Pocket Network client")
 	}
 
-	// Check Pocket Apps status
-	for appAddress, _ := range cfg.Apps {
-		l.Info().Str("appAddress", appAddress).Msg("Checking app...")
-
-		// Check if the app is correctly staked for service
-		ctx := context.Background()
-		onchainApp, err := FullNode.GetApp(ctx, appAddress)
-		if err != nil {
-			l.Fatal().Err(err).Str("appAddress", appAddress).Msg("Error getting on-chain data for app")
-		}
-		if onchainApp == nil {
-			l.Fatal().Str("appAddress", appAddress).Msg("No on-chain data found for app")
-		}
-		l.Info().Str("onchainApp Address", onchainApp.Address).Msg("Found app.")
+	// Start the block pollers that rotate the cached sessions. The manager only
+	// reads sessions, but a stale one would report the suppliers of a session
+	// the chain has already retired.
+	if err := PocketClient.Start(context.Background()); err != nil {
+		l.Fatal().Err(err).Msg("Failed to start Pocket Network client")
 	}
 
 	// Create a temporal client for triggering
@@ -142,15 +141,12 @@ func Initialize() *types.App {
 
 		// Create instance of App data
 	ac := &types.App{
-		Logger:                 l,
-		Config:                 cfg,
-		PocketFullNode:         FullNode,
-		PocketApps:             cfg.Apps,
-		PocketServices:         cfg.Services,
-		PocketBlocksPerSession: cfg.PocketBlocksPerSession,
-		Mongodb:                m,
-		TemporalClient:         temporalClient,
-		ExternalSuppliers:      cfg.ExternalSuppliers,
+		Logger:            l,
+		Config:            cfg,
+		PocketClient:      PocketClient,
+		Mongodb:           m,
+		TemporalClient:    temporalClient,
+		ExternalSuppliers: cfg.ExternalSuppliers,
 	}
 
 	// set this to workflows and activities to avoid use of context.Context
