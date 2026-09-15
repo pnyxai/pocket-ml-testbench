@@ -1,6 +1,8 @@
 package pocket
 
 import (
+	"bytes"
+
 	servicetypes "github.com/pokt-network/poktroll/x/service/types"
 )
 
@@ -51,6 +53,24 @@ type RelayReceipt struct {
 	// the miner did not set it.
 	ResponsePayloadHash []byte `json:"response_payload_hash,omitempty"`
 
+	// PayloadPrefix is everything in the signed response payload that comes
+	// BEFORE the backend's body — the serialized POKTHTTPResponse's status line,
+	// headers and framing.
+	//
+	// It is what makes ResponsePayloadHash checkable from stored data. The
+	// signed payload is `prefix || body`, and only the body is worth keeping
+	// (it is the answer being measured), so a stored body alone cannot be
+	// re-hashed. Keep this next to it and the check is
+	// sha256(PayloadPrefix || body) == ResponsePayloadHash. It is small — a
+	// header block, not a payload — which is the whole reason to split it out
+	// rather than store the payload twice.
+	//
+	// Empty when the body is not a suffix of the payload, which should not
+	// happen: the guard is there because the split is only meaningful if the
+	// serialization really does put the body last, and silently returning a
+	// wrong prefix would produce a hash check that fails for no visible reason.
+	PayloadPrefix []byte `json:"payload_prefix,omitempty"`
+
 	// RelayHash is the hash of the marshaled Relay{Req, Res} pair, exactly as it
 	// came off the wire.
 	//
@@ -64,10 +84,14 @@ type RelayReceipt struct {
 
 // receiptFrom assembles a receipt from the wire bytes the probe captured.
 //
+// body is the unwrapped backend response — the same bytes the caller gets in
+// Response.Bytes. It is needed to split the signed payload into prefix and
+// body; pass nil and PayloadPrefix is simply left empty.
+//
 // It returns nil rather than an error: the relay itself succeeded and its
 // response is valid — pocket-ap already verified the signature — so a receipt
 // that cannot be assembled is missing metadata, not a failed relay.
-func (c *Client) receiptFrom(probe *relayProbe, supplierAddress string) *RelayReceipt {
+func (c *Client) receiptFrom(probe *relayProbe, supplierAddress string, body []byte) *RelayReceipt {
 	if probe.signedRequestBz == nil || probe.responseBz == nil {
 		return nil
 	}
@@ -116,6 +140,12 @@ func (c *Client) receiptFrom(probe *relayProbe, supplierAddress string) *RelayRe
 	relay := servicetypes.Relay{Req: &request, Res: &response}
 	if hash, err := relay.GetHash(); err == nil {
 		receipt.RelayHash = hash[:]
+	}
+
+	// The signed payload is the serialized POKTHTTPResponse, whose last field is
+	// the body, so whatever precedes the body is the prefix.
+	if payload := response.GetPayload(); len(payload) > 0 && bytes.HasSuffix(payload, body) {
+		receipt.PayloadPrefix = payload[:len(payload)-len(body)]
 	}
 
 	return receipt

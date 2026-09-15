@@ -71,7 +71,7 @@ func (c *Client) SendRelayStream(
 				Ms:             probe.elapsed().Milliseconds(),
 				// Per batch, not per relay: each one is separately signed by the
 				// supplier, so each one has its own receipt.
-				Receipt: c.receiptFrom(probe, supplierAddress),
+				Receipt: c.receiptFrom(probe, supplierAddress, result.Body),
 			}
 			if cbErr := onChunk(chunk); cbErr != nil {
 				callbackErr = cbErr
@@ -221,6 +221,6 @@ func (c *Client) ValidateResponseChunk(supplierAddress string, chunk []byte) (Re
 		// Only the response half is available here: the caller signed the
 		// request itself with BuildSignedRequest and holds those bytes, so the
 		// application signature and session header are theirs to add.
-		Receipt: c.receiptFrom(&relayProbe{responseBz: chunk}, supplierAddress),
+		Receipt: c.receiptFrom(&relayProbe{responseBz: chunk}, supplierAddress, result.Body),
 	}, nil
 }

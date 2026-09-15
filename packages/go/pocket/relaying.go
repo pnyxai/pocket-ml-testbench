@@ -127,7 +127,7 @@ func (c *Client) SendRelay(
 
 	response.Bytes = result.Body
 	response.HTTPStatusCode = result.StatusCode
-	response.Receipt = c.receiptFrom(probe, supplierAddress)
+	response.Receipt = c.receiptFrom(probe, supplierAddress, result.Body)
 
 	return response, nil
 }
