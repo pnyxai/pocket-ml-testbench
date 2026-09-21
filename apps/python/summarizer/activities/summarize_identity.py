@@ -14,9 +14,12 @@ EQUALITY_THRESHOLD = 0.75
 MIN_SIGNATURES = 5
 # Minimum number of samples to retrieve from db
 MIN_SAMPLES = 5
-# Flag to be used as "last signature" in unique or proxy suppliers
+# Identity state of a supplier that is unique, or that proxies others: it is the
+# one whose results we track. This is the value the manager's task dependencies
+# are written against (signatures:identity:equal:UNIQUE_OR_PROXY).
 TRACK_FLAG = "UNIQUE_OR_PROXY"
-# Flag to be used as "last signature" in suppliers to be ignored
+# Identity state of a supplier proxied by another: its results duplicate the
+# proxy's, so it is ignored.
 IGNORE_FLAG = "IGNORE_OR_DUPLICATED"
 
 assert MIN_SAMPLES >= MIN_SIGNATURES
@@ -169,7 +172,7 @@ async def summarize_identity() -> Tuple[bool, str]:
             "Failed to save instances to MongoDB.", non_retryable=True
         )
 
-    # Update signatures buffer collection with the correct "last signature" state
+    # Update the signature buffers with each supplier's identity state.
     try:
         async with mongo_client.start_transaction() as session:
             for this_supplier in summary_state.keys():
@@ -181,7 +184,7 @@ async def summarize_identity() -> Tuple[bool, str]:
 
                 await mongo_client.db["buffers_signatures"].update_one(
                     {"_id": this_id},
-                    {"$set": {"last_signature": summary_state[this_supplier]}},
+                    {"$set": {"identity_state": summary_state[this_supplier]}},
                     session=session,
                 )
         summary_logger.debug("Updated signature entries.")
