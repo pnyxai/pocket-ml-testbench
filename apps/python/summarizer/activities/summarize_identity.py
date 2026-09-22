@@ -184,7 +184,7 @@ async def summarize_identity() -> Tuple[bool, str]:
 
                 await mongo_client.db["buffers_signatures"].update_one(
                     {"_id": this_id},
-                    {"$set": {"identity_state": summary_state[this_supplier]}},
+                    {"$set": {"signature_state": summary_state[this_supplier]}},
                     session=session,
                 )
         summary_logger.debug("Updated signature entries.")

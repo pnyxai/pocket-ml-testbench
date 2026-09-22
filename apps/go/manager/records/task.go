@@ -1029,7 +1029,7 @@ type SignatureTaskRecord struct {
 	// IdentityState is the summarizer's cross-supplier verdict for the identity
 	// signature: UNIQUE_OR_PROXY or IGNORE_OR_DUPLICATED.
 	// ⚠️ Written ONLY by apps/python/summarizer (summarize_identity.py).
-	IdentityState string `bson:"identity_state,omitempty"`
+	IdentityState string `bson:"signature_state,omitempty"`
 	// Errors
 	ErrorCode int `bson:"error_code"`
 	// buffers
@@ -1280,7 +1280,7 @@ func (record *SignatureTaskRecord) IsEqual(data interface{}) (statusOK bool, err
 		return record.IdentityState == matchStr, nil
 	}
 
-	// TRANSITIONAL: buffers written before identity_state existed carry the
+	// TRANSITIONAL: buffers written before signature_state existed carry the
 	// verdict in LastSignature instead, and the field is simply absent on them
 	// (it decodes as ""). Falling back keeps those records behaving exactly as
 	// they did rather than failing every dependency on a missing field; each
