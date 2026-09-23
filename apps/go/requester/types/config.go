@@ -272,9 +272,14 @@ type RelayConfig struct {
 	// it. This only exists so a supplier that accepts a connection and never
 	// answers cannot pin a worker goroutine indefinitely.
 	//
-	// It therefore has to be larger than the longest prompt timeout in use
-	// (prompt.timeout x (retries+1)), or it silently truncates the long relays
-	// instead of protecting anything. 0 uses DefaultMaxRelayTimeout.
+	// It therefore has to be larger than the longest relay deadline in use, or
+	// it silently truncates the long relays instead of protecting anything.
+	// That deadline is prompt.timeout x (activities.RelayRetries+1) — note the
+	// multiplier is the hardcoded RelayRetries (4x), NOT the `retries` field
+	// above, which nothing reads. So a 120s prompt asks for 480s, and the
+	// default 1800s leaves room up to a 450s prompt timeout.
+	//
+	// 0 uses DefaultMaxRelayTimeout.
 	MaxRelayTimeout int64 `json:"max_relay_timeout"`
 }
 

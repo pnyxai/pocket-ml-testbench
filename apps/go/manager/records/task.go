@@ -1020,7 +1020,16 @@ const SignatureCircularBufferLength uint32 = 2 * SignatureMinSamplesPerTask
 type SignatureTaskRecord struct {
 	TaskData BaseTaskRecord `bson:"task_data"`
 	// Specific fields
+	//
+	// LastSignature is DERIVED FROM THE BUFFER by ProcessData: it is the raw
+	// signature of the newest valid sample. Nothing outside this file should
+	// write it — the Python side reads it as the raw hash for the tokenizer and
+	// config signatures (see MongoOperator.get_signature_hash).
 	LastSignature string `bson:"last_signature"`
+	// IdentityState is the summarizer's cross-supplier verdict for the identity
+	// signature: UNIQUE_OR_PROXY or IGNORE_OR_DUPLICATED.
+	// ⚠️ Written ONLY by apps/python/summarizer (summarize_identity.py).
+	IdentityState string `bson:"signature_state,omitempty"`
 	// Errors
 	ErrorCode int `bson:"error_code"`
 	// buffers
@@ -1258,21 +1267,32 @@ func (record *SignatureTaskRecord) IsOK() bool {
 }
 
 // Returns True if the task average matches a value
+// IsEqual reports whether this signature task's state matches the value a task
+// dependency asked for (the `equal:<value>` form).
 func (record *SignatureTaskRecord) IsEqual(data interface{}) (statusOK bool, err error) {
 	// Assert data type
 	matchStr, ok := data.(string)
 	if !ok {
-		return ok, fmt.Errorf("invalid data type for equality")
+		return false, fmt.Errorf("invalid data type for equality")
 	}
-	// Check match
-	if record.LastSignature == matchStr {
-		return true, nil
-	} else {
-		return false, nil
+
+	if record.IdentityState != "" {
+		return record.IdentityState == matchStr, nil
 	}
+
+	// TRANSITIONAL: buffers written before signature_state existed carry the
+	// verdict in LastSignature instead, and the field is simply absent on them
+	// (it decodes as ""). Falling back keeps those records behaving exactly as
+	// they did rather than failing every dependency on a missing field; each
+	// one corrects itself the first time the summarizer writes its verdict to
+	// the new field. Safe to delete once every live buffer has been summarized
+	// at least once.
+	return record.LastSignature == matchStr, nil
 }
 
 // Process the buffer data to produce the signature metrics
+// ProcessData recomputes the fields that are derived from this task's own
+// buffer.
 func (record *SignatureTaskRecord) ProcessData(l *zerolog.Logger) (err error) {
 	// Just update the last signature
 	lastSampleStatus := record.Signatures[record.CircBuffer.Indexes.End].StatusCode
