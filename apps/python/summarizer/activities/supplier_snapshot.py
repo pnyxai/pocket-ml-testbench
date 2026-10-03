@@ -7,7 +7,11 @@ from app.app import get_app_logger, get_app_config
 from packages.python.lmeh.utils.mongodb import MongoOperator
 from packages.python.protocol.protocol import PocketNetworkSupplierSnapshotTaskRequest
 from packages.python.protocol.protocol import PocketNetworkMongoDBSupplierSnapshot
-from packages.python.protocol.protocol import NumericSampleSnapshot, TaxonomyNodeSummary
+from packages.python.protocol.protocol import (
+    NumericSampleSnapshot,
+    TaskStats,
+    TaxonomyNodeSummary,
+)
 from temporalio.exceptions import ApplicationError
 from bson import ObjectId
 
@@ -36,13 +40,8 @@ async def supplier_snapshot(
     for doc in task_docs:
         tasks_dict[doc["task"]] = NumericSampleSnapshot(
             error_rate=doc["error_rate"],
-            mean_scores=doc["mean_scores"],
-            mean_times=doc["mean_times"],
-            median_scores=doc["median_scores"],
-            median_times=doc["median_times"],
-            std_scores=doc["std_scores"],
-            std_times=doc["std_times"],
             num_samples=doc["num_samples"],
+            stats=TaskStats(**(doc.get("stats") or {})),
         )
 
     # Get all taxonomy data
@@ -58,12 +57,10 @@ async def supplier_snapshot(
     for doc in taxonomy_docs:
         taxonomy_dict[doc["taxonomy_name"]] = dict()
         for node in doc["taxonomy_nodes_scores"].keys():
+            node_data = doc["taxonomy_nodes_scores"][node]
             taxonomy_dict[doc["taxonomy_name"]][node] = TaxonomyNodeSummary(
-                score=doc["taxonomy_nodes_scores"][node]["score"],
-                score_dev=doc["taxonomy_nodes_scores"][node]["score_dev"],
-                run_time=doc["taxonomy_nodes_scores"][node]["run_time"],
-                run_time_dev=doc["taxonomy_nodes_scores"][node]["run_time_dev"],
-                sample_min=doc["taxonomy_nodes_scores"][node]["sample_min"],
+                stats=TaskStats(**(node_data.get("stats") or {})),
+                sample_min=node_data.get("sample_min", 0),
             )
 
     # Create snapshot entry

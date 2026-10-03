@@ -6,12 +6,32 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
+// TaxonomyScalarStats mirrors ScalarStatsRecord on the summarizer side.
+type TaxonomyScalarStats struct {
+	Mean   float64 `bson:"mean"`
+	Median float64 `bson:"median"`
+	Std    float64 `bson:"std"`
+	N      int64   `bson:"n"`
+}
+
+// TaxonomyVectorStats mirrors VectorStatsRecord on the summarizer side.
+type TaxonomyVectorStats struct {
+	Mean   []*float64 `bson:"mean"`
+	Median []*float64 `bson:"median"`
+	Std    []*float64 `bson:"std"`
+	N      []int64    `bson:"n"`
+}
+
+// TaxonomyStats groups the aggregated statistics of a taxonomy node.
+type TaxonomyStats struct {
+	Score TaxonomyScalarStats `bson:"score"`
+	Time  TaxonomyScalarStats `bson:"time"`
+	Cost  TaxonomyVectorStats `bson:"cost"`
+}
+
 type TaxonomyNode struct {
-	Score      float64 `bson:"score"`
-	ScoreDev   float64 `bson:"score_dev"`
-	RunTime    float64 `bson:"run_time"`
-	RunTimeDev float64 `bson:"run_time_dev"`
-	SampleMin  int64   `bson:"sample_min"`
+	Stats     TaxonomyStats `bson:"stats"`
+	SampleMin int64         `bson:"sample_min"`
 }
 
 type TaxonomySummary struct {

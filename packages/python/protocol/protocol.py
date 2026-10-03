@@ -15,12 +15,16 @@ from openai.types.chat import (
     ChatCompletionMessageParam as OpenAIChatCompletionMessageParam,
 )
 from openai.types.chat import ChatCompletionMessageToolCallParam
-
+from openai.types.chat.chat_completion_message import Annotation as OpenAIAnnotation
+from openai.types.chat.chat_completion_audio import (
+    ChatCompletionAudio as OpenAIChatCompletionAudio,
+)
 from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
     field_validator,
+    SerializeAsAny,
     model_validator,
     model_serializer,
 )
@@ -548,17 +552,31 @@ class PocketNetworkEvaluationTaskRequest(PocketNetworkTaskRequest):
 
 
 # From vllm/entrypoints/openai/protocol.py
+class CompletionTokenUsageInfo(OpenAIBaseModel):
+    reasoning_tokens: int = 0
+
+class PromptTokenUsageInfo(OpenAIBaseModel):
+    cached_tokens: int | None = None
+    created_cache_tokens: int | None = None
+    multimodal_tokens: dict[str, int] | None = None
+    """Prompt tokens contributed by each input modality, keyed by modality name
+    (e.g. `image`, `audio`, `video`). A breakdown of the multimodal
+    placeholder tokens already counted in `prompt_tokens`; `None` when the
+    request has no multimodal input."""
+
 class UsageInfo(OpenAIBaseModel):
     prompt_tokens: int = 0
     total_tokens: int = 0
-    completion_tokens: Optional[int] = 0
+    completion_tokens: int | None = 0
+    prompt_tokens_details: PromptTokenUsageInfo | None = None
+    completion_tokens_details: CompletionTokenUsageInfo | None = None
 
 
 class CompletionLogProbs(OpenAIBaseModel):
-    text_offset: List[int] = Field(default_factory=list)
-    token_logprobs: List[Optional[float]] = Field(default_factory=list)
-    tokens: List[str] = Field(default_factory=list)
-    top_logprobs: Optional[List[Optional[Dict[str, float]]]] = None
+    text_offset: list[int] = Field(default_factory=list)
+    token_logprobs: list[float | None] = Field(default_factory=list)
+    tokens: list[str] = Field(default_factory=list)
+    top_logprobs: list[dict[str, float] | None] = Field(default_factory=list)
 
 
 class CompletionResponseChoice(OpenAIBaseModel):
@@ -604,8 +622,8 @@ class Logprob:
     """
 
     logprob: float
-    rank: Optional[int] = None
-    decoded_token: Optional[str] = None
+    rank: int | None = None
+    decoded_token: str | None = None
 
 
 class FunctionCall(OpenAIBaseModel):
@@ -620,16 +638,16 @@ class ToolCall(OpenAIBaseModel):
 
 
 class DeltaFunctionCall(BaseModel):
-    name: Optional[str] = None
-    arguments: Optional[str] = None
+    name: str | None = None
+    arguments: str | None = None
 
 
 # a tool call delta where everything is optional
 class DeltaToolCall(OpenAIBaseModel):
-    id: Optional[str] = None
-    type: Optional[Literal["function"]] = None
+    id: str | None = None
+    type: Literal["function"] | None = None
     index: int
-    function: Optional[DeltaFunctionCall] = None
+    function: DeltaFunctionCall | None = None
 
 
 class ExtractedToolCallInformation(BaseModel):
@@ -641,41 +659,59 @@ class ExtractedToolCallInformation(BaseModel):
 
     # content - per OpenAI spec, content AND tool calls can be returned rarely
     # But some models will do this intentionally
-    content: Optional[str] = None
+    content: str | None = None
 
 
 class ChatMessage(OpenAIBaseModel):
     role: str
-    reasoning_content: Optional[str] = None
-    content: Optional[str] = None
+    content: str | None = None
+    refusal: str | None = None
+    annotations: OpenAIAnnotation | None = None
+    audio: OpenAIChatCompletionAudio | None = None
+    function_call: FunctionCall | None = None
     tool_calls: list[ToolCall] = Field(default_factory=list)
+
+    # vLLM-specific fields that are not in OpenAI spec
+    reasoning: str | None = None
+
+    @model_serializer(mode="wrap")
+    def _serialize(self, handler):
+        data = handler(self)
+        if len(data.get("tool_calls", [])) == 0:
+            data.pop("tool_calls", None)
+        return data
 
 
 class ChatCompletionLogProb(OpenAIBaseModel):
     token: str
     logprob: float = -9999.0
-    bytes: Optional[list[int]] = None
+    bytes: list[int] | None = None
 
 
 class ChatCompletionLogProbsContent(ChatCompletionLogProb):
     # Workaround: redefine fields name cache so that it's not
     # shared with the super class.
-    field_names: ClassVar[Optional[set[str]]] = None
+    field_names: ClassVar[set[str] | None] = None
     top_logprobs: list[ChatCompletionLogProb] = Field(default_factory=list)
 
 
 class ChatCompletionLogProbs(OpenAIBaseModel):
-    content: Optional[list[ChatCompletionLogProbsContent]] = None
+    content: list[ChatCompletionLogProbsContent] | None = None
 
 
 class ChatCompletionResponseChoice(OpenAIBaseModel):
     index: int
-    message: ChatMessage
-    logprobs: Optional[ChatCompletionLogProbs] = None
+    # ``SerializeAsAny`` lets pydantic honor subclasses of ``ChatMessage``
+    # (e.g. ``vllm.entrypoints.cohere.cohere_chat_message.CohereChatMessage``)
+    # so that added fields like ``citations`` survive JSON serialization
+    # instead of being stripped down to the base schema. Plain
+    # ``ChatMessage`` instances serialize identically to before.
+    message: SerializeAsAny[ChatMessage]
+    logprobs: ChatCompletionLogProbs | None = None
     # per OpenAI spec this is the default
-    finish_reason: Optional[str] = "stop"
+    finish_reason: str | None = "stop"
     # not part of the OpenAI spec but included in vLLM for legacy reasons
-    stop_reason: Optional[Union[int, str]] = None
+    stop_reason: int | str | None = None
 
 
 class ChatCompletionResponse(OpenAIBaseModel):
@@ -684,9 +720,11 @@ class ChatCompletionResponse(OpenAIBaseModel):
     created: int = Field(default_factory=lambda: int(time.time()))
     model: str
     choices: list[ChatCompletionResponseChoice]
+    service_tier: Literal["auto", "default", "flex", "scale", "priority"] | None = None
+    system_fingerprint: str | None = None
     usage: UsageInfo
-    prompt_logprobs: Optional[list[Optional[dict[int, Logprob]]]] = None
-
+    # vLLM-specific fields that are not in OpenAI spec
+    prompt_logprobs: list[dict[int, Logprob] | None] | None = None
 
 ###########
 # RESPONSES
@@ -715,7 +753,7 @@ class SignatureSample(BaseModel):
 class PocketNetworkMongoDBResultSignature(BaseModel):
     id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
     result_data: PocketNetworkMongoDBResultBase
-    signatures: List[SignatureSample]
+    signatures: list[SignatureSample]
 
     class Config:
         arbitrary_types_allowed = True
@@ -727,12 +765,16 @@ class NumericSample(BaseModel):
     run_time: float
     status_code: int
     error_str: str
+    # Per-position cost vector, e.g. [prompt_tokens, completion_tokens,
+    # cached_tokens]. An entry is None when the backend does not inform it
+    # (notably cached_tokens when `usage.prompt_tokens_details` is absent).
+    cost: list[float | None] = Field(default_factory=list)
 
 
 class PocketNetworkMongoDBResultNumerical(BaseModel):
     id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
     result_data: PocketNetworkMongoDBResultBase
-    scores: List[NumericSample]
+    scores: list[NumericSample]
 
     class Config:
         arbitrary_types_allowed = True
@@ -767,8 +809,8 @@ class PocketNetworkMongoDBConfig(BaseModel):
 
 
 class TTFT(BaseModel):
-    prompt_lenght: List[int]
-    sla_time: List[int]
+    prompt_lenght: list[int]
+    sla_time: list[int]
 
 
 class LLMTimeouts(BaseModel):
@@ -780,7 +822,7 @@ class LLMTimeouts(BaseModel):
 
 class TimeoutHandler(BaseModel):
     model_config = ConfigDict(extra="allow")
-    timeouts: Optional[LLMTimeouts] = None
+    timeouts: LLMTimeouts | None = None
 
     def llm_timeout(self, prefill: int, decode: int) -> float:
         timeout = self.ttft(prefill) + (self.tpot * decode) + self.queue
@@ -803,7 +845,6 @@ class TimeoutHandler(BaseModel):
         else:
             # if timeouts are not defined, means default
             self._timeout_fn = self.chain_default
-        return
 
     def model_post_init(self, __context: Any) -> None:
         if self.timeouts is None:
@@ -839,12 +880,39 @@ class PocketNetworkTaxonomySummaryTaskRequest(BaseModel):
     taxonomy: str
 
 
+class ScalarStats(BaseModel):
+    """Statistics of a scalar-valued metric (e.g. score, time)."""
+
+    mean: float = 0.0
+    median: float = 0.0
+    std: float = 0.0
+    n: int = 0
+
+
+class VectorStats(BaseModel):
+    """Per-position statistics of a vector-valued metric (e.g. cost).
+
+    ``mean``/``median``/``std`` are null-aware per position and ``n`` holds, per
+    position, the number of samples backing them.
+    """
+
+    mean: list[float | None] = Field(default_factory=list)
+    median: list[float | None] = Field(default_factory=list)
+    std: list[float | None] = Field(default_factory=list)
+    n: list[int] = Field(default_factory=list)
+
+
+class TaskStats(BaseModel):
+    """Grouped statistics of a numerical task."""
+
+    score: ScalarStats = Field(default_factory=ScalarStats)
+    time: ScalarStats = Field(default_factory=ScalarStats)
+    cost: VectorStats = Field(default_factory=VectorStats)
+
+
 class TaxonomyNodeSummary(BaseModel):
-    score: float
-    score_dev: float
-    run_time: float
-    run_time_dev: float
-    sample_min: int
+    stats: TaskStats = Field(default_factory=TaskStats)
+    sample_min: int = 0
 
     # TODO : Extend this class to compute running means from passing a series of numerical buffers
 
@@ -888,13 +956,8 @@ class PocketNetworkSupplierSnapshotTaskRequest(BaseModel):
 
 class NumericSampleSnapshot(BaseModel):
     error_rate: float
-    mean_scores: float
-    mean_times: float
-    median_scores: float
-    median_times: float
-    std_scores: float
-    std_times: float
     num_samples: int
+    stats: TaskStats = Field(default_factory=TaskStats)
 
 
 class PocketNetworkMongoDBSupplierSnapshot(BaseModel):

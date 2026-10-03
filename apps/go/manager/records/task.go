@@ -333,7 +333,7 @@ func CheckTaxonomyDependency(
 				break
 			}
 
-			if (taxonomyRootNode.Score < scoreMin) ||
+			if (taxonomyRootNode.Stats.Score.Mean < scoreMin) ||
 				// (taxonomyRootNode.ErrorRate > (1-successRateMin)) ||
 				(float64(taxonomyRootNode.SampleMin) < samplesMin) {
 				// Condition not met
@@ -630,18 +630,40 @@ const NumericalMaxConcurrentSamplesPerTask uint32 = 2
 // This is the length of the buffer and will set the maximum accuracy of the metric.
 const NumericalCircularBufferLength uint32 = 100
 
+// ScalarStatsRecord holds the statistics of a scalar-valued metric (score,
+// time). N is the number of samples backing mean/median/std.
+type ScalarStatsRecord struct {
+	Mean   float32 `bson:"mean"`
+	Median float32 `bson:"median"`
+	Std    float32 `bson:"std"`
+	N      uint32  `bson:"n"`
+}
+
+// VectorStatsRecord holds, per position, the statistics of a vector-valued
+// metric (e.g. cost). A nil element means the backend did not inform that
+// position (notably cached_tokens when `usage.prompt_tokens_details` is
+// absent). N holds, per position, the number of samples backing the other
+// statistics.
+type VectorStatsRecord struct {
+	Mean   []*float32 `bson:"mean"`
+	Median []*float32 `bson:"median"`
+	Std    []*float32 `bson:"std"`
+	N      []uint32   `bson:"n"`
+}
+
+// NumericalStatsRecord groups the statistics tracked for a numerical task.
+type NumericalStatsRecord struct {
+	Score ScalarStatsRecord `bson:"score"`
+	Time  ScalarStatsRecord `bson:"time"`
+	Cost  VectorStatsRecord `bson:"cost"`
+}
+
 // All information for a given task
 // Each task will have its own data, depending on what it is
 type NumericalTaskRecord struct {
 	TaskData BaseTaskRecord `bson:"task_data"`
-	// metrics
-	MeanScore   float32 `bson:"mean_scores"`
-	MedianScore float32 `bson:"median_scores"`
-	StdScore    float32 `bson:"std_scores"`
-	// Times
-	MeanProcessTime   float32 `bson:"mean_times"`
-	MedianProcessTime float32 `bson:"median_times"`
-	StdProcessTime    float32 `bson:"std_times"`
+	// Statistics
+	Stats NumericalStatsRecord `bson:"stats"`
 	// Errors
 	ErrorRate  float32     `bson:"error_rate"`
 	ErrorCodes map[int]int `bson:"error_codes"`
@@ -652,11 +674,12 @@ type NumericalTaskRecord struct {
 }
 
 type ScoresSample struct {
-	Score       float64 `bson:"score"`
-	ID          int     `bson:"id"`
-	RunTime     float32 `bson:"run_time"`
-	StatusCode  int     `bson:"status_code"`
-	ErrorString string  `bson:"error_str"`
+	Score       float64    `bson:"score"`
+	ID          int        `bson:"id"`
+	RunTime     float32    `bson:"run_time"`
+	StatusCode  int        `bson:"status_code"`
+	ErrorString string     `bson:"error_str"`
+	Cost        []*float64 `bson:"cost"`
 }
 
 func (record *NumericalTaskRecord) NewTask(supplierID primitive.ObjectID, framework string, task string, date time.Time, l *zerolog.Logger) {
@@ -675,12 +698,14 @@ func (record *NumericalTaskRecord) NewTask(supplierID primitive.ObjectID, framew
 	// some extent (except REALLY slow tasks)
 	record.TaskData.LastSeen = time.Now().UTC().Add(-24 * time.Hour)
 
-	record.MeanScore = 0.0
-	record.MedianScore = 0.0
-	record.StdScore = 0.0
-	record.MeanProcessTime = 0.0
-	record.MedianProcessTime = 0.0
-	record.StdProcessTime = 0.0
+	record.Stats = NumericalStatsRecord{
+		Cost: VectorStatsRecord{
+			Mean:   []*float32{},
+			Median: []*float32{},
+			Std:    []*float32{},
+			N:      []uint32{},
+		},
+	}
 	record.ErrorRate = 0.0
 	record.ErrorCodes = make(map[int]int, 0)
 	record.ScoresSamples = make([]ScoresSample, bufferLen)
@@ -853,7 +878,7 @@ func (record *NumericalTaskRecord) GetNumOkSamples() uint32 {
 
 // Returns True if the task is ok, meaning that their values are updated and correct
 func (record *NumericalTaskRecord) IsOK() bool {
-	if record.MeanScore+record.MedianScore+record.StdScore != 0.0 {
+	if record.Stats.Score.Mean+record.Stats.Score.Median+record.Stats.Score.Std != 0.0 {
 		// we have some values, so this task is ok
 		return true
 	} else {
@@ -879,6 +904,7 @@ func (record *NumericalTaskRecord) ProcessData(l *zerolog.Logger) (err error) {
 	// Slice the buffer and cast
 	var auxDataScores []float64
 	var auxDataTimes []float64
+	var auxDataCosts [][]*float64
 	totalPunibleErrors := 0
 	punibleErrorsCodes := make(map[int]int)
 	for _, sampleId := range validIdx {
@@ -887,6 +913,7 @@ func (record *NumericalTaskRecord) ProcessData(l *zerolog.Logger) (err error) {
 			// Add sample to data array
 			auxDataScores = append(auxDataScores, float64(record.ScoresSamples[sampleId].Score))
 			auxDataTimes = append(auxDataTimes, float64(record.ScoresSamples[sampleId].RunTime))
+			auxDataCosts = append(auxDataCosts, record.ScoresSamples[sampleId].Cost)
 		} else if sampleStatus == pocket.RelayResponseCodes.Supplier {
 			// This is a Supplier (response) error, we should punish the supplier.
 			//
@@ -896,11 +923,15 @@ func (record *NumericalTaskRecord) ProcessData(l *zerolog.Logger) (err error) {
 			// other error that is not imputable to the supplier.
 			totalPunibleErrors += 1
 			punibleErrorsCodes[sampleStatus] += 1
+		} else {
+			// TODO: Count non-punnible errors:
 		}
 	}
 
 	// Total valid samples
 	length := len(auxDataScores)
+	// TODO: keep the VALID lenght value in the `buffers_numerical` with a new key
+	//
 
 	// Set errors
 	record.ErrorCodes = punibleErrorsCodes
@@ -909,46 +940,133 @@ func (record *NumericalTaskRecord) ProcessData(l *zerolog.Logger) (err error) {
 		record.ErrorRate = float32(totalPunibleErrors) / float32(length+totalPunibleErrors)
 	}
 
-	// Calculate the scores and times
+	// Calculate the score and time statistics, together with their sample count.
 	if length == 0 {
-		record.MeanScore = 0
-		record.StdScore = 0
-		record.MedianScore = 0
-		record.MeanProcessTime = 0
-		record.StdProcessTime = 0
-		record.MedianProcessTime = 0
-
+		record.Stats.Score = ScalarStatsRecord{}
+		record.Stats.Time = ScalarStatsRecord{}
 	} else if length == 1 {
-		record.MeanScore = float32(record.ScoresSamples[record.CircBuffer.Indexes.Start].Score)
-		record.StdScore = 0
-		record.MedianScore = float32(record.ScoresSamples[record.CircBuffer.Indexes.Start].Score)
-		record.MeanProcessTime = float32(record.ScoresSamples[record.CircBuffer.Indexes.Start].RunTime)
-		record.StdProcessTime = 0
-		record.MedianProcessTime = float32(record.ScoresSamples[record.CircBuffer.Indexes.Start].RunTime)
+		start := record.CircBuffer.Indexes.Start
+		record.Stats.Score = ScalarStatsRecord{
+			Mean:   float32(record.ScoresSamples[start].Score),
+			Median: float32(record.ScoresSamples[start].Score),
+			Std:    0,
+			N:      1,
+		}
+		record.Stats.Time = ScalarStatsRecord{
+			Mean:   float32(record.ScoresSamples[start].RunTime),
+			Median: float32(record.ScoresSamples[start].RunTime),
+			Std:    0,
+			N:      1,
+		}
 	} else {
-		// Calculate the mean
-		record.MeanScore = float32(stat.Mean(auxDataScores, nil))
-		// Calculate the standard deviation
-		record.StdScore = float32(stat.StdDev(auxDataScores, nil))
-		// Calculate the median
+		// Scores
+		meanScore := float32(stat.Mean(auxDataScores, nil))
+		stdScore := float32(stat.StdDev(auxDataScores, nil))
 		sort.Float64s(auxDataScores)
+		var medianScore float32
 		if length%2 == 0 {
-			record.MedianScore = float32((auxDataScores[length/2-1] + auxDataScores[length/2]) / 2)
+			medianScore = float32((auxDataScores[length/2-1] + auxDataScores[length/2]) / 2)
 		} else {
-			record.MedianScore = float32(auxDataScores[length/2])
+			medianScore = float32(auxDataScores[length/2])
+		}
+		record.Stats.Score = ScalarStatsRecord{
+			Mean:   meanScore,
+			Median: medianScore,
+			Std:    stdScore,
+			N:      uint32(length),
 		}
 
-		// Same for times
-		record.MeanProcessTime = float32(stat.Mean(auxDataTimes, nil))
-		record.StdProcessTime = float32(stat.StdDev(auxDataTimes, nil))
+		// Times
+		meanTime := float32(stat.Mean(auxDataTimes, nil))
+		stdTime := float32(stat.StdDev(auxDataTimes, nil))
 		sort.Float64s(auxDataTimes)
+		var medianTime float32
 		if length%2 == 0 {
-			record.MedianProcessTime = float32((auxDataTimes[length/2-1] + auxDataTimes[length/2]) / 2)
+			medianTime = float32((auxDataTimes[length/2-1] + auxDataTimes[length/2]) / 2)
 		} else {
-			record.MedianProcessTime = float32(auxDataTimes[length/2])
+			medianTime = float32(auxDataTimes[length/2])
+		}
+		record.Stats.Time = ScalarStatsRecord{
+			Mean:   meanTime,
+			Median: medianTime,
+			Std:    stdTime,
+			N:      uint32(length),
 		}
 	}
+
+	// Calculate the per-position cost statistics. Null (not-informed) values
+	// are skipped independently for every position, so the number of samples
+	// backing each position can differ.
+	record.Stats.Cost.Mean, record.Stats.Cost.Median, record.Stats.Cost.Std, record.Stats.Cost.N = computeVectorStats(auxDataCosts)
+
 	return err
+}
+
+// computeVectorStats computes, for every position of the input vectors, the
+// mean, median and standard deviation, plus the number of samples that backed
+// them (n).
+//
+// Vectors are variable length: a new tracked value is appended at the end
+// (e.g. [A,B,C] today, [A,B,C,D] once a D feature is tracked). The output
+// length is the longest vector observed, and every position is computed
+// independently from the samples that actually carry a value at that position.
+// This way an appended position becomes available as soon as the first sample
+// reports it, without invalidating the positions that already existed.
+//
+// Nil (not informed) entries are skipped per position; a position with no valid
+// value maps to a nil pointer (and n = 0), and a position with a single value
+// has a zero deviation (matching the score/time handling).
+func computeVectorStats(costs [][]*float64) (mean, median, std []*float32, n []uint32) {
+	maxLen := 0
+	for _, cost := range costs {
+		if len(cost) > maxLen {
+			maxLen = len(cost)
+		}
+	}
+
+	mean = make([]*float32, maxLen)
+	median = make([]*float32, maxLen)
+	std = make([]*float32, maxLen)
+	n = make([]uint32, maxLen)
+
+	for position := 0; position < maxLen; position++ {
+		values := make([]float64, 0, len(costs))
+		for _, cost := range costs {
+			if position < len(cost) && cost[position] != nil {
+				values = append(values, *cost[position])
+			}
+		}
+		if len(values) == 0 {
+			continue
+		}
+
+		n[position] = uint32(len(values))
+
+		meanValue := float32(stat.Mean(values, nil))
+		mean[position] = &meanValue
+
+		// Mirror the score/time handling above: a single value has no
+		// deviation. gonum's StdDev is the sample standard deviation (n-1) and
+		// would otherwise return NaN for a single value.
+		if len(values) > 1 {
+			stdValue := float32(stat.StdDev(values, nil))
+			std[position] = &stdValue
+		} else {
+			zero := float32(0)
+			std[position] = &zero
+		}
+
+		sort.Float64s(values)
+		var medianValue float32
+		if len(values)%2 == 0 {
+			medianValue = float32((values[len(values)/2-1] + values[len(values)/2]) / 2)
+		} else {
+			medianValue = float32(values[len(values)/2])
+		}
+		median[position] = &medianValue
+	}
+
+	return mean, median, std, n
 }
 
 // Gets the sample index given a step direction (positive: 1 or negative: -1) and for a given marker (start or end of buffer)
@@ -982,6 +1100,7 @@ func (record *NumericalTaskRecord) InsertSample(timeSample time.Time, data inter
 		record.ScoresSamples[record.CircBuffer.Indexes.End].RunTime = dataOk.RunTime
 		record.ScoresSamples[record.CircBuffer.Indexes.End].StatusCode = dataOk.StatusCode
 		record.ScoresSamples[record.CircBuffer.Indexes.End].ErrorString = dataOk.ErrorString
+		record.ScoresSamples[record.CircBuffer.Indexes.End].Cost = dataOk.Cost
 		record.CircBuffer.Times[record.CircBuffer.Indexes.End] = timeSample
 	}
 	if dataOk.StatusCode == pocket.RelayResponseCodes.Ok {

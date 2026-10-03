@@ -28,6 +28,7 @@ from temporalio.exceptions import ApplicationError
 
 from packages.python.common.mongodb import MongoClient
 from packages.python.lmeh.pocket_lm_eval.tasks import PocketNetworkTaskManager
+from packages.python.lmeh.utils.cost_stats import extract_cost
 from packages.python.lmeh.utils.mongodb import MongoOperator
 from packages.python.protocol.protocol import (
     NumericSample,
@@ -689,6 +690,8 @@ async def evaluate(
                         id=instance["id"],
                         status_code=instance["code"],
                         error_str=instance["error"],
+                        # Failed samples have no LLM response, hence no cost.
+                        cost=[],
                     )
                     scores.append(numericSample)
 
@@ -898,14 +901,19 @@ async def evaluate(
                 # but the number of metrics and the number of request do not
                 # follow a logic, one request can have multiple metrics and
                 # multiple requests can have a single metric.
+                # Cost of evaluating this sample: [prompt_tokens,
+                # completion_tokens, cached_tokens]; cached_tokens is None when
+                # the backend does not inform it.
+                sample_cost = extract_cost(requests)
                 for metric in selected_metrics:
-                    if metric in metrics.keys():
+                    if metric in metrics:
                         numericSample = NumericSample(
                             score=example[metric],
                             run_time=total_ms,
                             id=doc_id_true,
                             status_code=0,
                             error_str="",
+                            cost=sample_cost,
                         )
                         scores.append(numericSample)
                     else:
@@ -922,6 +930,8 @@ async def evaluate(
                 id=instance["id"],
                 status_code=instance["code"],
                 error_str=instance["error"],
+                # Failed samples have no LLM response, hence no cost.
+                cost=[],
             )
             scores.append(numericSample)
 

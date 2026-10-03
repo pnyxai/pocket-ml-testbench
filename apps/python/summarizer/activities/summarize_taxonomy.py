@@ -5,11 +5,15 @@ from pymongo import ReturnDocument
 from temporalio import activity
 from packages.python.common.auto_heartbeater import auto_heartbeater
 from app.app import get_app_logger, get_app_config
+from packages.python.lmeh.utils.cost_stats import (
+    ScalarStatsAccumulator,
+    VectorStatsAccumulator,
+)
 from packages.python.lmeh.utils.mongodb import MongoOperator
 from packages.python.protocol.protocol import PocketNetworkTaxonomySummaryTaskRequest
 from packages.python.protocol.protocol import PocketNetworkMongoDBTaxonomySummary
+from packages.python.protocol.protocol import ScalarStats, TaskStats, VectorStats
 from packages.python.protocol.protocol import TaxonomyNodeSummary
-import numpy as np
 from temporalio.exceptions import ApplicationError
 from bson import ObjectId
 
@@ -46,12 +50,9 @@ async def summarize_taxonomy(
     # Fill with taxonomy nodes
     valid_node_data = False
     for node in taxonomy_graph.nodes:
-        running_score_total = 0
-        running_score_square_dev = 0
-        running_time_total = 0
-        running_time_square_dev = 0
-        runnning_n = 0
-        sample_min = np.inf
+        score_acc = ScalarStatsAccumulator()
+        time_acc = ScalarStatsAccumulator()
+        cost_acc = VectorStatsAccumulator()
         if node == "root_c":
             continue
         for dataset in taxonomy_graph.nodes[node]["datasets"]:
@@ -81,40 +82,65 @@ async def summarize_taxonomy(
 
             # Data
             this_result = docs[0]
+            stats = this_result.get("stats") or {}
+            score = stats.get("score") or {}
+            time = stats.get("time") or {}
+            cost = stats.get("cost") or {}
 
-            # Get number of samples here
-            samples_here = int(this_result["samples"] * (1 - this_result["error_rate"]))
-            if samples_here == 0:
-                # No valid samples to calculate
+            # Number of valid samples backing the scalar statistics. No valid
+            # samples means there is nothing to aggregate for this dataset.
+            n_score = int(score.get("n") or 0)
+            if n_score == 0:
                 continue
-            # Track minimum in this node (used for later check of sample coverage)
-            if sample_min > samples_here:
-                sample_min = samples_here
-            # Calculate the partial score
-            running_score_total += this_result["mean_scores"]
-            mean_dev_here = this_result["std_scores"] / np.sqrt(samples_here)
-            running_score_square_dev += mean_dev_here**2
-            # Calculate the partial times
-            running_time_total += this_result["mean_times"]
-            mean_dev_here = this_result["std_times"] / np.sqrt(samples_here)
-            running_time_square_dev += mean_dev_here**2
-            # Track mean samples
-            runnning_n += 1
+
+            # Scores (the sample count is adjusted via the per-field `n`).
+            score_acc.add_mean(score.get("mean"))
+            score_acc.add_median(score.get("median"))
+            score_acc.add_sem(score.get("std"), n_score)
+            score_acc.add_min(n_score)
+
+            # Times
+            n_time = int(time.get("n") or 0)
+            time_acc.add_mean(time.get("mean"))
+            time_acc.add_median(time.get("median"))
+            time_acc.add_sem(time.get("std"), n_time)
+            time_acc.add_min(n_time)
+
+            # Cost (per position, skipping not-informed values). Each position
+            # uses its own sample count for the standard error.
+            cost_acc.add_mean(cost.get("mean") or [])
+            cost_acc.add_median(cost.get("median") or [])
+            cost_acc.add_sem(cost.get("std") or [], cost.get("n") or [])
+            cost_acc.add_min(cost.get("n") or [])
 
         # Fill node metrics
-        if runnning_n > 0:
+        if score_acc.n() > 0:
             result.taxonomy_nodes_scores[node] = TaxonomyNodeSummary(
-                score=running_score_total / runnning_n,
-                score_dev=np.sqrt(running_score_square_dev),
-                run_time=running_time_total / runnning_n,
-                run_time_dev=np.sqrt(running_time_square_dev),
-                sample_min=sample_min,
+                stats=TaskStats(
+                    score=ScalarStats(
+                        mean=score_acc.mean(),
+                        median=score_acc.median(),
+                        std=score_acc.std(),
+                        n=score_acc.n(),
+                    ),
+                    time=ScalarStats(
+                        mean=time_acc.mean(),
+                        median=time_acc.median(),
+                        std=time_acc.std(),
+                        n=time_acc.n(),
+                    ),
+                    cost=VectorStats(
+                        mean=cost_acc.mean(),
+                        median=cost_acc.median(),
+                        std=cost_acc.std(),
+                        n=cost_acc.n(),
+                    ),
+                ),
+                sample_min=score_acc.n(),
             )
             valid_node_data = True
         else:
-            result.taxonomy_nodes_scores[node] = TaxonomyNodeSummary(
-                score=0, score_dev=0, run_time=0, run_time_dev=0, sample_min=0
-            )
+            result.taxonomy_nodes_scores[node] = TaxonomyNodeSummary()
 
     if not valid_node_data:
         summary_logger.debug(
@@ -123,33 +149,52 @@ async def summarize_taxonomy(
         return True, "No data to summarize"
 
     # Calculate root (grand average)
-    running_score_total = 0
-    running_score_square_dev = 0
-    running_time_total = 0
-    running_time_square_dev = 0
-    runnning_n = 0
-    sample_min = np.inf
+    score_acc = ScalarStatsAccumulator()
+    time_acc = ScalarStatsAccumulator()
+    cost_acc = VectorStatsAccumulator()
     for edge in taxonomy_graph.edges("root_c"):
         assert "root_c" == edge[0]  # Otherwise the taxonomy is malformed
+        node_stats = result.taxonomy_nodes_scores[edge[1]].stats
 
-        running_score_total += result.taxonomy_nodes_scores[edge[1]].score
-        running_score_square_dev += result.taxonomy_nodes_scores[edge[1]].score_dev ** 2
+        score_acc.add_mean(node_stats.score.mean)
+        score_acc.add_median(node_stats.score.median)
+        score_acc.add_sem(node_stats.score.std, 1)
+        score_acc.add_min(node_stats.score.n)
 
-        running_time_total += result.taxonomy_nodes_scores[edge[1]].run_time
-        running_time_square_dev += (
-            result.taxonomy_nodes_scores[edge[1]].run_time_dev ** 2
-        )
+        time_acc.add_mean(node_stats.time.mean)
+        time_acc.add_median(node_stats.time.median)
+        time_acc.add_sem(node_stats.time.std, 1)
+        time_acc.add_min(node_stats.time.n)
 
-        runnning_n += 1
-        if sample_min > result.taxonomy_nodes_scores[edge[1]].sample_min:
-            sample_min = result.taxonomy_nodes_scores[edge[1]].sample_min
+        # Combine child costs element-wise (n=1 mirrors the score deviation
+        # aggregation above, i.e. sqrt(sum(child_std ** 2))).
+        cost_acc.add_mean(node_stats.cost.mean)
+        cost_acc.add_median(node_stats.cost.median)
+        cost_acc.add_sem(node_stats.cost.std, 1)
+        cost_acc.add_min(node_stats.cost.n)
 
     result.taxonomy_nodes_scores["root_c"] = TaxonomyNodeSummary(
-        score=running_score_total / runnning_n,
-        score_dev=np.sqrt(running_score_square_dev),
-        run_time=running_time_total / runnning_n,
-        run_time_dev=np.sqrt(running_time_square_dev),
-        sample_min=sample_min,
+        stats=TaskStats(
+            score=ScalarStats(
+                mean=score_acc.mean(),
+                median=score_acc.median(),
+                std=score_acc.std(),
+                n=score_acc.n(),
+            ),
+            time=ScalarStats(
+                mean=time_acc.mean(),
+                median=time_acc.median(),
+                std=time_acc.std(),
+                n=time_acc.n(),
+            ),
+            cost=VectorStats(
+                mean=cost_acc.mean(),
+                median=cost_acc.median(),
+                std=cost_acc.std(),
+                n=cost_acc.n(),
+            ),
+        ),
+        sample_min=score_acc.n(),
     )
 
     # Save result to mongo
