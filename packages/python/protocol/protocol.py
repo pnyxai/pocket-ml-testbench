@@ -555,6 +555,7 @@ class PocketNetworkEvaluationTaskRequest(PocketNetworkTaskRequest):
 class CompletionTokenUsageInfo(OpenAIBaseModel):
     reasoning_tokens: int = 0
 
+
 class PromptTokenUsageInfo(OpenAIBaseModel):
     cached_tokens: int | None = None
     created_cache_tokens: int | None = None
@@ -563,6 +564,7 @@ class PromptTokenUsageInfo(OpenAIBaseModel):
     (e.g. `image`, `audio`, `video`). A breakdown of the multimodal
     placeholder tokens already counted in `prompt_tokens`; `None` when the
     request has no multimodal input."""
+
 
 class UsageInfo(OpenAIBaseModel):
     prompt_tokens: int = 0
@@ -725,6 +727,7 @@ class ChatCompletionResponse(OpenAIBaseModel):
     usage: UsageInfo
     # vLLM-specific fields that are not in OpenAI spec
     prompt_logprobs: list[dict[int, Logprob] | None] | None = None
+
 
 ###########
 # RESPONSES

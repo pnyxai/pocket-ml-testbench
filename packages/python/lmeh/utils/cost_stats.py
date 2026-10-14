@@ -261,8 +261,6 @@ class VectorStatsAccumulator:
 
     def n(self) -> list[int]:
         return [
-            self._min_n[position]
-            if self._min_n[position] is not None
-            else 0
+            self._min_n[position] if self._min_n[position] is not None else 0
             for position in range(self._length)
         ]
