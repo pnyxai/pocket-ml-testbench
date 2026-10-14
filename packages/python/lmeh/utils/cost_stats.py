@@ -37,25 +37,29 @@ def extract_cost(requests: Iterable) -> StatVector:
     """Build the cost vector of a single sample from its (possibly repeated)
     responses.
 
-    ``prompt_tokens`` and ``completion_tokens`` are summed across every request
-    exposing a ``resp.usage``. The cached token count (index ``2``) is summed
-    only when *every* contributing request informs
-    ``usage.prompt_tokens_details.cached_tokens``; if any request does not
-    report it, the sample cached value is ``None`` (i.e. "not informed").
+    Each position is the **mean** over the responses that inform it, so a doc
+    with several requests contributes one representative value per position:
+
+    - ``prompt_tokens`` and ``completion_tokens`` are averaged over every
+      request exposing a ``resp.usage``.
+    - ``cached_tokens`` (index ``2``) is averaged over the requests that report
+      ``usage.prompt_tokens_details.cached_tokens``. Requests that do not report
+      it are simply excluded from that average, so partial information is kept
+      instead of discarding the whole position.
 
     Returns an empty list when no request exposes usage information.
     """
     prompt_tokens = 0.0
     completion_tokens = 0.0
     cached_tokens = 0.0
-    found_usage = False
-    all_cached_informed = True
+    usage_count = 0
+    cached_count = 0
 
     for req in requests:
         usage = getattr(getattr(req, "resp", None), "usage", None)
         if usage is None:
             continue
-        found_usage = True
+        usage_count += 1
         prompt_tokens += float(getattr(usage, "prompt_tokens", 0) or 0)
         completion_tokens += float(getattr(usage, "completion_tokens", 0) or 0)
 
@@ -63,18 +67,20 @@ def extract_cost(requests: Iterable) -> StatVector:
         cached = (
             getattr(details, "cached_tokens", None) if details is not None else None
         )
-        if cached is None:
-            all_cached_informed = False
-        else:
+        if cached is not None:
             cached_tokens += float(cached)
+            cached_count += 1
 
-    if not found_usage:
+    if usage_count == 0:
         return []
 
-    if not all_cached_informed:
-        return [prompt_tokens, completion_tokens, None]
+    mean_cached = cached_tokens / cached_count if cached_count > 0 else None
 
-    return [prompt_tokens, completion_tokens, cached_tokens]
+    return [
+        prompt_tokens / usage_count,
+        completion_tokens / usage_count,
+        mean_cached,
+    ]
 
 
 class ScalarStatsAccumulator:

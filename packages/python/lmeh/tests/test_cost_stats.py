@@ -33,11 +33,21 @@ class ExtractCostTest(unittest.TestCase):
 
     def test_multiple_requests_all_informed(self):
         requests = [make_request(10, 20, cached=1), make_request(30, 40, cached=2)]
-        self.assertEqual(extract_cost(requests), [40.0, 60.0, 3.0])
+        self.assertEqual(extract_cost(requests), [20.0, 30.0, 1.5])
 
     def test_multiple_requests_some_not_informed(self):
+        # cached_tokens averages only over the requests that report it, so
+        # partial information is kept instead of dropping the whole position.
         requests = [make_request(10, 20, cached=1), make_request(30, 40)]
-        self.assertEqual(extract_cost(requests), [40.0, 60.0, None])
+        self.assertEqual(extract_cost(requests), [20.0, 30.0, 1.0])
+
+    def test_multiple_requests_partial_cached_mean_over_reported(self):
+        requests = [
+            make_request(10, 20, cached=2),
+            make_request(30, 40),
+            make_request(50, 60, cached=4),
+        ]
+        self.assertEqual(extract_cost(requests), [30.0, 40.0, 3.0])
 
     def test_multiple_requests_no_usage_returns_empty(self):
         requests = [SimpleNamespace(resp=SimpleNamespace())]
