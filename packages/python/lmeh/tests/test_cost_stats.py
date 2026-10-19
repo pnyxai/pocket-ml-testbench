@@ -54,86 +54,103 @@ class ExtractCostTest(unittest.TestCase):
         self.assertEqual(extract_cost(requests), [])
 
 
-class VectorStatsAccumulatorTest(unittest.TestCase):
-    def test_mean_skips_none_per_position(self):
-        # Example from the specification.
-        acc = VectorStatsAccumulator()
-        acc.add_mean([1, 2, None])
-        acc.add_mean([4, 5, 6])
-        acc.add_mean([7, 8, 9])
-        self.assertEqual(acc.mean(), [4.0, 5.0, 7.5])
-
-    def test_all_none_position_is_none(self):
-        acc = VectorStatsAccumulator()
-        acc.add_mean([None, 2])
-        acc.add_mean([None, 4])
-        self.assertEqual(acc.mean(), [None, 3.0])
-
-    def test_empty_is_empty(self):
-        acc = VectorStatsAccumulator()
-        self.assertEqual(acc.mean(), [])
-        self.assertEqual(acc.median(), [])
-        self.assertEqual(acc.std(), [])
-        self.assertEqual(acc.n(), [])
-
-    def test_appended_position_uses_only_samples_reporting_it(self):
-        # A future feature appends a 4th position; only some samples report it.
-        acc = VectorStatsAccumulator()
-        acc.add_mean([1, 2, 3])
-        acc.add_mean([1, 2, 3])
-        acc.add_mean([1, 2, 3, 10])
-        acc.add_mean([1, 2, 3, 20])
-        self.assertEqual(acc.mean(), [1.0, 2.0, 3.0, 15.0])
-
-    def test_median_is_mean_of_medians(self):
-        acc = VectorStatsAccumulator()
-        acc.add_median([2.0, 4.0])
-        acc.add_median([4.0, None])
-        self.assertEqual(acc.median(), [3.0, 4.0])
-
-    def test_sem_uses_per_position_n(self):
-        acc = VectorStatsAccumulator()
-        acc.add_sem([2.0, 6.0], [4, 9])  # (2/2)^2=1 ; (6/3)^2=4
-        acc.add_sem([3.0, None], [1, 0])  # (3/1)^2=9
-        self.assertAlmostEqual(acc.std()[0], sqrt(10.0))
-        self.assertAlmostEqual(acc.std()[1], 2.0)
-
-    def test_sem_accepts_scalar_n(self):
-        acc = VectorStatsAccumulator()
-        acc.add_sem([2.0, 3.0], 4)  # both positions use n=4
-        self.assertAlmostEqual(acc.std()[0], 1.0)
-        self.assertAlmostEqual(acc.std()[1], 1.5)
-
-    def test_n_is_min_per_position(self):
-        acc = VectorStatsAccumulator()
-        acc.add_min([3, 5])
-        acc.add_min([2, 9])
-        acc.add_min([4, 1])
-        self.assertEqual(acc.n(), [2, 1])
-
-
 class ScalarStatsAccumulatorTest(unittest.TestCase):
     def test_empty_defaults(self):
         acc = ScalarStatsAccumulator()
         self.assertEqual(acc.mean(), 0.0)
         self.assertEqual(acc.median(), 0.0)
-        self.assertEqual(acc.std(), 0.0)
+        self.assertEqual(acc.se(), 0.0)
+        self.assertEqual(acc.v_eff(), 0.0)
         self.assertEqual(acc.n(), 0)
 
-    def test_mean_median_sem_and_min(self):
+    def test_single_group(self):
         acc = ScalarStatsAccumulator()
-        acc.add_mean(1.0)
-        acc.add_mean(3.0)
-        acc.add_median(2.0)
-        acc.add_median(4.0)
-        acc.add_sem(2.0, 4)  # (2/2)^2 = 1
-        acc.add_sem(3.0, 9)  # (3/3)^2 = 1
-        acc.add_min(10)
-        acc.add_min(5)
+        acc.add(mean=1.0, median=1.0, se=0.5, n=4, df=3)
+        self.assertEqual(acc.mean(), 1.0)
+        self.assertEqual(acc.median(), 1.0)
+        self.assertAlmostEqual(acc.se(), 0.5)  # sqrt(se^2) / K = 0.5 / 1
+        self.assertAlmostEqual(acc.v_eff(), 3.0)  # single group -> n - 1
+        self.assertEqual(acc.n(), 4)
+
+    def test_mean_and_median_are_averages(self):
+        acc = ScalarStatsAccumulator()
+        acc.add(mean=1.0, median=2.0, se=1.0, n=4, df=3)
+        acc.add(mean=3.0, median=4.0, se=1.0, n=4, df=3)
         self.assertEqual(acc.mean(), 2.0)
         self.assertEqual(acc.median(), 3.0)
-        self.assertAlmostEqual(acc.std(), sqrt(2.0))
+
+    def test_se_is_standard_error_of_the_mean(self):
+        acc = ScalarStatsAccumulator()
+        acc.add(mean=1.0, median=1.0, se=1.0, n=4, df=3)
+        acc.add(mean=3.0, median=3.0, se=1.0, n=4, df=3)
+        # V_total = 2, K = 2 -> sqrt(2) / 2
+        self.assertAlmostEqual(acc.se(), sqrt(2.0) / 2.0)
+        # Welch-Satterthwaite: 2^2 / (1/3 + 1/3) = 6
+        self.assertAlmostEqual(acc.v_eff(), 6.0)
+
+    def test_welch_excludes_non_positive_df(self):
+        acc = ScalarStatsAccumulator()
+        # n=1 group has se=0 and no degrees of freedom: it counts for the mean
+        # but not for the Welch-Satterthwaite denominator.
+        acc.add(mean=1.0, median=1.0, se=0.0, n=1, df=0)
+        acc.add(mean=1.0, median=1.0, se=1.0, n=4, df=3)
+        self.assertAlmostEqual(acc.se(), 1.0 / 2.0)
+        self.assertAlmostEqual(acc.v_eff(), 3.0)
+
+    def test_n_is_min_coverage(self):
+        acc = ScalarStatsAccumulator()
+        acc.add(mean=1.0, median=1.0, se=1.0, n=10, df=9)
+        acc.add(mean=1.0, median=1.0, se=1.0, n=5, df=4)
         self.assertEqual(acc.n(), 5)
+
+
+class VectorStatsAccumulatorTest(unittest.TestCase):
+    def test_empty(self):
+        acc = VectorStatsAccumulator()
+        self.assertEqual(acc.mean(), [])
+        self.assertEqual(acc.median(), [])
+        self.assertEqual(acc.se(), [])
+        self.assertEqual(acc.v_eff(), [])
+
+    def test_mean_and_median_skip_none(self):
+        acc = VectorStatsAccumulator()
+        acc.add([1, 2, None], [1, 2, None], [0, 0, None], [3, 3, 0])
+        acc.add([4, 5, 6], [4, 5, 6], [0, 0, 0], [3, 3, 3])
+        acc.add([7, 8, 9], [7, 8, 9], [0, 0, 0], [3, 3, 3])
+        self.assertEqual(acc.mean(), [4.0, 5.0, 7.5])
+        self.assertEqual(acc.median(), [4.0, 5.0, 7.5])
+
+    def test_se_and_v_eff_per_position(self):
+        acc = VectorStatsAccumulator()
+        acc.add([1, 1], [1, 1], [1, 2], [3, 3])
+        acc.add([3, 3], [3, 3], [1, 2], [3, 3])
+        # pos0: V_total=2, K=2 -> sqrt(2)/2 ; v_eff=4/(1/3+1/3)=6
+        # pos1: V_total=8, K=2 -> sqrt(8)/2 ; v_eff=64/(16/3+16/3)=6
+        self.assertAlmostEqual(acc.se()[0], sqrt(2.0) / 2.0)
+        self.assertAlmostEqual(acc.se()[1], sqrt(8.0) / 2.0)
+        self.assertAlmostEqual(acc.v_eff()[0], 6.0)
+        self.assertAlmostEqual(acc.v_eff()[1], 6.0)
+
+    def test_appended_position_uses_only_samples_reporting_it(self):
+        acc = VectorStatsAccumulator()
+        acc.add([1, 2, 3], [1, 2, 3], [0, 0, 0], [3, 3, 3])
+        acc.add([1, 2, 3, 10], [1, 2, 3, 10], [0, 0, 0, 0], [3, 3, 3, 3])
+        self.assertEqual(acc.mean(), [1.0, 2.0, 3.0, 10.0])
+
+    def test_all_none_position_is_none(self):
+        acc = VectorStatsAccumulator()
+        acc.add([None, 2], [None, 2], [None, 1], [0, 3])
+        acc.add([None, 4], [None, 4], [None, 1], [0, 3])
+        self.assertEqual(acc.mean(), [None, 3.0])
+        self.assertEqual(acc.se()[0], None)
+        self.assertEqual(acc.v_eff()[0], None)
+
+    def test_v_eff_zero_when_no_degrees_of_freedom(self):
+        acc = VectorStatsAccumulator()
+        acc.add([1], [1], [0], [0])
+        self.assertEqual(acc.mean(), [1.0])
+        self.assertEqual(acc.se(), [0.0])
+        self.assertEqual(acc.v_eff(), [0.0])
 
 
 if __name__ == "__main__":

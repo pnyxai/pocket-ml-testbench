@@ -9,6 +9,7 @@ from packages.python.protocol.protocol import PocketNetworkSupplierSnapshotTaskR
 from packages.python.protocol.protocol import PocketNetworkMongoDBSupplierSnapshot
 from packages.python.protocol.protocol import (
     NumericSampleSnapshot,
+    RawTaskStats,
     TaskStats,
     TaxonomyNodeSummary,
 )
@@ -41,7 +42,9 @@ async def supplier_snapshot(
         tasks_dict[doc["task"]] = NumericSampleSnapshot(
             error_rate=doc["error_rate"],
             num_samples=doc["num_samples"],
-            stats=TaskStats(**(doc.get("stats") or {})),
+            # Keep the raw buffer statistics verbatim so taxonomy summaries can
+            # be recomputed offline.
+            stats=RawTaskStats(**(doc.get("stats") or {})),
         )
 
     # Get all taxonomy data

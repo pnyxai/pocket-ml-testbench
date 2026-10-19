@@ -1,5 +1,6 @@
 from typing import Tuple
 from datetime import datetime
+from math import sqrt
 
 from pymongo import ReturnDocument
 from temporalio import activity
@@ -93,25 +94,46 @@ async def summarize_taxonomy(
             if n_score == 0:
                 continue
 
-            # Scores (the sample count is adjusted via the per-field `n`).
-            score_acc.add_mean(score.get("mean"))
-            score_acc.add_median(score.get("median"))
-            score_acc.add_sem(score.get("std"), n_score)
-            score_acc.add_min(n_score)
+            # Scores. A dataset's standard error is std / sqrt(n), with n - 1
+            # degrees of freedom.
+            score_acc.add(
+                score.get("mean"),
+                score.get("median"),
+                float(score.get("std") or 0.0) / sqrt(n_score),
+                n_score,
+                n_score - 1,
+            )
 
             # Times
             n_time = int(time.get("n") or 0)
-            time_acc.add_mean(time.get("mean"))
-            time_acc.add_median(time.get("median"))
-            time_acc.add_sem(time.get("std"), n_time)
-            time_acc.add_min(n_time)
+            if n_time > 0:
+                time_acc.add(
+                    time.get("mean"),
+                    time.get("median"),
+                    float(time.get("std") or 0.0) / sqrt(n_time),
+                    n_time,
+                    n_time - 1,
+                )
 
             # Cost (per position, skipping not-informed values). Each position
-            # uses its own sample count for the standard error.
-            cost_acc.add_mean(cost.get("mean") or [])
-            cost_acc.add_median(cost.get("median") or [])
-            cost_acc.add_sem(cost.get("std") or [], cost.get("n") or [])
-            cost_acc.add_min(cost.get("n") or [])
+            # has its own standard error and degrees of freedom.
+            cost_mean = cost.get("mean") or []
+            cost_median = cost.get("median") or []
+            cost_std = cost.get("std") or []
+            cost_n = cost.get("n") or []
+            cost_len = max(len(cost_mean), len(cost_median), len(cost_std), len(cost_n))
+            cost_se = []
+            cost_df = []
+            for position in range(cost_len):
+                n_pos = cost_n[position] if position < len(cost_n) else 0
+                std_pos = cost_std[position] if position < len(cost_std) else None
+                if n_pos and n_pos > 0 and std_pos is not None:
+                    cost_se.append(float(std_pos) / sqrt(n_pos))
+                    cost_df.append(n_pos - 1)
+                else:
+                    cost_se.append(None)
+                    cost_df.append(0)
+            cost_acc.add(cost_mean, cost_median, cost_se, cost_df)
 
         # Fill node metrics
         if score_acc.n() > 0:
@@ -120,20 +142,20 @@ async def summarize_taxonomy(
                     score=ScalarStats(
                         mean=score_acc.mean(),
                         median=score_acc.median(),
-                        std=score_acc.std(),
-                        n=score_acc.n(),
+                        se=score_acc.se(),
+                        v_eff=score_acc.v_eff(),
                     ),
                     time=ScalarStats(
                         mean=time_acc.mean(),
                         median=time_acc.median(),
-                        std=time_acc.std(),
-                        n=time_acc.n(),
+                        se=time_acc.se(),
+                        v_eff=time_acc.v_eff(),
                     ),
                     cost=VectorStats(
                         mean=cost_acc.mean(),
                         median=cost_acc.median(),
-                        std=cost_acc.std(),
-                        n=cost_acc.n(),
+                        se=cost_acc.se(),
+                        v_eff=cost_acc.v_eff(),
                     ),
                 ),
                 sample_min=score_acc.n(),
@@ -148,50 +170,58 @@ async def summarize_taxonomy(
         )
         return True, "No data to summarize"
 
-    # Calculate root (grand average)
+    # Calculate root (grand average) from its direct children. Children without
+    # any data (sample_min == 0) do not contribute to the mean or its error.
     score_acc = ScalarStatsAccumulator()
     time_acc = ScalarStatsAccumulator()
     cost_acc = VectorStatsAccumulator()
     for edge in taxonomy_graph.edges("root_c"):
         assert "root_c" == edge[0]  # Otherwise the taxonomy is malformed
-        node_stats = result.taxonomy_nodes_scores[edge[1]].stats
+        child = result.taxonomy_nodes_scores[edge[1]]
+        if child.sample_min == 0:
+            continue
+        node_stats = child.stats
 
-        score_acc.add_mean(node_stats.score.mean)
-        score_acc.add_median(node_stats.score.median)
-        score_acc.add_sem(node_stats.score.std, 1)
-        score_acc.add_min(node_stats.score.n)
-
-        time_acc.add_mean(node_stats.time.mean)
-        time_acc.add_median(node_stats.time.median)
-        time_acc.add_sem(node_stats.time.std, 1)
-        time_acc.add_min(node_stats.time.n)
-
-        # Combine child costs element-wise (n=1 mirrors the score deviation
-        # aggregation above, i.e. sqrt(sum(child_std ** 2))).
-        cost_acc.add_mean(node_stats.cost.mean)
-        cost_acc.add_median(node_stats.cost.median)
-        cost_acc.add_sem(node_stats.cost.std, 1)
-        cost_acc.add_min(node_stats.cost.n)
+        score_acc.add(
+            node_stats.score.mean,
+            node_stats.score.median,
+            node_stats.score.se,
+            child.sample_min,
+            node_stats.score.v_eff,
+        )
+        time_acc.add(
+            node_stats.time.mean,
+            node_stats.time.median,
+            node_stats.time.se,
+            child.sample_min,
+            node_stats.time.v_eff,
+        )
+        cost_acc.add(
+            node_stats.cost.mean,
+            node_stats.cost.median,
+            node_stats.cost.se,
+            node_stats.cost.v_eff,
+        )
 
     result.taxonomy_nodes_scores["root_c"] = TaxonomyNodeSummary(
         stats=TaskStats(
             score=ScalarStats(
                 mean=score_acc.mean(),
                 median=score_acc.median(),
-                std=score_acc.std(),
-                n=score_acc.n(),
+                se=score_acc.se(),
+                v_eff=score_acc.v_eff(),
             ),
             time=ScalarStats(
                 mean=time_acc.mean(),
                 median=time_acc.median(),
-                std=time_acc.std(),
-                n=time_acc.n(),
+                se=time_acc.se(),
+                v_eff=time_acc.v_eff(),
             ),
             cost=VectorStats(
                 mean=cost_acc.mean(),
                 median=cost_acc.median(),
-                std=cost_acc.std(),
-                n=cost_acc.n(),
+                se=cost_acc.se(),
+                v_eff=cost_acc.v_eff(),
             ),
         ),
         sample_min=score_acc.n(),

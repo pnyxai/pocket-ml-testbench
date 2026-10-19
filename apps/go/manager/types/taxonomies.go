@@ -6,20 +6,23 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-// TaxonomyScalarStats mirrors ScalarStatsRecord on the summarizer side.
+// TaxonomyScalarStats holds the aggregated statistics of a taxonomy node.
+// SE is the standard error of the reported (unweighted) mean and VEff is the
+// Welch-Satterthwaite effective degrees of freedom.
 type TaxonomyScalarStats struct {
 	Mean   float64 `bson:"mean"`
 	Median float64 `bson:"median"`
-	Std    float64 `bson:"std"`
-	N      int64   `bson:"n"`
+	SE     float64 `bson:"se"`
+	VEff   float64 `bson:"v_eff"`
 }
 
-// TaxonomyVectorStats mirrors VectorStatsRecord on the summarizer side.
+// TaxonomyVectorStats holds the aggregated per-position statistics of a
+// taxonomy node. See TaxonomyScalarStats for the SE/VEff semantics.
 type TaxonomyVectorStats struct {
 	Mean   []*float64 `bson:"mean"`
 	Median []*float64 `bson:"median"`
-	Std    []*float64 `bson:"std"`
-	N      []int64    `bson:"n"`
+	SE     []*float64 `bson:"se"`
+	VEff   []*float64 `bson:"v_eff"`
 }
 
 // TaxonomyStats groups the aggregated statistics of a taxonomy node.

@@ -22,16 +22,6 @@ from math import sqrt
 
 StatVector = list[float | None]
 
-NumberOrVector = int | Sequence[int] | None
-
-
-def _as_vector(value: NumberOrVector) -> list[int]:
-    if value is None:
-        return []
-    if isinstance(value, int):
-        return [value]
-    return list(value)
-
 
 def extract_cost(requests: Iterable) -> StatVector:
     """Build the cost vector of a single sample from its (possibly repeated)
@@ -83,13 +73,28 @@ def extract_cost(requests: Iterable) -> StatVector:
     ]
 
 
+def _at(values: Sequence[float | None] | None, position: int):
+    if values is None or position >= len(values):
+        return None
+    return values[position]
+
+
 class ScalarStatsAccumulator:
-    """Combines the scalar statistics of several datasets/children.
+    """Combines the scalar statistics of several groups (datasets/children).
+
+    For each group ``i`` we receive its ``mean``, ``median``, its standard error
+    ``se_i`` and the degrees of freedom ``df_i`` associated with that error.
+    Datasets use ``se_i = std_i / sqrt(n_i)`` and ``df_i = n_i - 1``; when
+    combining already-aggregated children (``root_c``), the child's ``se`` and
+    ``v_eff`` are passed instead.
 
     - ``mean``/``median`` are the arithmetic mean of the incoming values.
-    - ``std`` combines the incoming standard errors of the mean, i.e.
-      ``sqrt(sum((std_i / sqrt(n_i)) ** 2))``.
-    - ``n`` is the minimum ``n_i`` (coverage).
+    - ``se`` is the standard error of that (unweighted) mean:
+      ``sqrt(sum(V_i)) / K`` with ``V_i = se_i ** 2`` and ``K`` the number of
+      groups.
+    - ``v_eff`` is the Welch-Satterthwaite effective degrees of freedom:
+      ``(sum(V_i)) ** 2 / sum(V_i ** 2 / df_i)``.
+    - ``n`` is the minimum ``n_i`` (coverage), used for ``sample_min``.
     """
 
     def __init__(self) -> None:
@@ -97,31 +102,33 @@ class ScalarStatsAccumulator:
         self._mean_count = 0
         self._median_total = 0.0
         self._median_count = 0
-        self._sem_sq_total = 0.0
-        self._sem_count = 0
+        self._v_total = 0.0
+        self._ws_denominator = 0.0
         self._min_n: int | None = None
 
-    def add_mean(self, value: float | None) -> None:
-        if value is None:
+    def add(
+        self,
+        mean: float | None,
+        median: float | None,
+        se: float | None,
+        n: int | None,
+        df: float | None,
+    ) -> None:
+        if mean is None or n is None or n <= 0:
             return
-        self._mean_total += float(value)
+        self._mean_total += float(mean)
         self._mean_count += 1
 
-    def add_median(self, value: float | None) -> None:
-        if value is None:
-            return
-        self._median_total += float(value)
-        self._median_count += 1
+        if median is not None:
+            self._median_total += float(median)
+            self._median_count += 1
 
-    def add_sem(self, std: float | None, n: int | None) -> None:
-        if std is None or n is None or n <= 0:
-            return
-        self._sem_sq_total += (float(std) / sqrt(n)) ** 2
-        self._sem_count += 1
+        if se is not None:
+            variance = float(se) ** 2
+            self._v_total += variance
+            if df is not None and df > 0:
+                self._ws_denominator += (variance**2) / df
 
-    def add_min(self, n: int | None) -> None:
-        if n is None:
-            return
         if self._min_n is None or n < self._min_n:
             self._min_n = n
 
@@ -131,8 +138,14 @@ class ScalarStatsAccumulator:
     def median(self) -> float:
         return self._median_total / self._median_count if self._median_count else 0.0
 
-    def std(self) -> float:
-        return sqrt(self._sem_sq_total) if self._sem_count else 0.0
+    def se(self) -> float:
+        # Standard error of the reported (unweighted) mean.
+        return sqrt(self._v_total) / self._mean_count if self._mean_count else 0.0
+
+    def v_eff(self) -> float:
+        if self._ws_denominator > 0:
+            return (self._v_total**2) / self._ws_denominator
+        return 0.0
 
     def n(self) -> int:
         return self._min_n if self._min_n is not None else 0
@@ -141,9 +154,10 @@ class ScalarStatsAccumulator:
 class VectorStatsAccumulator:
     """Per-position, null-aware combination of vector statistics.
 
-    Follows the same rules as :class:`ScalarStatsAccumulator` but independently
-    for every position. Positions that only ever receive ``None``/absent values
-    yield ``None`` for mean/median/std and ``0`` for ``n``.
+    Follows the same rules as :class:`ScalarStatsAccumulator` independently for
+    every position. ``df`` is provided per position (``n_i - 1`` for datasets,
+    the child's ``v_eff`` for aggregated children). Positions that only ever
+    receive ``None``/absent values yield ``None`` for mean/median/se/v_eff.
     """
 
     def __init__(self) -> None:
@@ -152,9 +166,8 @@ class VectorStatsAccumulator:
         self._mean_count: list[int] = []
         self._median_total: list[float] = []
         self._median_count: list[int] = []
-        self._sem_sq_total: list[float] = []
-        self._sem_count: list[int] = []
-        self._min_n: list[int | None] = []
+        self._v_total: list[float] = []
+        self._ws_denominator: list[float] = []
 
     def _grow(self, size: int) -> None:
         if size <= self._length:
@@ -163,71 +176,41 @@ class VectorStatsAccumulator:
         for lst in (
             self._mean_total,
             self._median_total,
-            self._sem_sq_total,
+            self._v_total,
+            self._ws_denominator,
         ):
             lst.extend([0.0] * (size - len(lst)))
-        for lst in (
-            self._mean_count,
-            self._median_count,
-            self._sem_count,
-        ):
+        for lst in (self._mean_count, self._median_count):
             lst.extend([0] * (size - len(lst)))
-        self._min_n.extend([None] * (size - len(self._min_n)))
 
-    def add_mean(self, vector: Sequence[float | None] | None) -> None:
-        if not vector:
+    def add(
+        self,
+        mean_vector: Sequence[float | None] | None,
+        median_vector: Sequence[float | None] | None,
+        se_vector: Sequence[float | None] | None,
+        df_vector: Sequence[float | None] | None,
+    ) -> None:
+        if not mean_vector:
             return
-        self._grow(len(vector))
-        for position, value in enumerate(vector):
-            if value is None:
+        self._grow(len(mean_vector))
+        for position, mean in enumerate(mean_vector):
+            if mean is None:
                 continue
-            self._mean_total[position] += float(value)
+            self._mean_total[position] += float(mean)
             self._mean_count[position] += 1
 
-    def add_median(self, vector: Sequence[float | None] | None) -> None:
-        if not vector:
-            return
-        self._grow(len(vector))
-        for position, value in enumerate(vector):
-            if value is None:
-                continue
-            self._median_total[position] += float(value)
-            self._median_count[position] += 1
+            median = _at(median_vector, position)
+            if median is not None:
+                self._median_total[position] += float(median)
+                self._median_count[position] += 1
 
-    def add_sem(
-        self,
-        std_vector: Sequence[float | None] | None,
-        n: NumberOrVector,
-    ) -> None:
-        if not std_vector:
-            return
-        self._grow(len(std_vector))
-        n_vector = _as_vector(n)
-        for position, value in enumerate(std_vector):
-            if value is None:
-                continue
-            n_pos = (
-                n
-                if isinstance(n, int)
-                else (n_vector[position] if position < len(n_vector) else 0)
-            )
-            if not n_pos or n_pos <= 0:
-                continue
-            self._sem_sq_total[position] += (float(value) / sqrt(n_pos)) ** 2
-            self._sem_count[position] += 1
-
-    def add_min(self, n: NumberOrVector) -> None:
-        if n is None:
-            return
-        n_vector = _as_vector(n)
-        if not n_vector:
-            return
-        self._grow(len(n_vector))
-        for position, value in enumerate(n_vector):
-            if value is None:
-                continue
-            if self._min_n[position] is None or value < self._min_n[position]:
-                self._min_n[position] = value
+            se = _at(se_vector, position)
+            if se is not None:
+                variance = float(se) ** 2
+                self._v_total[position] += variance
+                df = _at(df_vector, position)
+                if df is not None and df > 0:
+                    self._ws_denominator[position] += (variance**2) / df
 
     def mean(self) -> StatVector:
         return [
@@ -249,18 +232,26 @@ class VectorStatsAccumulator:
             for position in range(self._length)
         ]
 
-    def std(self) -> StatVector:
+    def se(self) -> StatVector:
+        # Standard error of the reported (unweighted) mean, per position.
         return [
             (
-                sqrt(self._sem_sq_total[position])
-                if self._sem_count[position] > 0
+                sqrt(self._v_total[position]) / self._mean_count[position]
+                if self._mean_count[position] > 0
                 else None
             )
             for position in range(self._length)
         ]
 
-    def n(self) -> list[int]:
-        return [
-            self._min_n[position] if self._min_n[position] is not None else 0
-            for position in range(self._length)
-        ]
+    def v_eff(self) -> StatVector:
+        result: StatVector = []
+        for position in range(self._length):
+            if self._ws_denominator[position] > 0:
+                result.append(
+                    (self._v_total[position] ** 2) / self._ws_denominator[position]
+                )
+            elif self._mean_count[position] > 0:
+                result.append(0.0)
+            else:
+                result.append(None)
+        return result

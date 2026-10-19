@@ -883,8 +883,8 @@ class PocketNetworkTaxonomySummaryTaskRequest(BaseModel):
     taxonomy: str
 
 
-class ScalarStats(BaseModel):
-    """Statistics of a scalar-valued metric (e.g. score, time)."""
+class RawScalarStats(BaseModel):
+    """Raw scalar statistics copied from ``buffers_numerical`` (e.g. score, time)."""
 
     mean: float = 0.0
     median: float = 0.0
@@ -892,8 +892,8 @@ class ScalarStats(BaseModel):
     n: int = 0
 
 
-class VectorStats(BaseModel):
-    """Per-position statistics of a vector-valued metric (e.g. cost).
+class RawVectorStats(BaseModel):
+    """Raw per-position statistics copied from ``buffers_numerical`` (e.g. cost).
 
     ``mean``/``median``/``std`` are null-aware per position and ``n`` holds, per
     position, the number of samples backing them.
@@ -905,8 +905,42 @@ class VectorStats(BaseModel):
     n: list[int] = Field(default_factory=list)
 
 
+class RawTaskStats(BaseModel):
+    """Raw grouped statistics of a numerical task (copied from the buffer)."""
+
+    score: RawScalarStats = Field(default_factory=RawScalarStats)
+    time: RawScalarStats = Field(default_factory=RawScalarStats)
+    cost: RawVectorStats = Field(default_factory=RawVectorStats)
+
+
+class ScalarStats(BaseModel):
+    """Aggregated statistics of a scalar-valued metric.
+
+    ``se`` is the standard error of the reported ``mean`` and ``v_eff`` is the
+    effective degrees of freedom (Welch-Satterthwaite).
+    """
+
+    mean: float = 0.0
+    median: float = 0.0
+    se: float = 0.0
+    v_eff: float = 0.0
+
+
+class VectorStats(BaseModel):
+    """Aggregated per-position statistics of a vector-valued metric.
+
+    ``se`` and ``v_eff`` are null-aware per position and follow the same
+    semantics as :class:`ScalarStats`.
+    """
+
+    mean: list[float | None] = Field(default_factory=list)
+    median: list[float | None] = Field(default_factory=list)
+    se: list[float | None] = Field(default_factory=list)
+    v_eff: list[float | None] = Field(default_factory=list)
+
+
 class TaskStats(BaseModel):
-    """Grouped statistics of a numerical task."""
+    """Aggregated grouped statistics of a taxonomy node."""
 
     score: ScalarStats = Field(default_factory=ScalarStats)
     time: ScalarStats = Field(default_factory=ScalarStats)
@@ -960,7 +994,9 @@ class PocketNetworkSupplierSnapshotTaskRequest(BaseModel):
 class NumericSampleSnapshot(BaseModel):
     error_rate: float
     num_samples: int
-    stats: TaskStats = Field(default_factory=TaskStats)
+    # Raw task statistics, kept verbatim from buffers_numerical so the taxonomy
+    # summaries can be recomputed offline.
+    stats: RawTaskStats = Field(default_factory=RawTaskStats)
 
 
 class PocketNetworkMongoDBSupplierSnapshot(BaseModel):
