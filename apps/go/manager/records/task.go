@@ -941,58 +941,8 @@ func (record *NumericalTaskRecord) ProcessData(l *zerolog.Logger) (err error) {
 	}
 
 	// Calculate the score and time statistics, together with their sample count.
-	if length == 0 {
-		record.Stats.Score = ScalarStatsRecord{}
-		record.Stats.Time = ScalarStatsRecord{}
-	} else if length == 1 {
-		start := record.CircBuffer.Indexes.Start
-		record.Stats.Score = ScalarStatsRecord{
-			Mean:   float32(record.ScoresSamples[start].Score),
-			Median: float32(record.ScoresSamples[start].Score),
-			Std:    0,
-			N:      1,
-		}
-		record.Stats.Time = ScalarStatsRecord{
-			Mean:   float32(record.ScoresSamples[start].RunTime),
-			Median: float32(record.ScoresSamples[start].RunTime),
-			Std:    0,
-			N:      1,
-		}
-	} else {
-		// Scores
-		meanScore := float32(stat.Mean(auxDataScores, nil))
-		stdScore := float32(stat.StdDev(auxDataScores, nil))
-		sort.Float64s(auxDataScores)
-		var medianScore float32
-		if length%2 == 0 {
-			medianScore = float32((auxDataScores[length/2-1] + auxDataScores[length/2]) / 2)
-		} else {
-			medianScore = float32(auxDataScores[length/2])
-		}
-		record.Stats.Score = ScalarStatsRecord{
-			Mean:   meanScore,
-			Median: medianScore,
-			Std:    stdScore,
-			N:      uint32(length),
-		}
-
-		// Times
-		meanTime := float32(stat.Mean(auxDataTimes, nil))
-		stdTime := float32(stat.StdDev(auxDataTimes, nil))
-		sort.Float64s(auxDataTimes)
-		var medianTime float32
-		if length%2 == 0 {
-			medianTime = float32((auxDataTimes[length/2-1] + auxDataTimes[length/2]) / 2)
-		} else {
-			medianTime = float32(auxDataTimes[length/2])
-		}
-		record.Stats.Time = ScalarStatsRecord{
-			Mean:   meanTime,
-			Median: medianTime,
-			Std:    stdTime,
-			N:      uint32(length),
-		}
-	}
+	record.Stats.Score = computeScalarStats(auxDataScores)
+	record.Stats.Time = computeScalarStats(auxDataTimes)
 
 	// Calculate the per-position cost statistics. Null (not-informed) values
 	// are skipped independently for every position, so the number of samples
@@ -1000,6 +950,40 @@ func (record *NumericalTaskRecord) ProcessData(l *zerolog.Logger) (err error) {
 	record.Stats.Cost.Mean, record.Stats.Cost.Median, record.Stats.Cost.Std, record.Stats.Cost.N = computeVectorStats(auxDataCosts)
 
 	return err
+}
+
+// computeScalarStats computes the statistics of a scalar-valued metric.
+//
+// It sorts values in place to calculate the median. A single value has a zero
+// deviation because gonum's StdDev is the sample standard deviation (n-1) and
+// returns NaN for a single value.
+func computeScalarStats(values []float64) ScalarStatsRecord {
+	if len(values) == 0 {
+		return ScalarStatsRecord{}
+	}
+
+	meanValue := float32(stat.Mean(values, nil))
+
+	var stdValue float32
+	if len(values) > 1 {
+		stdValue = float32(stat.StdDev(values, nil))
+	}
+
+	sort.Float64s(values)
+
+	var medianValue float32
+	if len(values)%2 == 0 {
+		medianValue = float32((values[len(values)/2-1] + values[len(values)/2]) / 2)
+	} else {
+		medianValue = float32(values[len(values)/2])
+	}
+
+	return ScalarStatsRecord{
+		Mean:   meanValue,
+		Median: medianValue,
+		Std:    stdValue,
+		N:      uint32(len(values)),
+	}
 }
 
 // computeVectorStats computes, for every position of the input vectors, the
@@ -1040,30 +1024,12 @@ func computeVectorStats(costs [][]*float64) (mean, median, std []*float32, n []u
 			continue
 		}
 
-		n[position] = uint32(len(values))
-
-		meanValue := float32(stat.Mean(values, nil))
+		stats := computeScalarStats(values)
+		meanValue, medianValue, stdValue := stats.Mean, stats.Median, stats.Std
 		mean[position] = &meanValue
-
-		// Mirror the score/time handling above: a single value has no
-		// deviation. gonum's StdDev is the sample standard deviation (n-1) and
-		// would otherwise return NaN for a single value.
-		if len(values) > 1 {
-			stdValue := float32(stat.StdDev(values, nil))
-			std[position] = &stdValue
-		} else {
-			zero := float32(0)
-			std[position] = &zero
-		}
-
-		sort.Float64s(values)
-		var medianValue float32
-		if len(values)%2 == 0 {
-			medianValue = float32((values[len(values)/2-1] + values[len(values)/2]) / 2)
-		} else {
-			medianValue = float32(values[len(values)/2])
-		}
 		median[position] = &medianValue
+		std[position] = &stdValue
+		n[position] = stats.N
 	}
 
 	return mean, median, std, n

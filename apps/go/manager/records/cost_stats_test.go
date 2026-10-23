@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"manager/types"
+	"packages/pocket"
 
 	"github.com/rs/zerolog"
 	"go.mongodb.org/mongo-driver/bson"
@@ -25,6 +26,22 @@ func checkCostPtr(t *testing.T, name string, got *float32, want *float32) {
 	}
 	if got != nil && !approxEqual(float64(*got), float64(*want)) {
 		t.Fatalf("%s: got %v, want %v", name, *got, *want)
+	}
+}
+
+func checkScalarStats(t *testing.T, name string, got, want ScalarStatsRecord) {
+	t.Helper()
+	if !approxEqual(float64(got.Mean), float64(want.Mean)) {
+		t.Fatalf("%s.mean = %v, want %v", name, got.Mean, want.Mean)
+	}
+	if !approxEqual(float64(got.Median), float64(want.Median)) {
+		t.Fatalf("%s.median = %v, want %v", name, got.Median, want.Median)
+	}
+	if !approxEqual(float64(got.Std), float64(want.Std)) {
+		t.Fatalf("%s.std = %v, want %v", name, got.Std, want.Std)
+	}
+	if got.N != want.N {
+		t.Fatalf("%s.n = %d, want %d", name, got.N, want.N)
 	}
 }
 
@@ -140,6 +157,93 @@ func TestComputeVectorStats(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestComputeScalarStats(t *testing.T) {
+	cases := []struct {
+		name   string
+		values []float64
+		want   ScalarStatsRecord
+	}{
+		{
+			name:   "empty",
+			values: nil,
+			want:   ScalarStatsRecord{},
+		},
+		{
+			name:   "single",
+			values: []float64{5},
+			want:   ScalarStatsRecord{Mean: 5, Median: 5, Std: 0, N: 1},
+		},
+		{
+			name:   "odd",
+			values: []float64{1, 4, 7},
+			want:   ScalarStatsRecord{Mean: 4, Median: 4, Std: 3, N: 3},
+		},
+		{
+			name:   "even unsorted",
+			values: []float64{10, 1, 7, 4},
+			want: ScalarStatsRecord{
+				Mean:   5.5,
+				Median: 5.5,
+				Std:    float32(math.Sqrt(15)),
+				N:      4,
+			},
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			checkScalarStats(t, "stats", computeScalarStats(c.values), c.want)
+		})
+	}
+}
+
+func TestProcessDataFirstSample(t *testing.T) {
+	l := zerolog.Nop()
+	record := NumericalTaskRecord{}
+	record.NewTask(primitive.NewObjectID(), "lmeh", "task", types.EpochStart.UTC(), &l)
+
+	_, err := record.InsertSample(time.Now(), ScoresSample{
+		Score:      7,
+		RunTime:    11,
+		StatusCode: 0,
+	}, &l)
+	if err != nil {
+		t.Fatalf("InsertSample: %v", err)
+	}
+
+	if err := record.ProcessData(&l); err != nil {
+		t.Fatalf("ProcessData: %v", err)
+	}
+
+	checkScalarStats(t, "score", record.Stats.Score, ScalarStatsRecord{Mean: 7, Median: 7, N: 1})
+	checkScalarStats(t, "time", record.Stats.Time, ScalarStatsRecord{Mean: 11, Median: 11, N: 1})
+}
+
+func TestProcessDataSingleOkSampleAmongSupplierErrors(t *testing.T) {
+	now := time.Now()
+	record := NumericalTaskRecord{
+		ScoresSamples: []ScoresSample{
+			{Score: 0, RunTime: 0, StatusCode: pocket.RelayResponseCodes.Supplier},
+			{Score: 5, RunTime: 9, StatusCode: 0},
+			{Score: 0, RunTime: 0, StatusCode: pocket.RelayResponseCodes.Supplier},
+		},
+		CircBuffer: types.CircularBuffer{
+			CircBufferLen: 3,
+			NumSamples:    3,
+			Times:         []time.Time{now, now, now},
+			Indexes:       types.CircularIndexes{Start: 0, End: 2},
+		},
+	}
+
+	l := zerolog.Nop()
+	if err := record.ProcessData(&l); err != nil {
+		t.Fatalf("ProcessData: %v", err)
+	}
+
+	checkScalarStats(t, "score", record.Stats.Score, ScalarStatsRecord{Mean: 5, Median: 5, N: 1})
+	checkScalarStats(t, "time", record.Stats.Time, ScalarStatsRecord{Mean: 9, Median: 9, N: 1})
 }
 
 func TestProcessDataFillsStats(t *testing.T) {
