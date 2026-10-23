@@ -89,9 +89,24 @@ def get_result(response, ctxlen: int) -> Tuple[float, bool]:
     logprobs = response.logprobs.token_logprobs
     continuation_logprobs = sum(logprobs[ctxlen:])
 
-    for i in range(ctxlen, len(response.logprobs.token_logprobs)):
-        token = response.logprobs.token_logprobs[i]
-        top_tokens = response.logprobs.top_logprobs[i]
+    top_logprobs = response.logprobs.top_logprobs
+    if top_logprobs is None:
+        # Without top-token logprobs we cannot confirm greediness. Keep the
+        # sample (its logprobs are still usable) and report it as non-greedy
+        # instead of crashing on a null response field.
+        return continuation_logprobs, False
+
+    for i in range(ctxlen, len(logprobs)):
+        if i >= len(top_logprobs):
+            # Some backends return fewer top_logprobs entries than tokens;
+            # greediness cannot be confirmed for the remaining tokens.
+            is_greedy = False
+            break
+        top_tokens = top_logprobs[i]
+        if not top_tokens:
+            is_greedy = False
+            break
+        token = logprobs[i]
         top_token = max(top_tokens.keys(), key=lambda x: top_tokens[x])
         if top_token != token:
             is_greedy = False

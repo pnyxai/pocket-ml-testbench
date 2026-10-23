@@ -5,6 +5,10 @@ from temporalio import activity
 from packages.python.common.auto_heartbeater import auto_heartbeater
 from app.app import get_app_logger, get_app_config
 from packages.python.lmeh.utils.mongodb import MongoOperator
+from packages.python.lmeh.utils.stats_compat import (
+    is_legacy_buffer_stats,
+    is_legacy_taxonomy_node,
+)
 from packages.python.protocol.protocol import PocketNetworkSupplierSnapshotTaskRequest
 from packages.python.protocol.protocol import PocketNetworkMongoDBSupplierSnapshot
 from packages.python.protocol.protocol import (
@@ -39,6 +43,13 @@ async def supplier_snapshot(
     # Convert to structure
     tasks_dict = dict()
     for doc in task_docs:
+        if is_legacy_buffer_stats(doc):
+            return (
+                False,
+                "Legacy buffer schema detected for supplier %s / task %s. "
+                "Run the PR #245 migration before creating snapshots."
+                % (args.supplier_id, doc["task"]),
+            )
         tasks_dict[doc["task"]] = NumericSampleSnapshot(
             error_rate=doc["error_rate"],
             num_samples=doc["num_samples"],
@@ -61,6 +72,13 @@ async def supplier_snapshot(
         taxonomy_dict[doc["taxonomy_name"]] = dict()
         for node in doc["taxonomy_nodes_scores"].keys():
             node_data = doc["taxonomy_nodes_scores"][node]
+            if is_legacy_taxonomy_node(node_data):
+                return (
+                    False,
+                    "Legacy taxonomy summary schema detected for supplier %s / "
+                    "taxonomy %s. Run the PR #245 migration before creating "
+                    "snapshots." % (args.supplier_id, doc["taxonomy_name"]),
+                )
             taxonomy_dict[doc["taxonomy_name"]][node] = TaxonomyNodeSummary(
                 stats=TaskStats(**(node_data.get("stats") or {})),
                 sample_min=node_data.get("sample_min", 0),

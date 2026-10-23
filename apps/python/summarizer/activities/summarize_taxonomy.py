@@ -11,6 +11,7 @@ from packages.python.lmeh.utils.cost_stats import (
     VectorStatsAccumulator,
 )
 from packages.python.lmeh.utils.mongodb import MongoOperator
+from packages.python.lmeh.utils.stats_compat import is_legacy_buffer_stats
 from packages.python.protocol.protocol import PocketNetworkTaxonomySummaryTaskRequest
 from packages.python.protocol.protocol import PocketNetworkMongoDBTaxonomySummary
 from packages.python.protocol.protocol import ScalarStats, TaskStats, VectorStats
@@ -83,6 +84,13 @@ async def summarize_taxonomy(
 
             # Data
             this_result = docs[0]
+            if is_legacy_buffer_stats(this_result):
+                return (
+                    False,
+                    "Legacy buffer schema detected for supplier %s / task %s. "
+                    "Run the PR #245 migration before deploying the new summarizer."
+                    % (args.supplier_id, dataset),
+                )
             stats = this_result.get("stats") or {}
             score = stats.get("score") or {}
             time = stats.get("time") or {}

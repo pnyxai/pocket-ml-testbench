@@ -578,7 +578,7 @@ class CompletionLogProbs(OpenAIBaseModel):
     text_offset: list[int] = Field(default_factory=list)
     token_logprobs: list[float | None] = Field(default_factory=list)
     tokens: list[str] = Field(default_factory=list)
-    top_logprobs: list[dict[str, float] | None] = Field(default_factory=list)
+    top_logprobs: list[dict[str, float] | None] | None = None
 
 
 class CompletionResponseChoice(OpenAIBaseModel):
@@ -668,13 +668,28 @@ class ChatMessage(OpenAIBaseModel):
     role: str
     content: str | None = None
     refusal: str | None = None
-    annotations: OpenAIAnnotation | None = None
+    annotations: list[OpenAIAnnotation] | None = None
     audio: OpenAIChatCompletionAudio | None = None
     function_call: FunctionCall | None = None
     tool_calls: list[ToolCall] = Field(default_factory=list)
 
     # vLLM-specific fields that are not in OpenAI spec
     reasoning: str | None = None
+
+    @field_validator("annotations", mode="before")
+    @classmethod
+    def _normalize_annotations(cls, value):
+        # OpenAI encodes annotations as an array, but some compatible backends
+        # send a single object. Normalize both to a list (keep None as None).
+        if value is None:
+            return None
+        if isinstance(value, OpenAIAnnotation):
+            return [value]
+        if isinstance(value, dict):
+            return [value]
+        if isinstance(value, (list, tuple)):
+            return list(value)
+        return value
 
     @model_serializer(mode="wrap")
     def _serialize(self, handler):
