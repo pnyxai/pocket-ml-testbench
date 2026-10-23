@@ -1,31 +1,33 @@
-from typing import Tuple
 from datetime import datetime
 
+from app.app import get_app_config, get_app_logger
+from bson import ObjectId
 from temporalio import activity
+from temporalio.exceptions import ApplicationError
+
 from packages.python.common.auto_heartbeater import auto_heartbeater
-from app.app import get_app_logger, get_app_config
 from packages.python.lmeh.utils.mongodb import MongoOperator
 from packages.python.lmeh.utils.stats_compat import (
     is_legacy_buffer_stats,
     is_legacy_taxonomy_node,
 )
-from packages.python.protocol.protocol import PocketNetworkSupplierSnapshotTaskRequest
-from packages.python.protocol.protocol import PocketNetworkMongoDBSupplierSnapshot
+from packages.python.lmeh.utils.stats_schema import (
+    StatsSchemaError,
+    parse_raw_task_stats,
+    parse_taxonomy_node,
+)
 from packages.python.protocol.protocol import (
     NumericSampleSnapshot,
-    RawTaskStats,
-    TaskStats,
-    TaxonomyNodeSummary,
+    PocketNetworkMongoDBSupplierSnapshot,
+    PocketNetworkSupplierSnapshotTaskRequest,
 )
-from temporalio.exceptions import ApplicationError
-from bson import ObjectId
 
 
 @activity.defn
 @auto_heartbeater
 async def supplier_snapshot(
     args: PocketNetworkSupplierSnapshotTaskRequest,
-) -> Tuple[bool, str]:
+) -> tuple[bool, str]:
     app_config = get_app_config()
     summary_logger = get_app_logger("supplier_snapshot")
     config = app_config["config"]
@@ -46,16 +48,27 @@ async def supplier_snapshot(
         if is_legacy_buffer_stats(doc):
             return (
                 False,
-                "Legacy buffer schema detected for supplier %s / task %s. "
-                "Run the PR #245 migration before creating snapshots."
-                % (args.supplier_id, doc["task"]),
+                (
+                    f"Legacy buffer schema detected for supplier {args.supplier_id} / "
+                    f"task {doc['task']}. "
+                    "Run the PR #245 migration before creating snapshots."
+                ),
             )
+        context = "supplier {} task {} buffer {}".format(
+            args.supplier_id,
+            doc.get("task"),
+            doc.get("_id"),
+        )
+        try:
+            raw_stats = parse_raw_task_stats(doc.get("stats"), context)
+        except StatsSchemaError as exc:
+            return False, str(exc)
         tasks_dict[doc["task"]] = NumericSampleSnapshot(
             error_rate=doc["error_rate"],
             num_samples=doc["num_samples"],
             # Keep the raw buffer statistics verbatim so taxonomy summaries can
             # be recomputed offline.
-            stats=RawTaskStats(**(doc.get("stats") or {})),
+            stats=raw_stats,
         )
 
     # Get all taxonomy data
@@ -75,14 +88,22 @@ async def supplier_snapshot(
             if is_legacy_taxonomy_node(node_data):
                 return (
                     False,
-                    "Legacy taxonomy summary schema detected for supplier %s / "
-                    "taxonomy %s. Run the PR #245 migration before creating "
-                    "snapshots." % (args.supplier_id, doc["taxonomy_name"]),
+                    "Legacy taxonomy summary schema detected for supplier {} / "
+                    "taxonomy {}. Run the PR #245 migration before creating "
+                    "snapshots.".format(args.supplier_id, doc["taxonomy_name"]),
                 )
-            taxonomy_dict[doc["taxonomy_name"]][node] = TaxonomyNodeSummary(
-                stats=TaskStats(**(node_data.get("stats") or {})),
-                sample_min=node_data.get("sample_min", 0),
+            context = "supplier {} taxonomy {} node {} summary {}".format(
+                args.supplier_id,
+                doc["taxonomy_name"],
+                node,
+                doc.get("_id"),
             )
+            try:
+                taxonomy_dict[doc["taxonomy_name"]][node] = parse_taxonomy_node(
+                    node_data, context
+                )
+            except StatsSchemaError as exc:
+                return False, str(exc)
 
     # Create snapshot entry
     result = PocketNetworkMongoDBSupplierSnapshot(

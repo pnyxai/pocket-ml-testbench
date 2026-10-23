@@ -12,6 +12,10 @@ from packages.python.lmeh.utils.cost_stats import (
 )
 from packages.python.lmeh.utils.mongodb import MongoOperator
 from packages.python.lmeh.utils.stats_compat import is_legacy_buffer_stats
+from packages.python.lmeh.utils.stats_schema import (
+    StatsSchemaError,
+    parse_raw_task_stats,
+)
 from packages.python.protocol.protocol import PocketNetworkTaxonomySummaryTaskRequest
 from packages.python.protocol.protocol import PocketNetworkMongoDBTaxonomySummary
 from packages.python.protocol.protocol import ScalarStats, TaskStats, VectorStats
@@ -91,52 +95,61 @@ async def summarize_taxonomy(
                     "Run the PR #245 migration before deploying the new summarizer."
                     % (args.supplier_id, dataset),
                 )
-            stats = this_result.get("stats") or {}
-            score = stats.get("score") or {}
-            time = stats.get("time") or {}
-            cost = stats.get("cost") or {}
+            context = "supplier %s task %s buffer %s" % (
+                args.supplier_id,
+                dataset,
+                this_result.get("_id"),
+            )
+            try:
+                stats = parse_raw_task_stats(this_result.get("stats"), context)
+            except StatsSchemaError as exc:
+                return False, str(exc)
+
+            score = stats.score
+            time = stats.time
+            cost = stats.cost
 
             # Number of valid samples backing the scalar statistics. No valid
             # samples means there is nothing to aggregate for this dataset.
-            n_score = int(score.get("n") or 0)
+            n_score = score.n
             if n_score == 0:
                 continue
 
             # Scores. A dataset's standard error is std / sqrt(n), with n - 1
             # degrees of freedom.
             score_acc.add(
-                score.get("mean"),
-                score.get("median"),
-                float(score.get("std") or 0.0) / sqrt(n_score),
+                score.mean,
+                score.median,
+                score.std / sqrt(n_score),
                 n_score,
                 n_score - 1,
             )
 
             # Times
-            n_time = int(time.get("n") or 0)
+            n_time = time.n
             if n_time > 0:
                 time_acc.add(
-                    time.get("mean"),
-                    time.get("median"),
-                    float(time.get("std") or 0.0) / sqrt(n_time),
+                    time.mean,
+                    time.median,
+                    time.std / sqrt(n_time),
                     n_time,
                     n_time - 1,
                 )
 
             # Cost (per position, skipping not-informed values). Each position
-            # has its own standard error and degrees of freedom.
-            cost_mean = cost.get("mean") or []
-            cost_median = cost.get("median") or []
-            cost_std = cost.get("std") or []
-            cost_n = cost.get("n") or []
-            cost_len = max(len(cost_mean), len(cost_median), len(cost_std), len(cost_n))
+            # has its own standard error and degrees of freedom. The model
+            # guarantees that all four vectors have the same length.
+            cost_mean = cost.mean
+            cost_median = cost.median
+            cost_std = cost.std
+            cost_n = cost.n
             cost_se = []
             cost_df = []
-            for position in range(cost_len):
-                n_pos = cost_n[position] if position < len(cost_n) else 0
-                std_pos = cost_std[position] if position < len(cost_std) else None
-                if n_pos and n_pos > 0 and std_pos is not None:
-                    cost_se.append(float(std_pos) / sqrt(n_pos))
+            for position in range(len(cost_mean)):
+                n_pos = cost_n[position]
+                std_pos = cost_std[position]
+                if n_pos > 0 and std_pos is not None:
+                    cost_se.append(std_pos / sqrt(n_pos))
                     cost_df.append(n_pos - 1)
                 else:
                     cost_se.append(None)
@@ -170,7 +183,7 @@ async def summarize_taxonomy(
             )
             valid_node_data = True
         else:
-            result.taxonomy_nodes_scores[node] = TaxonomyNodeSummary()
+            result.taxonomy_nodes_scores[node] = TaxonomyNodeSummary.empty()
 
     if not valid_node_data:
         summary_logger.debug(

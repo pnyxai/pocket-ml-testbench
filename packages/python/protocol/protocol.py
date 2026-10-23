@@ -899,33 +899,63 @@ class PocketNetworkTaxonomySummaryTaskRequest(BaseModel):
 
 
 class RawScalarStats(BaseModel):
-    """Raw scalar statistics copied from ``buffers_numerical`` (e.g. score, time)."""
+    """Raw scalar statistics copied from ``buffers_numerical`` (e.g. score, time).
 
-    mean: float = 0.0
-    median: float = 0.0
-    std: float = 0.0
-    n: int = 0
+    All fields are required: the writer always emits them. A missing field is a
+    schema error, not the same thing as a zero-valued statistic.
+    """
+
+    mean: float
+    median: float
+    std: float
+    n: int = Field(ge=0)
+
+    @classmethod
+    def zero(cls) -> "RawScalarStats":
+        return cls(mean=0.0, median=0.0, std=0.0, n=0)
 
 
 class RawVectorStats(BaseModel):
     """Raw per-position statistics copied from ``buffers_numerical`` (e.g. cost).
 
     ``mean``/``median``/``std`` are null-aware per position and ``n`` holds, per
-    position, the number of samples backing them.
+    position, the number of samples backing them. Empty vectors are valid (no
+    cost information was reported), but a partially-written vector is not.
     """
 
-    mean: list[float | None] = Field(default_factory=list)
-    median: list[float | None] = Field(default_factory=list)
-    std: list[float | None] = Field(default_factory=list)
-    n: list[int] = Field(default_factory=list)
+    mean: list[float | None]
+    median: list[float | None]
+    std: list[float | None]
+    n: list[int]
+
+    @model_validator(mode="after")
+    def _validate_vector_lengths(self):
+        lengths = {len(self.mean), len(self.median), len(self.std), len(self.n)}
+        if len(lengths) > 1:
+            raise ValueError("mean/median/std/n must have the same length")
+        if any(value < 0 for value in self.n):
+            raise ValueError("n values must be >= 0")
+        return self
+
+    @classmethod
+    def zero(cls) -> "RawVectorStats":
+        return cls(mean=[], median=[], std=[], n=[])
 
 
 class RawTaskStats(BaseModel):
     """Raw grouped statistics of a numerical task (copied from the buffer)."""
 
-    score: RawScalarStats = Field(default_factory=RawScalarStats)
-    time: RawScalarStats = Field(default_factory=RawScalarStats)
-    cost: RawVectorStats = Field(default_factory=RawVectorStats)
+    score: RawScalarStats
+    time: RawScalarStats
+    cost: RawVectorStats
+
+    @classmethod
+    def zero(cls) -> "RawTaskStats":
+        return cls(
+            score=RawScalarStats.zero(),
+            time=RawScalarStats.zero(),
+            cost=RawVectorStats.zero(),
+        )
 
 
 class ScalarStats(BaseModel):
@@ -933,38 +963,68 @@ class ScalarStats(BaseModel):
 
     ``se`` is the standard error of the reported ``mean`` and ``v_eff`` is the
     effective degrees of freedom (Welch-Satterthwaite).
+
+    All fields are required: no-data nodes use :meth:`zero` explicitly.
     """
 
-    mean: float = 0.0
-    median: float = 0.0
-    se: float = 0.0
-    v_eff: float = 0.0
+    mean: float
+    median: float
+    se: float
+    v_eff: float
+
+    @classmethod
+    def zero(cls) -> "ScalarStats":
+        return cls(mean=0.0, median=0.0, se=0.0, v_eff=0.0)
 
 
 class VectorStats(BaseModel):
     """Aggregated per-position statistics of a vector-valued metric.
 
     ``se`` and ``v_eff`` are null-aware per position and follow the same
-    semantics as :class:`ScalarStats`.
+    semantics as :class:`ScalarStats`. Empty vectors are valid; partial vectors
+    are not.
     """
 
-    mean: list[float | None] = Field(default_factory=list)
-    median: list[float | None] = Field(default_factory=list)
-    se: list[float | None] = Field(default_factory=list)
-    v_eff: list[float | None] = Field(default_factory=list)
+    mean: list[float | None]
+    median: list[float | None]
+    se: list[float | None]
+    v_eff: list[float | None]
+
+    @model_validator(mode="after")
+    def _validate_vector_lengths(self):
+        lengths = {len(self.mean), len(self.median), len(self.se), len(self.v_eff)}
+        if len(lengths) > 1:
+            raise ValueError("mean/median/se/v_eff must have the same length")
+        return self
+
+    @classmethod
+    def zero(cls) -> "VectorStats":
+        return cls(mean=[], median=[], se=[], v_eff=[])
 
 
 class TaskStats(BaseModel):
     """Aggregated grouped statistics of a taxonomy node."""
 
-    score: ScalarStats = Field(default_factory=ScalarStats)
-    time: ScalarStats = Field(default_factory=ScalarStats)
-    cost: VectorStats = Field(default_factory=VectorStats)
+    score: ScalarStats
+    time: ScalarStats
+    cost: VectorStats
+
+    @classmethod
+    def zero(cls) -> "TaskStats":
+        return cls(
+            score=ScalarStats.zero(),
+            time=ScalarStats.zero(),
+            cost=VectorStats.zero(),
+        )
 
 
 class TaxonomyNodeSummary(BaseModel):
-    stats: TaskStats = Field(default_factory=TaskStats)
-    sample_min: int = 0
+    stats: TaskStats
+    sample_min: int = Field(ge=0)
+
+    @classmethod
+    def empty(cls) -> "TaxonomyNodeSummary":
+        return cls(stats=TaskStats.zero(), sample_min=0)
 
     # TODO : Extend this class to compute running means from passing a series of numerical buffers
 
@@ -1011,7 +1071,7 @@ class NumericSampleSnapshot(BaseModel):
     num_samples: int
     # Raw task statistics, kept verbatim from buffers_numerical so the taxonomy
     # summaries can be recomputed offline.
-    stats: RawTaskStats = Field(default_factory=RawTaskStats)
+    stats: RawTaskStats
 
 
 class PocketNetworkMongoDBSupplierSnapshot(BaseModel):
