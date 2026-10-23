@@ -7,7 +7,7 @@ REPO_ROOT = Path(__file__).resolve().parents[4]
 sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(REPO_ROOT / "apps" / "python" / "sampler"))
 
-from packages.python.lmeh.pocket_lm_eval.models.pocket_network import (
+from packages.python.lmeh.pocket_lm_eval.models.pocket_network import (  # noqa: E402
     get_result,
 )
 
