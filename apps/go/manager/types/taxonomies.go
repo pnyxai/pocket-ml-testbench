@@ -6,12 +6,35 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
+// TaxonomyScalarStats holds the aggregated statistics of a taxonomy node.
+// SE is the standard error of the reported (unweighted) mean and VEff is the
+// Welch-Satterthwaite effective degrees of freedom.
+type TaxonomyScalarStats struct {
+	Mean   float64 `bson:"mean"`
+	Median float64 `bson:"median"`
+	SE     float64 `bson:"se"`
+	VEff   float64 `bson:"v_eff"`
+}
+
+// TaxonomyVectorStats holds the aggregated per-position statistics of a
+// taxonomy node. See TaxonomyScalarStats for the SE/VEff semantics.
+type TaxonomyVectorStats struct {
+	Mean   []*float64 `bson:"mean"`
+	Median []*float64 `bson:"median"`
+	SE     []*float64 `bson:"se"`
+	VEff   []*float64 `bson:"v_eff"`
+}
+
+// TaxonomyStats groups the aggregated statistics of a taxonomy node.
+type TaxonomyStats struct {
+	Score TaxonomyScalarStats `bson:"score"`
+	Time  TaxonomyScalarStats `bson:"time"`
+	Cost  TaxonomyVectorStats `bson:"cost"`
+}
+
 type TaxonomyNode struct {
-	Score      float64 `bson:"score"`
-	ScoreDev   float64 `bson:"score_dev"`
-	RunTime    float64 `bson:"run_time"`
-	RunTimeDev float64 `bson:"run_time_dev"`
-	SampleMin  int64   `bson:"sample_min"`
+	Stats     TaxonomyStats `bson:"stats"`
+	SampleMin int64         `bson:"sample_min"`
 }
 
 type TaxonomySummary struct {

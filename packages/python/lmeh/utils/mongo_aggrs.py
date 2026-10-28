@@ -112,15 +112,10 @@ def aggregate_supplier_task_results(supplier_id: ObjectId, framework: str, task:
         },
         {
             "$project": {
-                "mean_scores": 1,
-                "mean_times": 1,
-                "median_scores": 1,
-                "median_times": 1,
-                "std_scores": 1,
-                "std_times": 1,
+                "stats": 1,
                 "samples": "$circ_buffer_control.num_samples",
                 "error_rate": 1,
-            }
+            },
         },
     ]
 
@@ -156,13 +151,8 @@ def aggregate_supplier_task_snapshot(supplier_id: ObjectId):
                 "task": "$task_data.task",
                 "num_samples": "$circ_buffer_control.num_samples",
                 "error_rate": 1,
-                "mean_scores": 1,
-                "mean_times": 1,
-                "median_scores": 1,
-                "median_times": 1,
-                "std_scores": 1,
-                "std_times": 1,
-            }
+                "stats": 1,
+            },
         },
     ]
 

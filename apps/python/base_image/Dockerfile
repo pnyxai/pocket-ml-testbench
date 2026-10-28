@@ -34,7 +34,7 @@ RUN cd lm-evaluation-harness && uv build
 # Clone the taxonomy repository to get the taxonomy files
 RUN git clone https://github.com/pnyxai/lm-taxonomies.git && \
     cd lm-taxonomies && \
-    git checkout v0.1.3
+    git checkout v0.1.4
 RUN mv ./lm-taxonomies/taxonomies /home/app/code/taxonomies
 
 # Build the package too (not yet in pip)
