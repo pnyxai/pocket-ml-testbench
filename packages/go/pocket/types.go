@@ -66,6 +66,10 @@ type Payload struct {
 	Method  string
 	Path    string
 	Timeout time.Duration
+	// Header carries extra request headers the caller wants the supplier's
+	// backend to receive (for example a session/affinity id). It is copied
+	// verbatim into the signed relay request; nil means "no extra headers".
+	Header map[string][]string
 }
 
 // Response is what the service's backend answered, unwrapped from the relay.

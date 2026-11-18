@@ -287,6 +287,7 @@ func relayInput(payload Payload) domain.RelayInput {
 	return domain.RelayInput{
 		Method: payload.Method,
 		Path:   payload.Path,
+		Header: payload.Header,
 		Body:   []byte(payload.Data),
 	}
 }
